@@ -15,7 +15,7 @@ namespace AnalysisITC.Core.Analysis.Models
     public sealed class SequentialBindingSites : Model
     {
         const double Ln10 = 2.3025850929940456840179914546844;
-        const double RelativeMassBalanceTolerance = 1e-14;
+        const double RelativeMassBalanceTolerance = 8.8817841970012523e-16; // Four double-precision epsilons.
         const double AbsoluteMassBalanceTolerance = 1e-24;
         const int MaximumBisectionIterations = 512;
 

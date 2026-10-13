@@ -22,7 +22,7 @@ namespace AnalysisITC.Core.Tests;
 public sealed class PytcExternalReferenceTests : IDisposable
 {
     const double Roundoff = 512 * 2.220446049250313e-16;
-    const double PracticalErrorFractionOfPeak = 0.0001; // User-selected 0.01%; roundoff remains a diagnostic goal.
+    const double PracticalErrorFractionOfPeak = 0.0001; // Historical default-arithmetic audit only; never a validation criterion.
     static readonly string DirectoryPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "ScientificValidation", "PytcBookkeeping");
     readonly PreferencesState original = PreferencesState.FromSettings();
     readonly ITestOutputHelper output;
@@ -52,34 +52,70 @@ public sealed class PytcExternalReferenceTests : IDisposable
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void NativeHeatsAgreeWithinPracticalTolerance(string id)
+    public void RecordsDefaultExternalArithmeticWithoutUsingItAsThePrecisionReference(string id)
     {
         var result = Compare(Reference(id));
         Record(id, result);
-        if (id.StartsWith("two-realistic", StringComparison.Ordinal)
-            || id == "two-kd50-50"
-            || id is "two-tight-scale-2x" or "two-tight-scale-10x"
-            || id == "two-c2000-r10"
-            || id is "sequential-2" or "sequential-3" or "sequential-4")
-        {
-            // These deliberately retained stress cases document known solver
-            // discrepancies across the tight-to-moderate affinity range; they
-            // must not be converted into practical passes.
-            Assert.False(result.Passed, "The requested two-site diagnostic unexpectedly met the practical limit.");
-            return;
-        }
-        Assert.True(result.Passed, $"{id}: error/peak={result.ErrorFractionOfPeak:G17}; exceeds the 0.01% practical limit.");
+        Assert.True(double.IsFinite(result.ErrorFractionOfPeak));
+    }
+
+    internal static JsonElement PrecisionReference()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(DirectoryPath, "precision-reference.json")));
+        var reference = document.RootElement.Clone();
+        Assert.Equal(Hash(Path.Combine(DirectoryPath, "reference.json")), reference.GetProperty("reference_sha256").GetString());
+        Assert.Equal(Hash(Path.Combine(DirectoryPath, "precision_reference.py")), reference.GetProperty("generator_sha256").GetString());
+        return reference;
+    }
+
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public void ConvergedExternalHeatsAgreeAtFloatingPointPrecision(string id)
+    {
+        var runs = PrecisionReference().GetProperty("runs").EnumerateArray().ToArray();
+        var expected = Numbers(runs[0].GetProperty("curves"), id);
+        var result = Compare(Reference(id), expected);
+        output.WriteLine(JsonSerializer.Serialize(result));
+        Assert.True(result.RoundoffGoalMet, $"{id}: error/peak={result.ErrorFractionOfPeak:G17}; floating-point criterion failed.");
     }
 
     [Fact]
-    public void ReportsEveryNativeComparisonWithSeparateAcceptanceAndRoundoffGoal()
+    public void RecordsConvergedExternalComparisons()
+    {
+        var runs = PrecisionReference().GetProperty("runs").EnumerateArray().ToArray();
+        var results = References().Select(c => Compare(c, Numbers(runs[0].GetProperty("curves"), c.GetProperty("id").GetString()))).ToArray();
+        Record("precision-comparisons", new { RoundoffMultiplier = 512, Epsilon = 2.220446049250313e-16,
+            ReferenceSha256 = Hash(Path.Combine(DirectoryPath, "precision-reference.json")), Results = results });
+        Assert.All(results, result => Assert.True(result.RoundoffGoalMet, result.Id));
+    }
+
+    [Fact]
+    public void PrecisionReferencesRemainConvergedWhenArithmeticIsTightenedAgain()
+    {
+        var runs = PrecisionReference().GetProperty("runs").EnumerateArray().ToArray();
+        Assert.Equal(new[] { 2e-24, 2e-27 }, runs.Select(r => r.GetProperty("xtol_molar").GetDouble()).ToArray());
+        Assert.Equal(new[] { 80, 100 }, runs.Select(r => r.GetProperty("competitive_decimal_digits").GetInt32()).ToArray());
+        var curves = runs[0].GetProperty("curves").EnumerateObject().ToArray();
+        Assert.Equal(52, curves.Length);
+        foreach (var curve in curves)
+        {
+            var first = Numbers(runs[0].GetProperty("curves"), curve.Name);
+            var second = Numbers(runs[1].GetProperty("curves"), curve.Name);
+            var peak = second.Max(Math.Abs);
+            Assert.All(first.Zip(second), pair => Assert.InRange(Math.Abs(pair.First-pair.Second), 0,
+                Roundoff*(peak+Math.Abs(pair.Second))));
+        }
+    }
+
+    [Fact]
+    public void RecordsDefaultExternalComparisons()
     {
         var results = References().Select(Compare).ToArray();
         Record("comparisons", new { PracticalErrorFractionOfPeak, RoundoffMultiplier = 512, Epsilon = 2.220446049250313e-16,
             RoundoffGoal = "abs(error) <= 512*epsilon*(peak_abs_heat + abs(expected))",
             ReferenceSha256 = Hash(Path.Combine(DirectoryPath, "reference.json")), Results = results });
         Assert.Equal(38, results.Length);
-        // Machine-precision agreement is a diagnostic goal, not an acceptance requirement.
+        // Audit the default upstream arithmetic separately from the strict precision tests.
         Assert.All(results, result => Assert.True(double.IsFinite(result.ErrorFractionOfPeak)));
     }
 
@@ -101,10 +137,12 @@ public sealed class PytcExternalReferenceTests : IDisposable
         Assert.Empty(data.DataPoints);
     }
 
-    Comparison Compare(JsonElement sample)
+    Comparison Compare(JsonElement sample) => Compare(sample, null);
+
+    Comparison Compare(JsonElement sample, double[] precisionHeats)
     {
         var model = CreateModel(sample);
-        var expected = Numbers(sample, "heats_joules");
+        var expected = precisionHeats ?? Numbers(sample, "heats_joules");
         var actual = model.Data.Injections.Select(i => model.Evaluate(i.ID, false)).ToArray();
         var peak = expected.Max(Math.Abs);
         var errors = actual.Zip(expected, (a, e) => Math.Abs(a-e)).ToArray();

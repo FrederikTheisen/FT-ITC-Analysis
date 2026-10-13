@@ -15,7 +15,7 @@ namespace AnalysisITC.Core.Analysis.Models
         const double sqrt3 = 1.73205080757;
         const double cube2 = 1.25992104989;
         internal const double AbsoluteMassBalanceTolerance = 1e-24;
-        internal const double RelativeMassBalanceTolerance = 1e-14;
+        internal const double RelativeMassBalanceTolerance = 8.8817841970012523e-16; // Four double-precision epsilons.
         const int MaximumBisectionIterations = 500;
 
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;

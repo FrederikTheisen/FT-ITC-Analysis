@@ -1,0 +1,121 @@
+{
+  "model_tests": {
+    "total": "185",
+    "executed": "185",
+    "passed": "185",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "trx_sha256": "ea708d7974ff45bf67adaffb39107334bc995f6b41f0aaca818b6d306b4c8fff",
+  "report_generator_sha256": "d160447cfd55cb8fa20ec57602464fc550a4ec24c10eb0b516b585bc36a2f172",
+  "comparison_sha256": "6f8cd1947d76d8b9bfac0db6bfbfb0ed37b20ab4914f5fa31fa7f1fd73657834",
+  "production_source_sha256": {
+    "AnalysisITC.Core/Analysis2/Models/OneSetOfSites.cs": "ce4d62bde5ccff2ffcace066245dc5817ac63f19876d7b60e02fab0aded7ddec",
+    "AnalysisITC.Core/Analysis2/Models/TwoSetsOfSites.cs": "06ea63ada78a27bdbb11caecd2259023356de125319b8bf5e18a85c1734fcf72",
+    "AnalysisITC.Core/Analysis2/Models/CompetitiveBinding.cs": "0fe67588f3834944f64d510fb18ff00770b133f7e394c9d23c12aa7781f926cd",
+    "AnalysisITC.Core/Analysis2/Models/SequentialBindingSites.cs": "1a18e2dd496978a2c267a8b808e92ab9a9a19629de00af63b39c7f8905497f88"
+  },
+  "two_site_illustration": {
+    "case": "fractional-low-capacity",
+    "uniform_injection_microliters": 0.5,
+    "transition_points_90_to_10_percent": [
+      16,
+      34
+    ],
+    "component_source": "Full external coupled BindingPolynomial with the other site's enthalpy set to zero"
+  },
+  "full_core_suite": {
+    "counts": {
+      "total": "2800",
+      "executed": "2799",
+      "passed": "2779",
+      "failed": "20",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trx_sha256": "741a0ad1c6ff81af9b4a610706c43b26d829605724384c5d07c327f1336a1fb6",
+    "failed_tests": [
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.UsablePartialEstimateKeepsMissingEligibleEvidenceVisible(method: BootstrapResiduals)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: LeaveOneOut, memberOutcome: CompleteFailure)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancellationAfterRetainedRefitsPreservesTheStoredResult(scope: Independent, eligibleFirst: False, dirty: False)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: BootstrapResiduals, memberOutcome: None)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancelledProfilePreservesLiveAttachmentsAndSavedEvidence(scope: Pooled)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancelledProfilePreservesLiveAttachmentsAndSavedEvidence(scope: Independent)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.EntirelySkippedProfileRetainsItsReasonInTheSharedSummary(scope: Single)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancellationAfterRetainedRefitsPreservesTheStoredResult(scope: Pooled, eligibleFirst: False, dirty: False)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancellationAfterRetainedRefitsPreservesTheStoredResult(scope: Pooled, eligibleFirst: False, dirty: True)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: BootstrapResiduals, memberOutcome: Cancelled)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.UsablePartialEstimateKeepsMissingEligibleEvidenceVisible(method: LeaveOneOut)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: LeaveOneOut, memberOutcome: Cancelled)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancellationAfterRetainedRefitsPreservesTheStoredResult(scope: Independent, eligibleFirst: True, dirty: False)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.ProfileMishapWithoutARunMustNotBecomeOrdinaryNotRun(mishap: CompleteFailure)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: LeaveOneOut, memberOutcome: NotRun)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancellationAfterRetainedRefitsPreservesTheStoredResult(scope: Independent, eligibleFirst: False, dirty: True)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.EntirelySkippedProfileRetainsItsReasonInTheSharedSummary(scope: Pooled)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.EntirelySkippedProfileRetainsItsReasonInTheSharedSummary(scope: Independent)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.ProfileMishapWithoutARunMustNotBecomeOrdinaryNotRun(mishap: Cancelled)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.MisleadingAggregateCannotAdmitMissingOrCancelledMemberEvidence(method: BootstrapResiduals, memberOutcome: NotRun)"
+    ]
+  },
+  "unrelated_lifecycle_recheck_with_original_tolerances": {
+    "counts": {
+      "total": "2",
+      "executed": "2",
+      "passed": "0",
+      "failed": "2",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trx_sha256": "a4aad743e75ee41675baa3cf1fa447846ea914efab62a2bfe66d542adff2a308",
+    "failed_tests": [
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancelledProfilePreservesLiveAttachmentsAndSavedEvidence(scope: Independent)",
+      "AnalysisITC.Core.Tests.NoBindingUncertaintySkipTests.CancelledProfilePreservesLiveAttachmentsAndSavedEvidence(scope: Pooled)"
+    ]
+  },
+  "figure": {
+    "generator_sha256": "6b027f98c84966611b04716a20529e20e3f5a9b510c8088e34f1bad09adda68f",
+    "png_sha256": "cd300493478fa683c1280704cc153d0af0fc336ccb0c846fbda68300f220fdd3",
+    "pdf_sha256": "71c6ed0859d693c34390aae22e79c39d8b8dd8267f92d1b785374bb015994e84",
+    "comparison_sha256": "6f8cd1947d76d8b9bfac0db6bfbfb0ed37b20ab4914f5fa31fa7f1fd73657834",
+    "residual_definition": "(FT-ITC injection heat - converged pytc injection heat) * 1e6, in microjoules",
+    "maximum_absolute_residual_microjoules": {
+      "one-c100-small": 9.275010772434589e-14,
+      "competitive-500": 5.162665813514961e-13,
+      "sequential-2": 1.4907779871675686e-13,
+      "sequential-3": 1.7914746834428452e-13,
+      "sequential-4": 1.8126505071242027e-13,
+      "fractional-low-capacity": 1.207021949837378e-13
+    }
+  }
+}

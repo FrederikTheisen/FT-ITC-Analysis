@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-11",
+  "native_replay": {
+    "identical_manifest": true,
+    "identical_dh_files": 14
+  },
+  "runs": [
+    {
+      "name": "Full Core",
+      "trx_file": "core-final.trx",
+      "trx_sha256": "046e1cdcbb9fd176c398341c0db27f76d5e2bdf96b7ad2ec637822cc989a3ebb",
+      "counters": {
+        "total": "2561",
+        "executed": "2559",
+        "passed": "2559",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": []
+    },
+    {
+      "name": "Focused with strict comparisons enabled",
+      "trx_file": "two-site-strict-final.trx",
+      "trx_sha256": "9021bb511d56bc241dff7c5d6517744f456006e00b3feff9a1a83896569dee94",
+      "counters": {
+        "total": "77",
+        "executed": "77",
+        "passed": "63",
+        "failed": "14",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": [
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"equal-affinities-cancellation\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"tight-minority-site\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"variable-shots\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"fractional-high-capacity\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"reversed-site-order\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"similar-affinities\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"small-fractional-capacity\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"large-cell\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"weak-binding\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"unequal-integer-capacity\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"opposing-enthalpies\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"preloaded-ligand\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"both-endothermic\")",
+        "AnalysisITC.Core.Tests.TwoSiteStoichiometryForwardTests.NativeIntegratedHeatsAgreeAtFloatingPointPrecision(id: \"fractional-low-capacity\")"
+      ]
+    }
+  ]
+}

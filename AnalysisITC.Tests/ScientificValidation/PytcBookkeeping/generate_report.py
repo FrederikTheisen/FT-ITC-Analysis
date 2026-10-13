@@ -576,7 +576,7 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
                "See README.md for generation/test commands. This report and all plots are regenerated from "
                "reference.json, the C#-exported comparisons.json and the separate solver-sensitivity.json; "
                "the report builder computes no equilibrium predictions.", ""])
-    (directory/"REPORT.md").write_text("\n".join(md))
+    (directory/"DEFAULT_TOLERANCE_REPORT.md").write_text("\n".join(md))
 
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="TitleCustom", fontName="Helvetica-Bold", fontSize=25, leading=29,
