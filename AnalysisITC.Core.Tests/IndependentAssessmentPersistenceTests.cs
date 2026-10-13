@@ -21,7 +21,7 @@ public sealed class IndependentAssessmentPersistenceTests
     public async Task IndependentMemberAssessmentsAndSavedCriteriaRoundTripCleanly()
     {
         var result = CreateResult(out var members);
-        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 12.5);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 15.5);
         SetEvidence(result, members[1], BindingAssessmentOutcome.NotAssessed, null, "Comparison unavailable.");
         result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.NoBindingDetected);
         var expected = result.MemberAssessments.ToDictionary(member => member.SolutionId);
@@ -56,7 +56,7 @@ public sealed class IndependentAssessmentPersistenceTests
     public async Task StrictReadOfAbsentOrValidMemberMetadataStaysClean(bool removeMetadata)
     {
         var result = CreateResult(out var members);
-        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 12.25);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 15.25);
         SetEvidence(result, members[1], BindingAssessmentOutcome.NotAssessed, null, "No comparison.");
         using var package = await Write(result, members);
         using var edited = removeMetadata
@@ -148,13 +148,13 @@ public sealed class IndependentAssessmentPersistenceTests
     {
         var result = CreateResult(out var members);
         var sibling = new AnalysisResult(result.Solution);
-        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 6.75);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 15.75);
         result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
 
         Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
         Assert.Equal(BindingAssessmentOutcome.NotAssessed, sibling.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
         Assert.Null(sibling.GetMemberNullComparison(members[0]));
-        Assert.Equal(6.75, result.GetMemberNullComparison(members[0]).DeltaAicc);
+        Assert.Equal(15.75, result.GetMemberNullComparison(members[0]).DeltaAicc);
         result.UseAutomaticBindingAssessments();
         Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
         Assert.Equal(BindingAssessmentOutcome.NotAssessed, sibling.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
@@ -164,6 +164,8 @@ public sealed class IndependentAssessmentPersistenceTests
     public async Task ManualMemberOverrideRemainsUsableWithoutComparisonEvidence()
     {
         var result = CreateResult(out var members);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, null,
+            "Comparison unavailable.", "future-rule-9");
         result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
         using var package = await Write(result, members);
         package.Position = 0;
@@ -180,7 +182,7 @@ public sealed class IndependentAssessmentPersistenceTests
     public async Task RecoveryDowngradesAutomaticAssessmentWhenEvidenceIsRemovedButKeepsManualOverride()
     {
         var result = CreateResult(out var members);
-        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 12.0);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 15.0);
         result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
         using var package = await Write(result, members);
         using var noEvidence = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
@@ -248,8 +250,57 @@ public sealed class IndependentAssessmentPersistenceTests
         Assert.Single(recovered.PooledNullComparison.NullSolutions);
     }
 
+    [Theory]
+    [InlineData(FtxtcReadPolicy.Strict, "aicc-0-10-v1", 12, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(FtxtcReadPolicy.RecoverUsableContent, "aicc-0-10-v1", 12, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(FtxtcReadPolicy.Strict, "aicc-6-10-v1", 6, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(FtxtcReadPolicy.RecoverUsableContent, "aicc-6-10-v1", 6, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(FtxtcReadPolicy.Strict, "future-rule-9", 20, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, null)]
+    [InlineData(FtxtcReadPolicy.RecoverUsableContent, "future-rule-9", 20, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, null)]
+    [InlineData(FtxtcReadPolicy.Strict, "aicc-0-15-v1", 0, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(FtxtcReadPolicy.Strict, "aicc-0-15-v1", 15, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected)]
+    public async Task MemberAssessmentsAreReevaluatedFromSavedEvidenceAndRetainOverrides(
+        FtxtcReadPolicy readPolicy, string ruleId, double delta, BindingAssessmentOutcome savedOutcome,
+        BindingAssessmentOutcome expectedOutcome, BindingAssessmentOutcome? manualOverride)
+    {
+        var result = CreateResult(out var members);
+        SetEvidence(result, members[0], savedOutcome, delta, ruleId: ruleId);
+        if (manualOverride.HasValue) result.SetMemberBindingAssessmentOverride(members[0].Guid, manualOverride.Value);
+        using var package = await Write(result, members);
+        package.Position = 0;
+
+        var read = await FTXTCReader.ReadWithRecovery(package, readPolicy);
+        var restored = Assert.Single(read.Containers.OfType<AnalysisResult>());
+        var member = restored.MemberAssessments.Single(item => item.SolutionId == members[0].Guid);
+        Assert.Equal(BindingAssessmentState.CurrentRuleId, member.Assessment.AutomaticRuleId);
+        Assert.Equal(expectedOutcome, member.Assessment.AutomaticOutcome);
+        Assert.Equal(manualOverride, member.Assessment.ManualOverride);
+        Assert.Equal(manualOverride ?? expectedOutcome, member.Assessment.EffectiveOutcome);
+        Assert.Equal(delta, member.Comparison.DeltaAicc);
+        Assert.False(read.IsPartial);
+        Assert.False(restored.IsModified);
+    }
+
+    [Theory]
+    [InlineData(FtxtcReadPolicy.Strict)]
+    [InlineData(FtxtcReadPolicy.RecoverUsableContent)]
+    public async Task CurrentRuleMemberOutcomeIsReevaluatedFromSavedCriteria(FtxtcReadPolicy readPolicy)
+    {
+        var result = CreateResult(out var members);
+        SetEvidence(result, members[0], BindingAssessmentOutcome.BindingDetected, 12);
+        using var package = await Write(result, members);
+        package.Position = 0;
+
+        var read = await FTXTCReader.ReadWithRecovery(package, readPolicy);
+        var restored = Assert.Single(read.Containers.OfType<AnalysisResult>());
+        Assert.Equal(BindingAssessmentOutcome.Inconclusive,
+            restored.GetMemberBindingAssessment(restored.Solution.Solutions[0]).AutomaticOutcome);
+        Assert.Empty(read.Issues);
+        Assert.False(restored.IsModified);
+    }
+
     static void SetEvidence(AnalysisResult result, SolutionInterface member, BindingAssessmentOutcome outcome,
-        double? delta, string unavailableReason = "")
+        double? delta, string unavailableReason = "", string ruleId = BindingAssessmentState.CurrentRuleId)
     {
         FitInformationCriteria Criteria(double aicc) => FitInformationCriteria.Restore(
             20, 1, 2, GaussianLikelihoodMode.EstimatedCommonVariance,
@@ -265,7 +316,7 @@ public sealed class IndependentAssessmentPersistenceTests
             ComparisonUnavailableReason = unavailableReason,
         };
         result.RestoreMemberComparisonAndAssessment(member.Guid, comparison,
-            BindingAssessmentState.Restore(outcome, BindingAssessmentState.CurrentRuleId, null));
+            BindingAssessmentState.Restore(outcome, ruleId, null));
     }
 
     static AnalysisResult CreateResult(out SolutionInterface[] solutions, int count = 2)

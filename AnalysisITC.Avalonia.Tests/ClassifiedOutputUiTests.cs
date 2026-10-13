@@ -60,12 +60,12 @@ public sealed class ClassifiedOutputUiTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
+            DataManager.Clear(DataClearMode.ResetSession);
             var result = CreateResult();
-            var window = new AnalysisReportWindow();
+            DataManager.AddData(new ITCDataContainer[] { result.Solution.Solutions[0].Data, result });
+            var window = new AnalysisReportWindow(result);
             try
             {
-                Field<List<AnalysisResult>>(window, "selectedResults").Add(result);
-                Invoke(window, "ObserveSourceChanges");
                 var originalSolution = result.Solution;
                 var originalDate = result.Date;
                 var document = AnalysisReportBuilder.Build(result);
@@ -82,9 +82,13 @@ public sealed class ClassifiedOutputUiTests
                 var refreshed = AnalysisReportBuilder.Build(result);
                 Assert.Contains(refreshed.Sections.SelectMany(section => section.Blocks)
                     .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
-                    item => item.Label == "Binding assessment" && item.Value == "No binding detected");
+                    item => item.Label == "Binding assessment" && item.Value == "No binding detected (manual)");
             }
-            finally { window.Close(); }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
         });
     }
 

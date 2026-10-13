@@ -67,7 +67,7 @@ namespace AnalysisITC.Core.Analysis
                 BindingFitSucceeded = binding.Convergence?.Success == true,
                 BindingFitReason = binding.Convergence?.FailureReason ?? string.Empty,
             };
-            if (comparison.BindingFitSucceeded)
+            if (comparison.BindingFitSucceeded || binding.Convergence?.MaxIterationsReached == true)
                 comparison.BindingInformationCriteria = FitInformationCriteriaCalculator.Calculate(binding);
             else
                 comparison.BindingFitReason = string.IsNullOrWhiteSpace(comparison.BindingFitReason)
@@ -112,7 +112,7 @@ namespace AnalysisITC.Core.Analysis
                 BindingFitSucceeded = binding.Convergence?.Success == true,
                 BindingFitReason = binding.Convergence?.FailureReason ?? string.Empty,
             };
-            if (comparison.BindingFitSucceeded)
+            if (comparison.BindingFitSucceeded || binding.Convergence?.MaxIterationsReached == true)
                 comparison.BindingInformationCriteria = FitInformationCriteriaCalculator.Calculate(binding);
             else
                 comparison.BindingFitReason = string.IsNullOrWhiteSpace(comparison.BindingFitReason)
@@ -141,7 +141,7 @@ namespace AnalysisITC.Core.Analysis
 
                     try
                     {
-                        if (memberComparison.BindingFitSucceeded)
+                        if (memberComparison.BindingFitSucceeded || source.Solution?.Convergence?.MaxIterationsReached == true)
                             memberComparison.BindingInformationCriteria = Calculate(source.Solution, weighted);
                         if (source.NumberOfPoints < 1)
                             throw new InvalidOperationException("No included observations are available for the Null model fit.");
@@ -336,7 +336,7 @@ namespace AnalysisITC.Core.Analysis
         {
             var binding = comparison.BindingInformationCriteria;
             var nullModel = comparison.NullInformationCriteria;
-            if (!comparison.BindingFitSucceeded)
+            if (!comparison.BindingFitSucceeded && binding == null)
                 comparison.ComparisonUnavailableReason = "The binding fit did not converge.";
             else if (!comparison.NullFitSucceeded)
                 comparison.ComparisonUnavailableReason = "The Null model fit did not converge.";

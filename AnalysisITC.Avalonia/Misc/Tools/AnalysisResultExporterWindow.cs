@@ -1,4 +1,5 @@
 using System;
+using AnalysisITC.Core.Presentation;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -125,7 +126,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             var count = result.Solution?.Solutions?.Count ?? 0;
             var model = result.Model?.ModelType.GetProperties().Name ?? "";
-            var details = $"{result.Date:g} | {model} | {count} experiment" + (count == 1 ? "" : "s");
+            var details = $"{LocalDateTimeFormatter.ShortDateTime(result.Date)} | {model} | {count} experiment" + (count == 1 ? "" : "s");
 
             var panel = new StackPanel { Spacing = 1, Margin = new Thickness(8, 5) };
             var name = new TextBlock

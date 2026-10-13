@@ -20,6 +20,94 @@ namespace AnalysisITC.Core.Tests;
 public sealed class NullComparisonPersistenceTests
 {
     [Theory]
+    [InlineData("single", SolverTermination.IterationLimit)]
+    [InlineData("independent", SolverTermination.EvaluationLimit)]
+    [InlineData("pooled", SolverTermination.TimeLimit)]
+    public async Task LimitTerminatedComparisonAndAssessmentSurviveStrictReopening(
+        string scope, SolverTermination termination)
+    {
+        var models = Enumerable.Range(0, scope == "single" ? 1 : 2)
+            .Select(_ => InjectionProcessingMethodTests.FittedModel(bootstrap: false)).ToArray();
+        for (var index = 0; index < models.Length; index++)
+        {
+            var model = models[index];
+            foreach (var injection in model.Data.Injections)
+                injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value + 1e-8 * (1 + injection.ID % 3)));
+            model.Parameters.Table[ParameterType.Offset].SetValue(0, false);
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(
+                new SolverConvergenceSnapshot
+                {
+                    Algorithm = SolverAlgorithm.LevenbergMarquardt,
+                    Termination = index == 0 ? termination : SolverTermination.Converged,
+                }));
+        }
+
+        AnalysisResult result;
+        if (scope == "single")
+        {
+            NullModelComparisonCalculator.Calculate(models[0].Solution, false,
+                SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+            result = CreateResult(models[0]);
+        }
+        else
+        {
+            var globalModel = new GlobalModel(models.ToList()) { Parameters = new GlobalModelParameters() };
+            foreach (var model in models) globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+            if (scope == "pooled")
+            {
+                globalModel.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
+                globalModel.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0);
+                globalModel.Parameters.SetIndividualFromGlobal();
+            }
+            var globalSolution = new GlobalSolution(new GlobalSolver { Model = globalModel },
+                models.Select(model => model.Solution).ToList(), models[0].Solution.Convergence,
+                reconstructBootstrap: false);
+            globalModel.Solution = globalSolution;
+            NullModelComparisonCalculator.Calculate(globalSolution, false,
+                SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+            result = new AnalysisResult(globalSolution);
+        }
+        foreach (var model in models) model.Data.UpdateSolution(model);
+        var expected = result.NullComparison;
+        var expectedMembers = models.ToDictionary(model => model.Data.UniqueID, model => model.Solution.NullComparison);
+        Assert.False(expected.BindingFitSucceeded);
+        Assert.NotNull(expected.DeltaAicc);
+        Assert.Equal(BindingAssessmentSummaryOutcome.BindingDetected, result.CollectionAssessmentOutcome);
+        Assert.Equal(scope == "independent", result.IsIndependentAssessmentCollection);
+        var experiments = models.Select(model => model.Data).ToArray();
+
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, experiments, new[] { result });
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+            package.Position = 0;
+            var restored = await FTXTCReader.ReadWithRecovery(package, FtxtcReadPolicy.Strict);
+            Assert.Empty(restored.Issues);
+            result = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+            experiments = restored.Containers.OfType<ExperimentData>().ToArray();
+
+            AssertComparisonEvidence(expected, result.NullComparison);
+            Assert.False(result.Solution.Convergence.Success);
+            Assert.Equal(termination, result.Solution.Convergence.Termination);
+            Assert.Equal(BindingAssessmentSummaryOutcome.BindingDetected, result.CollectionAssessmentOutcome);
+            Assert.Equal(scope == "independent", result.IsIndependentAssessmentCollection);
+            Assert.All(result.MemberAssessments, member =>
+                Assert.Equal(BindingAssessmentOutcome.BindingDetected, member.Assessment.AutomaticOutcome));
+            Assert.False(result.IsModified);
+            foreach (var member in result.Solution.Solutions)
+            {
+                AssertComparisonEvidence(expectedMembers[member.Data.UniqueID], member.NullComparison);
+                var expectedTermination = member.Data.UniqueID == models[0].Data.UniqueID
+                    ? termination : SolverTermination.Converged;
+                Assert.Equal(expectedTermination, member.Convergence.Termination);
+            }
+            foreach (var experiment in experiments)
+                AssertComparisonEvidence(expectedMembers[experiment.UniqueID], experiment.Solution.NullComparison);
+        }
+    }
+
+    [Theory]
     [InlineData(DilutionMethod.MicroCal, false)]
     [InlineData(DilutionMethod.MicroCal, true)]
     [InlineData(DilutionMethod.Exponential, false)]
@@ -414,31 +502,71 @@ public sealed class NullComparisonPersistenceTests
     }
 
     [Theory]
-    [InlineData("future-rule-9", BindingAssessmentOutcome.Inconclusive)]
-    [InlineData("aicc-6-10-v1", BindingAssessmentOutcome.NoBindingDetected)]
-    public async Task SavedAutomaticAssessmentAndRuleAreRestoredWithoutRecalculation(
-        string ruleId, BindingAssessmentOutcome outcome)
+    [InlineData(false, FtxtcReadPolicy.Strict, "aicc-0-10-v1", 12d, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, null)]
+    [InlineData(true, FtxtcReadPolicy.Strict, "aicc-6-10-v1", 6d, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(false, FtxtcReadPolicy.RecoverUsableContent, "future-rule-9", 20d, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(true, FtxtcReadPolicy.Strict, "aicc-0-15-v1", 0d, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(false, FtxtcReadPolicy.Strict, "aicc-0-15-v1", 15d, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected, null)]
+    [InlineData(true, FtxtcReadPolicy.Strict, "future-rule-9", null, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected)]
+    public async Task SavedSingleAndPooledAssessmentsAreReevaluatedAndRetainOverrides(
+        bool pooled, FtxtcReadPolicy readPolicy, string ruleId, double? delta,
+        BindingAssessmentOutcome savedOutcome, BindingAssessmentOutcome expectedOutcome,
+        BindingAssessmentOutcome? manualOverride)
     {
-        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
-        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
-            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
-        var result = CreateResult(model);
-        using var package = await Write(model.Data, result);
-        using var snapshot = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
+        var models = Enumerable.Range(0, pooled ? 2 : 1)
+            .Select(_ => InjectionProcessingMethodTests.FittedModel(bootstrap: false)).ToArray();
+        AnalysisResult result;
+        if (pooled)
         {
-            if (!path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
-            var node = JsonNode.Parse(bytes).AsObject();
-            node["bindingAssessment"]["automaticOutcome"] = outcome == BindingAssessmentOutcome.Inconclusive
-                ? "inconclusive" : "no-binding-detected";
-            node["bindingAssessment"]["ruleId"] = ruleId;
-            return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
-        }, schemaMinor: FTXTCFormat.SchemaMinor);
+            var globalModel = new GlobalModel(models.ToList()) { Parameters = new GlobalModelParameters() };
+            foreach (var model in models) globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+            globalModel.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
+            globalModel.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0);
+            globalModel.Parameters.SetIndividualFromGlobal();
+            var globalSolution = new GlobalSolution(new GlobalSolver { Model = globalModel },
+                models.Select(model => model.Solution).ToList(), models[0].Solution.Convergence,
+                reconstructBootstrap: false);
+            globalModel.Solution = globalSolution;
+            NullModelComparisonCalculator.Calculate(globalSolution, false,
+                SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+            result = new AnalysisResult(globalSolution);
+        }
+        else
+        {
+            NullModelComparisonCalculator.Calculate(models[0].Solution, false,
+                SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+            result = CreateResult(models[0]);
+        }
+        Assert.False(result.IsIndependentAssessmentCollection);
+        var comparison = result.NullComparison;
+        Assert.True(comparison.NullFitSucceeded, comparison.NullFitReason);
+        FitInformationCriteria Criteria(double aicc) => FitInformationCriteria.Restore(
+            20, 1, 2, GaussianLikelihoodMode.EstimatedCommonVariance,
+            aicc - 5, aicc - 2, aicc, true, true, string.Empty, string.Empty, 1, 1, 1, 0);
+        comparison.BindingInformationCriteria = delta.HasValue ? Criteria(100) : null;
+        comparison.NullInformationCriteria = delta.HasValue ? Criteria(100 + delta.Value) : null;
+        comparison.DeltaAicc = delta;
+        comparison.ComparisonUnavailableReason = delta.HasValue ? string.Empty : "Comparison unavailable.";
+        result.RestoreBindingAssessment(BindingAssessmentState.Restore(savedOutcome, ruleId, manualOverride));
 
-        snapshot.Position = 0;
-        var restored = Assert.Single((await FTXTCReader.ReadStream(snapshot)).OfType<AnalysisResult>());
-        Assert.Equal(outcome, restored.BindingAssessment.AutomaticOutcome);
-        Assert.Equal(ruleId, restored.BindingAssessment.AutomaticRuleId);
-        Assert.Null(restored.BindingAssessment.ManualOverride);
+        // Reassessment must use captured evidence, even when the live observations have changed.
+        models[0].Data.Injections[0].SetPeakArea(new FloatWithError(models[0].Data.Injections[0].PeakArea.Value + 5e-6));
+        var savedEnthalpies = result.Solution.Solutions.Select(member => member.ReportParameters[ParameterType.Enthalpy1].Value).ToArray();
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, models.Select(model => model.Data), new[] { result });
+        package.Position = 0;
+        var read = await FTXTCReader.ReadWithRecovery(package, readPolicy);
+        var restored = Assert.Single(read.Containers.OfType<AnalysisResult>());
+
+        Assert.Equal(expectedOutcome, restored.BindingAssessment.AutomaticOutcome);
+        Assert.Equal(BindingAssessmentState.CurrentRuleId, restored.BindingAssessment.AutomaticRuleId);
+        Assert.Equal(manualOverride, restored.BindingAssessment.ManualOverride);
+        Assert.Equal(manualOverride ?? expectedOutcome, restored.BindingAssessment.EffectiveOutcome);
+        Assert.Equal(delta, restored.NullComparison.DeltaAicc);
+        Assert.Equal(comparison.Members.SelectMany(member => member.Points).Select(point => point.ObservedHeatJoules),
+            restored.NullComparison.Members.SelectMany(member => member.Points).Select(point => point.ObservedHeatJoules));
+        Assert.Equal(savedEnthalpies, restored.Solution.Solutions.Select(member => member.ReportParameters[ParameterType.Enthalpy1].Value));
+        Assert.Empty(read.Issues);
         Assert.False(restored.IsModified);
     }
 

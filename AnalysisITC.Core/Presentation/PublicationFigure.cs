@@ -1303,12 +1303,7 @@ namespace AnalysisITC.Core.Presentation
 
         static double AnalysisXValue(ExperimentData data, InjectionData injection)
         {
-            return data.AxisType switch
-            {
-                AnalysisXAxisType.TitrantConcentration => injection.ActualTitrantConcentration * 1000000,
-                AnalysisXAxisType.ID => injection.ID + 1,
-                _ => injection.Ratio
-            };
+            return AnalysisAxisPresentation.DisplayXValue(data.AxisType, injection);
         }
 
         static double PowerScale(EnergyUnitFamily family)

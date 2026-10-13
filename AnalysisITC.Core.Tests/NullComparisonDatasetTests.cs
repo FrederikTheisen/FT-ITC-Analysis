@@ -38,6 +38,60 @@ public sealed class NullComparisonDatasetTests : IDisposable
     }
 
     [Theory]
+    [InlineData(SolverTermination.IterationLimit, true)]
+    [InlineData(SolverTermination.EvaluationLimit, true)]
+    [InlineData(SolverTermination.TimeLimit, true)]
+    [InlineData(SolverTermination.Failed, false)]
+    [InlineData(SolverTermination.InvalidValues, false)]
+    [InlineData(SolverTermination.Cancelled, false)]
+    [InlineData(SolverTermination.Unknown, false)]
+    public void OnlySolverLimitsRetainFiniteBindingEvidenceAfterUnsuccessfulTermination(
+        SolverTermination termination, bool assessed)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        // Controlled residuals exercise assessment eligibility, not parameter recovery.
+        foreach (var injection in model.Data.Injections)
+            injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value + 1e-8 * (1 + injection.ID % 3)));
+        foreach (var parameter in model.Parameters.Table.Values)
+            parameter.SetValue(parameter.Value, false);
+        var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+        {
+            Algorithm = SolverAlgorithm.LevenbergMarquardt,
+            Termination = termination,
+        });
+        model.Solution = SolutionInterface.FromModel(model, convergence);
+
+        NullModelComparisonCalculator.Calculate(model.Solution, false,
+            SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+        var comparison = Assert.IsType<NullModelComparison>(model.Solution.NullComparison);
+        Assert.False(convergence.Success);
+        Assert.Equal(termination, convergence.Termination);
+        Assert.False(comparison.BindingFitSucceeded);
+        Assert.True(comparison.NullFitSucceeded, comparison.NullFitReason);
+        if (!assessed)
+        {
+            Assert.Null(comparison.BindingInformationCriteria);
+            Assert.Null(comparison.DeltaAicc);
+            Assert.Equal(BindingAssessmentOutcome.NotAssessed,
+                BindingAssessmentState.FromComparison(comparison).AutomaticOutcome);
+            return;
+        }
+
+        var injections = model.Data.Injections.Where(injection => injection.Include).ToArray();
+        var rss = injections.Sum(injection => Math.Pow(injection.PeakArea.Value - model.Evaluate(injection.ID), 2));
+        var n = injections.Length;
+        const int k = 5; // Four free binding parameters plus the estimated residual variance.
+        var expectedAicc = n * (Math.Log(2 * Math.PI) + 1 + Math.Log(rss / n))
+            + 2 * k + 2.0 * k * (k + 1) / (n - k - 1);
+        Assert.Equal(expectedAicc, comparison.BindingInformationCriteria.Aicc.Value, 9);
+        AssertOffsetMatchesAnalyticalSolution(comparison, weighted: false);
+        Assert.Equal(comparison.NullInformationCriteria.Aicc.Value - expectedAicc,
+            comparison.DeltaAicc.Value, 9);
+        Assert.Equal(BindingAssessmentOutcome.BindingDetected,
+            BindingAssessmentState.FromComparison(comparison).AutomaticOutcome);
+    }
+
+    [Theory]
     [InlineData("hepes-blank.DH", BindingAssessmentOutcome.NoBindingDetected)]
     [InlineData("hepes-01.DH", BindingAssessmentOutcome.BindingDetected)]
     public void RealHepesFixturesProduceIndependentOffsetAndBindingEvidence(

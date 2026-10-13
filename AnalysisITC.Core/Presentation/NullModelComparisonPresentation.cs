@@ -29,7 +29,7 @@ namespace AnalysisITC.Core.Presentation
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
     public static class NullModelComparisonPresentation
     {
-        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to the Null model used for the comparison; it does not establish that the molecules cannot bind.";
+        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 15 are inconclusive; values ≥ 15 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to the Null model used for the comparison; it does not establish that the molecules cannot bind.";
 
         public const string SelectExperimentHint = "Select an experiment to inspect its saved Null model comparison.";
 
@@ -48,27 +48,28 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        public static string NullModel(NullModelComparison comparison, bool perExperiment = false)
-        {
-            if (comparison == null) return "Null (not calculated)";
-            var model = RoleAndModel(comparison.NullModelId);
-            if (perExperiment || comparison.IsIndependentMemberComparison) model += ", per experiment";
-            if (comparison.NullFitSucceeded) return model;
-            return model + " (failed)";
-        }
+        /// <summary>Actual model name for fields whose heading already identifies the Null role.</summary>
+        public static string NullModel(NullModelComparison comparison)
+            => SavedModelName(comparison?.NullModelId) ?? "Unknown";
 
         public static string CollectionNullModel(AnalysisResult result)
         {
             var comparison = result?.PooledNullComparison
                 ?? result?.MemberAssessments.Select(member => member.Comparison).FirstOrDefault(value => value != null);
-            return NullModel(comparison, perExperiment: true);
+            return NullModel(comparison);
         }
 
         public static string RoleAndModel(string modelId)
         {
-            if (string.IsNullOrWhiteSpace(modelId)) return "Null (model unknown)";
-            try { return "Null (" + FtxtcWireIds.Model(modelId).GetProperties().Name + ")"; }
-            catch (NotSupportedException) { return "Null (model unknown)"; }
+            var name = SavedModelName(modelId);
+            return name == null ? "Null (model unknown)" : "Null (" + name + ")";
+        }
+
+        static string SavedModelName(string modelId)
+        {
+            if (string.IsNullOrWhiteSpace(modelId)) return null;
+            try { return FtxtcWireIds.Model(modelId).GetProperties().Name; }
+            catch (NotSupportedException) { return null; }
         }
 
         /// <summary>Exactly one saved solution must match the experiment and registered model identity.</summary>

@@ -22,7 +22,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
     {
         var result = IndependentResult(out var members, includePooledComparison: true);
         members[0].NullComparison = Comparison(members[0].Data.UniqueID, 0);
-        members[1].NullComparison = Comparison(members[1].Data.UniqueID, 12);
+        members[1].NullComparison = Comparison(members[1].Data.UniqueID, 15);
         foreach (var member in members)
             result.RestoreMemberComparison(member.Guid, member.NullComparison);
 
@@ -49,16 +49,18 @@ public sealed class AnalysisResultTableExporterAssessmentTests
     [Theory]
     [InlineData(0, "No binding detected", false)]
     [InlineData(3, "Inconclusive", true)]
+    [InlineData(12, "Inconclusive", true)]
+    [InlineData(15, "Binding detected", true)]
     public void IndependentRowsUseEachMemberAssessmentAndOnlySuppressIneligibleMember(
         double firstDelta, string firstAssessment, bool firstAllowed)
     {
         var result = IndependentResult(out var members, includePooledComparison: false);
         members[0].NullComparison = Comparison(members[0].Data.UniqueID, 0);
-        members[1].NullComparison = Comparison(members[1].Data.UniqueID, 12);
+        members[1].NullComparison = Comparison(members[1].Data.UniqueID, 15);
         foreach (var member in members)
         {
             member.NullComparison = Comparison(member.Data.UniqueID,
-                ReferenceEquals(member, members[0]) ? firstDelta : 12);
+                ReferenceEquals(member, members[0]) ? firstDelta : 15);
             member.Parameters[ParameterType.Nvalue1] = new FloatWithError(ReferenceEquals(member, members[0]) ? 111 : 222, 0);
             result.RestoreMemberComparison(member.Guid, member.NullComparison);
         }

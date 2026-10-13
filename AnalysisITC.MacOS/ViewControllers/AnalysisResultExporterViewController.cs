@@ -320,7 +320,7 @@ namespace AnalysisITC
             var details = $"{model} | {count} experiment" + (count == 1 ? "" : "s");
 
             AddSubview(MakeLabel(result.Name, 8, 38, width - 16, 17, NSFont.BoldSystemFontOfSize(13)));
-            AddSubview(MakeLabel("Date: " + result.Date.ToString("g") + " • Analysis operator: "
+            AddSubview(MakeLabel("Date: " + LocalDateTimeFormatter.ShortDateTime(result.Date) + " • Analysis operator: "
                 + (string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName),
                 8, 22, width - 16, 14, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)));
             AddSubview(MakeLabel(details, 8, 6, width - 16, 14, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)));

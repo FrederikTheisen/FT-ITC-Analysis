@@ -92,7 +92,11 @@ public sealed class BindingAssessmentPresentationTests
 
     [AvaloniaTheory]
     [InlineData(null, "Not assessed")]
+    [InlineData(0d, "No binding detected")]
     [InlineData(8d, "Inconclusive")]
+    [InlineData(10d, "Inconclusive")]
+    [InlineData(14.9999d, "Inconclusive")]
+    [InlineData(15d, "Binding detected")]
     public void AutomaticOutcomesRemainReadOnlyWithoutChangingSavedAssessment(double? delta, string expected)
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -217,7 +221,7 @@ public sealed class BindingAssessmentPresentationTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var comparison = CreateComparison(delta: 10);
+            var comparison = CreateComparison(delta: 15);
             var result = CreateResult(comparison);
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
             result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
@@ -232,7 +236,7 @@ public sealed class BindingAssessmentPresentationTests
             var evidenceRow = Assert.Single(workspace.SummaryPanelForTesting.GetLogicalDescendants()
                 .OfType<Border>().Where(border => border.Child is Grid grid
                     && grid.Children.OfType<TextBlock>().Any(block => block.Text == "RMSD / ΔAICc")));
-            Assert.Contains("Null AICc: 15", ToolTip.GetTip(evidenceRow)?.ToString());
+            Assert.Contains("Null AICc: 20", ToolTip.GetTip(evidenceRow)?.ToString());
         });
     }
 
@@ -415,7 +419,7 @@ public sealed class BindingAssessmentPresentationTests
 
         var first = CreateMember("Duplicate", "binding-assessment-ui-first");
         var second = CreateMember("Duplicate", "binding-assessment-ui-second");
-        first.Solution.NullComparison = CreateComparison(12);
+        first.Solution.NullComparison = CreateComparison(15);
         var globalModel = new GlobalModel(new List<Model> { first, second })
         {
             Parameters = new GlobalModelParameters(),

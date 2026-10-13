@@ -117,7 +117,8 @@ namespace AnalysisITC
         static string molarratioaxistitle = "";
         public static string MolarRatioAxisTitle
         {
-            get => molarratioaxistitle != "" ? molarratioaxistitle : "Molar Ratio";
+            get => molarratioaxistitle != "" ? molarratioaxistitle
+                : CurrentFigureData?.AxisType.GetEnumDescription() ?? "Molar Ratio";
             set => molarratioaxistitle = value;
         }
         public static bool MolarRatioAxisTitleIsChanged => molarratioaxistitle == "";
@@ -306,7 +307,7 @@ namespace AnalysisITC
                 DataYAxisMax = DataYAxisMax,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
-                MolarRatioAxisTitle = MolarRatioAxisTitle,
+                MolarRatioAxisTitle = molarratioaxistitle,
                 FitXAxisMin = FitXAxisMin,
                 FitXAxisMax = FitXAxisMax,
                 FitYAxisMin = FitYAxisMin,

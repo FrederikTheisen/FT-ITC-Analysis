@@ -310,7 +310,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public string PowerAxisTitle { get; set; } = "Differential Power (<unit>)";
         public string TimeAxisTitle { get; set; } = "Time (<unit>)";
         public string EnthalpyAxisTitle { get; set; } = "<unit> of injectant";
-        public string MolarRatioAxisTitle { get; set; } = "Molar Ratio";
+        public string MolarRatioAxisTitle { get; set; } = "";
         public bool ShowAxisTitles { get; set; } = true;
         public double? DataXAxisMin { get; set; }
         public double? DataXAxisMax { get; set; }

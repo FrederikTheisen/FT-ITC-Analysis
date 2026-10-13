@@ -69,6 +69,15 @@ namespace AnalysisITC.Core.Export
     {
         public static string Build(IEnumerable<AnalysisResult> selectedResults, AnalysisResultExportOptions options)
         {
+            // Exported and copied tables always use dot decimals.
+            var previous = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            try { return BuildTable(selectedResults, options); }
+            finally { CultureInfo.CurrentCulture = previous; }
+        }
+
+        static string BuildTable(IEnumerable<AnalysisResult> selectedResults, AnalysisResultExportOptions options)
+        {
             var results = selectedResults?.Where(r => r != null).ToList() ?? new List<AnalysisResult>();
             if (results.Count == 0) return "";
 

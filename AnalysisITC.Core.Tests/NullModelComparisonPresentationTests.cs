@@ -28,11 +28,24 @@ public sealed class NullModelComparisonPresentationTests
         Assert.Equal("Offset", joules[0].Value);
         Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), joules[1].Value);
         Assert.Equal("+10", joules[2].Value);
-        Assert.Equal("Binding detected", joules[3].Value);
+        Assert.Equal("Inconclusive", joules[3].Value);
 
         // 4.184 µJ = 1 µcal.
         var calories = NullModelComparisonPresentation.AnalysisInspectorRows(comparison, EnergyUnitFamily.Calories);
         Assert.Equal("1", calories[1].Value);
+    }
+
+    [Theory]
+    [InlineData(0, "No binding detected")]
+    [InlineData(0.0001, "Inconclusive")]
+    [InlineData(14.9999, "Inconclusive")]
+    [InlineData(15, "Binding detected")]
+    public void AnalysisInspectorConclusionUsesCurrentCutoffs(double delta, string expected)
+    {
+        var rows = NullModelComparisonPresentation.AnalysisInspectorRows(
+            Comparison(delta, 4.184), EnergyUnitFamily.Joules);
+
+        Assert.Equal(expected, rows[3].Value);
     }
 
     [Fact]

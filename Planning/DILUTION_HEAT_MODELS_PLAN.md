@@ -31,6 +31,8 @@ Use this **identical additive background** in both hypotheses. Binding plus back
 
 This is an empirical endpoint convention: no midpoint evaluation, reference injection volume, or extra finite-injection averaging. Concentration bookkeeping and binding-heat bookkeeping remain separate. A fitted background does not establish that mixing, diffusion, or concentration errors have been corrected.
 
+**Per-mole convention reaffirmed 2026-10-13:** retain \(q_{\mathrm{bg},i}=m_i h(x_i)\) after considering pytc's Linear implementation. [pytc's model base](https://github.com/harmslab/pytc/blob/master/pytc/indiv_models/base.py) defines dilution heat directly as intercept plus slope times post-injection cell titrant concentration, and its [binding model](https://github.com/harmslab/pytc/blob/master/pytc/indiv_models/single_site.py) adds that injection heat without an injected-mole multiplier. The background laws can be mapped by constant coefficient rescaling when injected amounts are constant and concentration bookkeeping matches; they generally differ for unequal injected amounts. Our convention preserves the molar meaning of the existing Offset parameter. Any pytc comparison must document the parameter/unit mapping and concentration-update convention; it does not establish validation for unequal-injection backgrounds or unsupported models.
+
 ### Product choices
 
 - Support One-Set, Two-Sets, Sequential, Competitive, and Dissociation. No family gates per binding model. Dissociation with Exponential is not expected to be well identified; this is accepted.
@@ -91,6 +93,18 @@ For each profile, refit all other free binding and background parameters under t
 Fixed constants are reported as fixed, without an estimated interval. If a confidence threshold is not reached before a bound, retain the bound-limited/unavailable-side diagnostic rather than treating the bound as a measured confidence endpoint. Report unresolved identification explicitly, including unidentified λ at zero amplitude.
 
 Preserve the existing no-binding uncertainty skip and the decision not to estimate uncertainty for automatic comparison-only Null fits. This decision changes which physical quantities receive profiles, not uncertainty eligibility or the reported original-data optimum.
+
+### AI Null summary (agreed 2026-10-13)
+
+Simplify the AI-facing evidence for the separately fitted Null comparison to:
+
+- Actual Null model type: Offset, Linear or Exponential; preserve unknown identity when saved evidence does not identify the model.
+- Saved binding-model and Null-model AICc values and \(\Delta\mathrm{AICc}=\mathrm{AICc}(\mathrm{Null})-\mathrm{AICc}(\mathrm{binding+background})\). Keep the AICc name and existing sign convention; do not substitute ordinary AIC or recompute the saved comparison for export.
+- The saved assessment, retaining automatic/effective outcomes and manual-override provenance, the owning result/member and comparison scope, and availability/reason when a comparison cannot be reported. Independent member assessments remain attached to their members; a pooled diagnostic must not replace them.
+
+Omit Null coefficients, their uncertainty and constraint details, Null RMSD and per-injection Null predictions from this AI summary. Apply the same summary contract to full and compact AI input. The AI may discuss the saved comparison but cannot independently assess the omitted Null curve or its parameter identification; omission is deliberate, not missing or failed evidence.
+
+This is an AI evidence choice only. Retain complete saved Null solutions, captured inputs, constraints and diagnostics for native persistence, figures and ordinary reports. It supersedes the detailed Null AI payload described in the historical foundation below. Evidence for the background fitted jointly with the binding model is a separate, still-open decision; do not substitute the independently fitted Null parameters for it.
 
 ## 2. Shared Core implementation
 
@@ -171,7 +185,7 @@ Update fitting/results manual pages and help/science resources only with what us
 2. Linear and Exponential equations and fitting.
 3. Comparison and uncertainty.
 4. Persistence.
-5. Desktop, report, export, and Web viewer integration; manual and help.
+5. Desktop, report, export, and Web viewer integration, including the agreed AI Null summary; manual and help.
 
 Reinspect the working tree before each stage. Run the full `AnalysisITC.Core.Tests` suite, relevant Avalonia and Web tests, native macOS graph/UI checks, and desktop builds. No packaging or release scripts.
 
@@ -186,6 +200,7 @@ Reinspect the working tree before each stage. Run the full `AnalysisITC.Core.Tes
 | **Model discrimination** | Independently calculated AICc and parameter counts, including fixed constants and sharing. Insufficient sample size, failed hypotheses, and mixed independent outcomes. Do not require richer backgrounds always to reduce binding evidence. |
 | **Parameter uncertainty** | Synthetic recovery and repeated-data coverage checks, labeled separately. Joint resampling; profiles of every free physical background parameter through the coordinate mapping; fixed-constant exclusion; local/shared refits of the other free parameters; boundary, unidentified-parameter and open-interval reporting; original-fit central estimates; and uncertainty round trips. |
 | **Compatibility and presentation** | Historical files keep saved predictions and assessments; new files survive strict reopening, Save Selected, import/copy, and recovery. Both desktops and the viewer show matching families, values, corrections, and unavailable states. |
+| **AI Null summary** | Full and compact AI input retain actual model type, saved AICc/ΔAICc and assessment scope/provenance/availability, including independent and mixed outcomes, while omitting detailed Null fit evidence. Native saved evidence, figures and ordinary reports retain their complete Null data. |
 
 Include a targeted start-feasibility case: heat limits ±1 kJ/mol, fixed plateau +2 kJ/mol, and concentrations 10–110 µM require λ ≥ \(100/\ln(3)\) ≈ 91.02 µM. The midpoint start of 60 µM is infeasible, but 100 µM permits a feasible amplitude. When the allowed λ interval includes such values, initialization must find a feasible start without rejecting the fixed plateau. This checks the interaction with a fixed plateau and heat limits, not the accuracy of the ordinary λ starting guess.
 
@@ -198,7 +213,7 @@ Re-run the supplied experimental cases under the endpoint convention and active 
 ## 7. Out of scope
 
 - Experiment Designer.
-- Full AI interpretation support remains deferred. Before that route accepts new-family results, either export the family and physical quantities with correct units, parameter meanings, and constraint meanings, or explicitly exclude unsupported result evidence. Omitting only extra coefficients is insufficient if the receiving system cannot tell which background was fitted. The existing exporter would otherwise assign slope and decay scale fallback unit `"1"` and could mistake optimizer-coordinate bounds for physical-parameter bounds. This is a prospective integration requirement, not a current-program issue; do not log it in the issues tracker. MIST must accept the evidence schema before a client sending it is released; deployed acceptance of the current schema 2.2 remains unverified. Any future schema change retains that deployment dependency; see the [relay contract](../Documentation/Interpretation/MIST_RELAY_CONTRACT.md).
+- Broader AI interpretation work remains deferred; the agreed simplified Null summary is in scope. Evidence for the background fitted within the binding model remains an open decision. Before that route accepts new-family binding results, either export the agreed background evidence with correct family, physical quantities, units and constraint meanings, or explicitly exclude unsupported result evidence. The existing exporter would otherwise assign slope and decay scale fallback unit `"1"` and could mistake optimizer-coordinate bounds for physical-parameter bounds. This is a prospective integration requirement, not a current-program issue; do not log it in the issues tracker. MIST must accept the evidence contract before a client sending it is released; deployed acceptance of the current schema 2.2 remains unverified. Any future contract change retains that deployment dependency; see the [relay contract](../Documentation/Interpretation/MIST_RELAY_CONTRACT.md).
 - Sharing condition checks (ITC-086).
 - Standalone Null-selection workflows, matched controls, automatic family selection, threshold calibration.
 
@@ -206,7 +221,7 @@ Record implementation progress and completion in this document. On completion, u
 
 ## 8. Open items
 
-- AI interpretation route: choose correct evidence support or explicit exclusion before enabling new-family results on that route; full interpretation support can remain a later feature.
+- AI interpretation of the background fitted within the binding model: decide which physical parameters, uncertainty, constraints and curve summaries to include. The separately fitted Null summary is agreed above. Resolve correct evidence support or explicit exclusion before enabling new-family binding results on that route; broader interpretation work can remain a later feature.
 
 ## Completed foundation
 

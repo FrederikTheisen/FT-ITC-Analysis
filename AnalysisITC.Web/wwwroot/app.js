@@ -851,10 +851,10 @@ function renderTemperatureParameterEvaluation(result) {
     state.resultEvaluationTemperature = evaluation.defaultTemperatureCelsius;
   input.value = formatInputNumber(state.resultEvaluationTemperature);
   const range = evaluation.minimumTemperatureCelsius != null && evaluation.maximumTemperatureCelsius != null
-    ? `Saved experiments span ${formatNumber(evaluation.minimumTemperatureCelsius, " °C")} to ${formatNumber(evaluation.maximumTemperatureCelsius, " °C")}.`
+    ? `Experiments in this analysis span ${formatNumber(evaluation.minimumTemperatureCelsius, " °C")} to ${formatNumber(evaluation.maximumTemperatureCelsius, " °C")}.`
     : "";
   note.textContent = (evaluation.isTemperatureDependent
-    ? `Evaluated from the saved global temperature dependence. ${range}`
+    ? `Evaluated from the global temperature dependence. ${range}`
     : `The saved fit has no resolved temperature dependence; reported energy terms remain constant. ${range}`)
     + " Local aggregates show Combined SD and an Approximate propagated interval from individual 95% intervals and observed spread; 95% coverage is not established and covariance between experiments is omitted. Model-estimated intervals retain their CI95 meaning.";
 
@@ -1002,7 +1002,7 @@ function renderResultMember() {
   if (!member || !fit) {
     target.hidden = true;
     message.hidden = false;
-    message.textContent = member?.availabilityMessage || "The saved fit for this result member is unavailable.";
+    message.textContent = member?.availabilityMessage || "The saved fit for this experiment is unavailable.";
     return;
   }
   target.hidden = false;

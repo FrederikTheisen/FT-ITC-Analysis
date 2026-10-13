@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 
@@ -37,6 +39,26 @@ namespace AnalysisITC.Core.Data
             Assessment = assessment;
             Comparison = comparison;
         }
+
+        /// <summary>
+        /// Automatic member assessments of a just-finished fit, before it is saved as a result and can carry
+        /// manual overrides. Mirrors the initial assessment state of <see cref="AnalysisResult"/>.
+        /// </summary>
+        public static IReadOnlyList<BindingAssessmentMember> ForFit(SolutionInterface solution)
+            => solution == null
+                ? Array.Empty<BindingAssessmentMember>()
+                : new[] { new BindingAssessmentMember(solution, BindingAssessmentState.FromComparison(solution.NullComparison), solution.NullComparison) };
+
+        /// <inheritdoc cref="ForFit(SolutionInterface)"/>
+        public static IReadOnlyList<BindingAssessmentMember> ForFit(GlobalSolution solution)
+        {
+            var members = solution?.Solutions ?? new List<SolutionInterface>();
+            if (BindingAssessmentScopes.For(solution) == BindingAssessmentScope.Independent)
+                return members.Select(member => new BindingAssessmentMember(member,
+                    BindingAssessmentState.FromComparison(member?.NullComparison), member?.NullComparison)).ToList();
+            var assessment = BindingAssessmentState.FromComparison(solution?.NullComparison);
+            return members.Select(member => new BindingAssessmentMember(member, assessment, solution.NullComparison)).ToList();
+        }
     }
 
     public enum BindingAssessmentOutcome
@@ -50,7 +72,7 @@ namespace AnalysisITC.Core.Data
     /// <summary>Immutable automatic recommendation and optional result-level override.</summary>
     public sealed class BindingAssessmentState
     {
-        public const string CurrentRuleId = "aicc-0-10-v1";
+        public const string CurrentRuleId = "aicc-0-15-v1";
 
         public BindingAssessmentOutcome AutomaticOutcome { get; }
         public string AutomaticRuleId { get; }
@@ -72,7 +94,7 @@ namespace AnalysisITC.Core.Data
             var bindingCriteria = comparison?.BindingInformationCriteria;
             var nullCriteria = comparison?.NullInformationCriteria;
             var comparable = comparison != null && string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason)
-                && comparison.BindingFitSucceeded && comparison.NullFitSucceeded
+                && comparison.NullFitSucceeded
                 && bindingCriteria?.IsAiccAvailable == true && nullCriteria?.IsAiccAvailable == true
                 && bindingCriteria.Aicc.HasValue && nullCriteria.Aicc.HasValue
                 && IsFinite(bindingCriteria.Aicc.Value) && IsFinite(nullCriteria.Aicc.Value)
@@ -83,7 +105,7 @@ namespace AnalysisITC.Core.Data
                     <= 1e-10 * Math.Max(1, Math.Abs(delta.Value));
             var outcome = comparable
                 ? delta.Value <= 0 ? BindingAssessmentOutcome.NoBindingDetected
-                    : delta.Value < 10 ? BindingAssessmentOutcome.Inconclusive
+                    : delta.Value < 15 ? BindingAssessmentOutcome.Inconclusive
                     : BindingAssessmentOutcome.BindingDetected
                 : BindingAssessmentOutcome.NotAssessed;
             return new BindingAssessmentState(outcome, CurrentRuleId, null);

@@ -20,12 +20,32 @@ public sealed class BindingAssessmentTests
     [InlineData(6, BindingAssessmentOutcome.Inconclusive)]
     [InlineData(6.0001, BindingAssessmentOutcome.Inconclusive)]
     [InlineData(9.9999, BindingAssessmentOutcome.Inconclusive)]
-    [InlineData(10, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(10, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(14.9999, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(15, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(15.0001, BindingAssessmentOutcome.BindingDetected)]
     public void AppliesChosenSignedDeltaThresholds(double delta, BindingAssessmentOutcome expected)
     {
         var state = BindingAssessmentState.FromComparison(AvailableComparison(delta));
         Assert.Equal(expected, state.EffectiveOutcome);
-        Assert.Equal("aicc-0-10-v1", state.AutomaticRuleId);
+        Assert.Equal("aicc-0-15-v1", state.AutomaticRuleId);
+    }
+
+    [Theory]
+    [InlineData(-2, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(0, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(5, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(10, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(12, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(15, BindingAssessmentOutcome.BindingDetected)]
+    public void AvailableEvidenceKeepsItsAssessmentWhenBindingFitDidNotConverge(
+        double delta, BindingAssessmentOutcome expected)
+    {
+        var comparison = AvailableComparison(delta);
+        comparison.BindingFitSucceeded = false;
+
+        Assert.Equal(expected, BindingAssessmentState.FromComparison(comparison).AutomaticOutcome);
+        Assert.False(comparison.BindingFitSucceeded);
     }
 
     [Fact]
@@ -74,10 +94,10 @@ public sealed class BindingAssessmentTests
     [Fact]
     public void DeltaAloneCanRecommendBindingDespiteNoOtherEvidenceGate()
     {
-        var comparison = AvailableComparison(12);
+        var comparison = AvailableComparison(15);
         comparison.BindingInformationCriteria = Criteria(104, parameterCount: 0, likelihoodParameterCount: 1,
             observationCount: 4, minusTwoLogLikelihood: 100);
-        comparison.NullInformationCriteria = Criteria(116, parameterCount: 1, likelihoodParameterCount: 2,
+        comparison.NullInformationCriteria = Criteria(119, parameterCount: 1, likelihoodParameterCount: 2,
             observationCount: 4, minusTwoLogLikelihood: 100);
         Assert.Equal(BindingAssessmentOutcome.BindingDetected,
             BindingAssessmentState.FromComparison(comparison).AutomaticOutcome);
@@ -120,7 +140,7 @@ public sealed class BindingAssessmentTests
     [Fact]
     public void AssessmentTooltipUsesCompactSavedRecommendationAndUnavailableReason()
     {
-        var comparison = AvailableComparison(12);
+        var comparison = AvailableComparison(15);
         var automatic = BindingAssessmentState.FromComparison(comparison);
         Assert.Equal("Automatic assessment.",
             NullModelComparisonPresentation.AutomaticRecommendation(automatic, comparison));
@@ -152,7 +172,7 @@ public sealed class BindingAssessmentTests
     [Fact]
     public void AssessmentTooltipDoesNotIncludeFullRuleOrRecalculateSavedRecommendation()
     {
-        var comparison = AvailableComparison(12);
+        var comparison = AvailableComparison(15);
         var manual = BindingAssessmentState.FromComparison(comparison)
             .WithOverride(BindingAssessmentOutcome.NoBindingDetected);
         comparison.DeltaAicc = -12;
@@ -217,15 +237,17 @@ public sealed class BindingAssessmentTests
         Assert.False(state.IsManual);
     }
 
-    [Fact]
-    public void RestoredOldRuleRetainsItsStoredVerdict()
+    [Theory]
+    [InlineData("aicc-6-10-v1", 6, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData("aicc-0-10-v1", 12, BindingAssessmentOutcome.BindingDetected)]
+    public void RestoredOldRuleRetainsItsStoredVerdict(
+        string ruleId, double delta, BindingAssessmentOutcome savedOutcome)
     {
-        var restored = BindingAssessmentState.Restore(BindingAssessmentOutcome.NoBindingDetected,
-            "aicc-6-10-v1", null);
-        Assert.Equal("aicc-6-10-v1", restored.AutomaticRuleId);
-        Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, restored.AutomaticOutcome);
+        var restored = BindingAssessmentState.Restore(savedOutcome, ruleId, null);
+        Assert.Equal(ruleId, restored.AutomaticRuleId);
+        Assert.Equal(savedOutcome, restored.AutomaticOutcome);
         Assert.Equal(BindingAssessmentOutcome.Inconclusive,
-            BindingAssessmentState.FromComparison(AvailableComparison(6)).AutomaticOutcome);
+            BindingAssessmentState.FromComparison(AvailableComparison(delta)).AutomaticOutcome);
     }
 
     [Fact]
@@ -298,7 +320,7 @@ public sealed class BindingAssessmentTests
             failures: 1, succeeded: 3, TimeSpan.FromSeconds(1), limitTerminated: 1);
         var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
         result.Solution.Solutions[0].RestoreParameterBoundaryHit(true);
-        result.RestoreBindingAssessment(BindingAssessmentState.FromComparison(AvailableComparison(12)));
+        result.RestoreBindingAssessment(BindingAssessmentState.FromComparison(AvailableComparison(15)));
         Assert.Equal(AnalysisResultHealth.Warning, result.Health);
 
         result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
@@ -319,21 +341,24 @@ public sealed class BindingAssessmentTests
         Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
     }
 
-    [Fact]
-    public void ReplacingFitAppliesCurrentRuleWithoutMigratingStoredAssessmentFirst()
+    [Theory]
+    [InlineData("aicc-6-10-v1", 6, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData("aicc-0-10-v1", 12, BindingAssessmentOutcome.BindingDetected)]
+    public void ReplacingFitAppliesCurrentRuleWithoutMigratingStoredAssessmentFirst(
+        string ruleId, double delta, BindingAssessmentOutcome savedOutcome)
     {
         var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
         result.RestoreBindingAssessment(BindingAssessmentState.Restore(
-            BindingAssessmentOutcome.NoBindingDetected, "aicc-6-10-v1", BindingAssessmentOutcome.BindingDetected));
-        Assert.Equal("aicc-6-10-v1", result.BindingAssessment.AutomaticRuleId);
-        Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.AutomaticOutcome);
+            savedOutcome, ruleId, BindingAssessmentOutcome.BindingDetected));
+        Assert.Equal(ruleId, result.BindingAssessment.AutomaticRuleId);
+        Assert.Equal(savedOutcome, result.BindingAssessment.AutomaticOutcome);
 
         var replacementModel = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         var replacement = GlobalSolution.FromSingleExperimentSolver(new Solver { Model = replacementModel });
-        replacement.NullComparison = AvailableComparison(6);
+        replacement.NullComparison = AvailableComparison(delta);
         result.UpdateSolution(replacement);
-        Assert.Equal("aicc-0-10-v1", result.BindingAssessment.AutomaticRuleId);
+        Assert.Equal("aicc-0-15-v1", result.BindingAssessment.AutomaticRuleId);
         Assert.Equal(BindingAssessmentOutcome.Inconclusive, result.BindingAssessment.AutomaticOutcome);
         // Manual assessments are kept across refits (ITC-052).
         Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);

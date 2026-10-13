@@ -271,7 +271,7 @@ public sealed class IndependentAssessmentTests
         {
             BindingAssessmentOutcome.NoBindingDetected => 0,
             BindingAssessmentOutcome.Inconclusive => 7,
-            BindingAssessmentOutcome.BindingDetected => 12,
+            BindingAssessmentOutcome.BindingDetected => 15,
             _ => (double?)null,
         });
         result.RestoreMemberComparisonAndAssessment(member.Guid, comparison,

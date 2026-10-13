@@ -323,7 +323,7 @@ namespace AnalysisITC
                     ParagraphStyle = paragraph,
                 });
             var message = new NSAttributedString(
-                "Select an experiment in the result table or an overview graph to inspect its saved fit.",
+                "Select an experiment in the result table or an overview graph to inspect its fit in this analysis result.",
                 new NSStringAttributes
                 {
                     Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
