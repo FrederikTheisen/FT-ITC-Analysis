@@ -23,6 +23,9 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
 
     public AnalysisResultUpdaterTests()
     {
+        // Headless tests have no desktop completion handler to clear persistent
+        // high-priority statuses left by earlier cancellation tests.
+        StatusBarManager.ClearAppStatus();
         DataManager.Clear(DataClearMode.ResetSession);
         GlobalModelFactory.ClearPreviousParameters();
         FittingOptionsController.BootstrapIterations = 100;
@@ -34,6 +37,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         GlobalModelFactory.ClearPreviousParameters();
         DataManager.Clear(DataClearMode.ResetSession);
         DocumentDirtyTracker.MarkClean();
+        StatusBarManager.ClearAppStatus();
     }
 
     [Theory]
