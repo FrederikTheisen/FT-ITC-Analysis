@@ -34,6 +34,15 @@ namespace AnalysisITC
         bool autoSaveInitialized;
         bool stopableProcessRunning;
         SupportingFigureCanvasWindowController supportingFigureController;
+        ProjectInformationWindowController projectInformationController;
+        AnalysisReportViewController analysisReportController;
+
+        internal static bool ProjectInformationIsOpen => NSApplication.SharedApplication.DangerousWindows
+            .Cast<NSWindow>().Select(window => window.WindowController).OfType<MainWindowController>()
+            .Any(controller => controller.projectInformationController != null && !controller.projectInformationController.IsClosed);
+
+        internal static bool CanSaveProject => DataManager.SourceItems.Count > 0 || DataManager.Reports.Count > 0
+            || (DocumentDirtyTracker.IsDirty && ProjectWriter.IsSaved);
 
         public MainWindowController (IntPtr handle) : base (handle)
 		{
@@ -124,7 +133,7 @@ namespace AnalysisITC
                     MessageText = "Recover autosaved project?",
                     InformativeText = recoveryFailed
                         ? "The autosave could not be recovered. You can locate it, discard it, or try again."
-                        : $"FT-ITC Analysis found an autosave from an interrupted session.\n\nProject: {candidate.SourceProjectName}\nAutosaved: {candidate.LastWrittenUtc.ToLocalTime():g}\nFile: {Path.GetFileName(candidate.FilePath)}",
+                        : $"FT-ITC Analysis found an autosave from an interrupted session.\n\nProject: {candidate.SourceProjectName}\nAutosaved: {LocalDateTimeFormatter.ShortDateTime(candidate.LastWrittenUtc.ToLocalTime())}\nFile: {Path.GetFileName(candidate.FilePath)}",
                     AlertStyle = recoveryFailed ? NSAlertStyle.Warning : NSAlertStyle.Informational
                 };
                 alert.AddButton("Recover");
@@ -167,6 +176,7 @@ namespace AnalysisITC
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateWindowDirtyState);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateFileToolbarMenu);
         }
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)
@@ -368,9 +378,51 @@ namespace AnalysisITC
 
         internal void OpenAnalysisReportTool()
         {
-            if (!DataManager.DataIsLoaded || DataManager.Results.Count == 0 || ContentViewController == null) return;
-            ContentViewController.PresentViewControllerAsSheet(
-                new AnalysisReportViewController(DataManager.SelectedResult));
+            if (DataManager.Results.Count == 0) return;
+            ShowAnalysisReport(new AnalysisReportViewController(DataManager.SelectedResult));
+        }
+
+        internal void OpenAnalysisReportTool(AnalysisReport savedReport)
+        {
+            if (savedReport == null || !DataManager.Reports.Contains(savedReport)
+                || AnalysisReportPresentation.MissingResultCount(savedReport,
+                    id => DataManager.Results.FirstOrDefault(result => result.UniqueID == id)) > 0) return;
+            ShowAnalysisReport(new AnalysisReportViewController(savedReport));
+        }
+
+        void ShowAnalysisReport(AnalysisReportViewController controller)
+        {
+            if (ContentViewController == null || Window.AttachedSheet != null
+                || (projectInformationController != null && !projectInformationController.IsClosed)
+                || (analysisReportController != null && !analysisReportController.IsClosed))
+            { controller.Dispose(); return; }
+            analysisReportController = controller;
+            controller.Closed += () =>
+            {
+                if (ReferenceEquals(analysisReportController, controller)) analysisReportController = null;
+            };
+            ContentViewController.PresentViewControllerAsSheet(controller);
+        }
+
+        internal void OpenProjectInformation()
+        {
+            if (Window == null || Window.AttachedSheet != null
+                || MacDataReader.IsReadPending || ProcessingActivity.IsBusy
+                || (analysisReportController != null && !analysisReportController.IsClosed)
+                || (projectInformationController != null && !projectInformationController.IsClosed)) return;
+            var documentId = DocumentDirtyTracker.CurrentDocumentId;
+            var controller = projectInformationController = new ProjectInformationWindowController();
+            controller.ShowSheet(Window, savedReport =>
+            {
+                if (ReferenceEquals(projectInformationController, controller)) projectInformationController = null;
+                UpdateFileToolbarMenu();
+                if (savedReport != null && documentId == DocumentDirtyTracker.CurrentDocumentId)
+                    NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+                    {
+                        if (documentId == DocumentDirtyTracker.CurrentDocumentId) OpenAnalysisReportTool(savedReport);
+                    });
+                controller.Dispose();
+            });
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
@@ -493,12 +545,14 @@ namespace AnalysisITC
         {
             if (FileToolbarMenuButton == null) return;
 
-            var hasDocumentContent = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0;
+            var hasDocumentContent = DataManager.SourceItems.Count > 0 || DataManager.Reports.Count > 0;
             var menu = new NSMenu("File") { AutoEnablesItems = false };
             menu.AddItem(new NSMenuItem("File") { Hidden = true });
-            menu.AddItem(CreateContextMenuItem("Open...", "toolbaropen", true, (s, e) => AppDelegate.LaunchOpenFileDialog()));
-            menu.AddItem(CreateContextMenuItem("Save", "toolbarsave", hasDocumentContent, (s, e) => SaveCurrentDocument()));
-            menu.AddItem(CreateContextMenuItem("Save As...", "toolbarsaveas", hasDocumentContent, (s, e) => SaveCurrentDocumentAs()));
+            menu.AddItem(CreateContextMenuItem("Open...", "toolbaropen", !ProjectInformationIsOpen, (s, e) => AppDelegate.LaunchOpenFileDialog()));
+            menu.AddItem(CreateContextMenuItem("Save", "toolbarsave", CanSaveProject && !ProjectInformationIsOpen, (s, e) => SaveCurrentDocument()));
+            menu.AddItem(CreateContextMenuItem("Save As...", "toolbarsaveas", CanSaveProject && !ProjectInformationIsOpen, (s, e) => SaveCurrentDocumentAs()));
+            menu.AddItem(CreateContextMenuItem(ProjectInformationPresentation.FileMenuTitle, "projectinformation", !ProjectInformationIsOpen,
+                (s, e) => OpenProjectInformation()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Order by type", "sortbytype", DataManager.Results.Count > 0, (s, e) => DataManager.SortContent(DataManager.SortMode.Type)));
             menu.AddItem(NSMenuItem.SeparatorItem);
@@ -1009,6 +1063,7 @@ namespace AnalysisITC
 
             if (!string.IsNullOrEmpty(identifier)) item.Identifier = identifier;
             if (identifier == "deleteallresults") item.ToolTip = ProcessingClearPresentation.DeleteResultsTooltip;
+            if (identifier == "projectinformation") item.ToolTip = ProjectInformationPresentation.FileMenuTooltip;
             if (activated != null) item.Activated += activated;
 
             return item;
@@ -1075,7 +1130,7 @@ namespace AnalysisITC
                 StatusBarManager.QueueStatus(UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence), 5000);
                 if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                 {
-                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, result.MemberAssessments);
                     if (!string.IsNullOrWhiteSpace(boundaryWarning)) StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 }
 

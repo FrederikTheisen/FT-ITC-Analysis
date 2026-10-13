@@ -8,6 +8,9 @@ using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using System.Linq;
 
 namespace AnalysisITC.Avalonia.Dialogs;
 
@@ -81,6 +84,26 @@ internal sealed class ConfirmationDialogWindow : Window
     {
         var dialog = new ConfirmationDialogWindow("Clear Processing", ProcessingClearPresentation.Confirmation(count),
             "Keep", "Clear Processing", ProcessingClearPresentation.KeepTooltip, ProcessingClearPresentation.ConfirmTooltip);
+        return dialog.ShowDialog<bool>(owner);
+    }
+
+    public static Task<bool> ConfirmDeleteReportAsync(Window owner, AnalysisReport report)
+    {
+        var dialog = new ConfirmationDialogWindow(ProjectInformationPresentation.DeleteDialogTitle,
+            ProjectInformationPresentation.DeleteConfirmation(report,
+                id => DataManager.Results.FirstOrDefault(result => result.UniqueID == id)),
+            ProjectInformationPresentation.CancelLabel, ProjectInformationPresentation.DeleteLabel,
+            ProjectInformationPresentation.CancelTooltip, ProjectInformationPresentation.DeleteTooltip)
+        {
+            Height = 280,
+            CanResize = true,
+        };
+        // Long report names remain readable without pushing the buttons away.
+        var host = (Border)dialog.Content!;
+        var panel = (DockPanel)host.Child!;
+        var message = panel.Children[1];
+        panel.Children.RemoveAt(1);
+        panel.Children.Add(new ScrollViewer { Content = message });
         return dialog.ShowDialog<bool>(owner);
     }
 

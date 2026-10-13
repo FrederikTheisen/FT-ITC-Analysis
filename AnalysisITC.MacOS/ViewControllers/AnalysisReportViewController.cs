@@ -36,6 +36,8 @@ namespace AnalysisITC
         static readonly HttpClient InterpretationHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
 
         readonly AnalysisResult initiallySelected;
+        readonly AnalysisReport initiallySavedReport;
+        readonly Guid documentId;
         readonly CoreGraphicsAnalysisReportRenderer renderer = new CoreGraphicsAnalysisReportRenderer();
         readonly NSButton selectResultsButton = Button("Select report contents…");
         readonly NSPopover resultPopover = new NSPopover { Behavior = NSPopoverBehavior.Semitransient };
@@ -97,10 +99,21 @@ namespace AnalysisITC
         bool extraTraceabilityPreference;
 #endif
         AnalysisReport report;
+        bool reportWasRegistered;
+        bool closed;
+        internal event Action Closed;
+        internal bool IsClosed => closed;
+        bool CanWriteReport => !closed && documentId == DocumentDirtyTracker.CurrentDocumentId
+            && report != null && (!reportWasRegistered || DataManager.Reports.Contains(report))
+            && selectedResults.All(result => DataManager.Results.Contains(result));
 
-        public AnalysisReportViewController(AnalysisResult selected)
+        public AnalysisReportViewController(AnalysisResult selected) : this(selected, null) { }
+        public AnalysisReportViewController(AnalysisReport savedReport) : this(null, savedReport) { }
+        AnalysisReportViewController(AnalysisResult selected, AnalysisReport savedReport)
         {
             initiallySelected = selected;
+            initiallySavedReport = savedReport;
+            documentId = DocumentDirtyTracker.CurrentDocumentId;
             PreferredContentSize = new CGSize(1120, 720);
         }
 
@@ -108,6 +121,8 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
+            DataManager.ReportsDidChange += OnProjectReportsChanged;
+            DataManager.DataDidChange += OnProjectDataChanged;
             UpdatePreparerDisplay();
             UpdateTraceabilityControl();
             ObserveSourceChanges();
@@ -119,13 +134,44 @@ namespace AnalysisITC
         public override void ViewDidDisappear()
         {
             AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
+            DataManager.ReportsDidChange -= OnProjectReportsChanged;
+            DataManager.DataDidChange -= OnProjectDataChanged;
             foreach (var source in observedSources)
             {
                 source.ContentChanged -= OnSourceDataChanged;
                 if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
             }
             observedSources.Clear();
+            if (View.Window?.SheetParent == null) CompleteClose();
             base.ViewDidDisappear();
+        }
+
+        void CompleteClose()
+        {
+            if (closed) return;
+            closed = true;
+            Closed?.Invoke();
+        }
+
+        void CloseReport()
+        {
+            CommitInterpretationEditor();
+            CompleteClose();
+            PresentingViewController?.DismissViewController(this);
+        }
+
+        void OnProjectReportsChanged(object sender, EventArgs e) => CheckProjectOwnership();
+        void OnProjectDataChanged(object sender, ExperimentData e) => CheckProjectOwnership();
+        void CheckProjectOwnership()
+        {
+            void Check()
+            {
+                if (closed || CanWriteReport) return;
+                CompleteClose();
+                PresentingViewController?.DismissViewController(this);
+            }
+            if (NSThread.IsMain) Check();
+            else NSApplication.SharedApplication.BeginInvokeOnMainThread(Check);
         }
 
         void ObserveSourceChanges()
@@ -310,8 +356,7 @@ namespace AnalysisITC
             var cancel = Button("Cancel");
             cancel.Activated += (sender, e) =>
             {
-                CommitInterpretationEditor();
-                PresentingViewController?.DismissViewController(this);
+                CloseReport();
             };
             previewButton.Activated += async (sender, e) => await PreviewAsync();
             exportButton.Activated += async (sender, e) => await ExportAsync();
@@ -448,11 +493,16 @@ namespace AnalysisITC
         {
             results.Clear(); results.AddRange(DataManager.Results);
             experiments.Clear(); experiments.AddRange(DataManager.Data);
+            if (initiallySavedReport != null)
+            {
+                ApplyResultSelection(AnalysisReportPresentation.ResultsInProjectOrder(initiallySavedReport, results),
+                    false, exactReport: initiallySavedReport);
+                return;
+            }
             var selected = initiallySelected != null && results.Contains(initiallySelected) ? initiallySelected : DataManager.SelectedResult;
             if (selected == null) selected = results.FirstOrDefault();
             var initialResults = selected == null ? Array.Empty<AnalysisResult>() : new[] { selected };
-            ApplyResultSelection(initialResults, false, AppSettings.AutoSelectReportReferenceExperiments
-                ? ReferenceExperimentsFor(initialResults) : Enumerable.Empty<ExperimentData>());
+            ApplyResultSelection(initialResults, false);
         }
 
         void BuildResultPopover()
@@ -612,18 +662,40 @@ namespace AnalysisITC
         }
 
         void ApplyResultSelection(IEnumerable<AnalysisResult> selection, bool preserveCustomTitle,
-            IEnumerable<ExperimentData> supportingSelection = null)
+            IEnumerable<ExperimentData> supportingSelection = null, AnalysisReport exactReport = null)
         {
+            if (closed || documentId != DocumentDirtyTracker.CurrentDocumentId) return;
+            var chosen = results.Where(result => selection.Contains(result)).ToList();
+            var sameResults = report != null && AnalysisReportPresentation.MatchesResultIds(report,
+                chosen.Select(result => result.UniqueID));
+            var keepActiveReport = sameResults && preserveCustomTitle && exactReport == null;
+            if (keepActiveReport && !CanWriteReport) return;
             changingResult = true;
             try
             {
                 selectedResults.Clear();
-                selectedResults.AddRange(results.Where(result => selection.Contains(result)));
+                selectedResults.AddRange(chosen);
                 condenseRepeatedButton.Enabled = !busy
                     && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
+                if (!keepActiveReport)
+                {
+                    report = exactReport ?? AnalysisReportPresentation.FindMatchingReport(DataManager.Reports,
+                        selectedResults.Select(result => result.UniqueID));
+                    reportWasRegistered = report != null && DataManager.Reports.Contains(report);
+                    if (report == null && selectedResults.Count > 0)
+                    {
+                        report = new AnalysisReport();
+                        report.SetResultIds(selectedResults.Select(result => result.UniqueID));
+                        if (AppSettings.AutoSelectReportReferenceExperiments)
+                            report.SetSupportingExperimentIds(ReferenceExperimentsFor(selectedResults)
+                                .Select(experiment => experiment.UniqueID));
+                    }
+                }
+                else if (supportingSelection != null)
+                    report.SetSupportingExperimentIds(supportingSelection.Select(experiment => experiment.UniqueID));
                 selectedSupportingExperiments.Clear();
-                var requestedSupporting = supportingSelection ?? Enumerable.Empty<ExperimentData>();
-                selectedSupportingExperiments.AddRange(experiments.Where(requestedSupporting.Contains));
+                if (report != null) selectedSupportingExperiments.AddRange(experiments.Where(experiment =>
+                    report.SupportingExperimentIds.Contains(experiment.UniqueID, StringComparer.Ordinal)));
                 ObserveSourceChanges();
                 var effectiveCount = EffectiveSupportingExperiments().Count;
                 selectResultsButton.Title = selectedResults.Count == 0 ? "Select report contents…"
@@ -633,14 +705,13 @@ namespace AnalysisITC
                     : ResultSummary(selectedResults) + " · " + effectiveCount
                         + " supporting experiment" + (effectiveCount == 1 ? "" : "s") + (selectedResults.Count > 1
                         ? "\n" + string.Join(" · ", selectedResults.Select(result => result.Name)) : "");
-                if (!preserveCustomTitle || automaticTitle)
+                if (!keepActiveReport)
                 {
                     automaticTitle = true;
-                    titleField.StringValue = selectedResults.Count == 1 ? selectedResults[0].Name
-                        : selectedResults.Count > 1 ? "Analysis report" : "";
+                    titleField.StringValue = AnalysisReportPresentation.AutomaticTitle(selectedResults);
+                    RebuildAdvanced();
+                    LoadReport();
                 }
-                RebuildAdvanced();
-                LoadReport(selectedResults, selectedSupportingExperiments);
                 if (selectedSupportingExperiments.Count > 0) EnsureReportRegistered();
                 if (selectedResults.Count > 0) ValidateSelection();
                 else
@@ -650,22 +721,14 @@ namespace AnalysisITC
                 }
             }
             finally { changingResult = false; }
-            MarkStale();
+            stale = true;
+            UpdateInterpretationStatus();
+            if (pdfView.Document != null && CurrentValidation().IsValid)
+                SetStatus("Preview is out of date. Select Update Preview to refresh.", false, true);
         }
 
-        void LoadReport(IReadOnlyList<AnalysisResult> selection, IReadOnlyList<ExperimentData> supporting)
+        void LoadReport()
         {
-            var ids = selection.Select(result => result.UniqueID).ToList();
-            report = ids.Count == 0 ? null : DataManager.Reports.FirstOrDefault(item =>
-                item.ResultIds.SequenceEqual(ids, StringComparer.Ordinal)
-                && item.SupportingExperimentIds.SequenceEqual(
-                    supporting.Select(experiment => experiment.UniqueID), StringComparer.Ordinal));
-            if (report == null && ids.Count > 0)
-            {
-                report = new AnalysisReport { Name = ids.Count == 1 ? selection[0].Name + " report" : "Analysis report" };
-                report.SetResultIds(ids);
-                report.SetSupportingExperimentIds(supporting.Select(experiment => experiment.UniqueID));
-            }
             reportIdField.StringValue = report?.PresentationSettings.ReportId ?? "";
             if (report != null && report.HasPresentationSettings)
             {
@@ -673,7 +736,7 @@ namespace AnalysisITC
                 SetText(labelField, saved.DocumentLabel);
                 automaticTitle = saved.AutomaticTitle;
                 titleField.StringValue = automaticTitle
-                    ? selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report"
+                    ? AnalysisReportPresentation.AutomaticTitle(selectedResults)
                     : saved.Title;
                 energyPopup.SelectItem(Array.IndexOf(EnergyFamilies, saved.EnergyUnitFamily));
                 temperaturePopup.SelectItem(saved.UseKelvin ? 1 : 0);
@@ -700,7 +763,7 @@ namespace AnalysisITC
             {
                 SetText(labelField, "");
                 automaticTitle = true;
-                titleField.StringValue = selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report";
+                titleField.StringValue = AnalysisReportPresentation.AutomaticTitle(selectedResults);
                 energyPopup.SelectItem(AppSettings.EnergyUnitFamily == EnergyUnitFamily.Calories ? 1 : 0);
                 temperaturePopup.SelectItem(0);
                 uncertaintyPopup.SelectItem(3);
@@ -742,7 +805,7 @@ namespace AnalysisITC
             var relation = string.IsNullOrEmpty(role) ? "" : " · " + role;
             var date = experiment.DateSource == ExperimentDateSource.DataFile
                 || experiment.DateSource == ExperimentDateSource.UserModified
-                ? experiment.Date.ToString("d") + " · " : "";
+                ? LocalDateTimeFormatter.ShortDate(experiment.Date) + " · " : "";
             return date + processing + relation;
         }
 
@@ -750,18 +813,20 @@ namespace AnalysisITC
         {
             var model = result.Model?.ModelType.GetProperties().Name ?? "Unknown model";
             var count = result.Solution?.Solutions?.Count ?? 0;
-            return result.Date.ToString("g") + " · " + model + " · " + count +
+            return LocalDateTimeFormatter.ShortDateTime(result.Date) + " · " + model + " · " + count +
                 " experiment" + (count == 1 ? "" : "s");
         }
 
         void EnsureReportRegistered()
         {
-            if (report != null && !DataManager.Reports.Contains(report)) DataManager.AddReport(report);
+            if (!CanWriteReport) return;
+            if (!DataManager.Reports.Contains(report)) DataManager.AddReport(report);
+            reportWasRegistered = true;
         }
 
         bool CommitInterpretationEditor()
         {
-            if (loadingInterpretation || report == null) return true;
+            if (loadingInterpretation || !CanWriteReport) return true;
             var current = report.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             var edited = interpretationText.String ?? "";
             if (string.Equals(current.Trim(), edited.Trim(), StringComparison.Ordinal)) return true;
@@ -782,15 +847,16 @@ namespace AnalysisITC
 
         void GenerateInterpretation()
         {
-            if (busy || report == null || selectedResults.Count == 0) return;
+            if (busy || !CanWriteReport || selectedResults.Count == 0) return;
+            var owningReport = report;
             AnalysisInterpretationViewController sheet = null;
             sheet = new AnalysisInterpretationViewController(report,
                 id => results.FirstOrDefault(result => result.UniqueID == id),
                 id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id), InterpretationHttpClient,
                 () => { EnsureReportRegistered(); MarkStale(); UpdateInterpretationStatus(); }, draft =>
                 {
-                    if (draft == null) return;
-                    report.ApproveInterpretation(draft);
+                    if (draft == null || !CanWriteReport || !ReferenceEquals(report, owningReport)) return;
+                    owningReport.ApproveInterpretation(draft);
                     EnsureReportRegistered();
                     loadingInterpretation = true;
                     SetText(interpretationText, report.ApprovedInterpretation?.InterpretationMarkdown ?? "");
@@ -798,7 +864,7 @@ namespace AnalysisITC
                     MarkStale();
                     UpdateInterpretationStatus();
                     ShowInterpretationWorkspace(true);
-                });
+                }, () => CanWriteReport && ReferenceEquals(report, owningReport));
             PresentViewControllerAsSheet(sheet);
         }
 
@@ -849,6 +915,7 @@ namespace AnalysisITC
                 DocumentLabel = labelField.String ?? "",
                 ReportId = reportIdField.StringValue.Trim(),
                 Title = titleField.StringValue,
+                ResultOrderIds = DataManager.Results.Select(result => result.UniqueID).ToList(),
                 EnergyUnitFamily = EnergyFamilies[Math.Max(0, Math.Min(EnergyFamilies.Length - 1, (int)energyPopup.IndexOfSelectedItem))],
                 EnergyUnitOverride = report?.PresentationSettings.EnergyUnitOverride,
                 UseKelvin = temperaturePopup.IndexOfSelectedItem == 1,
@@ -932,7 +999,7 @@ namespace AnalysisITC
 
         async Task<bool> BuildAsync(bool showPreview)
         {
-            if (busy || selectedResults.Count == 0) return false;
+            if (busy || !CanWriteReport || selectedResults.Count == 0) return false;
             if (!CommitInterpretationEditor()) return false;
             var validation = CurrentValidation();
             if (!validation.IsValid) { SetStatus(validation.Errors.FirstOrDefault() ?? "This result cannot be reported.", true); return false; }
@@ -952,6 +1019,7 @@ namespace AnalysisITC
                     var data = renderer.CreatePdfData(document, plan);
                     return Tuple.Create(document, plan, data);
                 });
+                if (!CanWriteReport) { output.Item3.Dispose(); return false; }
                 ReplaceReport(output.Item1, output.Item2, output.Item3, showPreview || pdfView.Document != null);
                 stale = false;
                 SetStatus(output.Item1.Warnings.FirstOrDefault() ?? output.Item2.Pages.Count + " A4 pages ready.", false, output.Item1.Warnings.Count > 0);
@@ -1007,9 +1075,9 @@ namespace AnalysisITC
 
         void MarkStale()
         {
-            if (changingResult) return;
+            if (changingResult || !CanWriteReport) return;
             UpdateTraceabilityControl();
-            if (report != null && selectedResults.Count > 0 && !report.PresentationSettingsEqual(Options()))
+            if (selectedResults.Count > 0 && !report.PresentationSettingsEqual(Options()))
             {
                 report.UpdatePresentationSettings(Options());
                 EnsureReportRegistered();
@@ -1110,7 +1178,8 @@ namespace AnalysisITC
                 summary = record.UserEdited ? "Automatically generated, user edited" : "Automatically generated";
                 var freshness = AnalysisInterpretationService.EvaluateFreshness(report,
                     id => results.FirstOrDefault(result => result.UniqueID == id),
-                    id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id)).Status;
+                    id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id),
+                    DataManager.Results.Select(result => result.UniqueID).ToList()).Status;
                 summary += freshness == AnalysisInterpretationFreshness.Current ? " • Current"
                     : freshness == AnalysisInterpretationFreshness.Stale ? " • Out of date" : " • Cannot verify";
             }
@@ -1130,7 +1199,6 @@ namespace AnalysisITC
 
         AnalysisResult SelectedResult => selectedResults.Count == 1 ? selectedResults[0] : null;
         static string ResultKey(IEnumerable<AnalysisResult> selection) => string.Join("|", selection.Select(result => string.IsNullOrWhiteSpace(result.UniqueID) ? result.Name + ":" + result.Date.Ticks : result.UniqueID));
-        static string ResultTitle(AnalysisResult result) => result.Name + " — " + result.Date.ToString("g");
         static string ResultSummary(IEnumerable<AnalysisResult> selection)
         {
             var selected = (selection ?? Enumerable.Empty<AnalysisResult>()).Where(result => result != null).ToList();
@@ -1148,6 +1216,9 @@ namespace AnalysisITC
         {
             if (disposing)
             {
+                AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
+                DataManager.ReportsDidChange -= OnProjectReportsChanged;
+                DataManager.DataDidChange -= OnProjectDataChanged;
                 foreach (var source in observedSources)
                 {
                     source.ContentChanged -= OnSourceDataChanged;
@@ -1155,6 +1226,7 @@ namespace AnalysisITC
                 }
                 observedSources.Clear();
                 CommitInterpretationEditor();
+                CompleteClose();
                 pdfView.Document = null;
                 currentPdfDocument?.Dispose();
                 currentPdfData?.Dispose();
@@ -1366,6 +1438,7 @@ namespace AnalysisITC
         readonly HttpClient httpClient;
         readonly Action ensureRegistered;
         readonly Action<AnalysisInterpretationRecord> completion;
+        readonly Func<bool> canWriteReport;
         readonly ReportInterpretationTextView question = new ReportInterpretationTextView(new CGRect(0, 0, 560, 66));
         readonly ReportInterpretationTextView context = new ReportInterpretationTextView(new CGRect(0, 0, 560, 120));
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
@@ -1418,8 +1491,14 @@ namespace AnalysisITC
         public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
             Action ensureRegistered, Action<AnalysisInterpretationRecord> completion)
+            : this(report, resultResolver, experimentResolver, httpClient, ensureRegistered, completion, () => true) { }
+
+        public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
+            Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
+            Action ensureRegistered, Action<AnalysisInterpretationRecord> completion, Func<bool> canWriteReport)
         {
             this.report = report; this.resultResolver = resultResolver; this.experimentResolver = experimentResolver; this.httpClient = httpClient;
+            this.canWriteReport = canWriteReport;
             thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
             includeInjectionTables.SetButtonType(NSButtonType.Switch);
             includeProcessingInformation.SetButtonType(NSButtonType.Switch);
@@ -1578,6 +1657,7 @@ namespace AnalysisITC
 
         void SaveInputs()
         {
+            if (!canWriteReport()) return;
             var inputs = CreateDialogReport();
             report.UpdateInterpretationSettings(inputs.InterpretationSettings);
             report.UpdateStudyContext(inputs.StudyContext);
@@ -1822,9 +1902,11 @@ namespace AnalysisITC
             AnalysisReport snapshot;
             Dictionary<string, AnalysisResult> results;
             Dictionary<string, ExperimentData> experiments;
+            IReadOnlyList<string> resultOrderIds;
             try
             {
                 snapshot = CreateDialogReport();
+                resultOrderIds = DataManager.Results.Select(result => result.UniqueID).ToList();
                 results = snapshot.ResultIds.Distinct(StringComparer.Ordinal)
                     .ToDictionary(id => id, id => resultResolver(id), StringComparer.Ordinal);
                 experiments = snapshot.SupportingExperimentIds.Distinct(StringComparer.Ordinal)
@@ -1847,7 +1929,7 @@ namespace AnalysisITC
                     var package = AnalysisInterpretationPackageBuilder.Build(snapshot,
                         id => results.TryGetValue(id, out var result) ? result : null,
                         id => experiments.TryGetValue(id, out var experiment) ? experiment : null,
-                        snapshot.InterpretationSettings);
+                        snapshot.InterpretationSettings, resultOrderIds);
                     var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
                     DispatchQueue.MainQueue.DispatchAsync(() =>
                     {
@@ -1897,7 +1979,8 @@ namespace AnalysisITC
                 {
                     var snapshot = CreateDialogReport();
                     await Task.Yield();
-                    var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
+                    var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings,
+                        DataManager.Results.Select(result => result.UniqueID).ToList());
                     var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
                     File.WriteAllBytes(panel.Url.Path, bytes);
                     SetStatus("Interpretation package saved locally. Nothing was sent to the server.");
@@ -1909,7 +1992,7 @@ namespace AnalysisITC
 
         async Task GenerateAsync()
         {
-            if (cancellation != null) return;
+            if (cancellation != null || !canWriteReport()) return;
             if (!serviceAllowsGeneration) { SetStatus(serviceStatus.StringValue); return; }
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0)
@@ -1936,8 +2019,9 @@ namespace AnalysisITC
                 });
                 var output = await new AnalysisInterpretationService(provider).GenerateAsync(
                     report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress,
-                    CurrentGenerationSelection());
+                    CurrentGenerationSelection(), DataManager.Results.Select(result => result.UniqueID).ToList());
                 generationToken.ThrowIfCancellationRequested();
+                if (!canWriteReport()) return;
                 generated = output.Interpretation; SetText(draft, generated.InterpretationMarkdown);
                 generatedProvenance.StringValue = InterpretationAccessDisplay.GenerationProvenance(generated);
                 generatedProvenance.Hidden = false;
@@ -2125,7 +2209,8 @@ namespace AnalysisITC
 
         void Close(AnalysisInterpretationRecord value)
         {
-            cancellation?.Cancel(); PresentingViewController?.DismissViewController(this); completion(value);
+            cancellation?.Cancel(); PresentingViewController?.DismissViewController(this);
+            if (value == null || canWriteReport()) completion(value);
         }
 
         public override void ViewWillDisappear()

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
@@ -199,8 +200,8 @@ namespace AnalysisITC.Core.Export
                             await FTXTCWriter.WriteFileAsync(path, new[] { experiment }, null, null, null, null, options);
                             break;
                         case AnalysisResult result:
-                            var members = result.Solution.Solutions.Select(solution => solution.Data).Distinct().ToList();
-                            await FTXTCWriter.WriteFileAsync(path, WithBufferReferences(members), new[] { result }, null, null, null, options);
+                            var (experiments, results) = WithDependencies(result);
+                            await FTXTCWriter.WriteFileAsync(path, experiments, results, null, null, null, options);
                             break;
                     }
                 }
@@ -218,6 +219,30 @@ namespace AnalysisITC.Core.Export
                 ReportSaveFailure(path, ex);
                 return false;
             }
+        }
+
+        // Result saves also keep loaded competitor source results, recursively, with their members and buffer references.
+        static (List<ExperimentData> Experiments, List<AnalysisResult> Results) WithDependencies(AnalysisResult selected)
+        {
+            var experiments = new List<ExperimentData>();
+            var results = new List<AnalysisResult>();
+            var pending = new Queue<AnalysisResult>();
+            pending.Enqueue(selected);
+            while (pending.Count > 0)
+            {
+                var result = pending.Dequeue();
+                if (results.Contains(result)) continue; // Reference cycles end at a result already written.
+                results.Add(result);
+                var members = result.Solution.Solutions.Select(solution => solution.Data).Distinct().ToList();
+                foreach (var experiment in WithBufferReferences(members).Where(experiment => !experiments.Contains(experiment)))
+                {
+                    experiments.Add(experiment);
+                    var sourceId = experiment.Attributes.FirstOrDefault(attribute => attribute.Key == AttributeKey.CompetitorResult)?.StringValue;
+                    var source = DataManager.Results.FirstOrDefault(item => item.UniqueID == sourceId);
+                    if (source != null) pending.Enqueue(source);
+                }
+            }
+            return (experiments, results);
         }
 
         static List<ExperimentData> WithBufferReferences(IReadOnlyList<ExperimentData> experiments)

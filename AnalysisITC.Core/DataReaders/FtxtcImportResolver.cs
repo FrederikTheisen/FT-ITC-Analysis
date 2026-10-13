@@ -155,6 +155,7 @@ namespace AnalysisITC.Core.DataReaders
                     member.ExperimentId = Replace(member.ExperimentId, experimentMap);
             foreach (var report in content.Reports)
             {
+                var lastEditedUtc = report.LastEditedUtc;
                 report.SetID(Replace(report.UniqueID, reportMap));
                 report.SetResultIds(report.ResultIds.Select(id => Replace(id, resultMap)));
                 report.SetSupportingExperimentIds(report.SupportingExperimentIds.Select(id => Replace(id, experimentMap)));
@@ -162,6 +163,7 @@ namespace AnalysisITC.Core.DataReaders
                 foreach (var annotation in context.Experiments)
                     annotation.ExperimentId = Replace(annotation.ExperimentId, experimentMap);
                 report.UpdateStudyContext(context);
+                report.RestoreLastEditedUtc(lastEditedUtc);
             }
         }
 

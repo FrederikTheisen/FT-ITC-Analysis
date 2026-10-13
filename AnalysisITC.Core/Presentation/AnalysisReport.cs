@@ -95,6 +95,8 @@ namespace AnalysisITC.Core.Presentation
         public bool IncludeCoverSignature { get; set; } = true;
         public string Author { get; set; } = AppSettings.UserName ?? "";
         public string ReportId { get; set; } = "";
+        /// <summary>Transient project ordering for result chapters; never saved as report content.</summary>
+        public IReadOnlyList<string> ResultOrderIds { get; set; }
         internal IReadOnlyDictionary<string, string> ExperimentReferenceLabels { get; set; }
         internal Func<string, ExperimentData> ExperimentResolver { get; set; }
 
@@ -112,6 +114,7 @@ namespace AnalysisITC.Core.Presentation
                 OutputPurpose = OutputPurpose,
                 Author = includeGenerationMetadata ? Author ?? "" : "",
                 ReportId = ReportId?.Trim() ?? "",
+                ResultOrderIds = includeGenerationMetadata ? ResultOrderIds?.ToArray() : null,
                 IncludeCoverSignature = !includeGenerationMetadata || IncludeCoverSignature,
                 ExperimentReferenceLabels = includeGenerationMetadata ? ExperimentReferenceLabels : null,
                 ExperimentResolver = ExperimentResolver,

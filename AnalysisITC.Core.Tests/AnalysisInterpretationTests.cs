@@ -422,11 +422,6 @@ public sealed class AnalysisInterpretationTests
         segmented.RestoreSegments(new[] { new SegmentedBaselineInterpolator.BaselineSegment(
             SegmentedBaselineInterpolator.BaselineSegmentKind.InitialDelay, -1, 0, 10, 5, new[] { 10e-6, 1e-6 }) });
         Assert.Single(AnalysisInterpretationDiagnostics.Baseline(experiment, "e").Segmented.Segments);
-
-        experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.ASL);
-        var als = Assert.IsType<AssymetricLeastSquaresInterpolator>(experiment.Processor.Interpolator);
-        als.Iterations = 17; als.Lambda = 2200; als.Asymmetry = 0.91;
-        Assert.Equal(17, AnalysisInterpretationDiagnostics.Baseline(experiment, "e").AsymmetricLeastSquares.Iterations);
     }
 
     [Theory]
@@ -580,8 +575,9 @@ public sealed class AnalysisInterpretationTests
         var generated = await new AnalysisInterpretationService(new StubProvider()).GenerateAsync(report, result);
         report.ApproveInterpretation(generated.Interpretation);
 
-        report.UpdateApprovedInterpretationText(
-            generated.Interpretation.InterpretationMarkdown.Replace("The interaction", "This interaction"));
+        var edited = generated.Interpretation.InterpretationMarkdown.Replace("The stored result", "This stored result");
+        Assert.NotEqual(generated.Interpretation.InterpretationMarkdown, edited);
+        report.UpdateApprovedInterpretationText(edited);
 
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         Assert.True(report.ApprovedInterpretation.UserEdited);

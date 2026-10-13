@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Platform;
 
@@ -284,7 +285,8 @@ namespace AnalysisITC.Core.Application
                     || !DocumentDirtyTracker.IsDirty
                     || DocumentDirtyTracker.IsSuspended
                     || DataManager.SourceItems == null
-                    || DataManager.SourceItems.Count == 0
+                    || (DataManager.SourceItems.Count == 0 && DataManager.Reports.Count == 0
+                        && string.IsNullOrEmpty(ProjectDocumentState.Path))
                     || ProjectWriter.IsWriteInProgress)
                 {
                     return false;

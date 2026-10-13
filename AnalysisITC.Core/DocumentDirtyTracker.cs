@@ -36,6 +36,10 @@ namespace AnalysisITC.Core.Application
         public static bool IsDirty => isDirty;
         public static bool IsSuspended => suspendCount > 0;
         public static bool IsRestoringDocument => restoreDocumentCount > 0;
+        public static Guid CurrentDocumentId
+        {
+            get { lock (documentStateLock) return documentId; }
+        }
 
         internal static DocumentSaveStamp CaptureSaveStamp()
         {

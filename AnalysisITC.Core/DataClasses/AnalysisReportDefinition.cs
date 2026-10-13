@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 
@@ -24,7 +26,32 @@ namespace AnalysisITC.Core.Data
         public AnalysisReport()
         {
             Date = DateTime.UtcNow;
-            Name = "Analysis report";
+            LastEditedUtc = Date;
+        }
+
+        public DateTime? LastEditedUtc { get; private set; }
+        public override string Name
+        {
+            get => base.Name;
+            set
+            {
+                var next = value ?? "";
+                if (base.Name == next) return;
+                if (!DocumentDirtyTracker.IsRestoringDocument && approvedInterpretation != null
+                    && approvedInterpretation.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme
+                    && approvedInterpretation.ReportNameForFingerprint == null)
+                    approvedInterpretation.ReportNameForFingerprint = base.Name;
+                base.Name = next;
+            }
+        }
+
+        public override void MarkModified()
+        {
+            if (DocumentDirtyTracker.IsRestoringDocument) return;
+            var now = DateTime.UtcNow;
+            LastEditedUtc = LastEditedUtc.HasValue && now <= LastEditedUtc.Value
+                ? LastEditedUtc.Value.AddTicks(1) : now;
+            base.MarkModified();
         }
 
         public IReadOnlyList<string> ResultIds => resultIds.AsReadOnly();
@@ -66,18 +93,23 @@ namespace AnalysisITC.Core.Data
 
         public void UpdateStudyContext(AnalysisStudyContext context)
         {
-            studyContext = (context ?? new AnalysisStudyContext()).Copy();
+            var next = (context ?? new AnalysisStudyContext()).Copy();
+            if (ValuesEqual(studyContext, next)) return;
+            studyContext = next;
             MarkModified();
         }
 
         public void UpdateInterpretationSettings(AnalysisInterpretationOptions settings)
         {
-            interpretationSettings = (settings ?? AnalysisInterpretationOptions.Default()).Copy();
+            var next = (settings ?? AnalysisInterpretationOptions.Default()).Copy();
+            if (ValuesEqual(interpretationSettings, next)) return;
+            interpretationSettings = next;
             MarkModified();
         }
 
         public void UpdatePresentationSettings(AnalysisReportOptions settings)
         {
+            if (hasPresentationSettings && PresentationSettingsEqual(settings)) return;
             presentationSettings = (settings ?? new AnalysisReportOptions()).Copy(includeGenerationMetadata: false);
             hasPresentationSettings = true;
             MarkModified();
@@ -93,7 +125,8 @@ namespace AnalysisITC.Core.Data
         {
             var left = presentationSettings;
             var right = settings ?? new AnalysisReportOptions();
-            return left.DocumentLabel == right.DocumentLabel && left.Title == right.Title
+            return left.DocumentLabel == right.DocumentLabel
+                && ((left.AutomaticTitle && right.AutomaticTitle) || left.Title == right.Title)
                 && left.AutomaticTitle == right.AutomaticTitle && left.EnergyUnitFamily == right.EnergyUnitFamily
                 && left.EnergyUnitOverride == right.EnergyUnitOverride && left.UseKelvin == right.UseKelvin
                 && left.UncertaintyDisplayStyle == right.UncertaintyDisplayStyle
@@ -128,7 +161,8 @@ namespace AnalysisITC.Core.Data
                 context ?? StudyContext,
                 settings ?? InterpretationSettings,
                 approvedInterpretation,
-                HasPresentationSettings ? PresentationSettings : null);
+                HasPresentationSettings ? PresentationSettings : null,
+                LastEditedUtc);
             copy.SetInterpretationFreshness(new AnalysisInterpretationFreshnessResult
             {
                 Status = InterpretationFreshness,
@@ -141,11 +175,18 @@ namespace AnalysisITC.Core.Data
         public void ApproveInterpretation(AnalysisInterpretationRecord interpretation)
         {
             if (interpretation == null) throw new ArgumentNullException(nameof(interpretation));
-            approvedInterpretation = interpretation.Copy();
-            approvedInterpretation.Origin = AnalysisInterpretationOrigin.AiGenerated;
-            approvedInterpretation.InterpretationMarkdown = AnalysisInterpretationResponseParser.Parse(
-                approvedInterpretation.InterpretationMarkdown);
-            approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
+            var next = interpretation.Copy();
+            next.Origin = AnalysisInterpretationOrigin.AiGenerated;
+            if (next.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme
+                && next.ReportNameForFingerprint == null)
+                next.ReportNameForFingerprint = approvedInterpretation?.EvidenceFingerprintScheme == next.EvidenceFingerprintScheme
+                    && approvedInterpretation.InputFingerprint == next.InputFingerprint
+                    ? approvedInterpretation.ReportNameForFingerprint ?? Name : Name;
+            next.InterpretationMarkdown = AnalysisInterpretationResponseParser.Parse(next.InterpretationMarkdown);
+            next.ApprovedAtUtc = approvedInterpretation?.ApprovedAtUtc ?? default;
+            if (ValuesEqual(approvedInterpretation, next)) return;
+            next.ApprovedAtUtc = DateTime.UtcNow;
+            approvedInterpretation = next;
             MarkModified();
         }
 
@@ -156,12 +197,17 @@ namespace AnalysisITC.Core.Data
                 ClearApprovedInterpretation();
                 return;
             }
+            var text = AnalysisInterpretationResponseParser.ParseManual(markdown);
+            var fingerprint = assessmentContextFingerprint ?? "";
+            if (approvedInterpretation?.Origin == AnalysisInterpretationOrigin.Manual
+                && approvedInterpretation.InterpretationMarkdown == text
+                && approvedInterpretation.AssessmentContextFingerprint == fingerprint) return;
             approvedInterpretation = new AnalysisInterpretationRecord
             {
                 Origin = AnalysisInterpretationOrigin.Manual,
-                InterpretationMarkdown = AnalysisInterpretationResponseParser.ParseManual(markdown),
+                InterpretationMarkdown = text,
                 ApprovedAtUtc = DateTime.UtcNow,
-                AssessmentContextFingerprint = assessmentContextFingerprint ?? "",
+                AssessmentContextFingerprint = fingerprint,
             };
             MarkModified();
         }
@@ -178,7 +224,11 @@ namespace AnalysisITC.Core.Data
                 SetManualInterpretation(markdown, assessmentContextFingerprint);
                 return;
             }
-            approvedInterpretation.InterpretationMarkdown = ParseEditorMarkdown(markdown);
+            var text = ParseEditorMarkdown(markdown);
+            if (approvedInterpretation.InterpretationMarkdown == text
+                && (assessmentContextFingerprint == null
+                    || approvedInterpretation.AssessmentContextFingerprint == assessmentContextFingerprint)) return;
+            approvedInterpretation.InterpretationMarkdown = text;
             approvedInterpretation.UserEdited = true;
             approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
             if (assessmentContextFingerprint != null)
@@ -207,7 +257,8 @@ namespace AnalysisITC.Core.Data
             AnalysisStudyContext context,
             AnalysisInterpretationOptions settings,
             AnalysisInterpretationRecord approved,
-            AnalysisReportOptions presentation = null)
+            AnalysisReportOptions presentation = null,
+            DateTime? lastEditedUtc = null)
         {
             resultIds.Clear();
             resultIds.AddRange((ids ?? Enumerable.Empty<string>())
@@ -220,7 +271,13 @@ namespace AnalysisITC.Core.Data
             approvedInterpretation = approved?.Copy();
             presentationSettings = (presentation ?? new AnalysisReportOptions()).Copy(includeGenerationMetadata: false);
             hasPresentationSettings = presentation != null;
+            LastEditedUtc = lastEditedUtc;
         }
+
+        internal void RestoreLastEditedUtc(DateTime? value) => LastEditedUtc = value;
+
+        static bool ValuesEqual<T>(T left, T right) =>
+            JsonSerializer.Serialize(left) == JsonSerializer.Serialize(right);
 
         internal void SetInterpretationFreshness(AnalysisInterpretationFreshnessResult freshness)
         {

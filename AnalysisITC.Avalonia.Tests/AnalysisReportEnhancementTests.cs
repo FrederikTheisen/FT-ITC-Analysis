@@ -272,18 +272,21 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         var fixture = CreateResult("Snapshot rebuild");
         var previousOperator = AppSettings.UserName;
         var originalContext = SynchronizationContext.Current;
+        AnalysisReportWindow? window = null;
         try
         {
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext());
             AppSettings.UserName = "Operator A";
-            var window = Dispatcher.UIThread.Invoke(() => new AnalysisReportWindow());
+            window = Dispatcher.UIThread.Invoke(() =>
+            {
+                ResetData();
+                DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+                return new AnalysisReportWindow(fixture.Result);
+            });
             Task<bool>? preparation = null;
             AnalysisReportDocument? preview = null;
             Dispatcher.UIThread.Invoke(() =>
             {
-                FieldValue<List<AnalysisResult>>(window, "selectedResults").Add(fixture.Result);
-                typeof(AnalysisReportWindow).GetMethod("ObserveSourceChanges", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .Invoke(window, null);
                 fixture.Result.Name = "Edited before preview";
                 preview = AnalysisReportBuilder.Build(fixture.Result, new AnalysisReportOptions
                 {
@@ -323,6 +326,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         }
         finally
         {
+            if (window != null) Dispatcher.UIThread.Invoke(window.Close);
             AppSettings.UserName = previousOperator;
             SynchronizationContext.SetSynchronizationContext(originalContext);
         }
@@ -598,7 +602,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 Assert.Contains("Included through Result 1", ((StackPanel)tandemCheck.Content!).Children.OfType<TextBlock>().Last().Text);
                 Assert.False(tandemCheck.IsEnabled);
                 Assert.Contains("Buffer reference; Tandem source", ((StackPanel)firstCheck.Content!).Children.OfType<TextBlock>().Last().Text);
-                // Checking a result also triggers preselection when enabled.
+                // Supporting edits remain transient until Apply; references
+                // are selected automatically only for a new report.
                 var resultCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem.Result));
                 Assert.Equal("Reports this fit and its experiments", ToolTip.GetTip(resultCheck));
                 resultCheck.IsChecked = false;
@@ -606,7 +611,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 firstCheck.IsChecked = false;
                 checks.Single(check => ReferenceEquals(check.Tag, second)).IsChecked = false;
                 resultCheck.IsChecked = true;
-                Assert.Equal(automatic, firstCheck.IsChecked == true);
+                Assert.False(firstCheck.IsChecked == true);
                 firstCheck.IsChecked = false;
                 var flyout = Field<Flyout>(window, "resultPickerFlyout");
                 var footer = ((Grid)flyout.Content!).Children.OfType<Grid>().Single();

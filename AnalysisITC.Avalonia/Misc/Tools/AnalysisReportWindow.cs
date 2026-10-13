@@ -150,9 +150,17 @@ namespace AnalysisITC.Avalonia.Tools
         DateTime lastPreviewMagnifyEventUtc;
         double previewMagnifyAccumulator;
         AnalysisReport? report;
+        readonly Guid documentId = DocumentDirtyTracker.CurrentDocumentId;
+        bool reportWasRegistered;
+        bool invalidated;
+        bool closed;
 
-        public AnalysisReportWindow(AnalysisResult? selectedResult = null)
+        public AnalysisReportWindow(AnalysisResult? selectedResult = null, AnalysisReport? savedReport = null)
         {
+            if (savedReport != null && (!DataManager.Reports.Contains(savedReport)
+                || AnalysisReportPresentation.MissingResultCount(savedReport,
+                    id => DataManager.Results.FirstOrDefault(result => result.UniqueID == id)) > 0))
+                throw new ArgumentException("The saved report is unavailable in this project.", nameof(savedReport));
             Title = "Analysis Report";
             Width = 1220;
             Height = 780;
@@ -170,13 +178,17 @@ namespace AnalysisITC.Avalonia.Tools
             BuildLayout();
             WireEvents();
             ApplyPreviewZoom();
-            PopulateResults(selectedResult);
+            PopulateResults(selectedResult, savedReport);
             ObserveSourceChanges();
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
+            DataManager.DataDidChange += OnProjectDataChanged;
+            DataManager.ReportsDidChange += OnProjectReportsChanged;
         }
 
         protected override void OnClosed(EventArgs e)
         {
+            CommitInterpretationEditor();
+            closed = true;
             foreach (var source in observedSources)
             {
                 source.ContentChanged -= OnSourceDataChanged;
@@ -184,9 +196,31 @@ namespace AnalysisITC.Avalonia.Tools
             }
             observedSources.Clear();
             AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
-            CommitInterpretationEditor();
+            DataManager.DataDidChange -= OnProjectDataChanged;
+            DataManager.ReportsDidChange -= OnProjectReportsChanged;
             ClearPreview();
             base.OnClosed(e);
+        }
+
+        bool CanWriteReport() => !closed && !invalidated
+            && documentId == DocumentDirtyTracker.CurrentDocumentId
+            && (!reportWasRegistered || report != null && DataManager.Reports.Contains(report))
+            && selectedResults.All(DataManager.Results.Contains);
+
+        void OnProjectDataChanged(object? sender, ExperimentData e) => CheckProjectOwnership();
+        void OnProjectReportsChanged(object? sender, EventArgs e) => CheckProjectOwnership();
+
+        void CheckProjectOwnership()
+        {
+            void Check()
+            {
+                if (closed || invalidated) return;
+                if (CanWriteReport()) return;
+                invalidated = true;
+                Close();
+            }
+            if (Dispatcher.UIThread.CheckAccess()) Check();
+            else Dispatcher.UIThread.Post(Check);
         }
 
         void ObserveSourceChanges()
@@ -210,11 +244,18 @@ namespace AnalysisITC.Avalonia.Tools
 
         void OnSourceDataChanged(object? sender, EventArgs e)
         {
-            if (Dispatcher.UIThread.CheckAccess())
+            void ApplyChange()
             {
+                if (automaticTitle)
+                {
+                    changingResult = true;
+                    titleBox.Text = AnalysisReportPresentation.AutomaticTitle(selectedResults);
+                    changingResult = false;
+                }
                 MarkStale();
             }
-            else Dispatcher.UIThread.Post(MarkStale);
+            if (Dispatcher.UIThread.CheckAccess()) ApplyChange();
+            else Dispatcher.UIThread.Post(ApplyChange);
         }
 
         void OnSettingsDidUpdate(object? sender, EventArgs e)
@@ -579,18 +620,23 @@ namespace AnalysisITC.Avalonia.Tools
             generateInterpretationButton.Click += async (_, _) => await GenerateInterpretationAsync();
         }
 
-        void PopulateResults(AnalysisResult? selected)
+        void PopulateResults(AnalysisResult? selected, AnalysisReport? savedReport)
         {
             availableResults.Clear();
             availableResults.AddRange(DataManager.Results);
             availableExperiments.Clear();
             availableExperiments.AddRange(DataManager.Data);
+            if (savedReport != null)
+            {
+                ApplyReportSelection(AnalysisReportPresentation.ResultsInProjectOrder(savedReport, availableResults),
+                    false, exactReport: savedReport);
+                return;
+            }
             var initial = selected != null && availableResults.Contains(selected) ? selected
                 : DataManager.SelectedResult != null && availableResults.Contains(DataManager.SelectedResult)
                     ? DataManager.SelectedResult : availableResults.FirstOrDefault();
             var initialResults = initial == null ? Array.Empty<AnalysisResult>() : new[] { initial };
-            ApplyResultSelection(initialResults, false, AppSettings.AutoSelectReportReferenceExperiments
-                ? ReferenceExperimentsFor(initialResults) : Enumerable.Empty<ExperimentData>());
+            ApplyResultSelection(initialResults, false);
         }
 
         void BuildResultPicker()
@@ -681,15 +727,6 @@ namespace AnalysisITC.Avalonia.Tools
                         : AnalysisReportExperimentReferences.PickerTooltip(experiment, selectedResults));
                     check.IsCheckedChanged += (_, _) =>
                     {
-                        if (AppSettings.AutoSelectReportReferenceExperiments
-                            && check.Tag is AnalysisResult selectedResult
-                            && check.IsChecked == true)
-                        {
-                            var references = ReferenceExperimentsFor(new[] { selectedResult }).ToHashSet();
-                            foreach (var referenceCheck in resultPickerChecks.Where(candidate =>
-                                candidate.Tag is ExperimentData experiment && references.Contains(experiment)))
-                                referenceCheck.IsChecked = true;
-                        }
                         UpdateExperimentAvailability();
                         UpdateResultPickerApply(apply);
                     };
@@ -726,7 +763,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var model = result.Model?.ModelType.GetProperties().Name ?? "Unknown model";
             var count = result.Solution?.Solutions?.Count ?? 0;
-            return result.Date.ToString("g") + " • " + model + " • " + count +
+            return LocalDateTimeFormatter.ShortDateTime(result.Date) + " • " + model + " • " + count +
                 " experiment" + (count == 1 ? "" : "s");
         }
 
@@ -738,39 +775,46 @@ namespace AnalysisITC.Avalonia.Tools
             var relation = string.IsNullOrEmpty(role) ? "" : " • " + role;
             var date = experiment.DateSource == ExperimentDateSource.DataFile
                 || experiment.DateSource == ExperimentDateSource.UserModified
-                ? experiment.Date.ToString("d") + " • " : "";
+                ? LocalDateTimeFormatter.ShortDate(experiment.Date) + " • " : "";
             return date + processing + relation;
         }
 
-        Control ResultCell(AnalysisResult? result)
-        {
-            if (result == null) return Text();
-            var panel = new StackPanel { Spacing = 1, Margin = new Thickness(5, 3) };
-            panel.Children.Add(new TextBlock { Text = result.Name, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-            var details = new TextBlock
-            {
-                Text = result.Date.ToString("g"),
-                FontSize = 11,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            AppTheme.Bind(details, TextBlock.ForegroundProperty, AppTheme.MutedText);
-            panel.Children.Add(details);
-            return panel;
-        }
-
         void ApplyResultSelection(IEnumerable<AnalysisResult> selection, bool preserveCustomTitle,
-            IEnumerable<ExperimentData>? supportingSelection = null)
+            IEnumerable<ExperimentData>? supportingSelection = null) =>
+            ApplyReportSelection(selection, preserveCustomTitle, supportingSelection);
+
+        void ApplyReportSelection(IEnumerable<AnalysisResult> selection, bool preserveCustomTitle,
+            IEnumerable<ExperimentData>? supportingSelection = null, AnalysisReport? exactReport = null)
         {
+            if (!CanWriteReport()) return;
             changingResult = true;
             try
             {
                 selectedResults.Clear();
                 selectedResults.AddRange(availableResults.Where(result => selection.Contains(result)));
+                var ids = selectedResults.Select(result => result.UniqueID).ToList();
+                var sameResults = exactReport == null && report != null
+                    && AnalysisReportPresentation.MatchesResultIds(report, ids);
+                if (exactReport != null) report = exactReport;
+                else if (!sameResults)
+                {
+                    report = ids.Count == 0 ? null : AnalysisReportPresentation.FindMatchingReport(DataManager.Reports, ids);
+                    if (report == null && ids.Count > 0)
+                    {
+                        report = new AnalysisReport();
+                        report.SetResultIds(ids);
+                        if (AppSettings.AutoSelectReportReferenceExperiments)
+                            report.SetSupportingExperimentIds(ReferenceExperimentsFor(selectedResults).Select(experiment => experiment.UniqueID));
+                    }
+                }
+                else if (supportingSelection != null)
+                    report!.SetSupportingExperimentIds(availableExperiments.Where(supportingSelection.Contains).Select(experiment => experiment.UniqueID));
+                reportWasRegistered = report != null && DataManager.Reports.Contains(report);
                 condenseRepeatedCheck.IsEnabled = !busy
                     && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
                 selectedSupportingExperiments.Clear();
-                var requestedSupporting = supportingSelection ?? Enumerable.Empty<ExperimentData>();
-                selectedSupportingExperiments.AddRange(availableExperiments.Where(requestedSupporting.Contains));
+                selectedSupportingExperiments.AddRange(availableExperiments.Where(experiment =>
+                    report?.SupportingExperimentIds.Contains(experiment.UniqueID) == true));
                 ObserveSourceChanges();
                 var effectiveCount = EffectiveSupportingExperiments().Count;
                 selectResultsButton.Content = selectedResults.Count == 0 ? "Select report contents…"
@@ -783,11 +827,10 @@ namespace AnalysisITC.Avalonia.Tools
                 if (!preserveCustomTitle || automaticTitle)
                 {
                     automaticTitle = true;
-                    titleBox.Text = selectedResults.Count == 1 ? selectedResults[0].Name
-                        : selectedResults.Count > 1 ? "Analysis report" : "";
+                    titleBox.Text = AnalysisReportPresentation.AutomaticTitle(selectedResults);
                 }
                 RebuildAdvancedChoices(selectedResults);
-                LoadReport(selectedResults, selectedSupportingExperiments);
+                LoadReport();
                 if (selectedSupportingExperiments.Count > 0) EnsureReportRegistered();
                 if (selectedResults.Count > 0) ShowValidation(selectedResults);
                 else
@@ -800,22 +843,11 @@ namespace AnalysisITC.Avalonia.Tools
             MarkStale();
         }
 
-        void LoadReport(IReadOnlyList<AnalysisResult> results, IReadOnlyList<ExperimentData> experiments)
+        void LoadReport()
         {
 #if DEBUG
             loadingReportOptions = true;
 #endif
-            var ids = results.Select(result => result.UniqueID).ToList();
-            report = ids.Count == 0 ? null : DataManager.Reports.FirstOrDefault(item =>
-                item.ResultIds.SequenceEqual(ids, StringComparer.Ordinal)
-                && item.SupportingExperimentIds.SequenceEqual(
-                    experiments.Select(experiment => experiment.UniqueID), StringComparer.Ordinal));
-            if (report == null && ids.Count > 0)
-            {
-                report = new AnalysisReport { Name = ids.Count == 1 ? results[0].Name + " report" : "Analysis report" };
-                report.SetResultIds(ids);
-                report.SetSupportingExperimentIds(experiments.Select(experiment => experiment.UniqueID));
-            }
             reportIdBox.Text = report?.PresentationSettings.ReportId ?? "";
             if (report != null && report.HasPresentationSettings)
             {
@@ -823,7 +855,7 @@ namespace AnalysisITC.Avalonia.Tools
                 labelBox.Text = saved.DocumentLabel;
                 automaticTitle = saved.AutomaticTitle;
                 titleBox.Text = automaticTitle
-                    ? selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report"
+                    ? AnalysisReportPresentation.AutomaticTitle(selectedResults)
                     : saved.Title;
                 energyCombo.SelectedIndex = Array.IndexOf(EnergyFamilies, saved.EnergyUnitFamily);
                 temperatureCombo.SelectedIndex = saved.UseKelvin ? 1 : 0;
@@ -849,7 +881,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 labelBox.Text = "";
                 automaticTitle = true;
-                titleBox.Text = selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report";
+                titleBox.Text = AnalysisReportPresentation.AutomaticTitle(selectedResults);
                 energyCombo.SelectedIndex = Array.IndexOf(EnergyFamilies, AppSettings.EnergyUnitFamily);
                 temperatureCombo.SelectedIndex = 0;
                 uncertaintyCombo.SelectedIndex = 3;
@@ -886,12 +918,14 @@ namespace AnalysisITC.Avalonia.Tools
 
         void EnsureReportRegistered()
         {
-            if (report != null && !DataManager.Reports.Contains(report)) DataManager.AddReport(report);
+            if (!CanWriteReport() || report == null) return;
+            if (!DataManager.Reports.Contains(report)) DataManager.AddReport(report);
+            reportWasRegistered = true;
         }
 
         bool CommitInterpretationEditor()
         {
-            if (loadingInterpretation || report == null) return true;
+            if (loadingInterpretation || report == null || !CanWriteReport()) return true;
             var current = report.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             var edited = interpretationBox.Text ?? "";
             if (string.Equals(current.Trim(), edited.Trim(), StringComparison.Ordinal)) return true;
@@ -912,8 +946,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task GenerateInterpretationAsync()
         {
-            if (busy || report == null || selectedResults.Count == 0) return;
-            var dialog = new AnalysisInterpretationDialog(report,
+            if (busy || report == null || selectedResults.Count == 0 || !CanWriteReport()) return;
+            var generatingReport = report;
+            var dialog = new AnalysisInterpretationDialog(generatingReport,
                 id => availableResults.FirstOrDefault(result => result.UniqueID == id)!,
                 id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!,
                 InterpretationHttpClient, () =>
@@ -921,9 +956,9 @@ namespace AnalysisITC.Avalonia.Tools
                 EnsureReportRegistered();
                 MarkStale();
                 UpdateInterpretationStatus();
-            });
+            }, () => CanWriteReport() && ReferenceEquals(report, generatingReport));
             var draft = await dialog.ShowDialog<AnalysisInterpretationRecord?>(this);
-            if (draft == null) return;
+            if (draft == null || !CanWriteReport() || !ReferenceEquals(report, generatingReport)) return;
             report.ApproveInterpretation(draft);
             EnsureReportRegistered();
             loadingInterpretation = true;
@@ -1026,6 +1061,7 @@ namespace AnalysisITC.Avalonia.Tools
                 Author = AppSettings.UserName,
                 GeneratedAtUtc = DateTime.UtcNow,
                 ApplicationVersion = AppVersion.FullVersionString,
+                ResultOrderIds = DataManager.Results.Select(result => result.UniqueID).ToList(),
             };
             foreach (var descriptor in advancedChecks
                 .Where(check => check.IsChecked == true)
@@ -1085,7 +1121,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task<bool> BuildAsync(bool showPreview)
         {
-            if (selectedResults.Count == 0) return false;
+            if (selectedResults.Count == 0 || !CanWriteReport()) return false;
             if (!CommitInterpretationEditor()) return false;
             var validation = CurrentValidation();
             if (!validation.IsValid)
@@ -1109,6 +1145,7 @@ namespace AnalysisITC.Avalonia.Tools
                     var plan = renderer.CreatePlan(document);
                     return (document, plan);
                 });
+                if (!CanWriteReport()) return false;
                 currentDocument = built.document;
                 currentPlan = built.plan;
                 previewStale = false;
@@ -1180,9 +1217,6 @@ namespace AnalysisITC.Avalonia.Tools
                 previewPinchActive = true;
                 previewPinchStartZoom = CurrentPreviewZoom();
             }
-            previewZoomOutButton.IsEnabled = previewZoomCombo.SelectedIndex > 0;
-            previewZoomInButton.IsEnabled = previewZoomCombo.SelectedIndex >= 0
-                && previewZoomCombo.SelectedIndex < PreviewZoomLevels.Length - 1;
             var requested = previewPinchStartZoom * e.Scale;
             var nearest = Enumerable.Range(0, PreviewZoomLevels.Length)
                 .OrderBy(index => Math.Abs(PreviewZoomLevels[index] - requested))
@@ -1199,6 +1233,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         void ApplyPreviewZoom()
         {
+            previewZoomOutButton.IsEnabled = previewZoomCombo.SelectedIndex > 0;
+            previewZoomInButton.IsEnabled = previewZoomCombo.SelectedIndex >= 0
+                && previewZoomCombo.SelectedIndex < PreviewZoomLevels.Length - 1;
             var zoom = CurrentPreviewZoom();
             foreach (var page in pageViews) page.SetZoom(zoom);
         }
@@ -1253,6 +1290,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         internal async Task<bool> EnsureExportDocumentAsync()
         {
+            if (!CanWriteReport()) return false;
             var preparerNeedsRefresh = currentDocument != null
                 && AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument);
             if (!previewStale && !preparerNeedsRefresh && currentDocument != null && currentPlan != null) return true;
@@ -1262,7 +1300,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         void MarkStale()
         {
-            if (changingResult) return;
+            if (changingResult || !CanWriteReport()) return;
             ApplyTraceabilityCheckboxState();
             if (report != null && selectedResults.Count > 0
                 && !report.PresentationSettingsEqual(CurrentOptions()))
@@ -1334,7 +1372,8 @@ namespace AnalysisITC.Avalonia.Tools
                 summary = record.UserEdited ? "Automatically generated, user edited" : "Automatically generated";
                 var freshness = AnalysisInterpretationService.EvaluateFreshness(report,
                     id => availableResults.FirstOrDefault(result => result.UniqueID == id)!,
-                    id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!).Status;
+                    id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!,
+                    DataManager.Results.Select(result => result.UniqueID).ToList()).Status;
                 summary += freshness == AnalysisInterpretationFreshness.Current ? " • Current"
                     : freshness == AnalysisInterpretationFreshness.Stale ? " • Out of date" : " • Cannot verify";
             }
@@ -1408,6 +1447,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Func<string, ExperimentData> experimentResolver;
         readonly HttpClient httpClient;
         readonly Action ensureRegistered;
+        readonly Func<bool> canApply;
+        readonly IReadOnlyList<string> projectResultOrder = DataManager.Results.Select(result => result.UniqueID).ToList();
         readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
         readonly CheckBox includeInjectionTables = new CheckBox { Content = "Include injection tables" };
         readonly CheckBox includeProcessingInformation = new CheckBox { Content = "Include processing information" };
@@ -1455,13 +1496,15 @@ namespace AnalysisITC.Avalonia.Tools
             : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
 
         public AnalysisInterpretationDialog(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
-            Func<string, ExperimentData> experimentResolver, HttpClient httpClient, Action ensureRegistered)
+            Func<string, ExperimentData> experimentResolver, HttpClient httpClient, Action ensureRegistered,
+            Func<bool>? canApply = null)
         {
             this.report = report;
             this.resultResolver = resultResolver;
             this.experimentResolver = experimentResolver;
             this.httpClient = httpClient;
             this.ensureRegistered = ensureRegistered;
+            this.canApply = canApply ?? (() => true);
             includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
             includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
             // Thermograms are deliberately a per-opening opt-in. A saved report
@@ -1498,7 +1541,7 @@ namespace AnalysisITC.Avalonia.Tools
             use.IsVisible = false;
             use.Click += async (_, _) =>
             {
-                if (generatedRecord == null) return;
+                if (generatedRecord == null || !this.canApply()) return;
                 try
                 {
                     var original = generatedRecord.InterpretationMarkdown;
@@ -1508,6 +1551,7 @@ namespace AnalysisITC.Avalonia.Tools
                     candidate.UserEdited = !string.Equals(original.Trim(), normalized.Trim(), StringComparison.Ordinal);
                     candidate.ApprovedAtUtc = DateTime.UtcNow;
                     if (report.ApprovedInterpretation != null && !await ConfirmReplacementAsync()) return;
+                    if (!this.canApply()) return;
                     Close(candidate);
                 }
                 catch (AnalysisInterpretationValidationException ex) { SetError(ex.Errors.FirstOrDefault() ?? ex.Message); }
@@ -1647,12 +1691,14 @@ namespace AnalysisITC.Avalonia.Tools
             base.OnClosing(e);
         }
 
-        void SaveInputs()
+        bool SaveInputs()
         {
+            if (!canApply()) return false;
             var inputs = CreateDialogReport();
             report.UpdateInterpretationSettings(inputs.InterpretationSettings);
             report.UpdateStudyContext(inputs.StudyContext);
             ensureRegistered();
+            return true;
         }
 
         AnalysisReport CreateDialogReport()
@@ -1900,12 +1946,12 @@ namespace AnalysisITC.Avalonia.Tools
                 parts.Add("Interpretation access active");
 
             if (options.AccessDetails?.ExpiresAtUtc is DateTime expiry)
-                parts.Add("expires " + expiry.ToLocalTime().ToString("yyyy-MM-dd"));
+                parts.Add("expires " + LocalDateTimeFormatter.ShortDate(expiry.ToLocalTime()));
             if (preset?.Quota?.Limited == true)
             {
                 parts.Add(preset.Quota.RemainingPercent + "% usage remaining");
                 if (preset.Quota.ResetsAtUtc != default)
-                    parts.Add("resets " + preset.Quota.ResetsAtUtc.ToLocalTime().ToString("yyyy-MM-dd"));
+                    parts.Add("resets " + LocalDateTimeFormatter.ShortDate(preset.Quota.ResetsAtUtc.ToLocalTime()));
             }
             return string.Join(" · ", parts) + ".";
         }
@@ -1969,7 +2015,7 @@ namespace AnalysisITC.Avalonia.Tools
                     var package = AnalysisInterpretationPackageBuilder.Build(snapshot,
                         id => results.TryGetValue(id, out var result) ? result : null,
                         id => experiments.TryGetValue(id, out var experiment) ? experiment : null,
-                        snapshot.InterpretationSettings);
+                        snapshot.InterpretationSettings, projectResultOrder);
                     var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
@@ -2018,7 +2064,8 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 var snapshot = CreateDialogReport();
                 await Task.Yield();
-                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
+                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver,
+                    snapshot.InterpretationSettings, projectResultOrder);
                 var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
                 await using var stream = await file.OpenWriteAsync();
                 stream.SetLength(0);
@@ -2035,7 +2082,7 @@ namespace AnalysisITC.Avalonia.Tools
             if (!serviceAllowsGeneration) { SetError(serviceStatus.Text ?? "Interpretation generation is unavailable."); return; }
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
-            SaveInputs();
+            if (!SaveInputs()) return;
             var generationCancellation = new CancellationTokenSource();
             cancellation = generationCancellation;
             var generationToken = generationCancellation.Token;
@@ -2052,8 +2099,9 @@ namespace AnalysisITC.Avalonia.Tools
                 });
                 var generated = await new AnalysisInterpretationService(provider).GenerateAsync(
                     report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress,
-                    CurrentGenerationSelection());
+                    CurrentGenerationSelection(), projectResultOrder);
                 generationToken.ThrowIfCancellationRequested();
+                if (!canApply()) return;
                 generatedRecord = generated.Interpretation;
                 draftBox.Text = generatedRecord.InterpretationMarkdown;
                 generatedProvenance.Text = InterpretationAccessDisplay.GenerationProvenance(generatedRecord);

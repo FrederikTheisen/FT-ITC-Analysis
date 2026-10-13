@@ -166,7 +166,9 @@ namespace AnalysisITC.Core.Export
             new Dictionary<BaselineInterpolatorTypes, string>
             {
                 [BaselineInterpolatorTypes.None] = "none", [BaselineInterpolatorTypes.Spline] = "spline",
+#pragma warning disable CS0618 // Retired "asl" remains readable; it is written only for historical validity snapshots.
                 [BaselineInterpolatorTypes.ASL] = "asl", [BaselineInterpolatorTypes.Polynomial] = "polynomial",
+#pragma warning restore CS0618
                 [BaselineInterpolatorTypes.Segmented] = "segmented",
             };
 

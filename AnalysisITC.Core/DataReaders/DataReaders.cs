@@ -181,7 +181,8 @@ namespace AnalysisITC.Core.DataReaders
                     foreach (var report in addedReports)
                         report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report,
                             id => DataManager.Results.Find(result => result.UniqueID == id),
-                            id => DataManager.Data.Find(experiment => experiment.UniqueID == id)));
+                            id => DataManager.Data.Find(experiment => experiment.UniqueID == id),
+                            DataManager.Results.Select(result => result.UniqueID).ToArray()));
                 }
             }
             catch (Exception ex)

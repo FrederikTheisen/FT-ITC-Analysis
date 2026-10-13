@@ -222,9 +222,6 @@ namespace AnalysisITC.Core.Interpretation
             else if (interpolator is PolynomialLeastSquaresInterpolator polynomial)
                 result.Polynomial = new InterpretationPolynomialBaselineControls
                 { Degree = polynomial.Degree, RejectionZLimit = F(polynomial.ZLimit) };
-            else if (interpolator is AssymetricLeastSquaresInterpolator als)
-                result.AsymmetricLeastSquares = new InterpretationAsymmetricLeastSquaresControls
-                { Iterations = als.Iterations, Lambda = F(als.Lambda), Asymmetry = F(als.Asymmetry) };
         }
 
         static bool InsideIntegration(ExperimentData data, double time) =>

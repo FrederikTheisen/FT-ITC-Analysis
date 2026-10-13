@@ -311,6 +311,7 @@
     </Compile>
     <Compile Include="ViewControllers\SupportingFigureCanvasWindowController.cs" />
     <Compile Include="ViewControllers\AnalysisReportViewController.cs" />
+    <Compile Include="ViewControllers\ProjectInformationWindowController.cs" />
     <Compile Include="SideBarView.cs" />
     <Compile Include="SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
@@ -360,10 +361,6 @@
     <Compile Include="ListViews\AnalysisResultView.designer.cs">
       <DependentUpon>AnalysisResultView.cs</DependentUpon>
     </Compile>
-    <Compile Include="ListViews\ExperimentListViewController.cs" />
-    <Compile Include="ListViews\ExperimentListViewController.designer.cs">
-      <DependentUpon>ExperimentListViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppColors.cs" />
     <Compile Include="MacColors.cs" />
@@ -373,6 +370,7 @@
     </Compile>
     <Compile Include="CustomViews\CustomDrawingSegmentedControl.cs" />
     <Compile Include="CustomViews\WorkspaceTabControl.cs" />
+    <Compile Include="CustomViews\DetailsSheetContentView.cs" />
     <Compile Include="CustomViews\ResultWorkspaceSplitView.cs" />
     <Compile Include="CustomViews\AnalysisFitSummaryView.cs" />
     <Compile Include="CustomViews\AnalysisInspectorViews.cs" />

@@ -195,6 +195,8 @@ namespace AnalysisITC.Core.Export
         public DateTime Date { get; set; }
         public string Comments { get; set; }
         public List<string> ResultIds { get; set; } = new List<string>();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTime? LastEditedUtc { get; set; }
         public List<string> SupportingExperimentIds { get; set; } = new List<string>();
         public AnalysisStudyContext StudyContext { get; set; }
         public AnalysisInterpretationOptions InterpretationSettings { get; set; }
@@ -352,6 +354,7 @@ namespace AnalysisITC.Core.Export
         public FtxtcSplineState Spline { get; set; }
         public FtxtcPolynomialState Polynomial { get; set; }
         public FtxtcSegmentedState Segmented { get; set; }
+        // Retired ALS settings: always written as null; values in older files are ignored on read.
         public FtxtcAslState Asl { get; set; }
     }
 
@@ -1490,8 +1493,6 @@ namespace AnalysisITC.Core.Export
                     }).ToList(),
                 };
             }
-            else if (processor.Interpolator is AssymetricLeastSquaresInterpolator asl)
-                state.Asl = new FtxtcAslState { Iterations = asl.Iterations, Lambda = asl.Lambda, Asymmetry = asl.Asymmetry };
             return state;
         }
 
@@ -1607,6 +1608,7 @@ namespace AnalysisITC.Core.Export
                 Id = report.UniqueID,
                 Name = report.Name,
                 Date = report.Date,
+                LastEditedUtc = report.LastEditedUtc,
                 Comments = report.Comments,
                 ResultIds = report.ResultIds.ToList(),
                 SupportingExperimentIds = report.SupportingExperimentIds.ToList(),

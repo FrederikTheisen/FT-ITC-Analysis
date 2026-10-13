@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace AnalysisITC.Core.Interpretation
 {
@@ -113,6 +114,9 @@ namespace AnalysisITC.Core.Interpretation
         public string PromptVersion { get; set; } = "";
         public string OutputFormatVersion { get; set; } = "";
         public string EvidenceFingerprintScheme { get; set; } = "";
+        // Retains the name used by a legacy v1 fingerprint across report renames.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ReportNameForFingerprint { get; set; }
         public string ScientificGuidanceRevision { get; set; } = "";
         public string ScientificGuidanceVariant { get; set; } = "";
         public string ScientificInstructionsFingerprint { get; set; } = "";
@@ -139,6 +143,7 @@ namespace AnalysisITC.Core.Interpretation
             InterpretationMarkdown = InterpretationMarkdown ?? "", InputFingerprint = InputFingerprint ?? "",
             PromptVersion = PromptVersion ?? "", OutputFormatVersion = OutputFormatVersion ?? "",
             EvidenceFingerprintScheme = EvidenceFingerprintScheme ?? "", ScientificGuidanceRevision = ScientificGuidanceRevision ?? "",
+            ReportNameForFingerprint = ReportNameForFingerprint,
             ScientificGuidanceVariant = ScientificGuidanceVariant ?? "",
             ScientificInstructionsFingerprint = ScientificInstructionsFingerprint ?? "", OutputInstructionsFingerprint = OutputInstructionsFingerprint ?? "",
             Provider = Provider ?? "", Model = Model ?? "", ReasoningEffort = ReasoningEffort ?? "", EffectivePreset = EffectivePreset ?? "", PresetRevision = PresetRevision ?? "", ServiceRequestId = ServiceRequestId ?? "",

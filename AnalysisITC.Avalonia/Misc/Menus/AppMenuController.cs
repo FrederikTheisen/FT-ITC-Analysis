@@ -102,9 +102,11 @@ internal sealed class AppMenuController
         var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
 
         Add("open", "Open...", window.OpenFilesFromMenuAsync, window.CanOpenFiles, gesture: new KeyGesture(Key.O, commandModifier));
-        Add("save", "Save", window.SaveDocumentAsync, window.HasDocumentContent, gesture: new KeyGesture(Key.S, commandModifier));
-        Add("saveas", "Save As...", window.SaveDocumentAsAsync, window.HasDocumentContent, gesture: new KeyGesture(Key.S, commandModifier | KeyModifiers.Shift));
+        Add("save", "Save", window.SaveDocumentAsync, window.CanSaveDocument, gesture: new KeyGesture(Key.S, commandModifier));
+        Add("saveas", "Save As...", window.SaveDocumentAsAsync, window.CanSaveDocument, gesture: new KeyGesture(Key.S, commandModifier | KeyModifiers.Shift));
         Add("saveselected", "Save Selected...", window.SaveSelectedAsync, window.HasSelectedItem);
+        Add("projectinformation", ProjectInformationPresentation.FileMenuTitle,
+            window.OpenProjectInformationAsync, window.CanOpenProjectInformation);
         Add("clearall", "Remove All Data/Results", window.ClearDataWithConfirmationAsync, window.HasDocumentContent);
         Add("exportdata", "Export Data...", () => window.ExportDataAsync(selectedOnly: false), window.HasDataLoaded, gesture: new KeyGesture(Key.E, commandModifier));
         Add("exportpeaks", "Export Integrated Peaks...", window.ExportPeaksAsync, window.HasAnyProcessedData);
@@ -180,6 +182,8 @@ internal sealed class AppMenuController
             Command("saveas"),
             Command("saveselected"),
             Separator(),
+            Command("projectinformation"),
+            Separator(),
             Command("clearall"),
             Separator(),
             Command("exportdata"),
@@ -247,7 +251,8 @@ internal sealed class AppMenuController
         Func<bool>? isChecked = null,
         KeyGesture? gesture = null)
     {
-        commands[id] = new AppMenuCommand(id, title, execute, canExecute, isChecked, gesture);
+        commands[id] = new AppMenuCommand(id, title, execute,
+            () => window.MainMenuCommandsEnabled() && (canExecute?.Invoke() ?? true), isChecked, gesture);
     }
 
     MenuNode Command(string id, Func<bool>? isVisible = null) => new(commands[id], isVisible);
@@ -333,6 +338,7 @@ internal sealed class AppMenuController
 
     static string? CommandTooltip(string id) => id switch
     {
+        "projectinformation" => ProjectInformationPresentation.FileMenuTooltip,
         "deleteallresults" => ProcessingClearPresentation.DeleteResultsTooltip,
         "clearprocessingselected" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Selected),
         "clearprocessingactive" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Active),

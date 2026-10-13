@@ -55,6 +55,10 @@ public partial class MainWindow : Window
     bool autoSaveInitialized;
     bool startupReady;
     bool isRestoringDataListSelection;
+    bool projectInformationOpen;
+    bool analysisReportOpen;
+    int openingOperationCount;
+    TaskCompletionSource<bool>? projectDialogClosed;
     int activeExperimentWorkspaceIndex;
     DataListItemControl? dropIndicatorControl;
 
@@ -101,6 +105,7 @@ public partial class MainWindow : Window
         ResultWorkspace.ActiveGraphChanged += OnActiveGraphChanged;
 
         DataManager.DataDidChange += OnDataDidChange;
+        DataManager.ReportsDidChange += OnReportsDidChange;
         ProcessingActivity.Changed += OnProcessingActivityChanged;
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
         DataManager.UpdateTable += OnDataManagerUpdate;
@@ -152,6 +157,7 @@ public partial class MainWindow : Window
         ItemsList.KeyDown -= OnItemsListKeyDown;
         Opened -= OnOpened;
         DataManager.DataDidChange -= OnDataDidChange;
+        DataManager.ReportsDidChange -= OnReportsDidChange;
         ProcessingActivity.Changed -= OnProcessingActivityChanged;
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
@@ -227,7 +233,11 @@ public partial class MainWindow : Window
     internal AppMenuController MenuController => menuController!;
     internal IReadOnlyList<DataListEntry> DataListEntries => entries;
 
-    internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0;
+    internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0 || DataManager.Reports.Count > 0;
+    internal bool CanSaveDocument() => HasDocumentContent() || (ProjectWriter.IsSaved && DocumentDirtyTracker.IsDirty);
+    internal bool MainMenuCommandsEnabled() => !projectInformationOpen && !analysisReportOpen && openingOperationCount == 0;
+    internal bool CanOpenProjectInformation() => startupReady && MainMenuCommandsEnabled()
+        && !ProcessingActivity.IsBusy && !AnalysisWorkspace.CanStopFit;
     internal bool CanOpenFiles() => startupReady;
     internal bool HasDataLoaded() => DataManager.DataIsLoaded;
     internal bool HasSelectedItem() => selectedItem != null;
@@ -278,7 +288,7 @@ public partial class MainWindow : Window
 
     async Task<bool> TryClearDataWithConfirmationAsync()
     {
-        if (!HasDocumentContent()) return true;
+        if (!HasDocumentContent() && !DocumentDirtyTracker.IsDirty) return true;
 
         if (DocumentDirtyTracker.IsDirty)
         {
@@ -681,12 +691,59 @@ public partial class MainWindow : Window
 
     internal async Task OpenAnalysisReportAsync()
     {
-        if (!HasAnyResults()) return;
+        if (!HasAnyResults() || !MainMenuCommandsEnabled()) return;
 
-        var dialog = new AnalysisReportWindow(selectedItem as AnalysisResult);
-        await dialog.ShowDialog(this);
-        RefreshMenuState();
+        await ShowAnalysisReportAsync(new AnalysisReportWindow(selectedItem as AnalysisResult));
     }
+
+    internal async Task OpenProjectInformationAsync()
+    {
+        if (!CanOpenProjectInformation()) return;
+        var documentId = DocumentDirtyTracker.CurrentDocumentId;
+        AnalysisReport? selectedReport;
+        projectInformationOpen = true;
+        projectDialogClosed = new TaskCompletionSource<bool>();
+        RefreshMenuState();
+        try
+        {
+            var dialog = new ProjectInformationWindow();
+            selectedReport = await dialog.ShowDialog<AnalysisReport?>(this);
+        }
+        finally
+        {
+            projectInformationOpen = false;
+            projectDialogClosed.TrySetResult(true);
+            projectDialogClosed = null;
+            RefreshMenuState();
+        }
+        if (selectedReport == null || openingOperationCount > 0 || documentId != DocumentDirtyTracker.CurrentDocumentId
+            || !DataManager.Reports.Contains(selectedReport)
+            || AnalysisReportPresentation.MissingResultCount(selectedReport,
+                id => DataManager.Results.FirstOrDefault(result => result.UniqueID == id)) > 0) return;
+        await ShowAnalysisReportAsync(new AnalysisReportWindow(savedReport: selectedReport));
+    }
+
+    async Task ShowAnalysisReportAsync(AnalysisReportWindow dialog)
+    {
+        analysisReportOpen = true;
+        projectDialogClosed = new TaskCompletionSource<bool>();
+        RefreshMenuState();
+        try { await dialog.ShowDialog(this); }
+        finally
+        {
+            analysisReportOpen = false;
+            projectDialogClosed.TrySetResult(true);
+            projectDialogClosed = null;
+            RefreshMenuState();
+        }
+    }
+
+    void OnReportsDidChange(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        UpdateDocumentStatus();
+        UpdateEmptyWorkspaceState();
+        RefreshMenuState();
+    });
 
     internal async Task OpenSupportingFigureCanvasAsync()
     {
@@ -731,7 +788,15 @@ public partial class MainWindow : Window
 
     async Task OpenFilesAsync()
     {
-        if (!startupReady) return;
+        if (!startupReady || !MainMenuCommandsEnabled()) return;
+        openingOperationCount++;
+        RefreshMenuState();
+        try { await OpenFilesWithPickerAsync(); }
+        finally { openingOperationCount--; RefreshMenuState(); }
+    }
+
+    async Task OpenFilesWithPickerAsync()
+    {
         var patterns = ITCFormatAttribute.GetAllExtensions()
             .Select(extension => "*" + extension)
             .ToList();
@@ -770,6 +835,8 @@ public partial class MainWindow : Window
         }
 
         isReloadingLastFile = true;
+        openingOperationCount++;
+        RefreshMenuState();
         UpdateEmptyWorkspaceState();
         try
         {
@@ -778,6 +845,8 @@ public partial class MainWindow : Window
         finally
         {
             isReloadingLastFile = false;
+            openingOperationCount--;
+            RefreshMenuState();
             UpdateEmptyWorkspaceState();
         }
     }
@@ -785,8 +854,22 @@ public partial class MainWindow : Window
     async Task OpenPathsAsync(string[] paths)
     {
         if (paths.Length == 0) return;
+        openingOperationCount++;
+        RefreshMenuState();
+        try
+        {
+            // External file-open requests wait until the current report or
+            // information dialog has returned to the main window.
+            if (projectDialogClosed != null) await projectDialogClosed.Task;
+            await ReadPathsIntoProjectAsync(paths);
+        }
+        finally { openingOperationCount--; RefreshMenuState(); }
+    }
 
-        if (paths.Any(DataReader.IsProjectFile) && HasDocumentContent())
+    async Task ReadPathsIntoProjectAsync(string[] paths)
+    {
+
+        if (paths.Any(DataReader.IsProjectFile) && CanSaveDocument())
         {
             switch (await ProjectLoadDialogWindow.PromptAsync(this))
             {
@@ -886,7 +969,7 @@ public partial class MainWindow : Window
 
     async Task<bool> SaveCurrentDocumentAsync(bool forcePrompt)
     {
-        if (!HasDocumentContent()) return false;
+        if (!CanSaveDocument()) return false;
 
         var saved = forcePrompt || !ProjectWriter.IsSaved
             ? await ProjectWriter.SaveAsync()
@@ -1679,7 +1762,12 @@ public partial class MainWindow : Window
 
     void OnAppMessage(object? sender, HandledException message)
     {
-        Dispatcher.UIThread.Post(() => SetStatus($"{message.Title}: {message.Message}"));
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (!IsVisible) return;
+            SetStatus($"{message.Title}: {message.Message}");
+            await AvaloniaAppNotificationService.ShowInfoAlertAsync(this, message.Title, message.Message);
+        });
     }
 
     void OnProcessingStatusChanged(object? sender, string status)
@@ -1912,7 +2000,7 @@ public partial class MainWindow : Window
 
     static string GetDocumentStatusText()
     {
-        if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+        if (DataManager.SourceItems.Count == 0 && DataManager.Reports.Count == 0 && !ProjectWriter.IsSaved)
             return "";
 
         if (!ProjectWriter.IsSaved)

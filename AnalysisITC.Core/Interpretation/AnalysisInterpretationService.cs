@@ -151,7 +151,8 @@ namespace AnalysisITC.Core.Interpretation
             AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, AnalysisInterpretationOptions options = null,
             CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null,
-            AnalysisInterpretationGenerationSelection generationSelection = null)
+            AnalysisInterpretationGenerationSelection generationSelection = null,
+            IReadOnlyList<string> resultOrderIds = null)
         {
             var requestId = Guid.NewGuid().ToString("N");
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -160,7 +161,7 @@ namespace AnalysisITC.Core.Interpretation
             {
                 Report(progress, AnalysisInterpretationProgressStage.BuildingPackage, "Building the analysis package…");
                 cancellationToken.ThrowIfCancellationRequested();
-                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, options);
+                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, options, resultOrderIds);
                 var taskType = generationSelection?.IsSummary == true ? "summary" : "interpretation";
                 var prompt = AnalysisInterpretationPromptBuilder.Build(package, requestId, taskType);
                 var request = new AnalysisInterpretationGenerationRequest
@@ -278,19 +279,28 @@ namespace AnalysisITC.Core.Interpretation
             EvaluateFreshness(report, id => result?.UniqueID == id ? result : null, _ => null);
 
         public static AnalysisInterpretationFreshnessResult EvaluateFreshness(
-            AnalysisReport report, Func<string, AnalysisResult> resultResolver, Func<string, ExperimentData> experimentResolver)
+            AnalysisReport report, Func<string, AnalysisResult> resultResolver, Func<string, ExperimentData> experimentResolver,
+            IReadOnlyList<string> resultOrderIds = null)
         {
             if (report?.ApprovedInterpretation == null)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Unverifiable, Reason = "No approved interpretation is stored." };
             if (report.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Current, Reason = "The interpretation was written by the user." };
             var record = report.ApprovedInterpretation;
-            if (!string.Equals(record.EvidenceFingerprintScheme, AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme, StringComparison.Ordinal))
+            if (record.EvidenceFingerprintScheme != AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme
+                && record.EvidenceFingerprintScheme != AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Unverifiable, Reason = "The approved interpretation has no verifiable evidence-fingerprint scheme." };
             try
             {
-                var fingerprint = AnalysisInterpretationPromptBuilder.Build(
-                    AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver)).InputFingerprint;
+                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver,
+                    resultOrderIds: resultOrderIds);
+                if (record.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme)
+                {
+                    package.Report.Name = record.ReportNameForFingerprint ?? report.Name;
+                    foreach (var entry in package.EvidenceCatalog.Where(entry => entry.Id == "report-1" && entry.Kind == "report"))
+                        entry.Label = package.Report.Name;
+                }
+                var fingerprint = AnalysisInterpretationPromptBuilder.Fingerprint(package, record.EvidenceFingerprintScheme);
                 return new AnalysisInterpretationFreshnessResult
                 {
                     Status = string.Equals(record.InputFingerprint, fingerprint, StringComparison.Ordinal)

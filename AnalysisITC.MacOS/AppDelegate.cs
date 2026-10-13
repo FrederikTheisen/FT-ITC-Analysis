@@ -63,7 +63,7 @@ namespace AnalysisITC
 
         public static void LaunchOpenFileDialog()
         {
-            if (AnalysisITC.UI.MacOS.MacDataReader.StartupComplete)
+            if (AnalysisITC.UI.MacOS.MacDataReader.StartupComplete && !MainWindowController.ProjectInformationIsOpen)
                 OpenFileDialog?.Invoke(null, null);
         }
 
@@ -185,6 +185,7 @@ namespace AnalysisITC
 
             AddSupportingFigureMenuItem();
             AddAnalysisReportMenuItem();
+            AddProjectInformationMenuItem();
 
 #if DEBUG
             UnhideProcessedTandemCsvImporter();
@@ -241,11 +242,25 @@ namespace AnalysisITC
             {
                 Identifier = "analysisreport",
             };
-            analysisReportMenuItem.Enabled = DataManager.DataIsLoaded && DataManager.Results.Count > 0;
+            analysisReportMenuItem.Enabled = DataManager.Results.Count > 0;
             DataManager.DataDidChange += (sender, data) =>
                 NSApplication.SharedApplication.InvokeOnMainThread(() =>
-                    analysisReportMenuItem.Enabled = DataManager.DataIsLoaded && DataManager.Results.Count > 0);
+                    analysisReportMenuItem.Enabled = DataManager.Results.Count > 0);
             toolsMenu.AddItem(analysisReportMenuItem);
+        }
+
+        private void AddProjectInformationMenuItem()
+        {
+            var fileMenu = NSApplication.SharedApplication.MainMenu?.Items.FirstOrDefault(item => item.Title == "File")?.Submenu;
+            if (fileMenu == null || fileMenu.Items.Any(item => item.Identifier == "projectinformation")) return;
+            fileMenu.AddItem(new NSMenuItem(ProjectInformationPresentation.FileMenuTitle, (sender, e) =>
+            {
+                var application = NSApplication.SharedApplication;
+                var controller = application.MainWindow?.WindowController as MainWindowController
+                    ?? application.DangerousWindows.Cast<NSWindow>().Select(window => window.WindowController)
+                        .OfType<MainWindowController>().FirstOrDefault();
+                controller?.OpenProjectInformation();
+            }) { Identifier = "projectinformation", ToolTip = ProjectInformationPresentation.FileMenuTooltip });
         }
 
         public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)
@@ -276,15 +291,18 @@ namespace AnalysisITC
         [Action("validateMenuItem:")]
         public bool ValidateMenuItem(NSMenuItem item)
         {
+            if (MainWindowController.ProjectInformationIsOpen && item.Identifier != null
+                && item.Identifier != "copy") return false;
             // Take action based on the menu item type
             // (As specified in its Tag)
             switch (item.Identifier)
             {
                 case "open":
                 case "toolbaropen": return AnalysisITC.UI.MacOS.MacDataReader.StartupComplete;
-                case "saveas": return DataManager.DataIsLoaded;
-                case "save": return DataManager.DataIsLoaded;
-                case "toolbarsave": return DataManager.DataIsLoaded;
+                case "saveas":
+                case "save":
+                case "toolbarsave":
+                case "toolbarsaveas": return MainWindowController.CanSaveProject;
                 case "saveselected": return DataManager.SelectedIsData;
                 case "export": return DataManager.Data.Count > 0;
                 case "toolbarexport": return DataManager.Data.Count > 0;
@@ -315,7 +333,8 @@ namespace AnalysisITC
                 case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;
                 case "toolbarresultexporter": return DataManager.Results.Count > 0;
-                case "analysisreport": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
+                case "analysisreport": return DataManager.Results.Count > 0;
+                case "projectinformation": return AnalysisITC.UI.MacOS.MacDataReader.StartupComplete;
                 case "supportingfigurecanvas": return DataManager.DataIsLoaded;
             }
 
@@ -331,6 +350,7 @@ namespace AnalysisITC
         [Export("application:openFile:")]
         public override bool OpenFile(NSApplication sender, string filename)
         {
+            if (MainWindowController.ProjectInformationIsOpen) return false;
             if (string.IsNullOrWhiteSpace(filename))
             {
                 return false;
@@ -414,6 +434,7 @@ namespace AnalysisITC
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
+            if (MainWindowController.ProjectInformationIsOpen) return;
             if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
             FileDialog = NSOpenPanel.OpenPanel;
             FileDialog.CanChooseFiles = true;
@@ -883,7 +904,9 @@ namespace AnalysisITC
 
         public static async Task<bool> CloseAllDataAsync(DataClearMode clearMode = DataClearMode.RecordUndo)
         {
-            if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            if (MainWindowController.ProjectInformationIsOpen) return false;
+            if ((DataManager.SourceItems == null || DataManager.SourceItems.Count == 0) && DataManager.Reports.Count == 0
+                && !DocumentDirtyTracker.IsDirty)
             {
                 DataManager.Clear(clearMode);
                 DocumentDirtyTracker.MarkClean();

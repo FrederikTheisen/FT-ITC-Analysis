@@ -95,6 +95,49 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task ReportOnlyProjectAndItsLastReportDeletionAreRecoverable()
+        {
+            var directory = NewTemporaryDirectory();
+            AutoSaveManager manager = null;
+            var originalEnabled = AppSettings.AutoSaveEnabled;
+            try
+            {
+                ResetDocument();
+                AppSettings.AutoSaveEnabled = true;
+                FTITCFormat.CurrentAccessedAppDocumentPath = Path.Combine(directory, "Reports.ftxtc");
+                manager = NewManager(directory);
+                manager.Start();
+                var report = new AnalysisReport { Name = "Saved text" };
+                report.SetManualInterpretation("Text to retain");
+                DataManager.AddReport(report);
+                Assert.True(await manager.TickNowAsync());
+                var path = Assert.Single(Directory.GetFiles(directory, "*.ftxtc"));
+                using (var saved = File.OpenRead(path))
+                {
+                    var loaded = await FTXTCReader.ReadWithRecovery(saved, FtxtcReadPolicy.Strict);
+                    Assert.Empty(loaded.Containers);
+                    Assert.Equal("Saved text", Assert.Single(loaded.Reports).Name);
+                }
+                Assert.True(DataManager.RemoveReport(report));
+                Assert.True(DocumentDirtyTracker.IsDirty);
+                Assert.True(await manager.TickNowAsync());
+                using (var saved = File.OpenRead(path))
+                {
+                    var loaded = await FTXTCReader.ReadWithRecovery(saved, FtxtcReadPolicy.Strict);
+                    Assert.Empty(loaded.Containers);
+                    Assert.Empty(loaded.Reports);
+                }
+            }
+            finally
+            {
+                manager?.StopWithoutResolving();
+                AppSettings.AutoSaveEnabled = originalEnabled;
+                ResetDocument();
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Fact]
         public async Task OverwritesPerIdentityAndPrunesGlobally()
         {
             var directory = NewTemporaryDirectory();

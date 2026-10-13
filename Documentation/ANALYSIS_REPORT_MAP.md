@@ -2,13 +2,24 @@
 
 Current report content (preview and PDF, macOS and Avalonia), top to bottom. Baseline 2026-10-07.
 
-Codes are discussion references, not printed; keep them stable. Bold rows are blocks; `·` rows are
-the lines, rows, or columns printed in that block, in order. An empty *When* column means always.
+Codes are discussion references, not printed; keep them stable. The Analysis summary chapter
+groups alternative presentations under one block code, with an order list followed by block
+details. Elsewhere, bold rows are blocks; `·` rows are the lines, rows, or columns printed in that
+block, in order. An empty *When* column means always.
 **Std** = Standard output, **Diag** = Diagnostic output, **Trace** = Traceability Mode,
 **no-binding** = assessed "No binding detected" in Std. `[Plot]` = figure; `[Info]`, `[Warn]`,
 `[Error]` = information, warning, error box.
 
+Std. and Diag. are alternative versions of a block, not separate report items. Trace. marks
+additions or wording changes within either version; it is not a third output mode. A block with
+no version split uses the same structure in Std. and Diag.; its inclusion conditions still apply.
+
 Page order: F · I · per result (R · A · X · E per experiment) · S · P. Every chapter starts a new page.
+
+Integrated-heats and residual figures use the experiment's x-axis type: molar ratio, post-injection
+titrant concentration (µM) for Dissociation or a buffer-only cell, or injection number when both
+concentrations are absent. `AnalysisAxisPresentation` supplies the coordinates and display scaling.
+Figure canvases retain automatic titles per experiment unless an explicit title override is saved.
 
 
 
@@ -17,7 +28,7 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **F01** | **Title and status badge** | |
-| | · Title: report name, or the title set in the builder | |
+| | · Title: configured report title; when blank, the single result's name or "Analysis report" | saved report display names do not change PDF titles |
 | | · Badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE | worst status of all results |
 | **F02** | **Subtitle** | only when a document label is set |
 | **F03** | **Sign-off** (bottom of front page) | Trace only |
@@ -83,74 +94,187 @@ Whole chapter omitted when the report has no saved interpretation.
 
 ## A. Analysis summary (per result)
 
-| Code | Content | When / omitted |
+Blocks appear in this order; conditional blocks are skipped. Std. and Diag. versions occupy
+the same position. A03 is a historical alias for **A01 · Std.**, not a separate block. Later
+codes retain their existing identifiers.
+
+| Order | Block | Versions / inclusion |
 | --- | --- | --- |
-| **A01** | **Binding assessment and null comparison** | Diag only |
-| | · Member assessments: common effective outcome or Mixed assessments | independent collection; includes Inconclusive, Not assessed, and manual overrides |
-| | · Conclusion | single or pooled result |
-| | · Null model: actual model name (e.g. Offset) | not independent |
-| | · Null fit (status) | not independent |
-| | · Null model parameters | not independent |
-| | · Null RMSD with selected heat unit, or unitless "Unavailable" | not independent |
-| | · Binding AICc | not independent |
-| | · Null AICc | not independent |
-| | · ΔAICc | not independent |
-| | · Comparison reason | not independent |
-| | · <Outcome>: count, one line per outcome | independent collection only |
-| **A02** | **Pooled Comparison Diagnostics** | Diag + independent collection |
-| | · "Pooled across the independently fitted experiments with one common variance; diagnostic only…" | |
-| | · ΔAICc, or reason unavailable | |
-| | · Null fit: RMSD, or status | |
-| **A03** | **Binding assessment** | Std; omitted for Not assessed and independent collections |
-| | · Conclusion + "(manual)" if overridden | "(manual)" always for overrides |
-| | · Binding model | |
-| | · Null model: actual model name (e.g. Offset) | |
-| | · Null fit: named parameters per experiment (1A: Offset = …) + RMSD, or failure status | |
-| | · ΔAICc: "+42.1 (binding 120.3, null 162.4)", or reason | |
-| **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment; Diag names the members omitted from the thermodynamic summary without claiming combined values are omitted |
-| **A05** | **Thermodynamic summary** [Plot] | Std and Diag exclude effectively No binding detected members; omitted when no eligible finite ΔH/−TΔS/ΔG remain |
-| | · Bar groups ΔH · −TΔS · ΔG (numbered per step) | |
-| | · One series per experiment, legend 1A, 1B, … | no-binding omitted in Std and Diag; manual overrides respected |
-| | · Whiskers: saved 95% CI | none for fixed values |
-| | · Note: "Bars: 95% CI is the saved interval from the <source>." | |
-| **A06** | **Experiment parameter overview** (table, one row per experiment) | |
-| | · Experiment: "1A. Name" + assessment on second line | Std: only No binding detected / Inconclusive; Diag: every assessed outcome; "(manual)" for overrides |
-| | · Temperature (°C) | temperature dependence enabled |
-| | · [Ions] (mM) | electrostatics enabled |
-| | · ∆H,prot (kJ/mol) | protonation enabled |
-| | · One column per model parameter; "(fixed)" for fixed, "—" non-finite | blank for no-binding |
-| | · RMSD (µJ) | blank for no-binding |
-| | · AICc / AIC ("AIC <value>" when no AICc) | omitted when no per-experiment criteria |
-| **A07** | **Buffer subtraction used in fit** (fit-time setting) | omitted when no experiment was subtracted at fit time |
-| | · <label>: <reference>; <method>, one line per subtracted experiment | "Reference experiment unavailable" if missing |
-| **A08** | **Combined parameters** | omitted: single experiment, binding hidden (Std), or not evaluable |
-| | · Evaluation temperature (Reference temperature, or mean experiment temperature) | |
-| | · Heat capacity change (∆Cp) | temperature dependence enabled |
-| | · Enthalpy (ΔH) | per step |
-| | · Entropy contribution (−TΔS) | per step |
-| | · Gibbs energy (ΔG) | per step |
-| | · Kd (from ΔG) | per step |
-| **A09** | **[Info] Summary uncertainty**: intervals from individual 95% CIs and spread; coverage not established; covariance omitted | expanded + CI style + approximate intervals |
-| **A10** | **Model and fit details** | |
-| | · Analysis: Experiments fitted globally / individually | |
-| | · Model | |
-| | ·· <option name>: <value>, one per model option | indented under Model; routine defaults omitted |
-| | ·· Ligand affinity (Kd): value with concentration unit | converted from stored log10(Ka); report uncertainty style |
-| | ·· Ligand enthalpy: value with energy/mol unit | report energy units and uncertainty style |
-| | · Constraint: <parameter>: <description>, one per constraint | |
-| | · RMSD / Molar RMSD (µJ / kJ/mol) | |
-| | · Uncertainty: method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)" | omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052) |
-| | · AIC / AICc | omitted for independent collections |
-| | · Solver: algorithm; termination; iterations (time); weighting | omitted without convergence info |
-| **A11** | **Fixed parameters** | only when parameters are locked |
-| | · <Parameter> — <experiment>: value unit | |
-| | · Shared <Parameter>: value unit | |
-| **A12** | **[Info] Reading fit diagnostics**: weighted fit, unweighted RMSD | expanded + weighted fit |
-| **A13** | **Shared parameter correlation** | selected + residual bootstrap; omitted when binding hidden (Std) |
-| | · Matrix, Pearson r; labels "Global ·" / "Experiment ·" | |
-| | · "Residual bootstrap (Pearson); n complete replicates." | |
-| | · Reliability warnings | only when any |
-| **A14** | **[Info] Reading parameter correlations** | expanded + A13 |
+| 1 | [A01 · Binding assessment](#a01-binding-assessment) | Std. / Diag.; details below |
+| 2 | [A02 · Pooled comparison diagnostics](#a02-pooled-comparison-diagnostics) | Diag. only; independent collection |
+| 3 | [A04 · No binding detected](#a04-no-binding-detected) | Std. / Diag.; any no-binding member |
+| 4 | [A05 · Thermodynamic summary](#a05-thermodynamic-summary) | same structure; eligible finite values required |
+| 5 | [A06 · Experiment parameter overview](#a06-experiment-parameter-overview) | same columns; Std. / Diag. row differences |
+| 6 | [A07 · Buffer subtraction used in fit](#a07-buffer-subtraction-used-in-fit) | only with subtraction at fit time |
+| 7 | [A08 · Combined parameters](#a08-combined-parameters) | multiple experiments; output allowed and evaluable |
+| 8 | [A09 · Summary uncertainty](#a09-summary-uncertainty) | expanded explanations + CI style + approximate intervals |
+| 9 | [A10 · Model and fit details](#a10-model-and-fit-details) | both |
+| 10 | [A11 · Fixed parameters](#a11-fixed-parameters) | only with locked parameters |
+| 11 | [A12 · Reading fit diagnostics](#a12-reading-fit-diagnostics) | expanded explanations + weighted fit |
+| 12 | [A13 · Shared parameter correlation](#a13-shared-parameter-correlation) | selected + residual bootstrap; output allowed |
+| 13 | [A14 · Reading parameter correlations](#a14-reading-parameter-correlations) | expanded explanations + A13 |
+
+### A01. Binding assessment
+
+**Std.** — printed heading: **Binding assessment**. Single or pooled result only;
+omitted for Not assessed and independent collections. Rows, in order:
+
+| Row | Content / conditions |
+| --- | --- |
+| Conclusion | Effective outcome; "(manual)" for an override. |
+| Binding model | Saved binding model name. |
+| Null model | Saved Null model name. |
+| Null fit | Parameters per experiment (1A: Offset = …) + RMSD, or failure status. |
+| ΔAICc | "+42.1 (binding 120.3, null 162.4)", or reason unavailable. |
+
+**Diag.** — printed heading: **Binding assessment and null comparison**. For a
+single or pooled result, rows appear in this order:
+
+| Row | Content / conditions |
+| --- | --- |
+| Conclusion | Effective outcome; "(manual)" for an override. |
+| Null model | Saved Null model name. |
+| Null fit | Fit status. |
+| Null model parameters | Saved parameters per experiment. |
+| Null RMSD | Selected heat unit; "Unavailable" has no unit. |
+| Binding AICc | Saved binding criteria. |
+| Null AICc | Saved Null criteria. |
+| ΔAICc | Saved signed difference, or unavailable. |
+| Comparison reason | Availability or comparison explanation. |
+
+For an **independent collection**, Diag. instead prints these two kinds of rows:
+
+| Row | Content / conditions |
+| --- | --- |
+| Member assessments | Common effective outcome or Mixed assessments; includes Inconclusive and Not assessed. Adds "(manual)" when any member is overridden. |
+| <Outcome> | Count, one row per outcome present. |
+
+A02 follows this independent-collection version of A01.
+
+### A02. Pooled comparison diagnostics
+
+**Diag. only; independent collection.** Printed heading: **Pooled Comparison Diagnostics**.
+
+| Content, in order | Conditions |
+| --- | --- |
+| "Pooled across the independently fitted experiments with one common variance; diagnostic only…" | Does not determine member assessments. |
+| ΔAICc, or reason unavailable | |
+| Null fit: RMSD, or status | |
+
+### A04. No binding detected
+
+**[Info]** Shown when any member is effectively No binding detected. Wording differs:
+
+| Version | Printed text |
+| --- | --- |
+| Std. | "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." |
+| Diag. | "No binding was detected in: <names>. These members are omitted from the thermodynamic summary." |
+
+### A05. Thermodynamic summary
+
+**[Plot]** Same structure in both modes. Excludes effectively No binding detected members;
+omitted when no eligible finite ΔH/−TΔS/ΔG remain. Manual overrides are respected.
+
+| Content, in order | Conditions |
+| --- | --- |
+| Bar groups ΔH · −TΔS · ΔG (numbered per step) | |
+| One series per experiment, legend 1A, 1B, … | No-binding members omitted in both modes. |
+| Whiskers: saved 95% CI | None for fixed values. |
+| Note: "Bars: 95% CI is the saved interval from the <source>." | |
+
+### A06. Experiment parameter overview
+
+Table with one row per experiment. Columns appear in this order; only cell contents differ
+between Std. and Diag.
+
+| Column | Content / conditions |
+| --- | --- |
+| Experiment | "1A. Name", with assessment on a second line when applicable. |
+| Temperature (°C) | Temperature dependence enabled. |
+| [Ions] (mM) | Electrostatics enabled. |
+| ∆H,prot (kJ/mol) | Protonation enabled. |
+| One column per model parameter | "(fixed)" for fixed values; "—" for non-finite values. |
+| RMSD (µJ) | Member fit RMSD. |
+| AICc / AIC | "AIC <value>" when no AICc; omitted when no per-experiment criteria. |
+
+| Version | Cell differences |
+| --- | --- |
+| Std. | Assessment shown only for No binding detected / Inconclusive. Parameter and RMSD cells are blank for no-binding members. |
+| Diag. | Every assessed outcome is shown; attempted binding parameter and RMSD cells are retained. |
+
+Assessment text always includes "(manual)" for overridden members in either mode.
+
+### A07. Buffer subtraction used in fit
+
+Fit-time setting; omitted when no experiment was subtracted at fit time.
+
+| Content | Conditions |
+| --- | --- |
+| <label>: <reference>; <method>, one row per subtracted experiment | "Reference experiment unavailable" if missing. |
+
+### A08. Combined parameters
+
+Omitted for a single experiment, when combined binding output is hidden (Std.), or when
+the result is not evaluable. Rows, in order:
+
+| Row | Content / conditions |
+| --- | --- |
+| Evaluation temperature | Reference temperature, or mean experiment temperature. |
+| Heat capacity change (∆Cp) | Temperature dependence enabled. |
+| Enthalpy (ΔH) | Per step. |
+| Entropy contribution (−TΔS) | Per step. |
+| Gibbs energy (ΔG) | Per step. |
+| Kd (from ΔG) | Per step. |
+
+### A09. Summary uncertainty
+
+**[Info]** Expanded explanations + CI style + approximate intervals. Explains that intervals
+come from individual 95% CIs and spread, coverage is not established, and covariance is omitted.
+
+### A10. Model and fit details
+
+Same structure in both modes. Rows, in order:
+
+| Row | Content / conditions |
+| --- | --- |
+| Analysis | Experiments fitted globally / individually. |
+| Model | Saved model name. |
+| <option name> | One row per model option, indented under Model; routine defaults omitted. |
+| Ligand affinity (Kd) | Indented under Model; concentration unit, converted from stored log10(Ka); report uncertainty style. |
+| Ligand enthalpy | Indented under Model; energy/mol unit; report uncertainty style. |
+| Constraint | <parameter>: <description>, one row per constraint. |
+| RMSD / Molar RMSD | µJ / kJ/mol. |
+| Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
+| AIC / AICc | Omitted for independent collections. |
+| Solver | Algorithm; termination; iterations (time); weighting. Omitted without convergence info. |
+
+### A11. Fixed parameters
+
+Only when parameters are locked. Rows, in order:
+
+| Row | Content |
+| --- | --- |
+| <Parameter> — <experiment> | Value and unit. |
+| Shared <Parameter> | Value and unit. |
+
+### A12. Reading fit diagnostics
+
+**[Info]** Expanded explanations + weighted fit. Explains the weighted fitting objective
+and displayed unweighted RMSD.
+
+### A13. Shared parameter correlation
+
+Selected + residual bootstrap; omitted when combined binding output is hidden (Std.).
+
+| Content, in order | Conditions |
+| --- | --- |
+| Matrix, Pearson r; labels "Global ·" / "Experiment ·" | |
+| "Residual bootstrap (Pearson); n complete replicates." | |
+| Reliability warnings | Only when any. |
+
+### A14. Reading parameter correlations
+
+**[Info]** Expanded explanations + A13.
 
 ## X. Advanced analyses (per result, after A)
 
@@ -206,7 +330,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · [Plot] Baseline and integration windows: raw thermogram, baseline, windows | |
 | | · [Plot] Final fit: corrected thermogram, heats + error bars, fit line, band, residuals | |
 | | · Saved Null solution instead of binding fit; uncorrected integrated heats | no-binding |
-| | · "Null (Offset) fit unavailable" tag (actual model, or model unknown), no residuals | no-binding without a matching saved Null solution |
+| | · "Null model fit unavailable" tag, no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
 | **E01a** | **No raw thermogram** | only without raw thermogram |
 | | · [Plot] Final fit (as E01) | E04a states the input |
@@ -384,6 +508,7 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 
 ## Revision notes
 
+- 2026-10-12: Analysis summary uses an order list and grouped block details. A01 contains its Std. and Diag. versions; A03 is retained as a historical alias for A01 · Std. Trace. changes are marked within the affected rows. A06 now explicitly distinguishes Standard no-binding blanks from retained Diagnostic values; the earlier blanket "blank for no-binding" wording was incomplete. Report behavior is unchanged.
 - 2026-10-07: X moved from after E to directly after A; each X chapter still starts a new page.
 - 2026-10-07: F06 Contents lists X chapters, indented under their result.
 - 2026-10-07: F06 Contents lists experiment chapters, indented under their result after X entries. Supporting experiments remain one entry.
@@ -401,8 +526,8 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-07: E04 "Integration regions" states how end points were set (Fit Peaks now recorded in the project file); "Integration mode" row removed.
 - 2026-10-08: E04 applies only when a thermogram is available; E04a reports imported heats and injection use without implying processing. Supporting experiments add E04a-equivalent availability rows only without a thermogram; raw supporting experiments retain baseline/integration notes. Condensed repeats omit E04 and E04a.
 
-- 2026-10-08 (ITC-075): Null labels use saved model identity; comparison summaries name the saved Null parameters. E01/E11 and their supporting overview entries use saved Null solutions and generic prediction labels. Null figures ignore offset correction, retain processing error bars, and show an unavailable label when solution/model/injection identities do not match.
-- 2026-10-08 (ITC-075 follow-up): Null model fields show the actual model name, with fit status and comparison scope reported separately. Standalone figure annotations retain the role-and-model label.
+- 2026-10-08 ([Null-model foundation](../Planning/DILUTION_HEAT_MODELS_PLAN.md#completed-foundation)): Null labels use saved model identity; comparison summaries name the saved Null parameters. E01/E11 and their supporting overview entries use saved Null solutions and generic prediction labels. Null figures ignore offset correction, retain processing error bars, and show an unavailable label when solution/model/injection identities do not match.
+- 2026-10-08 ([model-field follow-up](../Planning/DILUTION_HEAT_MODELS_PLAN.md#completed-foundation)): Null model fields show the actual model name, with fit status and comparison scope reported separately. Standalone figure annotations retain the role-and-model label.
 - 2026-10-09: P02 Bookkeeping conventions notice removed (ITC-037). Each result experiment shows its saved method as the last E04/E04a row; condensed repeats (E03) do not. Mixed methods within one result add R03a and a P03 line. P02 code is retired; later appendix codes are unchanged.
 - 2026-10-09 (ITC-040): box rule added. I03 becomes rows. E01a Raw processing unavailable, S01 unavailable notices and S04 Attached fit unsuccessful removed; S04 code retired. E04b Fit warnings added to affected experiment chapters.
 - 2026-10-09 (ITC-052): Uncertainty rows (summary model/fit details and E08) read "<method>; not estimated (no binding detected)" when estimation was skipped for a no-binding fit.

@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Platform.Avalonia
@@ -49,9 +50,14 @@ namespace AnalysisITC.Platform.Avalonia
                 var owner = GetMainWindow();
                 if (owner == null) return;
 
-                var dialog = new InfoAlertWindow(title, message, actionUrl);
-                await dialog.ShowDialog(owner);
+                await ShowInfoAlertAsync(owner, title, message, actionUrl);
             });
+        }
+
+        internal static Task ShowInfoAlertAsync(Window owner, string title, string message, string? actionUrl = null)
+        {
+            var dialog = new InfoAlertWindow(title, message, actionUrl);
+            return dialog.ShowDialog(owner);
         }
 
         static Window? GetMainWindow()

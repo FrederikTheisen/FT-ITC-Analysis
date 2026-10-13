@@ -1,6 +1,6 @@
 ﻿using System;
 using AnalysisITC.Platform;
-using System.Globalization;
+using AnalysisITC.Core.Presentation;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Utilities;
@@ -32,9 +32,10 @@ namespace AnalysisITC.Core.Data
             get => comments;
             set
             {
-                if (comments == value) return;
+                var next = value ?? "";
+                if (comments == next) return;
 
-                comments = value ?? "";
+                comments = next;
                 MarkModified();
             }
         }
@@ -52,8 +53,8 @@ namespace AnalysisITC.Core.Data
         public ExperimentDateSource DateSource { get; set; } = ExperimentDateSource.Unknown;
         public bool IsModified => isModified;
 
-        public string UILongDateWithTime => GetLongDateString();// + " " + Date.ToString("HH:mm:ss");
-        public string UIShortDateWithTime => GetShortDateString();
+        public string UILongDateWithTime => LocalDateTimeFormatter.LongDateTime(Date);
+        public string UIShortDateWithTime => LocalDateTimeFormatter.ShortDateTime(Date);
         public string UIDateSourceSuffix => DateSource switch
         {
             ExperimentDateSource.DataFile => " (from data file)",
@@ -68,7 +69,7 @@ namespace AnalysisITC.Core.Data
 
         public void SetFileName(string filename) => FileName = filename;
 
-        public string Name
+        public virtual string Name
         {
             get => string.IsNullOrEmpty(name) ? System.IO.Path.GetFileNameWithoutExtension(FileName) : name;
             set
@@ -81,7 +82,7 @@ namespace AnalysisITC.Core.Data
             }
         }
 
-        public void MarkModified()
+        public virtual void MarkModified()
         {
             if (DocumentDirtyTracker.IsRestoringDocument) return;
             ContentChanged?.Invoke(this, EventArgs.Empty);
@@ -99,21 +100,5 @@ namespace AnalysisITC.Core.Data
             ModifiedChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        string GetShortDateString()
-        {
-            string s = Date.ToString("d", CultureInfo.GetCultureInfo(AppSettings.Locale)).Replace("-","/");
-
-            // Add time in local format
-            s += " " + Date.ToString("t", CultureInfo.GetCultureInfo(AppSettings.Locale));
-
-            return s;
-        }
-
-        string GetLongDateString()
-        {
-            var s = Date.ToString("D", CultureInfo.CurrentUICulture) + " " + Date.ToString("T", CultureInfo.GetCultureInfo(AppSettings.Locale));
-
-            return s;
-        }
     }
 }

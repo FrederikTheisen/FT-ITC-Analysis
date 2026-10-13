@@ -117,7 +117,8 @@ namespace AnalysisITC.Core.Interpretation
 
         public static AnalysisInterpretationPackage Build(
             AnalysisReport report, Func<string, AnalysisResult> resultResolver,
-            Func<string, ExperimentData> experimentResolver, AnalysisInterpretationOptions options = null)
+            Func<string, ExperimentData> experimentResolver, AnalysisInterpretationOptions options = null,
+            IReadOnlyList<string> resultOrderIds = null)
         {
             if (report == null) throw new ArgumentNullException(nameof(report));
             if (resultResolver == null) throw new ArgumentNullException(nameof(resultResolver));
@@ -128,6 +129,7 @@ namespace AnalysisITC.Core.Interpretation
                 throw new InvalidOperationException("A report reference occurs more than once.");
             var results = report.ResultIds.Select(id => resultResolver(id)
                 ?? throw new InvalidOperationException("Analysis result is missing or unresolved: " + id)).ToList();
+            results = AnalysisReportPresentation.OrderResults(results, resultOrderIds);
             if (results.Any(result => result.Solution?.Model == null))
                 throw new InvalidOperationException("An analysis result has no stored fitted model.");
             var supporting = report.SupportingExperimentIds.Select(id => experimentResolver(id)
@@ -137,15 +139,16 @@ namespace AnalysisITC.Core.Interpretation
             {
                 Report = new InterpretationReportEvidence
                 {
-                    EvidenceId = "report-1", ReportId = report.UniqueID, Name = report.Name,
+                    EvidenceId = "report-1", ReportId = report.UniqueID,
+                    Name = AnalysisReportPresentation.DisplayName(report, resultResolver),
                     DateUtc = Utc(report.Date),
                     AuthorComments = string.IsNullOrWhiteSpace(report.Comments) ? null : report.Comments,
-                    ResultIds = report.ResultIds.ToList(),
+                    ResultIds = results.Select(result => result.UniqueID).ToList(),
                 },
                 StudyContext = report.StudyContext.Copy(),
                 RequestedInterpretation = requested,
             };
-            AddEvidence(package, "report-1", "report", report.Name, null);
+            AddEvidence(package, "report-1", "report", package.Report.Name, null);
             AddContextEvidence(package, package.StudyContext);
             for (var index = 0; index < results.Count; index++)
                 package.Results.Add(BuildResult(package, results[index], requested, index));

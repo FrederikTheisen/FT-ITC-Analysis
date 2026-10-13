@@ -1,8 +1,10 @@
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Presentation
 {
-    /// <summary>Labels and tooltips for the structuring (Spolar–Record) analysis, shared by both result views.</summary>
+    /// <summary>Shared labels, tooltips, and saved-temperature formatting for structuring (Spolar–Record).</summary>
     public static class StructuringPresentation
     {
         public const string Title = "Structuring";
@@ -29,6 +31,18 @@ namespace AnalysisITC.Core.Presentation
         public const string ConformationalToolTip = "Conformational entropy contribution.";
         public const string ResiduesLabel = "Residues";
         public const string ResiduesToolTip = "Residues folding upon binding.";
+
+        public static string FormatEvaluationTemperature(
+            FloatWithError celsius,
+            bool useKelvin,
+            UncertaintyDisplayStyle uncertaintyStyle)
+        {
+            if (FloatWithError.IsNaN(celsius) || double.IsNaN(celsius.Value) || double.IsInfinity(celsius.Value))
+                return "Unavailable";
+
+            var displayed = useKelvin ? celsius + 273.15 : celsius;
+            return displayed.AsNumber(uncertaintyStyle) + (useKelvin ? " K" : " °C");
+        }
 
         public static string InteractionName(FTSRMethod.SRFoldedMode mode) => mode switch
         {

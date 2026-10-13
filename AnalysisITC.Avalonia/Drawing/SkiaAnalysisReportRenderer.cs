@@ -761,13 +761,16 @@ public sealed class SkiaAnalysisReportRenderer
                 {
                     if (current.Length > 0) { lines.Add(current); current = ""; }
                     var part = "";
-                    foreach (var character in word)
+                    // Break between text elements so surrogate pairs and combining marks stay whole.
+                    var elements = StringInfo.GetTextElementEnumerator(word);
+                    while (elements.MoveNext())
                     {
+                        var character = elements.GetTextElement();
                         var candidatePart = part + character;
                         if (part.Length > 0 && Measure(candidatePart, size, bold).Width > width)
                         {
                             lines.Add(part);
-                            part = character.ToString();
+                            part = character;
                         }
                         else part = candidatePart;
                     }

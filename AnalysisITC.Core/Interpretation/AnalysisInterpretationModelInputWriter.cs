@@ -660,14 +660,13 @@ namespace AnalysisITC.Core.Interpretation
         static void RoundBaseline(JsonObject value)
         {
             if (value == null) return;
-            RoundFields(value, "traceDurationSeconds", "startPowerMicrowatts", "endPowerMicrowatts", "netDriftMicrowatts", "linearDriftRateMicrowattsPerHour", "rangeMicrowatts", "rmsDeviationFromLinearTrendMicrowatts", "outsideIntegrationRmsRawMinusBaselineMicrowatts", "outsideIntegrationMedianAbsoluteDeviationRawMinusBaselineMicrowatts", "rejectionZLimit", "lambda", "asymmetry");
+            RoundFields(value, "traceDurationSeconds", "startPowerMicrowatts", "endPowerMicrowatts", "netDriftMicrowatts", "linearDriftRateMicrowattsPerHour", "rangeMicrowatts", "rmsDeviationFromLinearTrendMicrowatts", "outsideIntegrationRmsRawMinusBaselineMicrowatts", "outsideIntegrationMedianAbsoluteDeviationRawMinusBaselineMicrowatts", "rejectionZLimit");
             RoundBaselineTable(value["landmarks"] as JsonObject, BaselineTables[0]);
             var spline = value["spline"] as JsonObject;
             RoundBaselineTable(spline?["controlPoints"] as JsonObject, BaselineTables[1]);
             var segmented = value["segmented"] as JsonObject;
             RoundBaselineTable(segmented?["segments"] as JsonObject, BaselineTables[2]);
             RoundFields(value["polynomial"] as JsonObject, "rejectionZLimit");
-            RoundFields(value["asymmetricLeastSquares"] as JsonObject, "lambda", "asymmetry");
         }
 
         static void RoundBaselineTable(JsonObject tableObject, TableDefinition table)

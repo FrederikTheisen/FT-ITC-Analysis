@@ -202,7 +202,8 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report,
                         id => restoredResultsById.TryGetValue(id, out var result) ? result : null,
-                        id => experiments.TryGetValue(id, out var experiment) ? experiment : null));
+                        id => experiments.TryGetValue(id, out var experiment) ? experiment : null,
+                        project.ContentOrder.Where(item => item.Type == "result").Select(item => item.Id).ToArray()));
                 }
 
                 var resultById = results.ToDictionary(result => result.UniqueID, StringComparer.Ordinal);
@@ -929,8 +930,9 @@ namespace AnalysisITC.Core.DataReaders
                                 assessmentState.RuleId,
                                 assessmentState.ManualOverride == null ? (BindingAssessmentOutcome?)null
                                     : ParseBindingAssessmentOutcome(assessmentState.ManualOverride));
-                            if (nullComparisonDiscarded)
-                                restoredAssessment = restoredAssessment.WithAutomaticOutcome(BindingAssessmentOutcome.NotAssessed);
+                            restoredAssessment = BindingAssessmentState.FromComparison(
+                                nullComparisonDiscarded ? null : restored.NullComparison)
+                                .WithOverride(restoredAssessment.ManualOverride);
                             restored.RestoreBindingAssessment(restoredAssessment);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
@@ -1056,21 +1058,9 @@ namespace AnalysisITC.Core.DataReaders
                     var nullSolution = pooledComparison.NullSolutions.FirstOrDefault(value => value.Data.UniqueID == member.Data.UniqueID);
                     if (nullSolution != null) comparison.NullSolutions.Add(nullSolution);
                 }
-                var assessment = BindingAssessmentState.Restore(ParseBindingAssessmentOutcome(saved.AutomaticOutcome),
-                    saved.RuleId, saved.ManualOverride == null ? (BindingAssessmentOutcome?)null
+                var assessment = BindingAssessmentState.FromComparison(comparison)
+                    .WithOverride(saved.ManualOverride == null ? (BindingAssessmentOutcome?)null
                         : ParseBindingAssessmentOutcome(saved.ManualOverride));
-                var actualAutomatic = BindingAssessmentState.FromComparison(comparison).AutomaticOutcome;
-                if (actualAutomatic == BindingAssessmentOutcome.NotAssessed
-                    && assessment.AutomaticOutcome != BindingAssessmentOutcome.NotAssessed)
-                {
-                    assessment = BindingAssessmentState.Restore(BindingAssessmentOutcome.NotAssessed,
-                        saved.RuleId, assessment.ManualOverride);
-                }
-                var actualEffective = assessment.EffectiveOutcome;
-                if (saved.EffectiveOutcome != null && ParseBindingAssessmentOutcome(saved.EffectiveOutcome) != actualEffective)
-                    throw new InvalidDataException("Saved effective member assessment is inconsistent with its automatic state and override.");
-                if (actualAutomatic != assessment.AutomaticOutcome)
-                    throw new InvalidDataException("Saved automatic member assessment is inconsistent with its comparison.");
                 result.RestoreMemberComparisonAndAssessment(record.Id, comparison, assessment);
             }
         }
@@ -1098,7 +1088,7 @@ namespace AnalysisITC.Core.DataReaders
             {
                 var binding = comparison.BindingInformationCriteria;
                 var nullCriteria = comparison.NullInformationCriteria;
-                if (!comparison.BindingFitSucceeded || !comparison.NullFitSucceeded
+                if (!comparison.NullFitSucceeded
                     || binding?.IsAiccAvailable != true || nullCriteria?.IsAiccAvailable != true
                     || binding.ObservationCount != nullCriteria.ObservationCount
                     || binding.LikelihoodMode != nullCriteria.LikelihoodMode
@@ -1109,30 +1099,9 @@ namespace AnalysisITC.Core.DataReaders
             var assessment = BindingAssessmentState.Restore(ParseBindingAssessmentOutcome(state.AutomaticOutcome),
                 state.RuleId, state.ManualOverride == null ? (BindingAssessmentOutcome?)null
                     : ParseBindingAssessmentOutcome(state.ManualOverride));
-            var automaticFromEvidence = BindingAssessmentState.FromComparison(comparison).AutomaticOutcome;
-            if (automaticFromEvidence == BindingAssessmentOutcome.NotAssessed
-                && assessment.AutomaticOutcome != BindingAssessmentOutcome.NotAssessed)
-            {
-                assessment = BindingAssessmentState.Restore(BindingAssessmentOutcome.NotAssessed,
-                    state.RuleId, assessment.ManualOverride);
-                state.AutomaticOutcome = "not-assessed";
-                state.EffectiveOutcome = assessment.ManualOverride.HasValue
-                    ? BindingAssessmentWireOutcome(assessment.ManualOverride.Value) : "not-assessed";
-            }
             if (state.EffectiveOutcome != null && ParseBindingAssessmentOutcome(state.EffectiveOutcome) != assessment.EffectiveOutcome)
                 throw new InvalidDataException("Member assessment effective outcome is inconsistent.");
-            if (BindingAssessmentState.FromComparison(comparison).AutomaticOutcome != assessment.AutomaticOutcome)
-                throw new InvalidDataException("Member assessment automatic outcome is inconsistent with saved criteria.");
         }
-
-        static string BindingAssessmentWireOutcome(BindingAssessmentOutcome outcome) => outcome switch
-        {
-            BindingAssessmentOutcome.NotAssessed => "not-assessed",
-            BindingAssessmentOutcome.NoBindingDetected => "no-binding-detected",
-            BindingAssessmentOutcome.Inconclusive => "inconclusive",
-            BindingAssessmentOutcome.BindingDetected => "binding-detected",
-            _ => throw new InvalidDataException("Binding assessment outcome is invalid."),
-        };
 
         static NullModelComparison RestoreNullComparison(FtxtcNullComparisonState state,
             IReadOnlyList<SolutionInterface> bindingMembers, string attachedExperimentId = null)
@@ -1171,7 +1140,7 @@ namespace AnalysisITC.Core.DataReaders
             {
                 var bindingCriteria = comparison.BindingInformationCriteria;
                 var nullCriteria = comparison.NullInformationCriteria;
-                if (!comparison.BindingFitSucceeded || !comparison.NullFitSucceeded
+                if (!comparison.NullFitSucceeded
                     || bindingCriteria?.IsAiccAvailable != true || nullCriteria?.IsAiccAvailable != true
                     || bindingCriteria.ObservationCount != nullCriteria.ObservationCount
                     || bindingCriteria.LikelihoodMode != nullCriteria.LikelihoodMode
@@ -1328,7 +1297,7 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     var bindingCriteria = comparison.BindingInformationCriteria;
                     var nullCriteria = comparison.NullInformationCriteria;
-                    if (!comparison.BindingFitSucceeded || bindingCriteria?.IsAiccAvailable != true
+                    if (bindingCriteria?.IsAiccAvailable != true
                         || nullCriteria?.IsAiccAvailable != true
                         || bindingCriteria.ObservationCount != nullCriteria.ObservationCount
                         || bindingCriteria.LikelihoodMode != nullCriteria.LikelihoodMode
@@ -1425,7 +1394,8 @@ namespace AnalysisITC.Core.DataReaders
                     report.SetDate(state.Date);
                     report.Comments = state.Comments;
                     report.Restore(state.ResultIds, state.SupportingExperimentIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation,
-                        state.PresentationSettings != null ? RestoreReportPresentation(state.PresentationSettings) : null);
+                        state.PresentationSettings != null ? RestoreReportPresentation(state.PresentationSettings) : null,
+                        state.LastEditedUtc);
                     report.MarkClean();
                     reports.Add(report);
                 }
@@ -1616,8 +1586,6 @@ namespace AnalysisITC.Core.DataReaders
                     segment.Kind == "initial-delay" ? SegmentedBaselineInterpolator.BaselineSegmentKind.InitialDelay : SegmentedBaselineInterpolator.BaselineSegmentKind.InjectionScope,
                     segment.InjectionId, segment.StartTime, segment.EndTime, segment.CenterTime, segment.Coefficients)));
             }
-            else if (processor.Interpolator is AssymetricLeastSquaresInterpolator asl && state.Asl != null)
-            { asl.Iterations = state.Asl.Iterations; asl.Lambda = state.Asl.Lambda; asl.Asymmetry = state.Asl.Asymmetry; }
             if (state.Locked) processor.Lock();
             experiment.SetProcessor(processor);
         }

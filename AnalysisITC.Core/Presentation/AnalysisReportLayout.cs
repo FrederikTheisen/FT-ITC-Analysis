@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace AnalysisITC.Core.Presentation
@@ -717,13 +718,16 @@ namespace AnalysisITC.Core.Presentation
                         {
                             if (current.Length > 0) { output.Add(current); current = ""; }
                             var part = "";
-                            foreach (var character in word)
+                            // Break between text elements so surrogate pairs and combining marks stay whole.
+                            var elements = StringInfo.GetTextElementEnumerator(word);
+                            while (elements.MoveNext())
                             {
+                                var character = elements.GetTextElement();
                                 var candidatePart = part + character;
                                 if (part.Length > 0 && measurer.Measure(candidatePart, style).Width > width)
                                 {
                                     output.Add(part);
-                                    part = character.ToString();
+                                    part = character;
                                 }
                                 else part = candidatePart;
                             }

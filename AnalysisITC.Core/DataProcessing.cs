@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MathNet.Numerics.Interpolation;
 using MathNet.Numerics.LinearAlgebra.Double;
-using MathNet.Numerics.LinearAlgebra.Solvers;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -53,7 +52,6 @@ namespace AnalysisITC.Core.Processing
                     switch (Interpolator)
                     {
                         case SplineInterpolator: return BaselineInterpolatorTypes.Spline;
-                        case AssymetricLeastSquaresInterpolator: return BaselineInterpolatorTypes.ASL;
                         case PolynomialLeastSquaresInterpolator: return BaselineInterpolatorTypes.Polynomial;
                         case SegmentedBaselineInterpolator: return BaselineInterpolatorTypes.Segmented;
                         default: return BaselineInterpolatorTypes.None;
@@ -95,7 +93,9 @@ namespace AnalysisITC.Core.Processing
                 case BaselineInterpolatorTypes.Spline: Interpolator = new SplineInterpolator(this); break;
                 case BaselineInterpolatorTypes.Polynomial: Interpolator = new PolynomialLeastSquaresInterpolator(this); break;
                 case BaselineInterpolatorTypes.Segmented: Interpolator = new SegmentedBaselineInterpolator(this); break;
-                case BaselineInterpolatorTypes.ASL: Interpolator = new AssymetricLeastSquaresInterpolator(this); break;
+#pragma warning disable CS0618 // Saved ALS processors are restored as polynomial baselines.
+                case BaselineInterpolatorTypes.ASL: Interpolator = new PolynomialLeastSquaresInterpolator(this); break;
+#pragma warning restore CS0618
                 default: throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown baseline interpolator type.");
             }
         }
@@ -1073,6 +1073,9 @@ namespace AnalysisITC.Core.Processing
     {
         None = -1,
         Spline = 0,
+        // Retired asymmetric least-squares baseline. Kept so saved files and validity snapshots can still be read;
+        // InitializeBaseline restores it as a polynomial baseline.
+        [Obsolete("The asymmetric least-squares baseline was removed; it is restored as Polynomial.")]
         ASL = 1,
         Polynomial = 2,
         Segmented = 3,
@@ -2060,93 +2063,6 @@ namespace AnalysisITC.Core.Processing
                     UserDefined = UserDefined
                 };
             }
-        }
-    }
-
-    // Asymmetric least-squares baseline interpolation is not implemented; the calculated baseline is not applied.
-    public class AssymetricLeastSquaresInterpolator : BaselineInterpolator
-    {
-        public int Iterations { get; set; } = 10;
-        public double Lambda { get; set; } = 1000;
-        public double Asymmetry { get; set; } = 0.96;
-        double[] datapoints => Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
-
-        public AssymetricLeastSquaresInterpolator(DataProcessor processor) : base(processor)
-        {
-
-        }
-
-        public override async Task Interpolate(CancellationToken token, bool replace = true)
-        {
-            var y = SparseVector.OfEnumerable(datapoints);
-            var L = y.Count; //len(y)
-            var D = Diff(new DiagonalMatrix(L, L, 1)); //sparse.csc_matrix(np.diff(np.eye(L), 2))
-            var w = new SparseVector(L).Add(1);
-
-            var z = new SparseVector(L);
-
-            for (int i = 0; i < Iterations; i++)
-            {
-                Console.WriteLine("ASL iter: " + i);
-                var W = SparseMatrix.CreateDiagonal(L, L, (o => w[o]));
-                var a = SparseMatrix.OfMatrix(D * D.Transpose());
-                var Z = W + Lambda * a;
-                var mul = w.PointwiseMultiply(y);
-
-                var monitor = new Iterator<double>(
-                    new IterationCountStopCriterion<double>(2000),
-                    new ResidualStopCriterion<double>(0.001));
-
-                var solver = new MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR();
-
-                var nZ = Z.SolveIterative(mul, solver, monitor);//Solve(mul);
-                z = SparseVector.OfEnumerable(nZ.Storage.ToArray());
-                w = Select(z.ToList(), y.ToList());
-
-                token.ThrowIfCancellationRequested();
-            }
-
-            //Baseline = z.Select(o => o).ToList();
-
-            await base.Interpolate(token, replace);
-        }
-
-        SparseMatrix Diff(DiagonalMatrix m)
-        {
-            var dense = new SparseMatrix(m.RowCount, m.RowCount - 2);
-
-            var rows = m.EnumerateRows().ToList();
-
-            for (int i = 0; i < rows.Count(); i++)
-            {
-                var row = rows[i];
-                double[] newrow = new double[row.Count() - 2];
-
-                for (int j = 0; j < row.Count() - 2; j++)
-                {
-                    if (i == j) newrow[j] = 1;
-                    else if (i == j + 1) newrow[j] = -2;
-                    else if (i == j + 2) newrow[j] = 1;
-
-                    //newrow[j] = (row[j + 2] - row[j + 1]) - (row[j + 1] - row[j]);
-                }
-
-                dense.SetRow(i, newrow);
-            }
-            return dense;
-        }
-
-        DenseVector Select(List<double> z, List<double> y)
-        {
-            var w = new DenseVector(z.Count);
-
-            for (int i = 0; i < z.Count(); i++)
-            {
-                if (z[i] < y[i]) w[i] = Asymmetry;
-                else w[i] = (1 - Asymmetry);
-            }
-
-            return w;
         }
     }
 

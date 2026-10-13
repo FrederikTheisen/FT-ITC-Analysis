@@ -1,4 +1,5 @@
 using System;
+using AnalysisITC.Core.Presentation;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -896,7 +897,7 @@ namespace AnalysisITC.Core.Interpretation
 
             var expiresAtUtc = account?.ExpiresAtUtc ?? options?.AccessDetails?.ExpiresAtUtc;
             if (expiresAtUtc.HasValue)
-                details.Add(new InterpretationAccountDetail("Expiry", expiresAtUtc.Value.ToLocalTime().ToString("d")));
+                details.Add(new InterpretationAccountDetail("Expiry", LocalDateTimeFormatter.ShortDate(expiresAtUtc.Value.ToLocalTime())));
 
             var usage = account?.Usage;
             if (usage != null)
@@ -906,7 +907,7 @@ namespace AnalysisITC.Core.Interpretation
                 {
                     var quota = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Limited";
                     if (usage.ResetsAtUtc.HasValue)
-                        quota += $" · resets {usage.ResetsAtUtc.Value.ToLocalTime():d}";
+                        quota += $" · resets {LocalDateTimeFormatter.ShortDate(usage.ResetsAtUtc.Value.ToLocalTime())}";
                     details.Add(new InterpretationAccountDetail("Quota", quota));
                 }
             }

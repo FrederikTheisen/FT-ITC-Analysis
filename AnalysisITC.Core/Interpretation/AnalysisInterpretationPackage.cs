@@ -469,7 +469,6 @@ namespace AnalysisITC.Core.Interpretation
         public InterpretationSplineBaselineControls Spline { get; set; }
         public InterpretationSegmentedBaselineControls Segmented { get; set; }
         public InterpretationPolynomialBaselineControls Polynomial { get; set; }
-        public InterpretationAsymmetricLeastSquaresControls AsymmetricLeastSquares { get; set; }
     }
 
     public sealed class InterpretationBaselineLandmark
@@ -520,13 +519,6 @@ namespace AnalysisITC.Core.Interpretation
         public int Degree { get; set; }
         public double? RejectionZLimit { get; set; }
         public string CoefficientAvailability { get; set; } = "Fitted coefficients are not exported because they are not preserved reliably after project reload.";
-    }
-
-    public sealed class InterpretationAsymmetricLeastSquaresControls
-    {
-        public int Iterations { get; set; }
-        public double? Lambda { get; set; }
-        public double? Asymmetry { get; set; }
     }
 
     public sealed class InterpretationResidualDiagnosticsEvidence

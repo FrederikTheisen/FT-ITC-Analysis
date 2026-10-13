@@ -166,7 +166,6 @@ namespace AnalysisITC.Core.Tests
                         file.Add(EndListHeader);
                         break;
                     default:
-                    case BaselineInterpolatorTypes.ASL:
                     case BaselineInterpolatorTypes.None:
                         break;
                 }

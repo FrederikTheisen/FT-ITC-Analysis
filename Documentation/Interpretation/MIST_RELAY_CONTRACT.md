@@ -17,8 +17,9 @@ guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
 
 Schema 2.2 adds `nullModelId`, `nullModel`, and `nullParameters` to independent
-member assessment and Null-member evidence. `nullModel` uses the shared role-and-model
-label, such as `Null (Offset)`. Named parameters use `InterpretationParameterEvidence`:
+member assessment and Null-member evidence. `nullModel` contains the actual model
+name, such as `Offset`, or `Unknown` when identity is unavailable. Fit status and
+comparison scope are separate fields. Named parameters use `InterpretationParameterEvidence`:
 reported best-fit values, SI units, and constraints come from the matching saved Null
 solution. Uncertainty is supplied only where computed; rebuilt native Null solutions
 normally have none. The compatibility field `offsetJoulesPerMole` is populated only
@@ -125,10 +126,15 @@ final provider request after any knowledge-retrieval fallback. A nonempty interp
 regardless of word count, headings, or Markdown shape. Network failures, empty
 responses, and malformed service responses are generation errors.
 
-The app evidence fingerprint is a SHA-256 hash of the full-precision UTF-8 canonical
-evidence JSON (`sha256:utf8:canonical-package-json-v1`). It is used for
-freshness and includes the selected context and report choices represented in
-the package. Changing server guidance does not make unchanged evidence stale.
+The app evidence fingerprint uses `sha256:utf8:canonical-package-json-v2`: SHA-256
+of the full-precision UTF-8 canonical evidence JSON with only the report name and
+its report evidence-catalog label replaced by empty strings. The request retains
+the report display name; renaming that label does not change scientific freshness.
+The fingerprint includes the selected context, report choices, and result order
+represented in the package. Changing server guidance does not make unchanged evidence stale.
+Saved `sha256:utf8:canonical-package-json-v1` fingerprints remain verifiable with
+their original report name. Optional `reportNameForFingerprint` provenance retains
+that name when a legacy report is renamed; the original saved fingerprint is not rewritten.
 Instruction fingerprints identify text but cannot reconstruct it.
 
 ### Advanced-analysis evidence

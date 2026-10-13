@@ -30,7 +30,8 @@ namespace AnalysisITC.Core.Interpretation
         public const string PromptVersion = "itc-interpretation-output-3.0";
         public const string OutputFormatVersion = "itc-interpretation-markdown-3.0";
         public const string SummaryOutputFormatVersion = "itc-summary-markdown-1.0";
-        public const string EvidenceFingerprintScheme = "sha256:utf8:canonical-package-json-v1";
+        public const string LegacyEvidenceFingerprintScheme = "sha256:utf8:canonical-package-json-v1";
+        public const string EvidenceFingerprintScheme = "sha256:utf8:canonical-package-json-v2";
         internal static readonly JsonSerializerOptions CanonicalJsonOptions = CreateJsonOptions();
 
         public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package) => Build(package, null, "interpretation");
@@ -66,7 +67,7 @@ namespace AnalysisITC.Core.Interpretation
             var modelPackage = AnalysisInterpretationModelInputWriter.Write(canonical);
             var summary = string.Equals(taskType, "summary", StringComparison.Ordinal);
             var format = summary ? BuildSummaryResponseFormatInstructions(package) : BuildResponseFormatInstructions(package);
-            var evidenceFingerprint = Sha256(canonical);
+            var evidenceFingerprint = Fingerprint(package, EvidenceFingerprintScheme);
             return new AnalysisInterpretationPrompt
             {
                 PromptVersion = summary ? "itc-summary-output-1.0" : PromptVersion,
@@ -89,6 +90,20 @@ namespace AnalysisITC.Core.Interpretation
             { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = false, WriteIndented = false };
             options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false));
             return options;
+        }
+
+        internal static string Fingerprint(AnalysisInterpretationPackage package, string scheme)
+        {
+            var canonical = JsonSerializer.Serialize(package, CanonicalJsonOptions);
+            if (scheme == LegacyEvidenceFingerprintScheme) return Sha256(canonical);
+            if (scheme != EvidenceFingerprintScheme) throw new NotSupportedException("Unsupported evidence-fingerprint scheme.");
+            // The full request retains the display name. Only the freshness key
+            // excludes the two report labels; all scientific/context evidence remains.
+            var evidence = JsonSerializer.Deserialize<AnalysisInterpretationPackage>(canonical, CanonicalJsonOptions);
+            if (evidence.Report != null) evidence.Report.Name = "";
+            foreach (var entry in evidence.EvidenceCatalog.Where(entry => entry.Id == "report-1" && entry.Kind == "report"))
+                entry.Label = "";
+            return Sha256(JsonSerializer.Serialize(evidence, CanonicalJsonOptions));
         }
 
         public static string BuildResponseFormatInstructions(AnalysisInterpretationPackage package = null) =>
