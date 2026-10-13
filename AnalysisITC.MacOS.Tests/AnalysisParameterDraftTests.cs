@@ -182,9 +182,38 @@ static class AnalysisParameterDraftTests
                 "native Run Fit prepared the clamped candidate: " + candidate.Parameters.Table[ParameterType.Offset].Value);
             Check(completion.Task.Wait(TimeSpan.FromSeconds(30)), "native Run Fit completed");
             Check(completion.Task.Result.Success, "native Run Fit completed successfully: " + completion.Task.Result.Message);
+            Check(WaitForIdle(),
+                "first native fit released processing admission");
+            var retained = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver((Solver)solver));
+            var prediction = candidate.Evaluate(0);
+            var reported = candidate.Solution.Parameters[ParameterType.Offset].Value;
+            // This managed harness constructs outlets directly, without ViewDidLoad's
+            // completion subscription. Reset its local UI flags before the next click.
+            controllerType.GetField("isFitting", PrivateInstance).SetValue(controller, false);
+            controllerType.GetField("activeSolver", PrivateInstance).SetValue(controller, null);
+            completion = new System.Threading.Tasks.TaskCompletionSource<SolverConvergence>();
+            controllerType.GetMethod("RunFit", PrivateInstance).Invoke(controller, null);
+            var second = (Solver)controllerType.GetField("activeSolver", PrivateInstance).GetValue(controller);
+            Check(!ReferenceEquals(candidate, second.Model), "repeat native fit owns a fresh model");
+            Check(completion.Task.Wait(TimeSpan.FromSeconds(30)), "repeat native Run Fit completed");
+            Check(WaitForIdle(),
+                "repeat native fit released processing admission");
+            second.Model.LossFunction(new[] { 3000.0 }, false);
+            Check(retained.Model.Models[0].Evaluate(0) == prediction, "repeat native fit preserved retained predictions");
+            Check(candidate.Parameters.Table[ParameterType.Offset].Value == reported,
+                "repeat native fit preserved retained parameters");
+            Console.WriteLine("PASS: consecutive native Run Fit calls preserve retained result models and predictions");
         }
         finally { SolverInterface.AnalysisFinished -= handler; }
         Console.WriteLine("PASS: native DataAnalysisViewController.RunFit launches with a clamped accepted guess");
+    }
+
+    static bool WaitForIdle()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline)
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.005));
+        return !ProcessingActivity.IsBusy;
     }
 
     static T Create<T>() where T : NSObject

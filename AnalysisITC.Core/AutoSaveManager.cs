@@ -58,6 +58,7 @@ namespace AnalysisITC.Core.Application
         int tickInProgress;
         bool started;
         bool disposed;
+        bool deferredTick;
 
         public static AutoSaveManager Shared { get; } = new AutoSaveManager();
 
@@ -100,6 +101,7 @@ namespace AnalysisITC.Core.Application
                 AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
                 DocumentDirtyTracker.DirtyStateChanged += OnDirtyStateChanged;
                 FTITCFormat.CurrentAccessedAppDocumentPathChanged += OnCurrentDocumentPathChanged;
+                ProcessingActivity.Changed += OnProcessingActivityChanged;
 
                 ScheduleTimer();
                 PruneToLimit();
@@ -225,6 +227,7 @@ namespace AnalysisITC.Core.Application
             lock (sync)
             {
                 if (!started) return;
+                if (!AppSettings.AutoSaveEnabled) deferredTick = false;
                 ScheduleTimer();
             }
 
@@ -233,7 +236,27 @@ namespace AnalysisITC.Core.Application
 
         void OnDirtyStateChanged(object sender, EventArgs e)
         {
-            if (!DocumentDirtyTracker.IsDirty) ResolveCurrent();
+            if (!DocumentDirtyTracker.IsDirty)
+            {
+                lock (sync) deferredTick = false;
+                ResolveCurrent();
+            }
+        }
+
+        void OnProcessingActivityChanged(object sender, EventArgs e) => ScheduleDeferredTick();
+
+        void ScheduleDeferredTick()
+        {
+            if (ProcessingActivity.IsBusy) return;
+            lock (sync)
+            {
+                if (!started || !deferredTick || !AppSettings.AutoSaveEnabled) return;
+                // Coalesce missed ticks using the existing timer. If another save
+                // still owns the writer, retry briefly after it rather than losing
+                // the pending recovery snapshot or queuing multiple writes.
+                timer?.Change(ProjectWriter.IsWriteInProgress ? TimeSpan.FromSeconds(1) : TimeSpan.Zero,
+                    TimeSpan.FromMinutes(NormalizeInterval(AppSettings.AutoSaveIntervalMinutes)));
+            }
         }
 
         void OnCurrentDocumentPathChanged(object sender, EventArgs e)
@@ -286,11 +309,17 @@ namespace AnalysisITC.Core.Application
                     || DocumentDirtyTracker.IsSuspended
                     || DataManager.SourceItems == null
                     || (DataManager.SourceItems.Count == 0 && DataManager.Reports.Count == 0
-                        && string.IsNullOrEmpty(ProjectDocumentState.Path))
-                    || ProjectWriter.IsWriteInProgress)
+                        && string.IsNullOrEmpty(ProjectDocumentState.Path)))
                 {
+                    lock (sync) deferredTick = false;
                     return false;
                 }
+                if (ProcessingActivity.IsBusy)
+                {
+                    lock (sync) deferredTick = true;
+                    return false;
+                }
+                if (ProjectWriter.IsWriteInProgress) return false;
 
                 string path;
                 string sourcePath;
@@ -300,10 +329,17 @@ namespace AnalysisITC.Core.Application
                     path = currentAutoSavePath;
                     sourcePath = currentSourcePath;
                     activeRunId = runId;
+                    deferredTick = false;
                 }
 
                 var didWrite = await ProjectWriter.WriteAutoSaveAsync(path);
-                if (!didWrite) return false;
+                if (!didWrite)
+                {
+                    // Admission may have changed after the checks above. The
+                    // finally block also handles processing ending before this flag.
+                    lock (sync) deferredTick = true;
+                    return false;
+                }
 
                 lock (sync)
                 {
@@ -343,6 +379,7 @@ namespace AnalysisITC.Core.Application
             finally
             {
                 Interlocked.Exchange(ref tickInProgress, 0);
+                ScheduleDeferredTick();
             }
         }
 
@@ -354,11 +391,13 @@ namespace AnalysisITC.Core.Application
                 if (resolveCurrent) ResolveCurrent();
 
                 started = false;
+                deferredTick = false;
                 timer?.Dispose();
                 timer = null;
                 AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
                 DocumentDirtyTracker.DirtyStateChanged -= OnDirtyStateChanged;
                 FTITCFormat.CurrentAccessedAppDocumentPathChanged -= OnCurrentDocumentPathChanged;
+                ProcessingActivity.Changed -= OnProcessingActivityChanged;
             }
         }
 

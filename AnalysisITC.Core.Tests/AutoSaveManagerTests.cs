@@ -21,6 +21,147 @@ namespace AnalysisITC.Core.Tests
     public sealed class AutoSaveManagerTests
     {
         [Fact]
+        public async Task BusyTicksPreserveRecoveryMetadataAndCoalesceIntoOneSaveWhenIdle()
+        {
+            var directory = NewTemporaryDirectory();
+            AutoSaveManager manager = null;
+            var enabled = AppSettings.AutoSaveEnabled;
+            var writes = 0;
+            try
+            {
+                ResetDocument();
+                await DataReader.ReadPathsAsync(new[] { Fixture("one-set.ftitc") });
+                AppSettings.AutoSaveEnabled = true;
+                manager = new AutoSaveManager(directory, utcNow: () => DateTime.UtcNow.AddSeconds(System.Threading.Interlocked.Increment(ref writes)));
+                manager.Start();
+                Assert.True(await manager.TickNowAsync());
+                var files = Directory.GetFiles(directory).ToDictionary(path => path, File.ReadAllBytes);
+                DataManager.Data.First().Name = "Deferred fit";
+                DocumentDirtyTracker.MarkDirty();
+                var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+                using (ProcessingActivity.Begin())
+                {
+                    using (ProcessingActivity.Begin())
+                    {
+                        Assert.False(await manager.TickNowAsync());
+                        Assert.False(await manager.TickNowAsync());
+                    }
+                    Assert.Equal(1, writes);
+                    Assert.True(DocumentDirtyTracker.IsDirty);
+                    Assert.True(DocumentDirtyTracker.MatchesSaveStamp(stamp));
+                    Assert.Equal(files.Keys.OrderBy(p => p), Directory.GetFiles(directory).OrderBy(p => p));
+                    foreach (var pair in files) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
+                }
+                await WaitUntil(() => System.Threading.Volatile.Read(ref writes) == 2);
+                await Task.Delay(100);
+                Assert.Equal(2, writes);
+                using var stream = File.OpenRead(Directory.GetFiles(directory, "*.ftxtc").Single());
+                var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
+                Assert.Empty(read.Issues);
+                Assert.Contains(read.Containers, item => item.Name == "Deferred fit");
+            }
+            finally
+            {
+                manager?.StopWithoutResolving();
+                AppSettings.AutoSaveEnabled = enabled;
+                ResetDocument();
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Theory]
+        [InlineData("stop")]
+        [InlineData("disable")]
+        [InlineData("clean")]
+        public async Task PendingAutosaveIsDiscardedWhenItIsNoLongerNeeded(string action)
+        {
+            var directory = NewTemporaryDirectory();
+            var enabled = AppSettings.AutoSaveEnabled;
+            using var manager = NewManager(directory);
+            try
+            {
+                ResetDocument();
+                await DataReader.ReadPathsAsync(new[] { Fixture("one-set.ftitc") });
+                AppSettings.AutoSaveEnabled = true;
+                manager.Start();
+                using (ProcessingActivity.Begin())
+                {
+                    Assert.False(await manager.TickNowAsync());
+                    if (action == "stop") manager.StopWithoutResolving();
+                    else if (action == "disable") AppSettings.AutoSaveEnabled = false;
+                    else DocumentDirtyTracker.MarkClean();
+                }
+                await Task.Delay(150);
+                Assert.Empty(Directory.GetFiles(directory, "*.ftxtc"));
+            }
+            finally
+            {
+                manager.StopWithoutResolving();
+                AppSettings.AutoSaveEnabled = enabled;
+                ResetDocument();
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Fact]
+        public async Task DeferredAutosaveWaitsForAnExistingWriterWithoutLosingTheRequest()
+        {
+            var directory = NewTemporaryDirectory();
+            var enabled = AppSettings.AutoSaveEnabled;
+            var writes = 0;
+            using var manager = new AutoSaveManager(Path.Combine(directory, "autosave"),
+                utcNow: () => DateTime.UtcNow.AddSeconds(System.Threading.Interlocked.Increment(ref writes)));
+            var captured = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<bool> save = null;
+            try
+            {
+                ResetDocument();
+                await DataReader.ReadPathsAsync(new[] { Fixture("one-set.ftitc") });
+                AppSettings.AutoSaveEnabled = true;
+                ProjectDocumentState.Path = Path.Combine(directory, "manual.ftxtc");
+                manager.Start();
+                save = ProjectWriter.SaveWithPathAsync(() =>
+                {
+                    captured.TrySetResult(true);
+                    return release.Task;
+                });
+                await captured.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (ProcessingActivity.Begin()) Assert.False(await manager.TickNowAsync());
+                await Task.Delay(100);
+                Assert.Equal(0, writes);
+                DataManager.Data.First().Name = "After manual snapshot";
+                DocumentDirtyTracker.MarkDirty();
+                release.TrySetResult(true);
+                Assert.True(await save);
+                Assert.True(DocumentDirtyTracker.IsDirty);
+                await WaitUntil(() => System.Threading.Volatile.Read(ref writes) == 1);
+                await Task.Delay(100);
+                Assert.Equal(1, writes);
+                using var stream = File.OpenRead(manager.CurrentAutoSavePath);
+                var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
+                Assert.Empty(read.Issues);
+                Assert.Contains(read.Containers, item => item.Name == "After manual snapshot");
+            }
+            finally
+            {
+                release.TrySetResult(true);
+                if (save != null) await save;
+                manager.StopWithoutResolving();
+                AppSettings.AutoSaveEnabled = enabled;
+                ResetDocument();
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        static async Task WaitUntil(Func<bool> condition)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(10);
+            Assert.True(condition());
+        }
+
+        [Fact]
         public void BuildsStableUserReadableNames()
         {
             var timestamp = new DateTime(2026, 8, 7, 14, 5, 6, 123);

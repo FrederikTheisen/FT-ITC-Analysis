@@ -995,6 +995,56 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
+    public async Task ConsecutiveRunFitCallsKeepTheFirstAnalysisResultIndependent()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("repeat-desktop.itc");
+        foreach (var injection in experiment.Injections)
+            injection.SetPeakArea(new FloatWithError(2000 * injection.InjectionMass, 1e-8));
+        DataManager.AddData(experiment);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            workspace.ErrorMethodComboForTesting.SelectedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+            workspace.ContextForTesting!.SingleModel.Parameters.Table[ParameterType.Offset].Update(2000);
+            workspace.RunFit();
+            var first = workspace.ContextForTesting!.SingleModel;
+            await WaitForFit();
+            Assert.NotNull(first.Solution);
+            var retained = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = first }));
+            var prediction = first.Evaluate(0);
+            var reportedOffset = first.Solution.Parameters[ParameterType.Offset].Value;
+            workspace.RunFit();
+            var second = workspace.ContextForTesting!.SingleModel;
+            Assert.NotSame(first, second);
+            Assert.Same(second, experiment.Model);
+            await WaitForFit();
+            second.Parameters.Table[ParameterType.Offset].Update(3000);
+            second.LossFunction(second.Parameters.GetFittedParameterArray(), false);
+            Assert.Equal(prediction, retained.Model.Models[0].Evaluate(0));
+            Assert.Equal(reportedOffset, first.Parameters.Table[ParameterType.Offset].Value);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+
+        async Task WaitForFit()
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while ((ProcessingActivity.IsBusy || workspace.CanStopFit) && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            Assert.False(ProcessingActivity.IsBusy);
+            Assert.False(workspace.CanStopFit);
+            Assert.True(workspace.CanRunFit);
+        }
+    }
+
+    [AvaloniaFact]
     public void RunFitPreflightAllowsReusedOutOfRangeStartAfterCoreNormalization()
     {
         var previous = AppSettings.ParameterLimitSetting;

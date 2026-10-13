@@ -7,10 +7,9 @@ using AnalysisITC.Core.Analysis.Models;
 namespace AnalysisITC.Core.Analysis
 {
     /// <summary>
-    /// An immutable snapshot of a built analysis, produced by AnalysisBuilder.
-    /// Consumed by the UI (for parameter display) and by the solver (via FinalizeForSolver + CreateSolver).
-    /// Never mutate this object directly — user edits go through AnalysisWorkspace,
-    /// which updates session state and triggers a rebuild.
+    /// Configuration and mutable models for one analysis, produced by AnalysisBuilder.
+    /// AnalysisWorkspace copies this graph before each solve so completed results
+    /// retain their models. User edits go through the workspace and session state.
     /// </summary>
     public sealed class AnalysisContext
     {
@@ -126,6 +125,49 @@ namespace AnalysisITC.Core.Analysis
         }
 
         // ── Solver integration ─────────────────────────────────────────────
+
+        // Copy configuration only. Completed solutions and prediction caches belong
+        // to the previous fit, even when its observations are still being displayed.
+        internal AnalysisContext CopyForSolve()
+        {
+            if (!IsMultiExperiment)
+                return new AnalysisContext(ModelType, CopyModel(SingleModel));
+
+            var members = GlobalModel.Models.Select(CopyModel).ToList();
+            var parameters = new GlobalModelParameters();
+            foreach (var constraint in GlobalModelParameters.Constraints)
+                parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
+            foreach (var parameter in GlobalModelParameters.GlobalTable)
+                parameters.GlobalTable.Add(parameter.Key, CopyParameter(parameter.Value));
+            foreach (var member in members)
+                parameters.AddIndivdualParameter(member.Parameters);
+            if (GlobalModelParameters.HasReferenceTemperature)
+                parameters.SetReferenceTemperatureKelvin(GlobalModelParameters.ReferenceTemperatureKelvin);
+
+            var global = new GlobalModel(members) { Parameters = parameters };
+            return new AnalysisContext(ModelType, global, parameters,
+                ExposedConstraintOptions, ExposedConstraintFamilies);
+        }
+
+        static Model CopyModel(Model source)
+        {
+            var model = AnalysisBuilder.ConstructModel(source.ModelType, source.Data);
+            model.HeatMethod = source.HeatMethod;
+            model.ReuseAttachedSolutionInitialValues = source.ReuseAttachedSolutionInitialValues;
+            model.Parameters.ModelType = source.Parameters.ModelType;
+            foreach (var parameter in source.Parameters.Table)
+                model.Parameters.Table.Add(parameter.Key, CopyParameter(parameter.Value));
+            model.SetModelOptions(source.ModelOptions);
+            model.Parameters.RestoreExperimentTemperature(source.Parameters.ExperimentTemperature);
+            return model;
+        }
+
+        static Parameter CopyParameter(Parameter source)
+        {
+            var parameter = source.Copy();
+            parameter.SetLimits(source.Limits);
+            return parameter;
+        }
 
         /// <summary>
         /// Wires the model object graph immediately before handing it to the solver.

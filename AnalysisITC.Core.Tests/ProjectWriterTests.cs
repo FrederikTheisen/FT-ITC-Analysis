@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
@@ -41,6 +43,144 @@ public sealed class ProjectWriterTests : IDisposable
         PlatformServices.RegisterFileSavePromptService(originalPrompt);
         PlatformServices.RegisterFtxtcDuplicatePromptService(originalDuplicatePrompt);
         Directory.Delete(directory, recursive: true);
+    }
+
+    [Fact]
+    public async Task BusySavesLeaveFilesAndDirtyStateUntouched()
+    {
+        await LoadDocument();
+        var path = Path.Combine(directory, "busy.ftxtc");
+        ProjectDocumentState.Path = path;
+        PlatformServices.RegisterFileSavePromptService(new FixedPrompt(path));
+        Assert.True(await ProjectWriter.SaveWithPathAsync());
+        DocumentDirtyTracker.MarkDirty();
+        var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+        var bytes = File.ReadAllBytes(path);
+        using (ProcessingActivity.Begin())
+        {
+            StatusBarManager.SetStatus("Estimating errors...", 0, priority: 2);
+            StatusBarManager.SetProgress(0.25);
+            Assert.False(await ProjectWriter.SaveWithPathAsync());
+            Assert.False(await ProjectWriter.SaveAsync());
+            Assert.False(await ProjectWriter.SaveSelectedAsync(DataManager.Data.First()));
+            Assert.False(await ProjectWriter.SaveForCloseAsync());
+            Assert.False(await ProjectWriter.WriteAutoSaveAsync(path));
+            Assert.Equal(bytes, File.ReadAllBytes(path));
+            Assert.True(DocumentDirtyTracker.IsDirty);
+            Assert.True(DocumentDirtyTracker.MatchesSaveStamp(stamp));
+            Assert.Equal(0.25, StatusBarManager.Progress);
+        }
+        Assert.True(await ProjectWriter.SaveWithPathAsync());
+    }
+
+    [Theory]
+    [InlineData("save")]
+    [InlineData("save-as")]
+    [InlineData("selected")]
+    [InlineData("close")]
+    public async Task ProcessingStartingBeforeSnapshotRejectsTheSave(string entryPoint)
+    {
+        await LoadDocument();
+        var path = Path.Combine(directory, "admission.ftxtc");
+        ProjectDocumentState.Path = path;
+        var prompt = new DeferredPrompt();
+        PlatformServices.RegisterFileSavePromptService(prompt);
+        var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+        var save = entryPoint switch
+        {
+            "save-as" => ProjectWriter.SaveAsync(),
+            "selected" => ProjectWriter.SaveSelectedAsync(DataManager.Data.First()),
+            "close" => ProjectWriter.SaveForCloseAsync(),
+            _ => ProjectWriter.SaveWithPathAsync(),
+        };
+        using (ProcessingActivity.Begin())
+        {
+            prompt.Complete(path);
+            Assert.False(await save);
+            Assert.False(File.Exists(path));
+            Assert.True(DocumentDirtyTracker.MatchesSaveStamp(stamp));
+            Assert.True(DocumentDirtyTracker.IsDirty);
+        }
+        Assert.True(await (entryPoint switch
+        {
+            "save-as" => ProjectWriter.SaveAsync(),
+            "selected" => ProjectWriter.SaveSelectedAsync(DataManager.Data.First()),
+            "close" => ProjectWriter.SaveForCloseAsync(),
+            _ => ProjectWriter.SaveWithPathAsync(),
+        }));
+    }
+
+    [Fact]
+    public async Task ProcessingDuringFileWritingCannotChangeTheCapturedFit()
+    {
+        await LoadDocument();
+        var path = Path.Combine(directory, "captured-fit.ftxtc");
+        ProjectDocumentState.Path = path;
+        var experiment = DataManager.Data.First();
+        var original = experiment.Solution;
+        var expected = experiment.Injections.Select(i => original.Model.Evaluate(i.ID)).ToArray();
+        var workspace = new AnalysisWorkspace();
+        Assert.True(workspace.TryRebuild(new[] { experiment }));
+        IDisposable activity = null;
+        try
+        {
+            Assert.True(await ProjectWriter.SaveWithPathAsync(() =>
+            {
+                // This runs after capture and before asynchronous archive writes.
+                // Begin must be able to proceed; the payload no longer uses models.
+                var nextFit = Assert.IsType<Solver>(workspace.PrepareForSolve(false));
+                activity = ProcessingActivity.Begin();
+                nextFit.Model.Parameters.Table[ParameterType.Offset].Update(12345);
+                nextFit.Model.LossFunction(nextFit.Model.Parameters.GetFittedParameterArray(), false);
+                return Task.CompletedTask;
+            }));
+            Assert.True(ProcessingActivity.IsBusy);
+            Assert.True(DocumentDirtyTracker.IsDirty);
+            using var stream = File.OpenRead(path);
+            var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
+            Assert.Empty(read.Issues);
+            var saved = read.Containers.OfType<ExperimentData>().Single(e => e.UniqueID == experiment.UniqueID);
+            Assert.Equal(expected, saved.Injections.Select(i => saved.Solution.Model.Evaluate(i.ID)));
+            foreach (var pair in original.Parameters)
+            {
+                Assert.Equal(pair.Value.Value, saved.Solution.Parameters[pair.Key].Value);
+                Assert.Equal(pair.Value.Value, saved.Solution.Model.Parameters.Table[pair.Key].Value);
+            }
+        }
+        finally { activity?.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SnapshotCaptureAndProcessingAdmissionAreMutuallyExclusive()
+    {
+        await LoadDocument();
+        using var capturing = new System.Threading.ManualResetEventSlim();
+        using var release = new System.Threading.ManualResetEventSlim();
+        using var attempting = new System.Threading.ManualResetEventSlim();
+        using var admitted = new System.Threading.ManualResetEventSlim();
+        var capture = Task.Run(() => ProcessingActivity.TryCaptureSnapshot(() =>
+        {
+            capturing.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+            return FTXTCWriter.CaptureSnapshot(DataManager.Data);
+        }, out _));
+        Assert.True(capturing.Wait(TimeSpan.FromSeconds(10)));
+        var processing = Task.Run(() =>
+        {
+            attempting.Set();
+            using var activity = ProcessingActivity.Begin();
+            admitted.Set();
+        });
+        try
+        {
+            Assert.True(attempting.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(admitted.Wait(TimeSpan.FromMilliseconds(100)));
+        }
+        finally { release.Set(); }
+        Assert.True(await capture.WaitAsync(TimeSpan.FromSeconds(10)));
+        await processing.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(admitted.IsSet);
+        Assert.False(ProcessingActivity.IsBusy);
     }
 
     [Fact]

@@ -1,13 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Platform;
 using AnalysisITC.Core.Utilities;
 
 using Xunit;
@@ -17,6 +22,321 @@ namespace AnalysisITC.Core.Tests;
 [Collection(AnalysisBuilderConstraintCollectionDefinition.Name)]
 public sealed class AnalysisWorkspaceSolutionRetentionTests
 {
+    [Fact]
+    public void RepeatFitDoesNotMutateTheRetainedFit()
+    {
+        DataManager.Init();
+        try
+        {
+            var experiment = CreateOffsetExperiment("repeat.itc", 2000);
+            DataManager.AddData(experiment);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.Offset);
+            Assert.True(workspace.TryRebuild());
+            var first = Assert.IsType<Solver>(workspace.PrepareForSolve(false));
+            first.Model.Parameters.Table[ParameterType.Offset].Update(2000);
+            first.ErrorEstimationMethod = ErrorEstimationMethod.None;
+            first.Silent = true;
+            Assert.True(first.Solve().Success);
+            var overrides = workspace.Session.Active.ParameterOverrides.ToArray();
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(first));
+            var retained = Assert.Single(result.Solution.Solutions);
+            var prediction = retained.Model.Evaluate(0);
+            Assert.Equal(2000, retained.Parameters[ParameterType.Offset].Value, 3);
+
+            var refreshed = 0;
+            workspace.ContextRebuilt += (_, _) =>
+            {
+                refreshed++;
+                Assert.Same(workspace.Context.SingleModel, experiment.Model);
+            };
+            var second = Assert.IsType<Solver>(workspace.PrepareForSolve(false));
+            Assert.Equal(1, refreshed);
+            Assert.Equal(overrides, workspace.Session.Active.ParameterOverrides.ToArray());
+            Assert.Equal(2000, second.Model.Parameters.Table[ParameterType.Offset].Value, 3);
+            second.Model.Parameters.Table[ParameterType.Offset].Update(3000);
+
+            Assert.Equal(prediction, retained.Model.Evaluate(0));
+            Assert.Equal(2000, retained.Model.Parameters.Table[ParameterType.Offset].Value, 3);
+            Assert.NotSame(first.Model, second.Model);
+            Assert.NotSame(first.Model.Parameters, second.Model.Parameters);
+            Assert.Null(second.Model.Solution);
+            Assert.Same(retained, first.Model.Solution);
+        }
+        finally { DataManager.Init(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatMultiExperimentFitOwnsItsMembersAndGlobalRelationships(bool pooled)
+    {
+        DataManager.Init();
+        try
+        {
+            var experiments = new[] { CreateOffsetExperiment("second.itc", 2000), CreateOffsetExperiment("first.itc", 2000) };
+            DataManager.AddData(experiments);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.Offset);
+            workspace.SetGlobalMode(true);
+            if (pooled) workspace.SetConstraint(ParameterType.Offset, VariableConstraint.SameForAll);
+            Assert.True(workspace.TryRebuild(experiments));
+            var first = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve(false));
+            first.ErrorEstimationMethod = ErrorEstimationMethod.None;
+            first.Silent = true;
+            if (pooled)
+            {
+                first.Model.Parameters.GlobalTable[ParameterType.Offset].Update(2000);
+                Assert.True(first.Solve().Success);
+            }
+            else
+            {
+                foreach (var member in first.Model.Models)
+                {
+                    member.Parameters.Table[ParameterType.Offset].Update(2000);
+                    var single = SolverInterface.Initialize(member);
+                    single.Silent = true;
+                    single.ErrorEstimationMethod = ErrorEstimationMethod.None;
+                    Assert.True(single.Solve().Success);
+                }
+                first.Model.Solution = new GlobalSolution(first, first.Model.Models.Select(m => m.Solution).ToList(),
+                    first.Model.Models[0].Solution.Convergence);
+            }
+            var retained = new AnalysisResult(first.Model.Solution);
+            var predictions = retained.Model.Models.Select(m => m.Evaluate(0)).ToArray();
+            var second = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve(false));
+            Assert.NotSame(first.Model.Parameters, second.Model.Parameters);
+            Assert.Null(second.Model.Solution);
+            Assert.Equal(experiments, second.Model.Models.Select(m => m.Data));
+            if (pooled) second.Model.Parameters.GlobalTable[ParameterType.Offset].Update(3000);
+            else foreach (var member in second.Model.Models) member.Parameters.Table[ParameterType.Offset].Update(3000);
+            second.Model.Parameters.SetIndividualFromGlobal();
+            for (var i = 0; i < experiments.Length; i++)
+            {
+                Assert.NotSame(first.Model.Models[i], second.Model.Models[i]);
+                Assert.Same(second.Model.Models[i].Parameters, second.Model.Parameters.IndividualModelParameterList[i]);
+                Assert.Same(first.Model.Models[i].Parameters, first.Model.Parameters.IndividualModelParameterList[i]);
+                Assert.Equal(2000, retained.Solution.Solutions[i].Parameters[ParameterType.Offset].Value, 3);
+                Assert.Equal(predictions[i], retained.Model.Models[i].Evaluate(0));
+                Assert.Equal(3000, second.Model.Models[i].Parameters.Table[ParameterType.Offset].Value);
+            }
+        }
+        finally { DataManager.Init(); }
+    }
+
+    [Fact]
+    public void CopyForSolvePreservesSequentialConfigurationAndTemperatureOrigin()
+    {
+        var session = AnalysisSessionState.CreateDefault();
+        session.ModelType = AnalysisModel.SequentialBindingSites;
+        session.IsGlobal = true;
+        session.Global.ModelOptions[AttributeKey.SequentialSiteCount] =
+            ExperimentAttribute.Int(AttributeKey.SequentialSiteCount, "Steps", 4);
+        session.Global.SetSequentialConstraintFamily(ParameterType.Enthalpy1, VariableConstraint.TemperatureDependent, 4);
+        session.Global.SetSequentialConstraintFamily(ParameterType.Affinity1, VariableConstraint.ThermodynamicallyLinked, 4);
+        var source = AnalysisBuilder.Build(session, new[] { CreateReadyExperiment("warm", 35), CreateReadyExperiment("cold", 15) });
+        source.FinalizeForSolver(false);
+        source.GlobalModelParameters.SetReferenceTemperatureKelvin(300);
+        source.GlobalModelParameters.GlobalTable[ParameterType.Enthalpy1].Update(-25000);
+        source.GlobalModelParameters.GlobalTable[ParameterType.HeatCapacity1].Update(120);
+        source.GlobalModelParameters.GlobalTable[ParameterType.Enthalpy1].SetLimits(new[] { -90000.0, 90000.0 });
+        source.GlobalModel.Models[0].Parameters.Table[ParameterType.Offset].Update(1234, lockpar: true);
+        source.GlobalModel.Models[0].Parameters.RestoreExperimentTemperature(309);
+        source.GlobalModelParameters.SetIndividualFromGlobal();
+        source.GlobalModel.Models[0].HeatMethod = InjectionHeatMethod.IdealContinuousMixing;
+        source.GlobalModel.Models[0].Evaluate(0);
+        Assert.True(((SequentialBindingSites)source.GlobalModel.Models[0]).HeatContentSolveCount > 0);
+        var copy = source.CopyForSolve();
+        copy.FinalizeForSolver(false);
+        Assert.Equal(300, copy.GlobalModelParameters.ReferenceTemperatureKelvin);
+        Assert.Equal(source.GlobalModelParameters.Constraints, copy.GlobalModelParameters.Constraints);
+        for (var i = 0; i < source.GlobalModel.Models.Count; i++)
+        {
+            var original = source.GlobalModel.Models[i];
+            var member = Assert.IsType<SequentialBindingSites>(copy.GlobalModel.Models[i]);
+            Assert.Same(original.Data, member.Data);
+            Assert.Equal(4, member.SiteCount);
+            Assert.Equal(0, member.HeatContentSolveCount);
+            Assert.Equal(original.HeatMethod, member.HeatMethod);
+            Assert.Equal(original.Parameters.ExperimentTemperature, member.Parameters.ExperimentTemperature);
+            Assert.Equal(-25000 + 120 * (member.Parameters.ExperimentTemperature - 300), member.Parameters.Table[ParameterType.Enthalpy1].Value, 8);
+            foreach (var pair in original.Parameters.Table)
+            {
+                var parameter = member.Parameters.Table[pair.Key];
+                Assert.NotSame(pair.Value, parameter);
+                Assert.NotSame(pair.Value.Limits, parameter.Limits);
+                Assert.Equal(pair.Value.Value, parameter.Value);
+                Assert.Equal(pair.Value.IsLocked, parameter.IsLocked);
+                Assert.Equal(pair.Value.StepSize, parameter.StepSize);
+                Assert.Equal(pair.Value.ChangedByUser, parameter.ChangedByUser);
+                Assert.Equal(pair.Value.Limits, parameter.Limits);
+            }
+            foreach (var option in original.ModelOptions)
+                Assert.NotSame(option.Value, member.ModelOptions[option.Key]);
+        }
+        var copiedGlobal = copy.GlobalModelParameters.GlobalTable[ParameterType.Enthalpy1];
+        copiedGlobal.Limits[0] = -80000;
+        Assert.Equal(-90000, source.GlobalModelParameters.GlobalTable[ParameterType.Enthalpy1].Limits[0]);
+        copy.GlobalModelParameters.GlobalTable[ParameterType.HeatCapacity1].Update(240);
+        copy.GlobalModelParameters.SetIndividualFromGlobal();
+        Assert.Equal(-23920, source.GlobalModel.Models[0].Parameters.Table[ParameterType.Enthalpy1].Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancelledRepeatFitKeepsRetainedParametersPredictionsAndUncertainty(bool duringUncertainty)
+    {
+        DataManager.Init();
+        SolverInterface.TerminateAnalysisFlag.Lower();
+        try
+        {
+            var experiment = CreateOffsetExperiment("cancel-repeat.itc", 2000);
+            DataManager.AddData(experiment);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.Offset);
+            Assert.True(workspace.TryRebuild());
+            var first = Assert.IsType<Solver>(workspace.PrepareForSolve(false));
+            first.Model.Parameters.Table[ParameterType.Offset].Update(2000);
+            first.Silent = true;
+            Assert.True(first.Solve().Success);
+            var retained = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(first));
+            var original = first.Model.Solution;
+            original.SetBootstrapSolutions(new[] { 1900.0, 2100.0 }.Select(value =>
+            {
+                var model = new Offset(experiment);
+                model.InitializeParameters(experiment);
+                model.Parameters.Table[ParameterType.Offset].Update(value);
+                return SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            }).ToList());
+            original.Parameters[ParameterType.Offset] = new FloatWithError(2000, 100);
+            var uncertainty = original.Parameters[ParameterType.Offset].SD;
+            var predictions = experiment.Injections.Select(i => original.Model.Evaluate(i.ID)).ToArray();
+            var bootstrap = original.BootstrapSolutions.ToArray();
+            Assert.Equal(2, bootstrap.Length);
+            DataManager.AddData(retained);
+            var prepared = Assert.IsType<Solver>(workspace.PrepareForSolve(false));
+            Solver second = duringUncertainty ? prepared : new CancelAfterTrialSolver { Model = prepared.Model };
+            second.ErrorEstimationMethod = duringUncertainty ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
+            second.BootstrapIterations = 50;
+            second.SkipNoBindingUncertainty = false;
+            second.CanCreateAnalysisResult = false;
+            var finished = new TaskCompletionSource<SolverConvergence>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<SolverConvergence> onFinished = (sender, value) =>
+            {
+                if (ReferenceEquals(sender, second)) finished.TrySetResult(value);
+            };
+            EventHandler<Tuple<int, int, float>> cancel = (_, _) => SolverInterface.TerminateAnalysisFlag.Raise();
+            SolverInterface.AnalysisFinished += onFinished;
+            if (duringUncertainty) SolverInterface.ErrorEstimationIterationCompleted += cancel;
+            try
+            {
+                second.Analyze();
+                var convergence = await finished.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                if (duringUncertainty) Assert.Equal(ErrorEstimationOutcome.Cancelled, convergence.ErrorEstimationOutcome);
+                else Assert.True(convergence.Stopped);
+                var deadline = DateTime.UtcNow.AddSeconds(10);
+                while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline) await Task.Delay(1);
+                Assert.False(ProcessingActivity.IsBusy);
+                Assert.Equal(2000, original.Parameters[ParameterType.Offset].Value, 3);
+                Assert.Equal(2000, original.Model.Parameters.Table[ParameterType.Offset].Value, 3);
+                Assert.Equal(uncertainty, original.Parameters[ParameterType.Offset].SD);
+                Assert.Equal(bootstrap, original.BootstrapSolutions);
+                Assert.Equal(predictions, experiment.Injections.Select(i => original.Model.Evaluate(i.ID)));
+                Assert.Same(original, Assert.Single(retained.Solution.Solutions));
+                await VerifySavesAfterCancellation(retained, experiment, predictions);
+            }
+            finally
+            {
+                SolverInterface.AnalysisFinished -= onFinished;
+                SolverInterface.ErrorEstimationIterationCompleted -= cancel;
+            }
+        }
+        finally
+        {
+            SolverInterface.TerminateAnalysisFlag.Lower();
+            DataManager.Init();
+        }
+    }
+
+    static async Task VerifySavesAfterCancellation(AnalysisResult retained, ExperimentData experiment, double[] predictions)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "cancelled-fit-saves-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(directory, "result.ftxtc");
+        var prompt = PlatformServices.FileSavePromptService;
+        var oldPath = ProjectDocumentState.Path;
+        var lastPath = AppSettings.LastDocumentPath;
+        var enabled = AppSettings.AutoSaveEnabled;
+        Directory.CreateDirectory(directory);
+        using var autosave = new AutoSaveManager(Path.Combine(directory, "autosave"));
+        try
+        {
+            DocumentDirtyTracker.Initialize();
+            DocumentDirtyTracker.MarkDirty();
+            ProjectDocumentState.Path = path;
+            PlatformServices.RegisterFileSavePromptService(new FitSavePrompt(path));
+            AppSettings.AutoSaveEnabled = true;
+            autosave.Start();
+            foreach (var save in new Func<Task<bool>>[]
+            {
+                ProjectWriter.SaveWithPathAsync, ProjectWriter.SaveAsync,
+                () => ProjectWriter.SaveSelectedAsync(retained),
+                () => ProjectWriter.SaveSelectedAsync(experiment), ProjectWriter.SaveForCloseAsync,
+            })
+            {
+                Assert.True(await save());
+                await Verify(path);
+            }
+            DocumentDirtyTracker.MarkDirty();
+            Assert.True(await autosave.TickNowAsync());
+            await Verify(autosave.CurrentAutoSavePath);
+        }
+        finally
+        {
+            autosave.StopWithoutResolving();
+            AppSettings.AutoSaveEnabled = enabled;
+            PlatformServices.RegisterFileSavePromptService(prompt);
+            ProjectDocumentState.Path = oldPath;
+            AppSettings.LastDocumentPath = lastPath;
+            Directory.Delete(directory, recursive: true);
+        }
+
+        async Task Verify(string savedPath)
+        {
+            using var stream = File.OpenRead(savedPath);
+            var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
+            Assert.Empty(read.Issues);
+            var savedResult = read.Containers.OfType<AnalysisResult>().SingleOrDefault(r => r.UniqueID == retained.UniqueID);
+            if (savedResult != null)
+            {
+                var member = Assert.Single(savedResult.Solution.Solutions);
+                Assert.Equal(predictions, member.Data.Injections.Select(i => member.Model.Evaluate(i.ID)));
+                Assert.Equal(2000, member.Parameters[ParameterType.Offset].Value, 3);
+                Assert.Equal(100, member.Parameters[ParameterType.Offset].SD);
+            }
+            foreach (var data in read.Containers.OfType<ExperimentData>().Where(d => d.Solution != null))
+                foreach (var parameter in data.Solution.Parameters)
+                    Assert.Equal(parameter.Value.Value, data.Solution.Model.Parameters.Table[parameter.Key].Value);
+        }
+    }
+
+    sealed class FitSavePrompt(string path) : IFileSavePromptService
+    {
+        public Task<string> ChooseSaveFilePathAsync(string title, IEnumerable<string> allowedFileTypes) => Task.FromResult(path);
+    }
+
+    sealed class CancelAfterTrialSolver : Solver
+    {
+        protected override SolverConvergence SolveWithNelderMeadAlgorithm()
+        {
+            // A controlled optimizer trial followed by a stop request. The next
+            // production objective evaluation must take the normal cancellation path.
+            Model.LossFunction(new[] { 3000.0 }, false);
+            TerminateAnalysisFlag.Raise();
+            return base.SolveWithNelderMeadAlgorithm();
+        }
+    }
+
     [Fact]
     public void ErrorWeightedEligibilityRequiresEveryIncludedSdToBeFiniteAndPositive()
     {
@@ -150,7 +470,12 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             workspace.ReplaceModelOptions(options);
             Assert.True(workspace.IsReady);
 
+            var context = workspace.Context;
+            var offset = context.GlobalModel.Models[0].Parameters.Table[ParameterType.Offset];
+            offset.Update(1e9);
             var exception = Assert.Throws<MissingModelOptionAttributesException>(() => workspace.PrepareForSolve(false));
+            Assert.Same(context, workspace.Context);
+            Assert.Equal(1e9, offset.Value);
             Assert.Contains(first.Name, exception.Message);
             Assert.Contains(second.Name, exception.Message);
             Assert.Contains(AttributeKey.PreboundLigandConc.GetProperties().Name, exception.Message);
@@ -538,11 +863,14 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
 
             var solver = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve(false));
 
-            Assert.Same(preparedGlobalModel, solver.Model);
+            Assert.NotSame(preparedGlobalModel, solver.Model);
+            Assert.Same(workspace.Context.GlobalModel, solver.Model);
             Assert.NotSame(firstAttachedModel, first.Model);
             Assert.NotSame(secondAttachedModel, second.Model);
-            Assert.Same(preparedModels[0], first.Model);
-            Assert.Same(preparedModels[1], second.Model);
+            Assert.NotSame(preparedModels[0], first.Model);
+            Assert.NotSame(preparedModels[1], second.Model);
+            Assert.Same(solver.Model.Models[0], first.Model);
+            Assert.Same(solver.Model.Models[1], second.Model);
         }
         finally
         {

@@ -49,6 +49,7 @@ namespace AnalysisITC.Core.Export
 
         internal static async Task<bool> SaveAsync(Func<Task> afterSnapshotCaptured)
         {
+            if (ProcessingActivity.IsBusy) return CancelBusySave();
             var request = DocumentDirtyTracker.CaptureSaveStamp();
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc" });
             if (!DocumentDirtyTracker.IsCurrentDocument(request)) return CancelChangedDocument();
@@ -68,6 +69,7 @@ namespace AnalysisITC.Core.Export
 
         internal static async Task<bool> SaveWithPathAsync(Func<Task> afterSnapshotCaptured)
         {
+            if (ProcessingActivity.IsBusy) return CancelBusySave();
             var request = DocumentDirtyTracker.CaptureSaveStamp();
             return (await SaveCore(request, null, saveAs: false, afterSnapshotCaptured: afterSnapshotCaptured)).Wrote;
         }
@@ -79,6 +81,7 @@ namespace AnalysisITC.Core.Export
 
         internal static async Task<bool> SaveForCloseAsync(Func<Task> afterSnapshotCaptured)
         {
+            if (ProcessingActivity.IsBusy) return CancelBusySave();
             var request = DocumentDirtyTracker.CaptureSaveStamp();
             var saveAs = string.IsNullOrWhiteSpace(ProjectDocumentState.Path);
             var path = saveAs
@@ -94,7 +97,7 @@ namespace AnalysisITC.Core.Export
                 SetStatus("The active document changed while saving. The document was kept open.");
                 return false;
             }
-            if (DocumentDirtyTracker.IsSuspended || DocumentDirtyTracker.IsRestoringDocument)
+            if (ProcessingActivity.IsBusy || DocumentDirtyTracker.IsSuspended || DocumentDirtyTracker.IsRestoringDocument)
             {
                 SetStatus("Saved, but document updates are still in progress. The document was kept open.");
                 return false;
@@ -135,7 +138,13 @@ namespace AnalysisITC.Core.Export
                     StatusBarManager.ClearAppStatus();
                     return CancelChangedDocumentOutcome();
                 }
-                await WriteFile(path, afterSnapshotCaptured);
+                if (!IsFtxtcPath(path)) throw new InvalidOperationException("Projects can only be saved in native .ftxtc format.");
+                if (!ProcessingActivity.TryCaptureSnapshot(CaptureDocument, out var snapshot))
+                {
+                    CancelBusySave();
+                    return new(false, false, default);
+                }
+                await FTXTCWriter.WriteSnapshotFileAsync(path, snapshot, afterSnapshotCaptured);
 
                 if (!DocumentDirtyTracker.IsCurrentDocument(stamp))
                 {
@@ -181,6 +190,7 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveSelectedAsync(ITCDataContainer data)
         {
+            if (ProcessingActivity.IsBusy) return CancelBusySave();
             var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Result");
             var allowedFileTypes = new[] { "ftxtc" };
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync(title, allowedFileTypes);
@@ -194,16 +204,10 @@ namespace AnalysisITC.Core.Export
                 {
                     StatusBarManager.SetSavingFileMessage(path);
                     await Task.Delay(50);
-                    switch (data)
-                    {
-                        case ExperimentData experiment:
-                            await FTXTCWriter.WriteFileAsync(path, new[] { experiment }, null, null, null, null, options);
-                            break;
-                        case AnalysisResult result:
-                            var (experiments, results) = WithDependencies(result);
-                            await FTXTCWriter.WriteFileAsync(path, experiments, results, null, null, null, options);
-                            break;
-                    }
+                    if (!ProcessingActivity.TryCaptureSnapshot(() => CaptureSelected(data, options), out var snapshot))
+                        return CancelBusySave();
+                    if (snapshot == null) return false;
+                    await FTXTCWriter.WriteSnapshotFileAsync(path, snapshot);
                 }
                 finally
                 {
@@ -258,27 +262,11 @@ namespace AnalysisITC.Core.Export
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("An autosave path is required.", nameof(path));
             if (!await SaveGate.WaitAsync(0)) return false;
-
             try
             {
-                var directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-
-                var temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
-                try
-                {
-                    using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                        await FTXTCWriter.WriteStream(stream, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
-
-                    if (File.Exists(path)) File.Replace(temporaryPath, path, null);
-                    else File.Move(temporaryPath, path);
-
-                    return true;
-                }
-                finally
-                {
-                    if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
-                }
+                if (!ProcessingActivity.TryCaptureSnapshot(CaptureDocument, out var snapshot)) return false;
+                await FTXTCWriter.WriteSnapshotFileAsync(path, snapshot);
+                return true;
             }
             finally
             {
@@ -286,13 +274,27 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static async Task WriteFile(string path, Func<Task> afterSnapshotCaptured = null)
+        static FTXTCWriter.Snapshot CaptureDocument() => FTXTCWriter.CaptureSnapshot(
+            DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+
+        static FTXTCWriter.Snapshot CaptureSelected(ITCDataContainer data, FtxtcWriteOptions options)
         {
-            if (!IsFtxtcPath(path)) throw new InvalidOperationException("Projects can only be saved in native .ftxtc format.");
-            if (afterSnapshotCaptured == null)
-                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
-            else
-                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports, afterSnapshotCaptured);
+            switch (data)
+            {
+                case ExperimentData experiment:
+                    return FTXTCWriter.CaptureSnapshot(new[] { experiment }, options: options);
+                case AnalysisResult result:
+                    var (experiments, results) = WithDependencies(result);
+                    return FTXTCWriter.CaptureSnapshot(experiments, results, options: options);
+                default:
+                    return null;
+            }
+        }
+
+        static bool CancelBusySave()
+        {
+            StatusBarManager.SetStatus("Save after fitting or processing finishes.", 5000, priority: 2);
+            return false;
         }
 
         static bool CancelChangedDocument()

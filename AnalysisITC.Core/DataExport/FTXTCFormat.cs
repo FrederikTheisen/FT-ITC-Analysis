@@ -1194,6 +1194,17 @@ namespace AnalysisITC.Core.Export
             FtxtcWriteOptions options = null)
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
+            var snapshot = CaptureSnapshot(experiments, results, contentOrder, reports, options);
+            await snapshot.WriteStream(destination, afterSnapshotCaptured);
+        }
+
+        internal static Snapshot CaptureSnapshot(
+            IEnumerable<ExperimentData> experiments,
+            IEnumerable<AnalysisResult> results = null,
+            IEnumerable<ITCDataContainer> contentOrder = null,
+            IEnumerable<AnalysisReport> reports = null,
+            FtxtcWriteOptions options = null)
+        {
             var experimentList = experiments?.ToList() ?? new List<ExperimentData>();
             var resultList = results?.ToList() ?? new List<AnalysisResult>();
             var reportList = reports?.ToList() ?? new List<AnalysisReport>();
@@ -1284,12 +1295,32 @@ namespace AnalysisITC.Core.Export
                 Sha256 = FTXTCFormat.Sha256(item.Value.bytes)
             }).ToList();
 
-            if (afterSnapshotCaptured != null) await afterSnapshotCaptured();
+            return new Snapshot(FTXTCFormat.JsonBytes(manifest), entries
+                .OrderBy(item => item.Key, StringComparer.Ordinal)
+                .Select(item => (item.Key, item.Value.bytes)).ToArray());
+        }
 
-            using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
-            await WriteEntryAsync(archive, FTXTCFormat.ManifestPath, FTXTCFormat.JsonBytes(manifest));
-            foreach (var item in entries.OrderBy(item => item.Key, StringComparer.Ordinal))
-                await WriteEntryAsync(archive, item.Key, item.Value.bytes);
+        // All arrays are created by capture and remain private. Writing never reads
+        // the mutable document graph, including while a later fit is in progress.
+        internal sealed class Snapshot
+        {
+            readonly byte[] manifest;
+            readonly (string path, byte[] bytes)[] entries;
+
+            internal Snapshot(byte[] manifest, (string path, byte[] bytes)[] entries)
+            {
+                this.manifest = manifest;
+                this.entries = entries;
+            }
+
+            internal async Task WriteStream(Stream destination, Func<Task> afterSnapshotCaptured = null)
+            {
+                if (afterSnapshotCaptured != null) await afterSnapshotCaptured();
+                using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
+                await WriteEntryAsync(archive, FTXTCFormat.ManifestPath, manifest);
+                foreach (var item in entries)
+                    await WriteEntryAsync(archive, item.path, item.bytes);
+            }
         }
 
         public static async Task WriteFileAsync(
@@ -1312,13 +1343,21 @@ namespace AnalysisITC.Core.Export
             FtxtcWriteOptions options = null)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
+            var snapshot = CaptureSnapshot(experiments, results, contentOrder, reports, options);
+            await WriteSnapshotFileAsync(path, snapshot, afterSnapshotCaptured);
+        }
+
+        internal static async Task WriteSnapshotFileAsync(
+            string path, Snapshot snapshot, Func<Task> afterSnapshotCaptured = null)
+        {
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
             var temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-                    await WriteStream(stream, experiments, results, contentOrder, reports, afterSnapshotCaptured, options);
+                    await snapshot.WriteStream(stream, afterSnapshotCaptured);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
             }

@@ -377,20 +377,25 @@ namespace AnalysisITC.Core.Analysis
                 }
             }
 
-            reuseAttachedSolutionInitialValues = true;
-            Context.FinalizeForSolver(attachToExperiments: false);
-            Context.RefreshParameterLimits();
-            if (Context.IsMultiExperiment)
-                ParameterStartNormalizer.Clamp(Context.GlobalModel);
+            var prepared = Context.CopyForSolve();
+            prepared.FinalizeForSolver(attachToExperiments: false);
+            prepared.RefreshParameterLimits();
+            if (prepared.IsMultiExperiment)
+                ParameterStartNormalizer.Clamp(prepared.GlobalModel);
             else
-                ParameterStartNormalizer.Clamp(Context.SingleModel);
-            IEnumerable<Model> fitModels = Context.IsMultiExperiment
-                ? Context.GlobalModel.Models
-                : new[] { Context.SingleModel };
-            ModelOptionAttributeApplier.Prepare(fitModels, Context.ExposedModelOptions);
-            var solver = Context.CreateSolver();
+                ParameterStartNormalizer.Clamp(prepared.SingleModel);
+            IEnumerable<Model> fitModels = prepared.IsMultiExperiment
+                ? prepared.GlobalModel.Models
+                : new[] { prepared.SingleModel };
+            ModelOptionAttributeApplier.Prepare(fitModels, prepared.ExposedModelOptions);
+            var solver = prepared.CreateSolver();
             solver.UseErrorWeightedFitting = useErrorWeightedFitting;
+            Context = prepared;
             Context.AttachPreparedModels();
+            foreach (var model in fitModels)
+                model.Data.MarkModified();
+            reuseAttachedSolutionInitialValues = true;
+            ContextRebuilt?.Invoke(this, EventArgs.Empty);
             return solver;
         }
 

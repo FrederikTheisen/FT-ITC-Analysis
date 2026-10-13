@@ -26,6 +26,8 @@ results/000000/result.json
 reports/000000/report.json
 ```
 
+Project saves and autosaves capture all payload bytes synchronously while holding the shared processing-admission gate, only when processing is idle. The gate is released before asynchronous archive writing and atomic file replacement; the writer then reads only the captured bytes. A busy request does not replace the previous file. This admission rule does not change the package schema.
+
 Ordinal directory names make output deterministic; stable object IDs live inside JSON. `project.json` contains metadata references for experiments, normalized solutions, and results. A solution attached to an experiment and referenced by a result is stored once.
 
 Paths are relative, use `/`, and cannot contain empty, `.` or `..` segments. ZIP timestamps are normalized. Dictionaries, parameters, options, references, and manifest entries are emitted in ordinal order. Determinism is assessed using normalized JSON and entry hashes rather than compressed ZIP bytes.

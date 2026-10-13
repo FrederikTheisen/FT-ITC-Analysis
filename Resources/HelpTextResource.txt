@@ -29,6 +29,7 @@ The first integrated-heat injection is imported but excluded from fitting by def
 **Legacy \appname projects:** `.ftitc` (read-only; save as `.ftxtc` to continue working)
 Drag compatible files into the app window, or use **File > Open...** to select them manually.
 Once loaded, datasets behave the same in the application regardless of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftxtc` file.
+Save after fitting or processing finishes. **Save**, **Save As...**, and **Save Selected...** requests made while busy are declined; choose the command again when the operation ends. An autosave due while busy waits and runs when the operation finishes.
 If newer changes remain unsaved after saving, the document stays marked as changed. Choosing Save while closing, quitting, clearing, or replacing a project keeps it open if newer changes remain; save again to include them.
 Legacy `.ftitc` projects can be opened for migration, but the application no longer writes that deprecated format.
 Drag a non-button area of any Data or Analysis Result row to reorder the data list. The chosen order is used throughout the application and is saved in `.ftxtc` projects.

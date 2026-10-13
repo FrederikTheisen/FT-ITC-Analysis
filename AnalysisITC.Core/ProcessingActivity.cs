@@ -35,6 +35,19 @@ namespace AnalysisITC.Core.Application
             }
         }
 
+        // Capture owned payload bytes synchronously. Disk I/O must happen after
+        // this gate is released, so an admitted save does not hold up processing.
+        internal static bool TryCaptureSnapshot<T>(Func<T> capture, out T snapshot)
+        {
+            lock (gate)
+            {
+                snapshot = default;
+                if (operations != 0 || clearing) return false;
+                snapshot = capture();
+                return true;
+            }
+        }
+
         sealed class Lease : IDisposable
         {
             int disposed;
