@@ -156,7 +156,7 @@ namespace AnalysisITC.Core.DataReaders
         internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false) =>
             (await ReadWithRecovery(stream, FtxtcReadPolicy.Strict, interactive)).Containers;
 
-        public static Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false,
+        public static async Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false,
             FtxtcReadLimits limits = null, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
@@ -168,6 +168,7 @@ namespace AnalysisITC.Core.DataReaders
                 using var restoreScope = DocumentDirtyTracker.RestoreDocument();
                 var issues = new List<FtxtcRecoveryIssue>();
                 var budget = new FtxtcReadBudget(limits);
+                await ShowLoadingStatusAsync("Validating project...", interactive, cancellationToken);
                 using var entries = ReadAndValidateEntries(stream, policy, issues, budget, cancellationToken);
                 stage = "root project validation";
                 var project = ReadProject(entries, budget, cancellationToken);
@@ -179,10 +180,10 @@ namespace AnalysisITC.Core.DataReaders
                     $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}, reports={project.Reports.Count}", 1);
 
                 stage = "experiment restoration";
-                var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues, budget, cancellationToken);
+                var experiments = await RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
                 RestoreBufferReferences(experiments, policy, issues);
                 stage = "solution restoration";
-                var solutions = RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues, budget, cancellationToken);
+                var solutions = await RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
                 stage = "solution attachment";
                 foreach (var reference in project.Experiments)
                 {
@@ -193,9 +194,9 @@ namespace AnalysisITC.Core.DataReaders
                         experiment.UpdateSolution(solution.Model);
                 }
                 stage = "result restoration";
-                var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken);
+                var results = await RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
                 stage = "report restoration";
-                var reports = RestoreReports(project, entries, policy, issues, budget, cancellationToken);
+                var reports = await RestoreReports(project, entries, policy, issues, budget, cancellationToken, interactive);
                 var restoredResultsById = results.ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
                 foreach (var report in reports)
                 {
@@ -231,7 +232,7 @@ namespace AnalysisITC.Core.DataReaders
                     SchemaMajor = entries.SchemaMajor,
                     SchemaMinor = entries.SchemaMinor,
                 };
-                return Task.FromResult(readResult);
+                return readResult;
             }
             catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
             {
@@ -239,6 +240,25 @@ namespace AnalysisITC.Core.DataReaders
                     $"FTXTC read failed during {stage}: policy={policy}, exception={ex.GetType().Name}, message={ex.Message}", 1);
                 throw;
             }
+            finally
+            {
+                if (interactive) StatusBarManager.SetSecondaryStatus("", 0);
+            }
+        }
+
+        static async Task ShowLoadingStatusAsync(string message, bool interactive, CancellationToken cancellationToken)
+        {
+            if (!interactive) return;
+            StatusBarManager.SetSecondaryStatus(message, 0);
+            // Let both desktop status bars repaint before restoring the item.
+            await Task.Delay(1, cancellationToken);
+        }
+
+        static string LoadingItemName(string name, string fileName, string fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(name)) return name;
+            var displayName = Path.GetFileNameWithoutExtension(fileName);
+            return string.IsNullOrWhiteSpace(displayName) ? fallback : displayName;
         }
 
         internal static void DisplayRecoveryNotice(IReadOnlyList<FtxtcRecoveryIssue> issues)
@@ -430,8 +450,8 @@ namespace AnalysisITC.Core.DataReaders
                 .ToList();
         }
 
-        static Dictionary<string, ExperimentData> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
-            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
+        static async Task<Dictionary<string, ExperimentData>> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
         {
             var result = new Dictionary<string, ExperimentData>(StringComparer.Ordinal);
             foreach (var reference in project.Experiments)
@@ -439,6 +459,7 @@ namespace AnalysisITC.Core.DataReaders
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
                 if (state == null) continue;
+                await ShowLoadingStatusAsync("Experiment: " + LoadingItemName(state.Name, state.FileName, "Unnamed experiment"), interactive, cancellationToken);
                 try
                 {
                     if (state.Id != reference.Id) throw new InvalidDataException("Experiment metadata id does not match project.json.");
@@ -517,9 +538,9 @@ namespace AnalysisITC.Core.DataReaders
             return result;
         }
 
-        static Dictionary<string, SolutionInterface> RestoreSolutions(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+        static async Task<Dictionary<string, SolutionInterface>> RestoreSolutions(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, ExperimentData> experiments, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive = false)
         {
             var result = new Dictionary<string, SolutionInterface>(StringComparer.Ordinal);
             foreach (var reference in project.Solutions)
@@ -535,6 +556,7 @@ namespace AnalysisITC.Core.DataReaders
                 }
                 var state = TryRead<FtxtcSolutionState>(entries, reference.Metadata, reference.Id, policy, issues, "solution-metadata");
                 if (state == null) continue;
+                await ShowLoadingStatusAsync("Fit: " + LoadingItemName(experiment.Name, experiment.FileName, "Unnamed experiment"), interactive, cancellationToken);
                 try
                 {
                     var modelType = FtxtcWireIds.Model(state.ModelId);
@@ -708,9 +730,9 @@ namespace AnalysisITC.Core.DataReaders
             return restored.OrderBy(item => item.BootstrapReplicateIndex).ToList();
         }
 
-        static List<AnalysisResult> RestoreResults(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+        static async Task<List<AnalysisResult>> RestoreResults(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, SolutionInterface> solutions, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
         {
             var result = new List<AnalysisResult>();
             foreach (var reference in project.Results)
@@ -718,6 +740,7 @@ namespace AnalysisITC.Core.DataReaders
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcResultState>(entries, reference.Metadata, reference.Id, policy, issues, "result-metadata");
                 if (state == null) continue;
+                await ShowLoadingStatusAsync("Result: " + LoadingItemName(state.Name, state.FileName, "Analysis result"), interactive, cancellationToken);
                 try
                 {
                     if (state.Id != reference.Id || state.MemberSolutionIds == null
@@ -752,7 +775,7 @@ namespace AnalysisITC.Core.DataReaders
                         };
                         var experiments = members.Select(member => member.Data).Distinct()
                             .ToDictionary(experiment => experiment.UniqueID, StringComparer.Ordinal);
-                        var contextual = RestoreSolutions(contextProject, entries, experiments, packageSchemaMinor,
+                        var contextual = await RestoreSolutions(contextProject, entries, experiments, packageSchemaMinor,
                             policy, issues, budget, cancellationToken);
                         members = state.MemberSolutionIds.Select(id => reusedIds.Contains(id) ? contextual[id] : solutions[id]).ToList();
                     }
@@ -1379,11 +1402,11 @@ namespace AnalysisITC.Core.DataReaders
 
         static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
-        static List<AnalysisReport> RestoreReports(
+        static async Task<List<AnalysisReport>> RestoreReports(
             FtxtcProject project,
             IReadOnlyDictionary<string, byte[]> entries,
             FtxtcReadPolicy policy,
-            List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
+            List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
         {
             var reports = new List<AnalysisReport>();
             foreach (var reference in project.Reports ?? new List<FtxtcReportReference>())
@@ -1391,6 +1414,7 @@ namespace AnalysisITC.Core.DataReaders
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcReportState>(entries, reference.Metadata, reference.Id, policy, issues, "report-metadata");
                 if (state == null) continue;
+                await ShowLoadingStatusAsync("Report: " + LoadingItemName(state.Name, null, "Analysis report"), interactive, cancellationToken);
                 try
                 {
                     if (state.SchemaVersion != 1 || state.Id != reference.Id)

@@ -413,14 +413,21 @@
         </Grid>
 
         <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="20">
+            <Grid ColumnDefinitions="2*,*,Auto,Auto" RowDefinitions="20">
                 <TextBlock x:Name="StatusText"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource SecondaryText}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
+                <TextBlock x:Name="SecondaryStatusText"
+                           Grid.Column="1"
+                           Margin="16,0,0,0"
+                           Foreground="{DynamicResource MutedText}"
+                           TextAlignment="Right"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
                 <ProgressBar x:Name="StatusProgressBar"
-                             Grid.Column="1"
+                             Grid.Column="2"
                              Width="120"
                              Height="7"
                              Minimum="0"
@@ -429,7 +436,7 @@
                              VerticalAlignment="Center"
                              IsVisible="False" />
                 <TextBlock x:Name="StatusProgressText"
-                           Grid.Column="2"
+                           Grid.Column="3"
                            Width="38"
                            Margin="6,0,0,0"
                            Foreground="{DynamicResource MutedText}"
@@ -437,11 +444,6 @@
                            TextAlignment="Right"
                            VerticalAlignment="Center"
                            IsVisible="False" />
-                <TextBlock x:Name="SecondaryStatusText"
-                           Grid.Column="3"
-                           Margin="16,0,0,0"
-                           Foreground="{DynamicResource MutedText}"
-                           VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>
