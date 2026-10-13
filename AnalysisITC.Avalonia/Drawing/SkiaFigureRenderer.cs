@@ -813,17 +813,15 @@ sealed class SkiaDrawingContext
     public void DrawTextCenteredBaseline(string text, SKPoint baseline, float size, SKColor color)
     {
         using var paint = TextPaint(color);
-        using var font = TextFont(size, bold: false, italic: false);
-        var width = font.MeasureText(text ?? "", paint);
-        canvas.DrawText(text ?? "", baseline.X - width / 2, baseline.Y, SKTextAlign.Left, font, paint);
+        var width = fonts.MeasureText(text, size, paint);
+        fonts.DrawText(canvas, text, baseline.X - width / 2, baseline.Y, size, paint);
     }
 
     public void DrawTextRightBaseline(string text, SKPoint baseline, float size, SKColor color)
     {
         using var paint = TextPaint(color);
-        using var font = TextFont(size, bold: false, italic: false);
-        var width = font.MeasureText(text ?? "", paint);
-        canvas.DrawText(text ?? "", baseline.X - width, baseline.Y, SKTextAlign.Left, font, paint);
+        var width = fonts.MeasureText(text, size, paint);
+        fonts.DrawText(canvas, text, baseline.X - width, baseline.Y, size, paint);
     }
 
     public void DrawTextCenteredTop(string text, SKPoint topCenter, float size, SKColor color)
@@ -831,10 +829,10 @@ sealed class SkiaDrawingContext
         using var paint = TextPaint(color);
         using var font = TextFont(size, bold: false, italic: false);
         var value = text ?? "";
-        var width = font.MeasureText(value, paint);
+        var width = fonts.MeasureText(value, size, paint);
         var metrics = font.Metrics;
         var baseline = topCenter.Y - metrics.Ascent;
-        canvas.DrawText(value, topCenter.X - width / 2, baseline, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, value, topCenter.X - width / 2, baseline, size, paint);
     }
 
     public void DrawTextCenteredBottom(string text, SKPoint bottomCenter, float size, SKColor color)
@@ -842,10 +840,10 @@ sealed class SkiaDrawingContext
         using var paint = TextPaint(color);
         using var font = TextFont(size, bold: false, italic: false);
         var value = text ?? "";
-        var width = font.MeasureText(value, paint);
+        var width = fonts.MeasureText(value, size, paint);
         var metrics = font.Metrics;
         var baseline = bottomCenter.Y - metrics.Descent;
-        canvas.DrawText(value, bottomCenter.X - width / 2, baseline, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, value, bottomCenter.X - width / 2, baseline, size, paint);
     }
 
     public void DrawTextRightMiddle(string text, SKPoint rightCenter, float size, SKColor color)
@@ -853,24 +851,24 @@ sealed class SkiaDrawingContext
         using var paint = TextPaint(color);
         using var font = TextFont(size, bold: false, italic: false);
         var value = text ?? "";
-        var width = font.MeasureText(value, paint);
+        var width = fonts.MeasureText(value, size, paint);
         var metrics = font.Metrics;
         var baseline = rightCenter.Y - (metrics.Ascent + metrics.Descent) * 0.5f;
-        canvas.DrawText(value, rightCenter.X - width, baseline, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, value, rightCenter.X - width, baseline, size, paint);
     }
 
     public void DrawTextRotated(string text, SKPoint point, float size, SKColor color, float degrees)
     {
         using var paint = TextPaint(color);
         using var font = TextFont(size, bold: false, italic: false);
-        var width = font.MeasureText(text ?? "", paint);
+        var width = fonts.MeasureText(text, size, paint);
         var metrics = font.Metrics;
         var baseline = -(metrics.Ascent + metrics.Descent) * 0.5f;
 
         canvas.Save();
         canvas.Translate(point);
         canvas.RotateDegrees(degrees);
-        canvas.DrawText(text ?? "", -width / 2, baseline, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, text, -width / 2, baseline, size, paint);
         canvas.Restore();
     }
 
@@ -880,7 +878,7 @@ sealed class SkiaDrawingContext
         using var font = TextFont(size, bold, italic);
         var metrics = font.Metrics;
         var baseline = topLeft.Y - metrics.Ascent;
-        canvas.DrawText(text ?? "", topLeft.X, baseline, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, text, topLeft.X, baseline, size, paint, bold, italic);
     }
 
     /// <summary>Draws a bold lead followed by regular-weight text on one shared baseline.</summary>
@@ -893,11 +891,11 @@ sealed class SkiaDrawingContext
         var x = topLeft.X;
         if (!string.IsNullOrEmpty(lead))
         {
-            canvas.DrawText(lead, x, baseline, SKTextAlign.Left, leadFont, paint);
-            x += leadFont.MeasureText(lead, paint) + gap;
+            fonts.DrawText(canvas, lead, x, baseline, size, paint, bold: true);
+            x += fonts.MeasureText(lead, size, paint, bold: true) + gap;
         }
         if (!string.IsNullOrEmpty(text))
-            canvas.DrawText(text, x, baseline, SKTextAlign.Left, textFont, paint);
+            fonts.DrawText(canvas, text, x, baseline, size, paint);
     }
 
     public SKSize MeasureText(string text, float size, bool bold = false, bool italic = false)
@@ -930,9 +928,8 @@ sealed class SkiaDrawingContext
         foreach (var part in parts)
         {
             using var paint = TextPaint(color);
-            using var font = TextFont(part.Size, part.Bold, part.Italic);
-            canvas.DrawText(part.Text, x, baseline + part.BaselineOffset, SKTextAlign.Left, font, paint);
-            x += font.MeasureText(part.Text, paint);
+            fonts.DrawText(canvas, part.Text, x, baseline + part.BaselineOffset, part.Size, paint, part.Bold, part.Italic);
+            x += fonts.MeasureText(part.Text, part.Size, paint, part.Bold, part.Italic);
         }
     }
 
@@ -956,7 +953,7 @@ sealed class SkiaDrawingContext
             using var paint = TextPaint(SKColors.Black);
             using var font = TextFont(part.Size, part.Bold, part.Italic);
             var metrics = font.Metrics;
-            width += font.MeasureText(part.Text, paint);
+            width += fonts.MeasureText(part.Text, part.Size, paint, part.Bold, part.Italic);
             top = Math.Min(top, metrics.Ascent + part.BaselineOffset);
             bottom = Math.Max(bottom, metrics.Descent + part.BaselineOffset);
         }
