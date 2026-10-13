@@ -1,20 +1,20 @@
 # Automatic assessment of fitted binding parameters
 
-Status: Draft proposal (revised 2026-10-12). Planning only; the assessment consequence and the exact range values remain open decisions.
+Status: Draft proposal (revised 2026-10-12). Parameter screening is not implemented or released. Decided: out-of-range parameters give No binding detected; no new reason field.
 
 Extend the automatic binding assessment so that a binding model's improvement over the Null model is considered together with whether its parameters lie inside a physically plausible range. A good curve fit can still give a nonsensical interpretation, for example a very small binding ratio together with an enormous enthalpy. The goal is to catch some of this nonsense with a simple rule, not to judge every questionable fit.
 
 ## Scope and assumptions
 
-- Each model parameter of interest has one allowed range. A parameter outside its range gives a worse automatic assessment. There are no advisory/severe levels and no context-dependent checks.
+- Each model parameter of interest has one allowed range. A parameter outside its range makes the automatic assessment No binding detected. There are no advisory/severe levels and no context-dependent checks.
+- No reason, finding text, or warning is added for an out-of-range result. The assessment presentation does not have a reason field today, and this feature does not add one.
 - Checked parameters: Kd, ΔH, and N (or α in syringe active-fraction mode). Derived values (ΔG, ΔS, −TΔS), ΔCp, Offset, and other model parameters are not checked.
 - Fitted and fixed parameters are treated the same. A fixed value outside its range triggers the rule like a fitted one.
 - Ranges are fixed screening limits, independent of the parameter-limit preference (Standard, Extended, No limit). They are chosen limits, not fundamental physical maxima, and their documentation says so.
 - Plausible ranges lie slightly inside the Standard solver limits, so a Standard fit that hits a solver limit also falls outside the plausible range.
 - Manual overrides remain authoritative, as today.
-- Historical results keep their recorded assessments until explicitly updated.
 - No concentration-context or c-value check is part of this feature. c-values remain the existing diagnostic display.
-- No new user settings, expected-stoichiometry inputs, solver constraints, automatic refits, or model selection.
+- No new user settings, expected-stoichiometry inputs, automatic refits, or model selection. The proposed change to the existing N solver bound is a separate decision, still to be confirmed.
 
 ## Current behavior
 
@@ -27,7 +27,7 @@ Extend the automatic binding assessment so that a binding model's improvement ov
 | ΔAICc ≥ 15 | Binding detected |
 | Comparison unavailable or inconsistent | Not assessed |
 
-The rule does not examine parameter values.
+The rule does not examine parameter values. The reader already reevaluates the assessment on load using the current rule, retaining manual overrides without refitting.
 
 Solver limits (`ParameterSet.cs`), with factors ×20 (Extended) and ×2000 (No limit):
 
@@ -48,10 +48,10 @@ All comparisons are inclusive: a value equal to a range end is inside. Kd is che
 | Parameter | Plausible range | Notes |
 | --- | --- | --- |
 | Kd | 1 pM to 10 mM (10⁻¹² to 10⁻² M) | Kd above 10 mM is treated as implausible regardless of experimental design. This deliberately excludes very weak affinities that low-c experiments can sometimes estimate. |
-| ΔH | −800 to +800 kJ/mol (candidate) | Applies to both signs. Values are the fitted (observed) enthalpy, which can include buffer protonation contributions. |
-| N or α | 0.15 to 20 (candidate) | One shared range for N and α. |
+| ΔH | −950 to +950 kJ/mol | Applies to both signs. Values are the fitted (observed) enthalpy, which can include buffer protonation contributions. Standard solver limit is ±1,000 kJ/mol. |
+| N or α | 0.11 to 24 | One shared range for N and α. This proposal assumes the Standard solver limit of 0.1–25 below, which is separately pending confirmation. |
 
-Change the Standard solver limit for N from 0.1–10 to **0.1–25**. Extended and No limit scale accordingly (0.005–500 and 0.00005–50,000). This is a solver-bound change affecting all new fits and is listed as its own implementation step.
+Separate proposal, pending confirmation: change the Standard solver limit for N from 0.1–10 to **0.1–25**. Extended and No limit would scale accordingly (0.005–500 and 0.00005–50,000). This changes fitting behavior independently of assessment; parameter screening itself does not require changing solver bounds.
 
 ## Model meanings
 
@@ -69,56 +69,52 @@ Non-finite or non-positive required values (e.g. Kd ≤ 0, non-finite ΔH) count
 
 ## Proposed assessment rule
 
-New rule ID, candidate `aicc-0-15-ranges-v1`. The ranges are constants of that rule version; changing a range requires a new rule ID. `aicc-0-15-v1` is preserved for historical results.
+New rule ID, candidate `aicc-0-15-ranges-v1`. The ranges are constants of that rule version; changing a range requires a new rule ID.
 
 | Comparison recommendation | All checked parameters in range | Any parameter out of range |
 | --- | --- | --- |
 | No binding detected | No binding detected | No binding detected |
-| Inconclusive | Inconclusive | **Open decision** |
-| Binding detected | Binding detected | **Open decision** |
+| Inconclusive | Inconclusive | No binding detected |
+| Binding detected | Binding detected | No binding detected |
 | Not assessed | Not assessed | Not assessed |
 
-### Open decision: the out-of-range outcome
+Mapping out-of-range results to No binding detected reuses all existing behavior: uncertainty skipping (when the existing preference is enabled), output suppression, attempted-fit diagnostics, manual override, and the existing saved outcome set. No new outcome, reason field, or warning is added.
 
-**Option A — No binding detected.** Reuses all existing behavior: uncertainty skipping, output suppression, attempted-fit diagnostics, manual override, and the existing saved outcome set.
-- The label claims more than the evidence. A common cause of tiny N is a concentration error; such a fit can show a clear isotherm with ΔAICc ≫ 15 and still be labelled No binding detected. The reason must be shown alongside the comparison.
-- It broadens the meaning of No binding detected from "the Null model is as good" to also "no plausible binding model."
+Accepted consequences:
+- No binding detected now also covers "no plausible binding model," not only "the Null model is as good." The rule definition text in the app and manual must say so.
+- A fit with a concentration error can show a clear isotherm with ΔAICc ≫ 15 and still be assessed No binding detected. The comparison table continues to show the ΔAICc; the user can override.
 
-**Option B — a distinct outcome (or Inconclusive plus a skip flag).** Keeps the meanings separate, but extends the saved outcome set, the uncertainty gate, output policy, the web viewer, and every consumer of the outcome.
-
-Either way, the visible reason names the parameter, its value, and the range, for example: “The fitted enthalpy, −50,000 kJ/mol, is outside the plausible range of ±800 kJ/mol; the binding interpretation is not accepted.” It must not state that the molecules cannot bind.
-
-Manual overrides remain authoritative. An override to Binding detected restores today's behavior for that result, including uncertainty estimation, but keeps the out-of-range reason visible.
+Manual overrides remain authoritative, as today. An override to Binding detected restores binding-output eligibility and prevents assessment-based uncertainty skipping when the fit is next run or updated. It does not generate uncertainty that was already skipped: the result remains stale until the user runs Update Result.
 
 ## Implementation outline
 
-1. **Solver limit.** Change the Standard N upper limit to 25 in `ParameterSet.cs`. Check tests and documents that assume 10.
-2. **Range evaluator (Core).** A pure function taking the fit's physical central values (fitted and fixed) and returning out-of-range findings: parameter, site/step/member, value, range. Uses the original-data best fit only; bootstrap or profile results never change it.
-3. **Combined assessment.** One calculation used by the solver, `AnalysisResult` construction/update, and the reader. It must also replace comparison-only recalculations used for outcome display, including `NullModelComparisonPresentation.AutomaticOutcome`/`Conclusion(comparison)`. Under Option A, `Solver2.IsAssessedNoBinding` uses the combined outcome so that uncertainty is skipped.
-4. **Persistence.** Save the new rule ID. Because the ranges are constants of the rule and the parameter values are already saved, the reader recalculates findings rather than storing them. Validation must be chosen by the saved rule ID; the current check in `FTXTCReader.cs` only validates when the saved ID equals `CurrentRuleId`, which would silently stop validating `aicc-0-15-v1` files once the constant changes. Older app versions accept unfamiliar rule IDs; confirm what they show and what a re-save from an older version preserves. Read `Documentation/Schemas/FTXTC/FTXTC_FORMAT.md` before any format change.
-5. **Presentation.** Both desktop applications show the effective outcome, the comparison recommendation, and the out-of-range reasons through shared Core text, formatted with `FloatWithError`/`Energy`. Carry the reasons through report previews, PDF, table and clipboard exports, interpretation evidence, and the web viewer, which must display the saved combined outcome. Update `Documentation/ANALYSIS_REPORT_MAP.md` (A01, A06, E05/E08, P03) when changing report output.
-6. **Documentation.** Update `Documentation/UserManual/pages/08-results-advanced-analysis.md`, `Resources/HelpTextResource.txt`, and `Resources/ScienceHelpResource.txt` with the ranges, that they are chosen screening limits, and the resulting assessment.
+1. **Confirm ranges and solver scope.** Confirm the proposed ΔH and N/α ranges and separately decide whether to raise the Standard N upper limit to 25. If approved, change that limit in `ParameterSet.cs` and check tests and documents that assume 10. Do not change solver bounds merely as part of adding assessment checks.
+2. **Range evaluator (Core).** A pure function taking the fit's physical central values (fitted and fixed) and returning whether every checked parameter is in range. Uses the original-data best fit only; bootstrap or profile results never change it.
+3. **Combined assessment.** One calculation used by the solver, `AnalysisResult` construction/update, and the reader's existing reevaluation path, using saved fitted values on load. It must also replace comparison-only recalculations used for outcome display, including `NullModelComparisonPresentation.AutomaticOutcome`/`Conclusion(comparison)`. `Solver2.IsAssessedNoBinding` uses the combined outcome so that uncertainty is skipped.
+4. **Persistence.** Keep the existing format and save the current rule ID. The parameter values are already saved, so no range-check metadata or format change is needed.
+5. **Presentation.** No new presentation elements. Existing outcome displays in both desktop applications, reports, exports, interpretation evidence, and the web viewer must show the result's combined assessment, including its manual override, rather than recalculating from ΔAICc. Check `Documentation/ANALYSIS_REPORT_MAP.md` (A01, A06, E05/E08, P03) for entries that describe the outcome as ΔAICc-only.
+6. **Rule definition text.** The existing definitions state the outcome purely in ΔAICc terms and describe No binding detected as "relative to the Null model": `NullModelComparisonPresentation.RuleExplanation`, `Resources/HelpTextResource.txt`, `Resources/ScienceHelpResource.txt`, and `Documentation/UserManual/pages/08-results-advanced-analysis.md`. Add the range rule, the range values, and that they are chosen screening limits.
 
 ## Validation
 
 Focused tests with independently specified expectations. These test assessment policy and parameter mapping; they are not forward-model validation.
 
 - Each range end exactly, and values just inside and just outside, for Kd, ΔH (both signs), and N/α.
-- Unit conversions: 30 mM = 0.03 M is out of range; −50,000 kJ/mol = −5×10⁷ J/mol is out of range; display units cannot change a finding.
+- Unit conversions: 30 mM = 0.03 M is out of range; −50,000 kJ/mol = −5×10⁷ J/mol is out of range; display units cannot change the outcome.
 - Fixed parameters outside a range trigger the rule.
 - Every model's parameter roles, all sequential steps, both sites, active-fraction mode, Competitive intrinsic vs apparent Kd, Dissociation convention, temperature-dependent members.
 - Non-finite and non-positive values.
 - The comparison-only rule table is unchanged for `aicc-0-15-v1`; the combined table for the new rule.
-- Uncertainty gating and manual overrides for single, pooled, and independent fits.
-- Round trip of the new rule ID; historical `aicc-0-15-v1` files still validate and keep their outcomes.
-- Matching reasons in both desktop applications, reports, exports, and the web viewer.
+- Uncertainty gating and manual overrides for single, pooled, and independent fits. An override after uncertainty was skipped leaves the result stale until Update Result.
+- Reopening an out-of-range fit applies the parameter checks through the existing reevaluation path, retaining manual overrides, fitted values, and stored uncertainty.
+- An out-of-range fit with ΔAICc ≥ 15 shows No binding detected in both desktop applications, reports, exports, and the web viewer.
 
 Run `AnalysisITC.Core.Tests`, the relevant Avalonia tests, and macOS build checks. ITC-090 contains separate known uncertainty/update failures; distinguish them from new regressions.
 
 ## Decisions before implementation
 
-1. The out-of-range outcome (Option A or B).
-2. Final ΔH and N/α range values.
-3. Confirmation of the Competitive and Dissociation parameter treatment above.
+Decided: out-of-range → No binding detected; no reason field; Competitive and Dissociation treatment as above; Kd range as in the table.
+
+Still to confirm: the proposed ΔH range, the N/α range, and the separate increase of the Standard N solver upper limit from 10 to 25. These proposals are not implementation approval.
 
 Related existing work: ITC-002 (numerical bounds), ITC-014 (assessment policy), ITC-016/073 (member scope), ITC-050/051 (health and output), ITC-052/083 (uncertainty gating), ITC-090 (update integrity). These relationships do not authorize resolving adjacent tracker issues as part of this feature.
