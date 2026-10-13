@@ -989,12 +989,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static double XValue(ExperimentData? data, InjectionData injection)
         {
-            return data?.AxisType switch
-            {
-                AnalysisXAxisType.TitrantConcentration => injection.ActualTitrantConcentration * 1_000_000,
-                AnalysisXAxisType.ID => injection.ID + 1,
-                _ => injection.Ratio
-            };
+            return AnalysisAxisPresentation.DisplayXValue(data?.AxisType ?? AnalysisXAxisType.MolarRatio, injection);
         }
 
         double XValue(double stoichiometry)

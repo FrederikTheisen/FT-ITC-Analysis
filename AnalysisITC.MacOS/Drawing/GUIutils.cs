@@ -298,7 +298,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
             tooltiplines.Add("Inj #" + (inj.ID + 1));
             tooltiplines.Add($"Volume: {inj.Volume * 1000000:F1} µl");
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
-            tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * inj.Ratio).ToString("F2"));
+            var x = AnalysisAxisPresentation.XValue(graph.ExperimentData.AxisType, inj);
+            tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * x).ToString("F2"));
             var energyUnit = EnergyUnitResolver.Resolve(
                 AppSettings.EnergyUnitFamily,
                 inj.Enthalpy2.Value);

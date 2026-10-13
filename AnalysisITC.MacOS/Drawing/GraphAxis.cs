@@ -488,11 +488,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public static int GetXAxisScaleFactor(ExperimentData data)
         {
-            switch (data.AxisType)
-            {
-                case AnalysisXAxisType.TitrantConcentration: return 1000000;
-                default: return 1;
-            }
+            return AnalysisAxisPresentation.XScaleFactor(data.AxisType);
         }
     }
 

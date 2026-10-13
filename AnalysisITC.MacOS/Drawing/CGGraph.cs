@@ -1972,6 +1972,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
     {
         readonly SolutionInterface solutionOverride;
         readonly bool hasSolutionOverride;
+        AnalysisXAxisType? configuredXAxisType;
         Func<ExperimentData, SolutionInterface> solutionResolver;
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
@@ -2136,15 +2137,18 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         protected override void SetupAxes()
         {
+            configuredXAxisType = ExperimentData.AxisType;
             XAxis.LegendTitle = GraphAxis.GetXAxisTitle(ExperimentData);
             XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(ExperimentData);
 
-            if (UnifiedMolarRatioAxis && DataManager.IncludedData.Count() > 0)
-            {
-                var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
-                XAxis.SetWithBuffer(0, xmax, 0.05);
-            }
-            else XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
+            var xData = UnifiedMolarRatioAxis
+                ? DataManager.IncludedData.Where(data => data.AxisType == ExperimentData.AxisType)
+                    .Concat(new[] { ExperimentData })
+                : new[] { ExperimentData };
+            var xmax = xData.SelectMany(data => data.Injections)
+                .Select(XValue).Where(double.IsFinite).DefaultIfEmpty(0).Max();
+            if (xmax <= 0) xmax = 1.0 / XAxis.ValueFactor;
+            XAxis.SetWithBuffer(0, xmax, 0.05);
             
             if (UnifiedEnthalpyAxis && DataManager.IncludedData.Count() > 0)
             {
@@ -2157,7 +2161,18 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
 
-            XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
+            var displayMaximum = XAxis.Max * XAxis.ValueFactor;
+            var roundedMaximum = Math.Max(Math.Floor(displayMaximum + 0.33f), displayMaximum);
+            XAxis.SetWithBuffer(0, roundedMaximum / XAxis.ValueFactor, 0.05);
+        }
+
+        internal double XValue(InjectionData injection)
+            => AnalysisAxisPresentation.XValue(ExperimentData.AxisType, injection);
+
+        public override void PrepareDraw(CGContext gc, CGPoint center)
+        {
+            if (configuredXAxisType != ExperimentData.AxisType) SetupAxes();
+            base.PrepareDraw(gc, center);
         }
 
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> includeddata)
@@ -2290,13 +2305,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 var enthalpy = DisplayEnthalpy(ExperimentData, inj);
 
-                var p = GetRelativePosition(inj.Ratio, enthalpy);
+                var x = XValue(inj);
+                var p = GetRelativePosition(x, enthalpy);
                 var infop = p;
 
                 if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
                 {
-                    var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.SD);
-                    var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.SD);
+                    var etop = GetRelativePosition(x, enthalpy - inj.SD);
+                    var ebottom = GetRelativePosition(x, enthalpy + inj.SD);
 
                     if (Math.Abs(etop.Y - p.Y) > InjectionSymbolSize / 2)
                     {
@@ -2343,14 +2359,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
         }
 
         IEnumerable<(double Ratio, double Enthalpy)> FitPredictionPointsFor(
-            ExperimentData data, Model model, bool withOffset, double subtractOffset = 0)
+            ExperimentData data, Model model, bool withOffset, double subtractOffset = 0, ExperimentData axisData = null)
         {
             if (data == null || model == null) yield break;
             foreach (var injection in data.Injections)
             {
                 var enthalpy = model.EvaluateEnthalpy(injection.ID, withoffset: withOffset) - subtractOffset;
-                if (double.IsFinite(injection.Ratio) && double.IsFinite(enthalpy))
-                    yield return (injection.Ratio, enthalpy);
+                var x = AnalysisAxisPresentation.XValue((axisData ?? data).AxisType, injection);
+                if (double.IsFinite(x) && double.IsFinite(enthalpy))
+                    yield return (x, enthalpy);
             }
         }
 
@@ -2371,7 +2388,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 string.Equals(solution?.Model?.Data?.UniqueID, data.UniqueID, StringComparison.Ordinal))?.Model;
             if (nullModel != null)
             {
-                foreach (var point in FitPredictionPointsFor(nullModel.Data, nullModel, withOffset: true, subtractOffset: bindingOffset))
+                foreach (var point in FitPredictionPointsFor(nullModel.Data, nullModel, withOffset: true,
+                    subtractOffset: bindingOffset, axisData: data))
                     yield return point;
                 yield break;
             }
@@ -2476,7 +2494,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var inj in ExperimentData.Injections)
             {
-                var x = inj.Ratio;
+                var x = XValue(inj);
                 var y = ActiveModel.EvaluateBootstrap(inj.ID, DrawWithOffset).WithConfidence();
 
                 top.Add(GetRelativePosition(x, y[0]));
@@ -2505,7 +2523,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             var fitEvent = CursorFeatureFromInjectionPoints(
                 cursorpos,
-                inj => GetRelativePosition(inj.Ratio, DisplayEnthalpy(ExperimentData, inj)),
+                inj => GetRelativePosition(XValue(inj), DisplayEnthalpy(ExperimentData, inj)),
                 this,
                 isclick,
                 ismouseup,
@@ -2585,7 +2603,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         protected override void SetupAxes()
         {
+            XAxis.LegendTitle = ParentXAxis.LegendTitle;
+            XAxis.ValueFactor = ParentXAxis.ValueFactor;
             XAxis.Set(ParentXAxis.ActualMin, ParentXAxis.Max);
+            XAxis.SetMaxTicks(ParentXAxis.TickScale.MaxTicks);
 
             var list = new List<ExperimentData>();
 
@@ -2680,13 +2701,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 var res = DataFittingGraph.ResidualEnthalpy(inj);
 
-                var p = GetRelativePosition(inj.Ratio, res);
+                var x = DataFittingGraph.XValue(inj);
+                var p = GetRelativePosition(x, res);
                 var infop = p;
 
                 if ((DataFittingGraph.ShowPeakInfo || DataFittingGraph.ShowErrorBars) && !(DataFittingGraph.HideBadDataErrorBars && !inj.Include))
                 {
-                    var etop = GetRelativePosition(inj.Ratio, res - inj.SD);
-                    var ebottom = GetRelativePosition(inj.Ratio, res + inj.SD);
+                    var etop = GetRelativePosition(x, res - inj.SD);
+                    var ebottom = GetRelativePosition(x, res + inj.SD);
 
                     var symbolSize = DataFittingGraph.InjectionSymbolSize;
                     var errorBarEndWidth = new CGSize(symbolSize / 2, 0);
@@ -2739,7 +2761,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             return CursorFeatureFromInjectionPoints(
                 cursorpos,
-                inj => GetRelativePosition(inj.Ratio, DataFittingGraph.ResidualEnthalpy(inj)),
+                inj => GetRelativePosition(DataFittingGraph.XValue(inj), DataFittingGraph.ResidualEnthalpy(inj)),
                 DataFittingGraph,
                 isclick,
                 ismouseup,

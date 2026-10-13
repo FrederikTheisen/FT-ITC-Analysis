@@ -24,6 +24,35 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class IntegratedHeatsGraphControlTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DissociationPlotsUseConcentrationsWhenSavedRatiosAreUnusable(bool hasCellConcentration)
+    {
+        var experiment = CreateExperiment();
+        experiment.CellConcentration = new FloatWithError(hasCellConcentration ? 35e-6 : 0);
+        foreach (var injection in experiment.Injections)
+            injection.Ratio = double.PositiveInfinity;
+        var model = new Dissociation(experiment);
+        model.InitializeParameters(experiment);
+        model.Solution = SolutionInterface.FromModel(model,
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        experiment.Model = model;
+        var graph = ArrangeGraph(experiment);
+
+        Assert.InRange(graph.ViewportForTesting.XMax, 15, 20);
+        for (var index = 0; index < 3; index++)
+        {
+            var injection = experiment.Injections[index];
+            var point = GraphPoint(graph, injection, residual: false);
+            var residual = GraphPoint(graph, injection, residual: true);
+            Assert.Equal(point.X, residual.X, 12);
+            Assert.Contains($"[Titrant] (µM): {(index + 1) * 5}", graph.HoverLinesForTesting(injection, residual: false));
+            Assert.True(graph.UpdateHoverAtForTesting(point));
+            Assert.Same(injection, graph.HoveredInjectionForTesting);
+        }
+    }
+
     [AvaloniaFact]
     public void HoverInvalidatesOnlyWhenInjectionIdentityChanges()
     {
