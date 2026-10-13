@@ -19,6 +19,71 @@ namespace AnalysisITC.Core.Tests
     public sealed class ParameterBoundaryContactTests
     {
         [Fact]
+        public void StartNormalizerPreservesInteriorEndpointsAndUsesRepresentableInwardPoints()
+        {
+            var p = new Parameter(ParameterType.Offset, 4);
+            p.SetLimits(new[] { -10d, 10d });
+            Assert.False(ParameterStartNormalizer.Clamp(p));
+            Assert.Equal(4, p.Value);
+            p.Update(-10);
+            Assert.False(ParameterStartNormalizer.Clamp(p));
+            Assert.Equal(-10, p.Value);
+            p.Update(11);
+            Assert.True(ParameterStartNormalizer.Clamp(p));
+            Assert.Equal(10, p.Value);
+            var exact = new[] { 10d };
+            var inward = ParameterStartNormalizer.Inward(new[] { p }, exact, out var used);
+            Assert.True(used);
+            Assert.Equal(9, inward[0]);
+            Assert.Equal(10, exact[0]);
+            Assert.Equal(10, p.Value);
+
+            p.SetLimits(new[] { 0d, 0.0001d });
+            inward = ParameterStartNormalizer.Inward(new[] { p }, new[] { 0.0001d }, out used);
+            Assert.True(used);
+            Assert.Equal(0.000075, inward[0], 15);
+
+            p.SetLimits(new[] { 1d, Math.BitIncrement(1d) });
+            inward = ParameterStartNormalizer.Inward(new[] { p }, new[] { Math.BitIncrement(1d) }, out used);
+            Assert.False(used);
+            Assert.Equal(Math.BitIncrement(1d), inward[0]);
+            p.SetLimits(new[] { -double.MaxValue, double.MaxValue });
+            inward = ParameterStartNormalizer.Inward(new[] { p }, new[] { double.MaxValue }, out used);
+            Assert.False(used);
+            Assert.Equal(double.MaxValue, inward[0]);
+        }
+
+        [Fact]
+        public void StartNormalizerClampsBothLogAffinityBoundsAndSkipsInvalidOrLockedCoordinates()
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+                var low = new Parameter(ParameterType.Affinity1, -100);
+                var high = new Parameter(ParameterType.Affinity1, 100);
+                Assert.True(ParameterStartNormalizer.Clamp(low));
+                Assert.True(ParameterStartNormalizer.Clamp(high));
+                Assert.Equal(low.Limits[0], low.Value);
+                Assert.Equal(high.Limits[1], high.Value);
+
+                var locked = new Parameter(ParameterType.Offset, 20, islocked: true);
+                locked.SetLimits(new[] { -10d, 10d });
+                Assert.False(ParameterStartNormalizer.Clamp(locked));
+                Assert.Equal(20, locked.Value);
+
+                var invalidBounds = new Parameter(ParameterType.Offset, 20);
+                invalidBounds.SetLimits(new[] { 10d, -10d });
+                Assert.False(ParameterStartNormalizer.Clamp(invalidBounds));
+                Assert.Equal(20, invalidBounds.Value);
+                invalidBounds.SetLimits(new[] { double.NaN, 10d });
+                Assert.False(ParameterStartNormalizer.Clamp(invalidBounds));
+                Assert.Equal(20, invalidBounds.Value);
+            }
+            finally { AppSettings.ParameterLimitSetting = previous; }
+        }
+
+        [Fact]
         public void DetectorReportsLowerAndUpperContactsUsingScaleAwareTolerance()
         {
             var data = new ExperimentData("boundary-test.itc");
@@ -125,27 +190,100 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void DirectSolverInitializationRejectsOutOfRangeStartingValue()
+        public void DirectSolverInitializationClampsOutOfRangeStartingValue()
         {
             var model = new Model(new ExperimentData("direct-solver.itc"));
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
 
-            var exception = Assert.Throws<InitialParameterLimitException>(
-                () => SolverInterface.Initialize(model));
-            Assert.Single(exception.Violations);
-            Assert.Equal(ParameterType.Offset, exception.Violations[0].Parameter);
+            SolverInterface.Initialize(model);
+            Assert.Equal(-50000, model.Parameters.Table[ParameterType.Offset].Value);
+        }
+
+        [Fact]
+        public void StartNormalizerClampsFreeValuesAndExcludesLockedAndGlobalCoordinates()
+        {
+            var model = new Model(new ExperimentData("clamp-parameters.itc"));
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -60000);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 30, islocked: true);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 100);
+
+            SolverInterface.Initialize(model);
+
+            Assert.Equal(-50000, model.Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(30, model.Parameters.Table[ParameterType.Nvalue1].Value);
+            Assert.Equal(20, model.Parameters.Table[ParameterType.Affinity1].Value);
+            Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
+        }
+
+        [Fact]
+        public void DirectGlobalInitializationClampsSharedAndIndependentLocalCoordinates()
+        {
+            var first = new Model(new ExperimentData("global-clamp-first.itc"));
+            var second = new Model(new ExperimentData("global-clamp-second.itc"));
+            first.Parameters.AddOrUpdateParameter(ParameterType.Offset, -60000);
+            second.Parameters.AddOrUpdateParameter(ParameterType.Offset, 60000);
+            var global = new GlobalModel(new List<Model> { first, second });
+            global.Parameters.AddIndivdualParameter(first.Parameters);
+            global.Parameters.AddIndivdualParameter(second.Parameters);
+
+            SolverInterface.Initialize(global);
+
+            Assert.Equal(-50000, first.Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(50000, second.Parameters.Table[ParameterType.Offset].Value);
+        }
+
+        [Fact]
+        public void DirectGlobalInitializationClampsSharedCoordinateAndRecomputesMembers()
+        {
+            var first = new Model(new ExperimentData("shared-clamp-first.itc"));
+            var second = new Model(new ExperimentData("shared-clamp-second.itc"));
+            first.Parameters.AddOrUpdateParameter(ParameterType.Offset, 60000);
+            second.Parameters.AddOrUpdateParameter(ParameterType.Offset, 60000);
+            var global = new GlobalModel(new List<Model> { first, second });
+            global.Parameters.AddIndivdualParameter(first.Parameters);
+            global.Parameters.AddIndivdualParameter(second.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 60000);
+
+            SolverInterface.Initialize(global);
+
+            Assert.Equal(50000, global.Parameters.GlobalTable[ParameterType.Offset].Value);
+            Assert.All(global.Models, model => Assert.Equal(50000, model.Parameters.Table[ParameterType.Offset].Value));
+        }
+
+        [Fact]
+        public void InwardOptimizerStartUsesRepresentableInteriorPointForNarrowInterval()
+        {
+            var parameter = new Parameter(ParameterType.Offset, 0);
+            parameter.SetLimits(new[] { 0d, 0.0001d });
+            var inward = ParameterStartNormalizer.Inward(new[] { parameter }, new[] { 0d }, out var used);
+
+            Assert.True(used);
+            Assert.True(inward[0] > 0);
+            Assert.True(inward[0] < 0.0001);
+        }
+
+        [Theory]
+        [InlineData(double.NaN)]
+        [InlineData(double.PositiveInfinity)]
+        public void DirectSolverStillRejectsNonfiniteFreeStarts(double value)
+        {
+            var model = new Model(new ExperimentData("invalid-start.itc"));
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, value);
+            Assert.Throws<InvalidInitialModelException>(() => SolverInterface.Initialize(model));
         }
 
         [Theory]
         [InlineData(SolverAlgorithm.NelderMead)]
         [InlineData(SolverAlgorithm.LevenbergMarquardt)]
-        public void DirectSolveRejectsOutOfRangeStartBeforeEitherAlgorithm(SolverAlgorithm algorithm)
+        public void DirectSolveClampsOutOfRangeStartBeforeEitherAlgorithm(SolverAlgorithm algorithm)
         {
             var model = new Model(new ExperimentData("direct-solve.itc"));
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 50001);
             var solver = new Solver { Model = model, SolverAlgorithm = algorithm };
 
-            Assert.Throws<InitialParameterLimitException>(() => solver.Solve());
+            solver.Solve();
+            Assert.Equal(50000, model.Parameters.Table[ParameterType.Offset].Value);
         }
 
         [Fact]
@@ -182,7 +320,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void RefreshedStandardLimitsDetectValueCreatedUnderExpandedPolicy()
+    public void DirectInitializationClampsValueCreatedUnderExpandedPolicy()
         {
             var previous = AppSettings.ParameterLimitSetting;
             try
@@ -194,9 +332,8 @@ namespace AnalysisITC.Core.Tests
 
                 AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
                 model.Parameters.Table[ParameterType.Offset].RefreshLimits();
-                var exception = Assert.Throws<InitialParameterLimitException>(
-                    () => SolverInterface.Initialize(model));
-                Assert.Single(exception.Violations);
+                SolverInterface.Initialize(model);
+                Assert.Equal(50000, model.Parameters.Table[ParameterType.Offset].Value);
             }
             finally
             {

@@ -437,7 +437,7 @@ namespace AnalysisITC
                         ? analysisResult.Comments.Trim()
                         : "No comment.",
                     NSFont.SystemFontOfSize(
-                        NSFont.SystemFontSize),
+                        NSFont.SmallSystemFontSize),
                     hasComment
                         ? NSColor.Label
                         : NSColor.SecondaryLabel)));
@@ -620,7 +620,7 @@ namespace AnalysisITC
                 if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                 {
                     var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                        convergence.ParameterBoundaryContacts);
+                        convergence.ParameterBoundaryContacts, analysisResult.MemberAssessments);
                     if (!string.IsNullOrWhiteSpace(boundaryWarning))
                         StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 }
@@ -1018,8 +1018,10 @@ namespace AnalysisITC
                     StructuringPresentation.InteractionToolTip),
                 Pair(
                     StructuringPresentation.EvaluatedAtLabel,
-                    FormatTemperature(
-                        analysis.Result.ReferenceTemperature.Value),
+                    StructuringPresentation.FormatEvaluationTemperature(
+                        analysis.Result.ReferenceTemperature,
+                        UseKelvin,
+                        AppSettings.UncertaintyDisplayStyle),
                     StructuringPresentation.EvaluatedAtToolTip),
                 Pair(
                     StructuringPresentation.HydrationLabel,
@@ -1282,7 +1284,8 @@ namespace AnalysisITC
                             ? "Valid"
                             : "Solution expired")
                 };
-                rows.AddRange(ParameterBoundaryWarningFormatter.MessagesFor(
+                rows.AddRange(ParameterBoundaryWarningFormatter.ResultMemberMessages(
+                    analysisResult,
                     solution,
                     Solution.ErrorEstimationMethod).Select(Message));
 

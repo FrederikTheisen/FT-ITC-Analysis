@@ -276,7 +276,7 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
     }
 
     [Fact]
-    public void FailedPreflightPreservesAttachedSolution()
+    public void ClampedPreflightPreservesAttachedSolutionUntilCandidateAttach()
     {
         var previousLimits = AppSettings.ParameterLimitSetting;
         DataManager.Init();
@@ -294,16 +294,228 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             var workspace = new AnalysisWorkspace();
 
             Assert.True(workspace.TryRebuild());
-            Assert.Throws<InitialParameterLimitException>(() => workspace.PrepareForSolve(false));
+            var solver = workspace.PrepareForSolve(false);
+            Assert.Equal(50000, Assert.IsType<Solver>(solver).Model.Parameters.Table[ParameterType.Offset].Value);
 
-            Assert.Same(attachedModel, experiment.Model);
-            Assert.Same(attachedSolution, experiment.Solution);
+            Assert.NotSame(attachedModel, experiment.Model);
+            Assert.Equal(50000, experiment.Model.Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(50001, attachedModel.Parameters.Table[ParameterType.Offset].Value);
+            Assert.NotNull(attachedSolution);
         }
         finally
         {
             DataManager.Init();
             AppSettings.ParameterLimitSetting = previousLimits;
         }
+    }
+
+    [Fact]
+    public void ClampedPreflightPreservesHistoricalBootstrapAndProfileEvidence()
+    {
+        var previousLimits = AppSettings.ParameterLimitSetting;
+        DataManager.Init();
+        try
+        {
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            var experiment = CreateOffsetExperiment("historical-evidence.itc", 2000);
+            var model = new Offset(experiment);
+            model.InitializeParameters(experiment);
+            model.ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None };
+            model.Parameters.Table[ParameterType.Offset].Update(60000);
+            model.Solution = SolutionInterface.FromModel(model,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+
+            var sampleModel = (Offset)model.GenerateSyntheticModel();
+            sampleModel.Parameters.Table[ParameterType.Offset].Update(60001.25);
+            var sample = SolutionInterface.FromModel(sampleModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            model.Solution.SetBootstrapSolutions(new List<SolutionInterface> { sample });
+            var profile = new ProfileLikelihoodRunResult(.95,
+                ProfileLikelihoodCalibration.UnweightedFCalibratedRss,
+                10, 1, 1, 9, 1, 1, SolverAlgorithm.NelderMead, false,
+                0, 100, 10, 10, TimeSpan.FromSeconds(1), ErrorEstimationOutcome.Completed,
+                Array.Empty<ProfileCoordinateResult>());
+            model.Solution.ProfileLikelihoodRun = profile;
+            experiment.Model = model;
+            var oldSampleValue = sample.Parameters[ParameterType.Offset].Value;
+            var oldEstimate = model.Solution.Parameters[ParameterType.Offset].Value;
+            DataManager.AddData(experiment);
+
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.Offset);
+            Assert.True(workspace.TryRebuild(new[] { experiment }));
+            var solver = workspace.PrepareForSolve(false);
+            Assert.Equal(50000, Assert.IsType<Solver>(solver).Model.Parameters.Table[ParameterType.Offset].Value);
+
+            Assert.Same(model, model.Solution.Model);
+            Assert.Same(profile, model.Solution.ProfileLikelihoodRun);
+            Assert.Same(sample, Assert.Single(model.Solution.BootstrapSolutions));
+            Assert.Equal(oldSampleValue, sample.Parameters[ParameterType.Offset].Value);
+            Assert.Equal(oldEstimate, model.Solution.Parameters[ParameterType.Offset].Value);
+        }
+        finally
+        {
+            DataManager.Init();
+            AppSettings.ParameterLimitSetting = previousLimits;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GlobalWorkspaceClampsIndependentOrSharedStartsBeforeAttachment(bool shareOffset)
+    {
+        var previousLimits = AppSettings.ParameterLimitSetting;
+        DataManager.Init();
+        try
+        {
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            var first = CreateReadyExperiment("workspace-clamp-first.itc", 25);
+            var second = CreateReadyExperiment("workspace-clamp-second.itc", 25);
+            var firstAttached = AttachFittedSolution(first);
+            var secondAttached = AttachFittedSolution(second);
+            var firstStart = shareOffset ? 60000 : -60000;
+            firstAttached.Parameters.Table[ParameterType.Offset].Update(firstStart);
+            firstAttached.Solution.Model.Parameters.Table[ParameterType.Offset].Update(firstStart);
+            firstAttached.Solution.Parameters[ParameterType.Offset] = new FloatWithError(firstStart);
+            secondAttached.Parameters.Table[ParameterType.Offset].Update(60000);
+            secondAttached.Solution.Model.Parameters.Table[ParameterType.Offset].Update(60000);
+            secondAttached.Solution.Parameters[ParameterType.Offset] = new FloatWithError(60000);
+            DataManager.AddData(first);
+            DataManager.AddData(second);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetGlobalMode(true);
+            if (shareOffset)
+            {
+                workspace.SetConstraint(ParameterType.Offset, VariableConstraint.SameForAll);
+                workspace.SetParameterOverride(ParameterType.Offset, 60000, isLocked: false);
+            }
+            Assert.True(workspace.TryRebuild());
+
+            var solver = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve(false));
+            Assert.Equal(shareOffset ? 50000 : -50000,
+                solver.Model.Models[0].Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(50000, solver.Model.Models[1].Parameters.Table[ParameterType.Offset].Value);
+            Assert.NotSame(firstAttached, first.Model);
+            Assert.NotSame(secondAttached, second.Model);
+        }
+        finally
+        {
+            DataManager.Init();
+            AppSettings.ParameterLimitSetting = previousLimits;
+        }
+    }
+
+    [Theory]
+    [InlineData(ParameterLimitSetting.Extended, ParameterLimitSetting.Standard, 60000d, 50000d)]
+    [InlineData(ParameterLimitSetting.NoLimit, ParameterLimitSetting.Standard, 60000d, 50000d)]
+    [InlineData(ParameterLimitSetting.NoLimit, ParameterLimitSetting.Extended, 1200000d, 1000000d)]
+    public async System.Threading.Tasks.Task CompletedFitsNormalizeAfterPresetTightening(
+        ParameterLimitSetting oldLimit, ParameterLimitSetting newLimit, double start, double bound)
+    {
+        var previousLimits = AppSettings.ParameterLimitSetting;
+        DataManager.Init();
+        try
+        {
+            foreach (var algorithm in new[] { SolverAlgorithm.NelderMead, SolverAlgorithm.LevenbergMarquardt })
+            foreach (var mode in new[] { "single", "independent", "shared" })
+            foreach (var sign in new[] { -1, 1 })
+            {
+                AppSettings.ParameterLimitSetting = oldLimit;
+                var experiments = Enumerable.Range(0, mode == "single" ? 1 : 2)
+                    .Select(i => CreateOffsetExperiment($"preset-{mode}-{i}-{sign}.itc", sign * start)).ToArray();
+                foreach (var experiment in experiments)
+                {
+                    var source = new Offset(experiment);
+                    source.InitializeParameters(experiment);
+                    source.Parameters.Table[ParameterType.Offset].Update(sign * start);
+                    var originalFit = SolverInterface.Initialize(source);
+                    originalFit.SolverAlgorithm = algorithm;
+                    originalFit.ErrorEstimationMethod = ErrorEstimationMethod.None;
+                    originalFit.Silent = true;
+                    Assert.True(originalFit.Solve().Success);
+                    experiment.Model = source;
+                    DataManager.AddData(experiment);
+                }
+                var oldModels = experiments.Select(e => e.Model).ToArray();
+                var oldSolutions = experiments.Select(e => e.Solution).ToArray();
+                var oldEstimates = oldSolutions.Select(solution =>
+                    solution.Parameters[ParameterType.Offset].Value).ToArray();
+                var workspace = new AnalysisWorkspace();
+                workspace.SetModelType(AnalysisModel.Offset);
+                workspace.SetGlobalMode(mode != "single");
+                if (mode == "shared")
+                {
+                    workspace.SetConstraint(ParameterType.Offset, VariableConstraint.SameForAll);
+                    workspace.SetParameterOverride(ParameterType.Offset, sign * start, isLocked: false);
+                }
+                Assert.True(workspace.TryRebuild(experiments));
+                workspace.PersistFittedParameters();
+                AppSettings.ParameterLimitSetting = newLimit;
+                Assert.True(workspace.TryRebuild(experiments));
+                Assert.Equal(mode == "independent" ? 2 : 1, workspace.Context.DetectInitialParameterLimitViolations().Count);
+                var solver = workspace.PrepareForSolve(false);
+                solver.SolverAlgorithm = algorithm;
+                solver.ErrorEstimationMethod = ErrorEstimationMethod.None;
+                solver.Silent = true;
+                if (mode == "independent")
+                {
+                    var completion = new System.Threading.Tasks.TaskCompletionSource<SolverConvergence>();
+                    EventHandler<SolverConvergence> handler = (sender, result) =>
+                    {
+                        if (ReferenceEquals(sender, solver)) completion.TrySetResult(result);
+                    };
+                    SolverInterface.AnalysisFinished += handler;
+                    try
+                    {
+                        solver.Silent = false;
+                        solver.Analyze();
+                        var completed = await completion.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                        Assert.True(completed.Success);
+                    }
+                    finally { SolverInterface.AnalysisFinished -= handler; }
+                }
+                else Assert.True(solver.Solve().Success);
+
+                var members = solver is Solver single ? new[] { single.Model } : ((GlobalSolver)solver).Model.Models.ToArray();
+                Assert.All(members, model => Assert.Equal(sign * bound,
+                    model.Parameters.Table[ParameterType.Offset].Value, 3));
+                for (var i = 0; i < experiments.Length; i++)
+                {
+                    Assert.Equal(sign * start, oldModels[i].Parameters.Table[ParameterType.Offset].Value, 3);
+                    Assert.Equal(oldEstimates[i], oldSolutions[i].Parameters[ParameterType.Offset].Value, 3);
+                    Assert.Same(oldSolutions[i], oldModels[i].Solution);
+                }
+                DataManager.Init();
+            }
+        }
+        finally
+        {
+            DataManager.Init();
+            AppSettings.ParameterLimitSetting = previousLimits;
+        }
+    }
+
+    static ExperimentData CreateOffsetExperiment(string fileName, double offset)
+    {
+        var experiment = new ExperimentData(fileName)
+        {
+            CellConcentration = new FloatWithError(1e-3), SyringeConcentration = new FloatWithError(10e-3),
+            CellVolume = 1e-3, MeasuredTemperature = 25, TargetTemperature = 25,
+        };
+        for (var index = 0; index < 10; index++)
+        {
+            var injection = new InjectionData(experiment, index, 1e-6,
+                experiment.SyringeConcentration * 1e-6, include: true)
+            {
+                ActualCellConcentration = experiment.CellConcentration,
+                ActualTitrantConcentration = 0.25 * (index + 1) * experiment.CellConcentration,
+                Ratio = 0.25 * (index + 1), Temperature = 25,
+            };
+            injection.SetPeakArea(new FloatWithError(offset * injection.InjectionMass, 1e-8));
+            experiment.Injections.Add(injection);
+        }
+        return experiment;
     }
 
     [Fact]

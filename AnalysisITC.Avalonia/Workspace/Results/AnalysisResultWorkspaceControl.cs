@@ -57,7 +57,7 @@ namespace AnalysisITC.Avalonia.Results
             ScaleToIncludedPoints = true,
             DrawWithOffset = false,
             EmptyStateTitle = "No experiment selected",
-            EmptyStateMessage = "Select an experiment in the result table or an overview graph to inspect its saved fit."
+            EmptyStateMessage = "Select an experiment in the result table or an overview graph to inspect its fit in this analysis result."
         };
         readonly ContentControl graphHost = new ContentControl();
         readonly StackPanel tableHost = new StackPanel { Spacing = 0 };
@@ -338,7 +338,7 @@ namespace AnalysisITC.Avalonia.Results
 
                 if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                 {
-                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, result.MemberAssessments);
                     if (!string.IsNullOrWhiteSpace(boundaryWarning))
                         StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 }
@@ -877,6 +877,7 @@ namespace AnalysisITC.Avalonia.Results
             RefreshTable();
             RefreshGraphMode();
             RefreshParameterEvaluation();
+            RefreshAnalysis();
         }
 
         void RefreshParameterEvaluation()
@@ -948,12 +949,15 @@ namespace AnalysisITC.Avalonia.Results
                         solution.IsValid ? "Valid solution" : "Invalid solution",
                         solution.IsValid ? AppTheme.StatusValid : AppTheme.StatusError)
                 };
-                foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(
+                var warningCounted = result.FitWarningMembers.Contains(solution);
+                foreach (var warning in ParameterBoundaryWarningFormatter.ResultMemberMessages(
+                    result,
                     solution,
                     result.Solution.ErrorEstimationMethod))
                 {
                     var warningText = Text(warning);
-                    AppTheme.Bind(warningText, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+                    AppTheme.Bind(warningText, TextBlock.ForegroundProperty,
+                        warningCounted ? AppTheme.StatusWarning : AppTheme.MutedText);
                     rows.Add(warningText);
                 }
 
@@ -1227,7 +1231,8 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Pair(StructuringPresentation.InteractionLabel, StructuringPresentation.InteractionName(analysis.FoldedMode),
                     labelTooltip: StructuringPresentation.InteractionToolTip),
-                Pair(StructuringPresentation.EvaluatedAtLabel, analysis.Result.ReferenceTemperature.AsNumber() + " °C",
+                Pair(StructuringPresentation.EvaluatedAtLabel, StructuringPresentation.FormatEvaluationTemperature(
+                    analysis.Result.ReferenceTemperature, UseKelvin, AppSettings.UncertaintyDisplayStyle),
                     labelTooltip: StructuringPresentation.EvaluatedAtToolTip),
                 Pair(StructuringPresentation.HydrationLabel, new Energy(analysis.Result.HydrationContribution()).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
                     labelTooltip: StructuringPresentation.HydrationToolTip),

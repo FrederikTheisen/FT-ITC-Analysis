@@ -378,9 +378,12 @@ namespace AnalysisITC.Core.Analysis
             }
 
             reuseAttachedSolutionInitialValues = true;
-            var violations = Context.DetectInitialParameterLimitViolations();
-            InitialParameterLimitViolationDetector.ThrowIfAny(violations);
             Context.FinalizeForSolver(attachToExperiments: false);
+            Context.RefreshParameterLimits();
+            if (Context.IsMultiExperiment)
+                ParameterStartNormalizer.Clamp(Context.GlobalModel);
+            else
+                ParameterStartNormalizer.Clamp(Context.SingleModel);
             IEnumerable<Model> fitModels = Context.IsMultiExperiment
                 ? Context.GlobalModel.Models
                 : new[] { Context.SingleModel };

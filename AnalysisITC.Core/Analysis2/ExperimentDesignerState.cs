@@ -12,7 +12,9 @@ namespace AnalysisITC.Core.Analysis
     /// Generation inputs for one experiment designer window. Parameter values and model
     /// options entered by the user are kept per key across setup and model changes, including
     /// keys the current model does not use. Values are recorded only from user edits, never
-    /// read back from a model, so fitted values cannot become generation inputs.
+    /// read back from a model, so fitted values cannot become generation inputs. Options not
+    /// edited in the window use the model defaults; the global ModelFactory.PreviousAttributes
+    /// is neither read nor written.
     /// </summary>
     internal sealed class ExperimentDesignerState
     {
@@ -57,7 +59,7 @@ namespace AnalysisITC.Core.Analysis
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
 
-            var factory = new SingleModelFactory(model);
+            var factory = new SingleModelFactory(model, useStoredOptions: false);
             factory.InitializeModel(data);
 
             foreach (var key in factory.Model.ModelOptions.Keys.ToList())

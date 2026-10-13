@@ -141,16 +141,47 @@ namespace AnalysisITC.Core.Analysis
         public double LevenbergMarquardtGradientTolerance => Tolerance(19, 24);
         public double LevenbergMarquardtStepTolerance => Tolerance(18, 23);
 
-        protected double[] GetLevenbergMarquardtInitialGuess(IReadOnlyList<Parameter> parameters)
+        protected double[] GetLevenbergMarquardtInitialGuess(IReadOnlyList<Parameter> parameters, double[] exact, out bool usedInward)
         {
             const double zeroValueStepFraction = 1e-3;
-
+            var inward = ParameterStartNormalizer.Inward(parameters, exact, out usedInward);
             // Give Math.NET a scale-aware nonzero point from which to estimate the numerical derivative.
-            return parameters
-                .Select(parameter => parameter.Value == 0
-                    ? parameter.StepSize * zeroValueStepFraction
-                    : parameter.Value)
-                .ToArray();
+            for (var i = 0; i < parameters.Count && i < inward.Length; i++)
+                if (inward[i] == exact[i] && exact[i] == 0)
+                {
+                    var kicked = parameters[i].StepSize * zeroValueStepFraction;
+                    var limits = parameters[i].Limits;
+                    if (limits == null || limits.Length < 2)
+                        inward[i] = kicked;
+                    else
+                    {
+                        var lower = limits[0]; var upper = limits[1];
+                        var span = upper - lower;
+                        if (FWEMath.IsFinite(lower) && FWEMath.IsFinite(upper) && FWEMath.IsFinite(span) && upper > lower)
+                        {
+                            if (!(kicked >= lower && kicked <= upper)) kicked = Math.Min(upper, Math.Max(lower, kicked));
+                            if (kicked == lower || kicked == upper)
+                            {
+                                var scale = Math.Max(Math.Max(Math.Abs(lower), Math.Abs(upper)), Math.Abs(parameters[i].StepSize));
+                                var delta = Math.Min(span / 4, Math.Max(0.002 * Math.Abs(parameters[i].StepSize), 32 * 2.2204460492503131e-16 * scale));
+                                var interior = kicked == lower ? lower + delta : upper - delta;
+                                if (interior > lower && interior < upper)
+                                {
+                                    kicked = interior;
+                                    usedInward = true;
+                                }
+                            }
+                            inward[i] = kicked;
+                        }
+                    }
+                }
+            return inward;
+        }
+
+        protected double[] GetLevenbergMarquardtInitialGuess(IReadOnlyList<Parameter> parameters)
+        {
+            return GetLevenbergMarquardtInitialGuess(parameters,
+                parameters.Select(parameter => parameter.Value).ToArray(), out _);
         }
 
         CancellationTokenSource nelderMeadToken;
@@ -217,6 +248,8 @@ namespace AnalysisITC.Core.Analysis
         internal static void ValidateInitialParameterLimits(Model model)
         {
             if (model?.Parameters == null) return;
+            ParameterStartNormalizer.Clamp(model);
+            ValidateFiniteStartingCoordinates(model.Parameters.Table.Values);
             InitialParameterLimitViolationDetector.ThrowIfAny(
                 InitialParameterLimitViolationDetector.Detect(model));
         }
@@ -238,8 +271,27 @@ namespace AnalysisITC.Core.Analysis
 
             model.Parameters.SetIndividualFromGlobal();
 
+            ParameterStartNormalizer.Clamp(model);
+            model.Parameters.SetIndividualFromGlobal();
+            ValidateFiniteStartingCoordinates(model.Parameters.GlobalTable.Values);
+            ValidateFiniteStartingCoordinates(model.Parameters.IndividualModelParameterList
+                .SelectMany(parameters => parameters?.Table?.Values ?? Enumerable.Empty<Parameter>()));
             InitialParameterLimitViolationDetector.ThrowIfAny(
                 InitialParameterLimitViolationDetector.Detect(model));
+        }
+
+        static void ValidateFiniteStartingCoordinates(IEnumerable<Parameter> parameters)
+        {
+            foreach (var parameter in parameters ?? Enumerable.Empty<Parameter>())
+            {
+                if (parameter == null || !parameter.IsFitted) continue;
+                if (!FWEMath.IsFinite(parameter.Value))
+                    throw new InvalidInitialModelException($"The starting value for {parameter.Key} is not finite.");
+                if (parameter.Limits == null || parameter.Limits.Length < 2) continue;
+                if (!FWEMath.IsFinite(parameter.Limits[0]) || !FWEMath.IsFinite(parameter.Limits[1])
+                    || parameter.Limits[1] < parameter.Limits[0])
+                    throw new InvalidInitialModelException($"The active limits for {parameter.Key} are invalid.");
+            }
         }
 
         public void ReportBootstrapProgress(int iteration) => ReportErrorEstimationProgress(iteration, BootstrapIterations);
@@ -323,21 +375,21 @@ namespace AnalysisITC.Core.Analysis
             using var activity = ProcessingActivity.Begin();
             ApplyErrorEstimationPolicy();
 
-            switch (this)
-            {
-                case Solver local:
-                    ValidateInitialParameterLimits(local.Model);
-                    break;
-                case GlobalSolver global:
-                    ValidateInitialParameterLimits(global.Model);
-                    break;
-            }
-
             // Subscribe to the termination flag so we can stop the underlying solver when requested.
             TerminateAnalysisFlag.WasRaised += TerminateAnalysisFlag_WasRaised;
             try
             {
                 SolverConvergence convergence;
+
+                switch (this)
+                {
+                    case Solver local:
+                        ValidateInitialParameterLimits(local.Model);
+                        break;
+                    case GlobalSolver global:
+                        ValidateInitialParameterLimits(global.Model);
+                        break;
+                }
 
                 switch (SolverAlgorithm)
                 {
@@ -713,6 +765,9 @@ namespace AnalysisITC.Core.Analysis
         }
 
         protected FitMetrics ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+            => ApplyBestFittedParameters(model, initial, fitted, errorWeighted, scope, parameters, usedInward: false);
+
+        protected FitMetrics ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters, bool usedInward)
         {
             if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
                 || !model.HasFiniteIncludedPredictions())
@@ -723,8 +778,9 @@ namespace AnalysisITC.Core.Analysis
                                 && model.HasFiniteIncludedPredictions();
             var fittedLoss = fittedIsValid ? model.Loss() : double.NaN;
             if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
-            var acceptedFitted = fittedIsValid
-                                 && !IsMeaningfullyWorse(fittedObjective, initialObjective);
+            var acceptedFitted = fittedIsValid && (usedInward
+                ? fittedObjective < initialObjective
+                : !IsMeaningfullyWorse(fittedObjective, initialObjective));
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
@@ -742,6 +798,9 @@ namespace AnalysisITC.Core.Analysis
         }
 
         protected FitMetrics ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+            => ApplyBestFittedParameters(model, initial, fitted, errorWeighted, scope, parameters, usedInward: false);
+
+        protected FitMetrics ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters, bool usedInward)
         {
             if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
                 || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
@@ -752,8 +811,9 @@ namespace AnalysisITC.Core.Analysis
                                 && model.Models.All(member => member.HasFiniteIncludedPredictions());
             var fittedLoss = fittedIsValid ? model.Loss() : double.NaN;
             if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
-            var acceptedFitted = fittedIsValid
-                                 && !IsMeaningfullyWorse(fittedObjective, initialObjective);
+            var acceptedFitted = fittedIsValid && (usedInward
+                ? fittedObjective < initialObjective
+                : !IsMeaningfullyWorse(fittedObjective, initialObjective));
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
@@ -897,6 +957,7 @@ namespace AnalysisITC.Core.Analysis
             };
 
             var fittedParameters = Model.Parameters.GetFittedParameters();
+            var optimizerInitialGuess = ParameterStartNormalizer.Inward(fittedParameters, initialGuess, out var usedInward);
             var stepSizes = Model.Parameters.GetStepSizes();
             var bounds = Model.Parameters.GetLimits();
             SetStepSizes(solver, stepSizes);
@@ -904,11 +965,11 @@ namespace AnalysisITC.Core.Analysis
             // Allow the solver to be cancelled via the TerminateAnalysisFlag by associating it with a CancellationToken.
             SetCancellationToken(solver);
 
-            LogSolverInput("Single/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
-            solver.Minimize(initialGuess);
+            LogSolverInput("Single/NelderMead", fittedParameters, optimizerInitialGuess, stepSizes, bounds);
+            solver.Minimize(optimizerInitialGuess);
             LogRejectedTrialEvaluations("Single/NelderMead");
 
-            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters, usedInward);
 
             var convergence = new SolverConvergence(solver, metrics.UnweightedRmsd);
             convergence.SetObjective(metrics.Objective);
@@ -933,7 +994,7 @@ namespace AnalysisITC.Core.Analysis
             var limits = Model.Parameters.GetLimits();
             int m = Model.NumberOfPoints;
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
-            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters, initialGuess, out var usedInward);
             PrepareCandidateEvaluations(
                 Model, initialGuess, UseErrorWeightedFitting, m);
 
@@ -973,7 +1034,7 @@ namespace AnalysisITC.Core.Analysis
             //LmResult = result;
 
             var fitted = result.MinimizingPoint.ToArray();
-            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters, usedInward);
 
             var convergence = new SolverConvergence(result, DateTime.Now - start, metrics.UnweightedRmsd);
             convergence.SetObjective(metrics.Objective);
@@ -1456,17 +1517,18 @@ namespace AnalysisITC.Core.Analysis
             };
 
             var fittedParameters = Model.Parameters.GetFittedParameters();
+            var optimizerInitialGuess = ParameterStartNormalizer.Inward(fittedParameters, initialGuess, out var usedInward);
             var stepSizes = Model.Parameters.GetStepSizes();
             var bounds = Model.Parameters.GetLimits();
             SetStepSizes(solver, stepSizes);
             SetBounds(solver, bounds);
             SetCancellationToken(solver);
 
-            LogSolverInput("Global/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
-            solver.Minimize(initialGuess);
+            LogSolverInput("Global/NelderMead", fittedParameters, optimizerInitialGuess, stepSizes, bounds);
+            solver.Minimize(optimizerInitialGuess);
             LogRejectedTrialEvaluations("Global/NelderMead");
 
-            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters, usedInward);
 
             var convergence = new SolverConvergence(solver, metrics.UnweightedRmsd);
             convergence.SetObjective(metrics.Objective);
@@ -1487,7 +1549,7 @@ namespace AnalysisITC.Core.Analysis
             var limits = Model.Parameters.GetLimits();
             int m = Model.GetNumberOfPoints();
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
-            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters, initialGuess, out var usedInward);
             PrepareCandidateEvaluations(
                 Model, initialGuess, UseErrorWeightedFitting, m);
 
@@ -1528,7 +1590,7 @@ namespace AnalysisITC.Core.Analysis
 
             var fitted = result.MinimizingPoint.ToArray();
 
-            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters, usedInward);
 
             var convergence = new SolverConvergence(result, DateTime.Now - start, metrics.UnweightedRmsd);
             convergence.SetObjective(metrics.Objective);

@@ -261,8 +261,13 @@ namespace AnalysisITC.Core.Analysis
 	{
         public Model Model { get; private set; }
 
-        public SingleModelFactory(AnalysisModel model) : base(model)
+        // False for factories that keep their own option memory (the experiment designer):
+        // they neither recover options from nor store options in PreviousAttributes.
+        readonly bool useStoredOptions;
+
+        public SingleModelFactory(AnalysisModel model, bool useStoredOptions = true) : base(model)
         {
+            this.useStoredOptions = useStoredOptions;
         }
 
         public override void InitializeModel()
@@ -302,7 +307,9 @@ namespace AnalysisITC.Core.Analysis
             }
 
             // Attempt to recover missing options from the previous attribute list
-            var exposed = GetExposedModelOptions().ToList();
+            var exposed = useStoredOptions
+                ? GetExposedModelOptions().ToList()
+                : new List<KeyValuePair<AttributeKey, ExperimentAttribute>>();
             foreach (var (key, val) in exposed)
             {
                 if (PreviousAttributes.Exists(att => att.Key == key))
@@ -384,7 +391,7 @@ namespace AnalysisITC.Core.Analysis
                 Model.ApplyModelOptions();
 
             // Store the option in the global list so it can be recovered on rebuilds
-            ModelFactory.StorePreviousAttribute(opt.Copy());
+            if (useStoredOptions) ModelFactory.StorePreviousAttribute(opt.Copy());
         }
 
         public override IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()

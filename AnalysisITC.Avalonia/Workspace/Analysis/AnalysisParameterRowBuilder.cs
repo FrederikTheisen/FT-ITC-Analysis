@@ -64,6 +64,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 parameter.IsLocked,
                 "Hold this parameter at the entered value while fitting.");
             lockCheck.MinWidth = 86;
+            var userEdited = false;
+            var acceptedValue = parameter.Value;
 
             void ApplyParameter()
             {
@@ -71,34 +73,35 @@ namespace AnalysisITC.Avalonia.Analysis
 
                 if (string.IsNullOrWhiteSpace(valueBox.Text))
                 {
+                    userEdited = false;
                     reset(parameter.Key);
                     setStatus($"{display.Title} reset");
                     return;
                 }
 
-                if (!double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var editorValue))
+                var parameterValue = acceptedValue;
+                if (userEdited
+                    && (!double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var editorValue)
+                        || !display.TryToParameterValue(editorValue, out parameterValue)))
                 {
                     setStatus($"Invalid value for {display.Title}");
                     return;
                 }
 
-                if (!display.TryToParameterValue(editorValue, out var parameterValue))
-                {
-                    setStatus($"Invalid value for {display.Title}");
-                    return;
-                }
-
-                var allowOutsideLimits = lockCheck.IsChecked == true || parameter.IsLocked;
-                if (!allowOutsideLimits && !InitialParameterLimitViolationDetector.IsWithinLimits(parameter, parameterValue))
+                if (userEdited && lockCheck.IsChecked != true
+                    && !InitialParameterLimitViolationDetector.IsWithinLimits(parameter, parameterValue))
                 {
                     setStatus($"{display.Title} is outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits {display.FormatLimits(parameter)}");
                     return;
                 }
 
+                acceptedValue = parameterValue;
+                userEdited = false;
                 apply(parameter.Key, parameterValue, lockCheck.IsChecked == true);
                 setStatus($"{display.Title} updated");
             }
 
+            valueBox.TextChanged += (_, _) => userEdited = true;
             valueBox.LostFocus += (_, _) => ApplyParameter();
             valueBox.KeyDown += (_, e) =>
             {
@@ -133,7 +136,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 var warning = new TextBlock
                 {
-                    Text = $"Starting value {display.FormatParameterValue(parameter.Value)} is outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits {display.FormatLimits(parameter)}. Edit it, restore defaults, or widen Limits.",
+                    Text = InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory,
                     TextWrapping = TextWrapping.Wrap,
                     Margin = new Thickness(4, 2, 4, 0)
                 };

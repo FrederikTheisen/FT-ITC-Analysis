@@ -453,7 +453,7 @@ namespace AnalysisITC.Core.Viewer
                 var warningMethod = solution?.ErrorEstimationMethod ?? ErrorEstimationMethod.None;
                 if (warningMethod == ErrorEstimationMethod.None)
                     warningMethod = member?.ErrorMethod ?? ErrorEstimationMethod.None;
-                AddFitWarnings(viewer.Warnings, member, data?.Name ?? $"Experiment {index + 1}", warningMethod);
+                AddFitWarnings(viewer.Warnings, result, member, data?.Name ?? $"Experiment {index + 1}", warningMethod);
             }
 
             BuildCorrelationViews(viewer, result, resultKey, experimentKeys);
@@ -461,10 +461,10 @@ namespace AnalysisITC.Core.Viewer
             return viewer;
         }
 
-        static void AddFitWarnings(List<string> warnings, SolutionInterface solution, string experimentName, ErrorEstimationMethod method)
+        static void AddFitWarnings(List<string> warnings, AnalysisResult result, SolutionInterface solution, string experimentName, ErrorEstimationMethod method)
         {
             if (solution == null) return;
-            foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(solution, method))
+            foreach (var warning in ParameterBoundaryWarningFormatter.ResultMemberMessages(result, solution, method))
                 warnings.Add(string.IsNullOrWhiteSpace(experimentName) ? warning : experimentName + ": " + warning);
         }
 
@@ -849,7 +849,7 @@ namespace AnalysisITC.Core.Viewer
             {
                 var domain = PlotDomain(debyePoints.Select(point => point.Item1), 0);
                 var xs = Sample(domain.min, domain.max, 81);
-                debye.Series.Add(BuildValueSeries("Saved fit", "line", xs, x => fit.Evaluate(x), 1));
+                debye.Series.Add(BuildValueSeries("Fitted curve", "line", xs, x => fit.Evaluate(x), 1));
             }
             viewer.Plots.Add(debye);
 
@@ -859,7 +859,7 @@ namespace AnalysisITC.Core.Viewer
             {
                 var domain = PlotDomain(counterPoints.Select(point => point.Item1), 0);
                 var xs = Sample(domain.min, domain.max, 81);
-                counter.Series.Add(BuildLinearSeries("Saved fit", xs, analysis.CounterIonReleaseFit, 1));
+                counter.Series.Add(BuildLinearSeries("Fitted line", xs, analysis.CounterIonReleaseFit, 1));
             }
             viewer.Plots.Add(counter);
             return viewer;
@@ -876,7 +876,7 @@ namespace AnalysisITC.Core.Viewer
             {
                 var domain = PlotDomain(analysis.DataPoints.Select(point => point.Item1 * energyScale), 0);
                 var xs = Sample(domain.min, domain.max, 81);
-                plot.Series.Add(BuildLinearSeries("Saved fit", xs, fit, energyScale, energyScale));
+                plot.Series.Add(BuildLinearSeries("Fitted line", xs, fit, energyScale, energyScale));
             }
 
             return new ViewerProtonationDto

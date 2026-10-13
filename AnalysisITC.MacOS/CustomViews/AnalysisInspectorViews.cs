@@ -34,6 +34,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public bool HasOverride { get; set; }
         public bool Locked { get; set; }
         public bool IsValid { get; set; } = true;
+        public bool HasUnacceptedEdit { get; set; }
         public bool IsApplicable { get; set; } = true;
     }
 
@@ -1330,13 +1331,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     || parameter.Value > parameter.Limits[1]))
             {
                 input.TextColor = NSColor.SystemRed;
-                input.ToolTip = "Automatic starting value "
-                    + AnalysisInspectorDisplayCatalog.FormatParameter(parameter.Key, parameter.Value)
-                    + " is outside the active "
-                    + InitialParameterLimitViolationDetector.ActivePolicyName
-                    + " Limits "
-                    + AnalysisInspectorDisplayCatalog.FormatParameterRange(parameter)
-                    + ". Edit it, restore defaults, or widen Limits.";
+                input.ToolTip = InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory;
             }
             SetFixedContentHeight(53);
         }
@@ -1351,6 +1346,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 draft.HasOverride = false;
                 draft.Locked = false;
                 draft.IsValid = true;
+                draft.HasUnacceptedEdit = false;
                 lockSwitch.State = (int)NSCellStateValue.Off;
                 input.TextColor = defaultTextColor;
                 UpdateLockAppearance();
@@ -1359,15 +1355,17 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 return;
             }
 
+            draft.HasUnacceptedEdit = true;
             draft.IsValid = AnalysisInspectorDisplayCatalog.TryParseParameter(
                 parameter,
                 draft.RawText,
                 out var value,
-                allowOutsideLimits: draft.Locked || parameter.IsLocked);
+                allowOutsideLimits: draft.Locked);
             if (draft.IsValid)
             {
                 draft.InternalValue = value;
                 draft.HasOverride = true;
+                draft.HasUnacceptedEdit = false;
             }
 
             input.TextColor = draft.IsValid ? defaultTextColor : NSColor.SystemRed;
@@ -1379,6 +1377,21 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             {
                 draft.IsValid = true;
                 input.TextColor = defaultTextColor;
+                return;
+            }
+
+            if (!draft.HasUnacceptedEdit && draft.HasOverride)
+            {
+                draft.IsValid = !double.IsNaN(draft.InternalValue)
+                    && !double.IsInfinity(draft.InternalValue);
+                input.TextColor = draft.IsValid ? defaultTextColor : NSColor.SystemRed;
+                return;
+            }
+
+            if (draft.HasUnacceptedEdit)
+            {
+                draft.IsValid = false;
+                input.TextColor = NSColor.SystemRed;
                 return;
             }
 
@@ -1399,7 +1412,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             var locked = lockSwitch.State == (int)NSCellStateValue.On;
             var wasLocked = draft.Locked;
-            if (locked && !draft.HasOverride)
+            if (locked && !draft.HasOverride && !draft.HasUnacceptedEdit)
             {
                 draft.InternalValue = draft.AutomaticValue;
                 draft.HasOverride = true;

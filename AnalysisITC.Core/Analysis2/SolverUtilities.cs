@@ -119,6 +119,7 @@ namespace AnalysisITC.Core.Analysis
     /// </summary>
     public static class InitialParameterLimitViolationDetector
     {
+        internal const string StartingValueAdjustmentAdvisory = "Starting values outside the selected limits will be adjusted when fitting.";
         public static string ActivePolicyName => AppSettings.ParameterLimitSetting switch
         {
             ParameterLimitSetting.Extended => "Expanded",
@@ -210,6 +211,73 @@ namespace AnalysisITC.Core.Analysis
             var materialized = (violations ?? Enumerable.Empty<InitialParameterLimitViolation>()).ToArray();
             if (materialized.Length > 0)
                 throw new InitialParameterLimitException(materialized);
+        }
+    }
+
+    /// <summary>Normalizes free optimizer coordinates while preserving locked and derived values.</summary>
+    internal static class ParameterStartNormalizer
+    {
+        internal static bool Clamp(Parameter parameter)
+        {
+            if (parameter == null || !parameter.IsFitted || parameter.Limits == null || parameter.Limits.Length < 2)
+                return false;
+            var lower = parameter.Limits[0];
+            var upper = parameter.Limits[1];
+            if (!FWEMath.IsFinite(lower) || !FWEMath.IsFinite(upper) || upper < lower || !FWEMath.IsFinite(parameter.Value))
+                return false;
+            var value = Math.Min(upper, Math.Max(lower, parameter.Value));
+            if (value == parameter.Value) return false;
+            parameter.Update(value);
+            return true;
+        }
+
+        internal static bool Clamp(Model model)
+        {
+            var changed = false;
+            foreach (var parameter in model?.Parameters?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                changed |= Clamp(parameter);
+            return changed;
+        }
+
+        internal static bool Clamp(GlobalModel model)
+        {
+            if (model?.Parameters == null) return false;
+            var changed = false;
+            foreach (var parameter in model.Parameters.GlobalTable.Values)
+                changed |= Clamp(parameter);
+            model.Parameters.SetIndividualFromGlobal();
+            var sets = model.Parameters.IndividualModelParameterList;
+            for (var i = 0; i < sets.Count; i++)
+            {
+                var localChanged = false;
+                foreach (var parameter in sets[i]?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                    localChanged |= Clamp(parameter);
+                changed |= localChanged;
+            }
+            model.Parameters.SetIndividualFromGlobal();
+            return changed;
+        }
+
+        internal static double[] Inward(IReadOnlyList<Parameter> parameters, double[] exact, out bool used)
+        {
+            var result = exact.ToArray();
+            used = false;
+            for (var i = 0; i < result.Length && i < parameters.Count; i++)
+            {
+                var p = parameters[i];
+                if (!p.IsFitted || p.Limits == null || p.Limits.Length < 2) continue;
+                var lower = p.Limits[0]; var upper = p.Limits[1]; var step = p.StepSize;
+                if (!FWEMath.IsFinite(lower) || !FWEMath.IsFinite(upper) || !FWEMath.IsFinite(step) || upper <= lower) continue;
+                var span = upper - lower;
+                if (!FWEMath.IsFinite(span)) continue;
+                var scale = Math.Max(Math.Max(Math.Abs(lower), Math.Abs(upper)), Math.Abs(step));
+                var delta = Math.Min(span / 4, Math.Max(0.002 * Math.Abs(step), 32 * 2.2204460492503131e-16 * scale));
+                if (!(delta > 0) || !FWEMath.IsFinite(delta)) continue;
+                var candidate = exact[i] == lower ? lower + delta : exact[i] == upper ? upper - delta : exact[i];
+                if (candidate > lower && candidate < upper && candidate != exact[i])
+                { result[i] = candidate; used = true; }
+            }
+            return result;
         }
     }
 
@@ -309,6 +377,52 @@ namespace AnalysisITC.Core.Analysis
                 messages.Add(ErrorEstimationLimitMessage(method));
             return messages;
         }
+
+        public const string NotCountedNoBindingMessage = "Not counted in result health: no binding detected.";
+
+        /// <summary>
+        /// A result member's fit warnings. Members that do not count toward result health
+        /// (assessed as no binding) keep their warnings, followed by <see cref="NotCountedNoBindingMessage"/>.
+        /// </summary>
+        public static IReadOnlyList<string> ResultMemberMessages(
+            AnalysisResult result,
+            SolutionInterface solution,
+            ErrorEstimationMethod method)
+        {
+            var messages = MessagesFor(solution, method).ToList();
+            if (messages.Count > 0 && result != null && !result.FitWarningMembers.Contains(solution))
+                messages.Add(NotCountedNoBindingMessage);
+            return messages;
+        }
+
+        /// <summary>
+        /// Bound contacts that count toward result health. Contacts of members assessed as no binding
+        /// are dropped; shared contacts are dropped only when no member is treated as binding.
+        /// </summary>
+        public static IReadOnlyList<ParameterBoundaryContact> CountedContacts(
+            IEnumerable<ParameterBoundaryContact> contacts,
+            IEnumerable<BindingAssessmentMember> members)
+        {
+            var assessed = (members ?? Enumerable.Empty<BindingAssessmentMember>())
+                .Where(member => member?.Member?.Data?.UniqueID != null)
+                .ToList();
+            var notCounted = new HashSet<string>(assessed
+                .Where(member => !BindingAssessmentInterpretation.TreatAsBinding(member.Assessment))
+                .Select(member => member.Member.Data.UniqueID), StringComparer.Ordinal);
+            var sharedCounted = assessed.Count == 0
+                || assessed.Any(member => BindingAssessmentInterpretation.TreatAsBinding(member.Assessment));
+            return (contacts ?? Enumerable.Empty<ParameterBoundaryContact>())
+                .Where(contact => contact != null && (contact.IsShared
+                    ? sharedCounted
+                    : contact.ExperimentIdentity == null || !notCounted.Contains(contact.ExperimentIdentity)))
+                .ToList();
+        }
+
+        /// <summary>Status message for the bound contacts that count toward result health.</summary>
+        public static string Format(
+            IEnumerable<ParameterBoundaryContact> contacts,
+            IEnumerable<BindingAssessmentMember> members)
+            => Format(CountedContacts(contacts, members));
 
         public static string Format(IEnumerable<ParameterBoundaryContact> contacts)
         {

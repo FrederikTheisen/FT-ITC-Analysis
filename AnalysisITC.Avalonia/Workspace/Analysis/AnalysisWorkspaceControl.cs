@@ -221,6 +221,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 inspector,
                 WorkspaceControlBuilder.InspectorFooter(Section("Fit", new Control[]
                 {
+                    createResultCheck,
                     Row(runFitButton, stopFitButton),
                     fitStatusText,
                     analysisSummaryText
@@ -244,7 +245,6 @@ namespace AnalysisITC.Avalonia.Analysis
             }));
             panel.Children.Add(Section("Result", new Control[]
             {
-                createResultCheck,
                 autoOpenResultCheck
             }));
             panel.Children.Add(Section("Actions", new Control[]
@@ -347,7 +347,8 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void ExperimentSolutionChanged(object? sender, EventArgs e)
         {
-            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: true);
+            // Heat-only experiments have fitted solutions without a completed baseline.
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: false);
         }
 
         void ExperimentPointInclusionChanged(object? sender, EventArgs e)
@@ -857,6 +858,11 @@ namespace AnalysisITC.Avalonia.Analysis
                         : null;
                 graph.NullComparison = currentNullComparison;
                 RefreshNullComparisonPresentation();
+                var fitAssessments = activeSolver is Solver singleSolverWithAssessment
+                    ? BindingAssessmentMember.ForFit(singleSolverWithAssessment.Model?.Solution)
+                    : activeSolver is GlobalSolver globalSolverWithAssessment
+                        ? BindingAssessmentMember.ForFit(globalSolverWithAssessment.Model?.Solution)
+                        : Array.Empty<BindingAssessmentMember>();
 
                 activeSolver = null;
                 activeErrorMethod = ErrorEstimationMethod.None;
@@ -867,7 +873,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 var completionMessage = convergence.Message;
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.QueueStatus(completionMessage, 3000);
-                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, fitAssessments);
                 if (!string.IsNullOrWhiteSpace(boundaryWarning))
                     StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 StatusBarManager.QueueStatus($"{convergence.Iterations} iterations | {elapsed}", 3000);
@@ -954,7 +960,12 @@ namespace AnalysisITC.Avalonia.Analysis
         static string DescribeFit(SolverInterface solver) =>
             $"Fitting {DescribeFitScope(solver)} {DescribeFitModel(solver)} using {solver.SolverAlgorithm.GetProperties().ShortName}...";
 
-        static string DescribeFitScope(SolverInterface solver) => solver is GlobalSolver ? "global" : "single";
+        static string DescribeFitScope(SolverInterface solver) => solver switch
+        {
+            GlobalSolver global when !global.Model.ShouldFitIndividually => "global",
+            GlobalSolver global when global.Model.Models.Count > 1 => "individual",
+            _ => "single",
+        };
 
         static string DescribeFitModel(SolverInterface solver) => solver switch
         {
@@ -1062,17 +1073,22 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static Control FitSummaryRow(string label, string value)
         {
+            return SummaryRow(MarkdownText(label), MarkdownText(value));
+        }
+
+        static Control SummaryRow(TextBlock labelText, TextBlock valueText)
+        {
             var panel = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions($"{RowLabelWidth},*"),
                 ColumnSpacing = RowSpacing
             };
-            var labelText = MarkdownText(label);
             labelText.VerticalAlignment = VerticalAlignment.Top;
             AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
             panel.Children.Add(labelText);
 
-            var valueText = MarkdownText(value);
+            valueText.Margin = new Thickness(0);
+            valueText.VerticalAlignment = VerticalAlignment.Top;
             valueText.TextAlignment = TextAlignment.Right;
             AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             Grid.SetColumn(valueText, 1);
@@ -1096,7 +1112,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!string.IsNullOrWhiteSpace(row.Tooltip))
                     ToolTip.SetTip(value, row.Tooltip);
                 nullTestValueTexts[row.Label] = value;
-                nullTestRows.Children.Add(Labeled(row.Label, value));
+                nullTestRows.Children.Add(SummaryRow(new TextBlock { Text = row.Label }, value));
             }
         }
 
@@ -1149,7 +1165,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 : $"{first.DisplayName} ({first.ExperimentName})";
             var formatted = AnalysisParameterRowBuilder.FormatValueAndLimits(
                 first.Parameter, first.StartingValue, first.LowerBound, first.UpperBound);
-            return $"Fit blocked: {violations.Count} starting value(s) outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits. First: {subject} = {formatted}. Edit, restore defaults, or widen Limits.";
+            return $"{InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory} First: {subject} = {formatted}.";
         }
 
         void UpdateFitButtonState()

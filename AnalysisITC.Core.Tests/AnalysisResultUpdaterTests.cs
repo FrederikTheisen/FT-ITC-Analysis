@@ -114,25 +114,44 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
     }
 
     [Fact]
-    public async Task InitialParameterLimitFailureRestoresAttachedModelsAndResultState()
+    public async Task OutOfRangeUpdateStartIsNormalizedAndPreservesStoredResultState()
     {
         var previousLimitSetting = AppSettings.ParameterLimitSetting;
         try
         {
             AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
             var (result, experiments) = await LoadCompetitiveResult();
-            result.Solution.Model.Models[0].Parameters.Table[ParameterType.Offset].Update(50001);
-            var priorModels = experiments.Select(experiment => experiment.Model).ToArray();
-            var priorSolutions = experiments.Select(experiment => experiment.Solution).ToArray();
+            var storedParameter = result.Solution.Model.Models[0].Parameters.Table[ParameterType.Offset];
+            storedParameter.SetLimits(new[] { -47000d, 47000d });
+            storedParameter.Update(50001);
             var notifications = SubscribeToSolutionChanges(experiments);
             DocumentDirtyTracker.MarkClean();
             var state = CaptureResultState(result);
             var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
 
-            Assert.Throws<InitialParameterLimitException>(() => AnalysisResultUpdater.PrepareSolver(result));
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.NoLimit;
+            var solver = AnalysisResultUpdater.PrepareSolver(result);
+            Assert.NotNull(solver);
+            var candidate = Assert.IsType<GlobalSolver>(solver).Model;
+            Assert.All(candidate.Models, member =>
+            {
+                var parameter = member.Parameters.Table[ParameterType.Offset];
+                Assert.InRange(parameter.Value, parameter.Limits[0], parameter.Limits[1]);
+            });
+            Assert.Equal(-47000, candidate.Models[0].Parameters.Table[ParameterType.Offset].Limits[0]);
+            Assert.Equal(47000, candidate.Models[0].Parameters.Table[ParameterType.Offset].Limits[1]);
+            Assert.Equal(47000, candidate.Models[0].Parameters.Table[ParameterType.Offset].Value);
 
-            AssertPriorPrepareState(result, state, experiments, priorModels, priorSolutions, notifications,
-                saveStamp, expectedDirty: false);
+            Assert.Same(state.Solution, result.Solution);
+            Assert.Same(state.NullComparison, result.NullComparison);
+            Assert.Same(state.BindingAssessment, result.BindingAssessment);
+            Assert.Same(state.InformationCriteria, result.InformationCriteria);
+            Assert.Same(state.ValiditySnapshot, result.ValiditySnapshot);
+            Assert.Equal(state.Date, result.Date);
+            Assert.Equal(state.Name, result.Name);
+            Assert.Equal(0, notifications.Sum());
+            Assert.Equal(saveStamp, DocumentDirtyTracker.CaptureSaveStamp());
+            Assert.False(DocumentDirtyTracker.IsDirty);
         }
         finally
         {

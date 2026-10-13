@@ -52,6 +52,25 @@ public sealed class BoundaryWarningPresentationTests
     }
 
     [AvaloniaFact]
+    public void NoBindingExperimentWarningsAreMarkedAsNotCounted()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            const string notCounted = "Not counted in result health: no binding detected.";
+            var result = CreateBoundaryResult(ErrorEstimationMethod.BootstrapResiduals);
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            Assert.DoesNotContain(notCounted, TextFrom(workspace.ExperimentsPanelForTesting));
+
+            result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+            workspace = new AnalysisResultWorkspaceControl { Result = result };
+
+            var experimentText = TextFrom(workspace.ExperimentsPanelForTesting);
+            Assert.Contains("Best fit reached a parameter boundary.", experimentText);
+            Assert.Equal(notCounted, experimentText.Last());
+        });
+    }
+
+    [AvaloniaFact]
     public void ProfileSummaryUsesReadableFieldsWithoutRawDiagnostics()
     {
         Dispatcher.UIThread.Invoke(() =>
