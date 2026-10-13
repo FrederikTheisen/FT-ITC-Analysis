@@ -486,7 +486,6 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
 
-            UseTimeModeForLegacyFit();
             if (graph.SelectedInjectionIndex == -1)
                 experiment!.SetIntegrationStartTime((float)integrationStartSlider.Value);
             else
@@ -503,7 +502,7 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
 
-            UseTimeModeForLegacyFit();
+            ReplaceFitPeaksRecord();
             await ApplyIntegrationLengthAsync();
         }
 
@@ -826,8 +825,7 @@ namespace AnalysisITC.Avalonia.Processing
             if (AppSettings.IntegrationRegionCopyIncludesStart)
                 target.SetIntegrationStartTime(source.IntegrationStartDelay);
 
-            // A copied end point is set manually, not by Fit Peaks.
-            experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+            ReplaceFitPeaksRecord();
             target.SetIntegrationLengthByTime(source.IntegrationEndOffset);
             graph.SelectedInjectionIndex = selected + 1;
             graph.FocusSelectedInjection();
@@ -1025,7 +1023,8 @@ namespace AnalysisITC.Avalonia.Processing
             };
         }
 
-        void UseTimeModeForLegacyFit()
+        // Fit Peaks only sets end points, so only an end-point edit replaces its record.
+        void ReplaceFitPeaksRecord()
         {
             if (experiment?.Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Fit)
                 experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
