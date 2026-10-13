@@ -212,7 +212,7 @@ The Analysis Report is distinct from the other output tools:
 
 ## Supporting Figure
 
-**Supporting Figure...** composes figures from Experiment Data and Analysis Results into a multi-panel canvas. The **Figure order** list defines source order; **Add…**, **Remove**, **Up**, and **Down** change the composition. Closing and reopening the tool retains the selected sources and their order for the current document during this app session. The source picker can filter available experiment and result figures by name or type.
+**Supporting Figure...** composes figures from Experiment Data and Analysis Results into a multi-panel canvas. The **Figure order** list defines source order; **Add…**, **Remove**, **Up**, and **Down** change the composition. Closing and reopening the tool retains the selected sources, their order, plot size, grid, typography, display settings, and preview zoom for the current document during this app session. The source picker can filter available experiment and result figures by name or type.
 
 Set the plot size, grid columns and rows, font size, point size, line weight, and tick style for the composed figure. Extra panels continue on additional PDF pages. **Light** and **Standard** provide different line and tick weights. **Panel letters** labels panels A, B, and so on; **Panel titles** can add experiment names. **Group result figures** and the information-box controls adjust how results are presented. Review the preview, then choose **Export PDF...**.
 

@@ -32,6 +32,8 @@ namespace AnalysisITC.Avalonia.Tools
     public sealed class SupportingFigureCanvasWindow : Window
     {
         readonly PublicationFigureOptions figureOptions;
+        readonly SupportingFigureSelectionState selectionState;
+        readonly Guid owningDocumentId = DocumentDirtyTracker.CurrentDocumentId;
         readonly PublicationFigureCanvasOptions canvasDefaults = new PublicationFigureCanvasOptions();
         readonly List<ITCDataContainer> composition = new List<ITCDataContainer>();
         readonly HashSet<AnalysisResult> observedResults = new HashSet<AnalysisResult>();
@@ -65,6 +67,13 @@ namespace AnalysisITC.Avalonia.Tools
         SkiaFigureCanvasRenderPlan? currentPlan;
 
         internal NumericUpDown ColumnsStepperForTesting => columnsStepper;
+        internal TextBox PlotWidthBoxForTesting => plotWidthBox;
+        internal TextBox PlotHeightBoxForTesting => plotHeightBox;
+        internal CheckBox PanelLettersCheckForTesting => panelLettersCheck;
+        internal CheckBox PanelTitlesCheckForTesting => panelTitlesCheck;
+        internal CheckBox GroupResultsCheckForTesting => groupResultsCheck;
+        internal CheckBox InformationBoxesCheckForTesting => informationBoxesCheck;
+        internal ComboBox PreviewZoomComboForTesting => previewZoomCombo;
         internal NumericUpDown RowsStepperForTesting => rowsStepper;
         internal NumericUpDown FontSizeStepperForTesting => fontSizeStepper;
         internal NumericUpDown SymbolSizeStepperForTesting => symbolSizeStepper;
@@ -84,10 +93,11 @@ namespace AnalysisITC.Avalonia.Tools
             RefreshPreview();
         }
 
-        public SupportingFigureCanvasWindow(PublicationFigureOptions figureOptions, ITCDataContainer? selectedItem)
+        public SupportingFigureCanvasWindow(PublicationFigureOptions figureOptions, ITCDataContainer? selectedItem,
+            SupportingFigureSelectionState? selectionState = null)
         {
             this.figureOptions = figureOptions ?? new PublicationFigureOptions();
-            ApplyCanvasDefaults();
+            this.selectionState = selectionState ?? new SupportingFigureSelectionState();
 
             Title = "Supporting Figure";
             Width = 1200;
@@ -97,16 +107,22 @@ namespace AnalysisITC.Avalonia.Tools
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
-            if (selectedItem != null) composition.Add(selectedItem);
+            composition.AddRange(this.selectionState.Restore(owningDocumentId, DataManager.SourceItems, selectedItem));
+            canvasDefaults = this.selectionState.RestoreOptions(owningDocumentId);
+            ApplyCanvasDefaults();
+            var zoom = this.selectionState.RestorePreviewZoom(owningDocumentId);
+            previewZoomCombo.SelectedIndex = zoom == 0.25 ? 0 : zoom == 0.5 ? 1 : zoom == 0.75 ? 2 : 3;
 
             BuildLayout();
             WireEvents();
-            RefreshCompositionList(selectedItem);
+            RefreshCompositionList(composition.FirstOrDefault());
             RefreshPreview();
         }
 
         protected override void OnClosed(EventArgs e)
         {
+            var zoom = previewZoomCombo.SelectedIndex switch { 0 => 0.25, 1 => 0.5, 2 => 0.75, _ => 1.0 };
+            selectionState.Capture(owningDocumentId, composition, CurrentCanvasOptions(), zoom);
             foreach (var result in observedResults) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
             observedResults.Clear();
             ClearPreview();

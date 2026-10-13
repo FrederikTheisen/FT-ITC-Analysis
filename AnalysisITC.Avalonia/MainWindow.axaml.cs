@@ -57,6 +57,7 @@ public partial class MainWindow : Window
     bool isRestoringDataListSelection;
     bool projectInformationOpen;
     bool analysisReportOpen;
+    readonly SupportingFigureSelectionState supportingFigureSelection = new SupportingFigureSelectionState();
     int openingOperationCount;
     TaskCompletionSource<bool>? projectDialogClosed;
     int activeExperimentWorkspaceIndex;
@@ -749,7 +750,7 @@ public partial class MainWindow : Window
     {
         if (!HasDocumentContent()) return;
 
-        var dialog = new SupportingFigureCanvasWindow(FinalFigureWorkspace.GetOptionsSnapshot(), selectedItem);
+        var dialog = new SupportingFigureCanvasWindow(FinalFigureWorkspace.GetOptionsSnapshot(), selectedItem, supportingFigureSelection);
         await dialog.ShowDialog(this);
         RefreshMenuState();
     }

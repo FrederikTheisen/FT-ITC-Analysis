@@ -247,7 +247,7 @@ sealed class SkiaFigureCanvasRenderer
         {
             figureRenderer.DrawDocument(canvas, cell.Figure, cell.Layout, cell.RenderSettings, plan.Fonts);
             var figureBounds = cell.Layout.PageRect;
-            var size = Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize);
+            var size = PanelLabelSize;
             var heading = PanelHeading(cell.Cell, plan.Document.Options,
                 figureBounds.Width - 2 * PanelLabelInset, size, plan.Fonts);
             if (heading.Label.Length == 0 && heading.Title.Length == 0) continue;

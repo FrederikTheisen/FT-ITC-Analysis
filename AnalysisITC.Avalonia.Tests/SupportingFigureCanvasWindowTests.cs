@@ -3,6 +3,7 @@ using System.Linq;
 
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Presentation;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -13,6 +14,68 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SupportingFigureCanvasWindowTests
 {
+    [AvaloniaFact]
+    public void ClosingAndReopeningRestoresTheOrderedComposition()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var first = new ExperimentData("remember-first.itc");
+            var second = new ExperimentData("remember-second.itc");
+            DataManager.Clear(DataClearMode.ResetSession);
+            DataManager.AddData(new ITCDataContainer[] { first, second });
+            try
+            {
+                var state = new SupportingFigureSelectionState();
+                var window = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), first, state);
+                window.Show();
+                window.SetCompositionForTesting(new[] { second, first });
+                window.PlotWidthBoxForTesting.Text = "6";
+                window.PlotHeightBoxForTesting.Text = "8";
+                window.ColumnsStepperForTesting.Value = 2;
+                window.RowsStepperForTesting.Value = 4;
+                window.FontSizeStepperForTesting.Value = 9.5m;
+                window.SymbolSizeStepperForTesting.Value = 5;
+                window.StrokeWidthSelectorForTesting.SelectedIndex = 0;
+                window.PanelLettersCheckForTesting.IsChecked = false;
+                window.PanelTitlesCheckForTesting.IsChecked = true;
+                window.GroupResultsCheckForTesting.IsChecked = false;
+                window.InformationBoxesCheckForTesting.IsChecked = false;
+                window.PreviewZoomComboForTesting.SelectedIndex = 1;
+                window.Close();
+
+                var reopened = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), first, state);
+                reopened.Show();
+                Assert.Equal(new[] { second, first }, reopened.CurrentPlanForTesting!.Document.Cells
+                    .Select(cell => cell.Source.Experiment));
+                var options = reopened.CanvasOptionsForTesting;
+                Assert.Equal(6, options.PlotWidthCentimeters);
+                Assert.Equal(8, options.PlotHeightCentimeters);
+                Assert.Equal(2, options.Columns);
+                Assert.Equal(4, options.Rows);
+                Assert.Equal(9.5, options.FontSize);
+                Assert.Equal(5, options.SymbolSize);
+                Assert.Equal(0.5, options.StrokeWidth);
+                Assert.False(options.ShowPanelLetters);
+                Assert.True(options.ShowPanelTitles);
+                Assert.False(options.GroupResultFigures);
+                Assert.False(options.ShowInformationBoxes);
+                Assert.Equal(1, reopened.PreviewZoomComboForTesting.SelectedIndex);
+                reopened.SetCompositionForTesting(Array.Empty<ITCDataContainer>());
+                reopened.Close();
+
+                var empty = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), first, state);
+                Assert.False(empty.CurrentPlanForTesting!.IsValid);
+                Assert.Equal(6, empty.CanvasOptionsForTesting.PlotWidthCentimeters);
+                Assert.Equal(4, empty.CanvasOptionsForTesting.Rows);
+                empty.Close();
+            }
+            finally
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
     [AvaloniaFact]
     public void NumericControlsExposeExpectedBoundsAndIncrements()
     {

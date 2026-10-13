@@ -147,6 +147,7 @@ The conditions beneath each experiment heading show nominal initial concentratio
 Select **Preview** to review the report, **Update Preview** after editing, and **Export PDF...** to save it. One report-wide note identifies saved bookkeeping methods and their applicable members; each result identifies its saved buffer subtraction. Fixed parameter estimates have no uncertainty interval. Parameter tables show saved fit estimates. Injection-table Fit and Residual use the reported solution, with residual = observed − predicted; supporting experiments show observations only. Processing details and observations describe **Current experiment data**. Combined spread and approximate propagated intervals remain distinct from model-estimated uncertainty. Summary-chart confidence bars do not require an SD value. Warnings remain visible in exported reports; a structurally unusable result cannot be exported.
 
 Use the tabular Analysis Result Exporter for CSV or TSV data, Final Figure for one publication figure, Export Associated Final Figures for one figure per result member, Supporting Figure for a composed multi-panel canvas, and Analysis Report for the complete printable record.
+Supporting Figure retains the selected sources, their order, plot size, grid, typography, display settings, and preview zoom when closed and reopened for the current document during this app session.
 
 In Avalonia, use the zoom selector or **Zoom Out** and **Zoom In** buttons to magnify the report preview from 50% to 200% in 10 percentage-point steps without changing the exported PDF.
 

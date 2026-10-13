@@ -24,6 +24,8 @@ namespace AnalysisITC.Core.Presentation
 
         public int Capacity => Math.Max(0, Columns) * Math.Max(0, Rows);
 
+        public PublicationFigureCanvasOptions Clone() => (PublicationFigureCanvasOptions)MemberwiseClone();
+
         public string Validate()
         {
             if (PlotWidthCentimeters < 1 || PlotWidthCentimeters > 20)

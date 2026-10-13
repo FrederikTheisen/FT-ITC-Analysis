@@ -34,6 +34,7 @@ namespace AnalysisITC
         bool autoSaveInitialized;
         bool stopableProcessRunning;
         SupportingFigureCanvasWindowController supportingFigureController;
+        readonly SupportingFigureSelectionState supportingFigureSelection = new SupportingFigureSelectionState();
         ProjectInformationWindowController projectInformationController;
         AnalysisReportViewController analysisReportController;
 
@@ -367,7 +368,7 @@ namespace AnalysisITC
                 return;
 
             var controller =
-                SupportingFigureCanvasWindowController.CreateForCurrentSelection();
+                SupportingFigureCanvasWindowController.CreateForCurrentSelection(supportingFigureSelection);
             supportingFigureController = controller;
             controller.ShowModeless(() =>
             {

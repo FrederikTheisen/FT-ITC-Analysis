@@ -268,7 +268,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var cell in plan.Cells)
             {
                 DrawFigure(context, cell.Figure, cell.Layout, cell.Settings);
-                var size = Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize);
+                var size = PanelLabelSize;
                 var heading = PanelHeading(cell.Cell, plan.Document.Options,
                     (float)cell.Layout.PageRect.Width - 2 * PanelLabelInset, size);
                 if (heading.Label.Length == 0 && heading.Title.Length == 0) continue;

@@ -28,6 +28,8 @@ namespace AnalysisITC
         const float InspectorSectionSpacing = 5;
 
         readonly PublicationFigureOptions figureOptions;
+        readonly SupportingFigureSelectionState selectionState;
+        readonly Guid owningDocumentId = DocumentDirtyTracker.CurrentDocumentId;
         readonly PublicationFigureCanvasOptions defaults = new PublicationFigureCanvasOptions();
         readonly CoreGraphicsFigureCanvasRenderer renderer = new CoreGraphicsFigureCanvasRenderer();
         readonly List<ITCDataContainer> composition = new List<ITCDataContainer>();
@@ -85,18 +87,23 @@ namespace AnalysisITC
         bool windowCloseHandled;
         bool disposed;
 
-        public SupportingFigureCanvasWindowController(PublicationFigureOptions figureOptions, ITCDataContainer selectedItem)
+        public SupportingFigureCanvasWindowController(PublicationFigureOptions figureOptions, ITCDataContainer selectedItem,
+            SupportingFigureSelectionState selectionState = null)
             : base(CreateWindow())
         {
             this.figureOptions = figureOptions ?? new PublicationFigureOptions();
-            if (selectedItem != null) composition.Add(selectedItem);
+            this.selectionState = selectionState ?? new SupportingFigureSelectionState();
+            composition.AddRange(this.selectionState.Restore(owningDocumentId, DataManager.SourceItems, selectedItem));
+            defaults = this.selectionState.RestoreOptions(owningDocumentId);
 
             Window.Title = "Supporting Figure";
             windowDelegate = new SupportingFigureWindowDelegate(this);
             Window.Delegate = windowDelegate;
             BuildInterface();
             ApplyDefaults();
-            ReloadComposition(selectedItem);
+            var zoom = this.selectionState.RestorePreviewZoom(owningDocumentId);
+            zoomPopup.SelectItem(zoom == null ? 0 : zoom == 0.25 ? 1 : zoom == 0.5 ? 2 : zoom == 0.75 ? 3 : 4);
+            ReloadComposition(composition.FirstOrDefault());
             RefreshPreview();
         }
 
@@ -929,6 +936,12 @@ namespace AnalysisITC
         {
             if (windowCloseHandled) return;
             windowCloseHandled = true;
+            TryCurrentCanvasOptions(out var options, out _);
+            double? zoom = zoomPopup.IndexOfSelectedItem == 0 ? (double?)null
+                : zoomPopup.IndexOfSelectedItem == 1 ? 0.25
+                : zoomPopup.IndexOfSelectedItem == 2 ? 0.5
+                : zoomPopup.IndexOfSelectedItem == 3 ? 0.75 : 1;
+            selectionState.Capture(owningDocumentId, composition, options, zoom);
 
             sourcePopover.Close();
             var callback = closed;
@@ -1059,12 +1072,12 @@ namespace AnalysisITC
             };
         }
 
-        internal static SupportingFigureCanvasWindowController CreateForCurrentSelection()
+        internal static SupportingFigureCanvasWindowController CreateForCurrentSelection(SupportingFigureSelectionState selectionState = null)
         {
             ITCDataContainer selected = null;
             var index = DataManager.SelectedContentIndex;
             if (index >= 0 && index < DataManager.SourceItems.Count) selected = DataManager.SourceItems[index];
-            return new SupportingFigureCanvasWindowController(SnapshotFinalFigureOptions(), selected);
+            return new SupportingFigureCanvasWindowController(SnapshotFinalFigureOptions(), selected, selectionState);
         }
 
         void ConfigureNumberField(NSTextField field, double minimum, double maximum, int fractionDigits)
