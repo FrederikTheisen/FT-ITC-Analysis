@@ -80,7 +80,9 @@ public sealed class ProcessingClearMenuTests
             finally
             {
                 AppSettings.ConfirmRemoveDelete = savedConfirmation;
+                DocumentDirtyTracker.MarkClean();
                 window.Close();
+                Assert.False(window.IsVisible);
                 DataManager.Clear(DataClearMode.ResetSession);
             }
         });

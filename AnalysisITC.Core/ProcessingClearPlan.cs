@@ -73,8 +73,10 @@ namespace AnalysisITC.Core.Application
                 replacement = new DataProcessor(data);
                 replacement.InitializeBaseline(BaselineInterpolatorTypes.Spline);
                 var endpoint = data.Injections.Count > 0 ? data.Injections[0].Delay / 2 : 0;
+                // The reset region cannot extend beyond a short injection,
+                // even when it contains fewer than two sampling intervals.
                 endOffsets = data.Injections.Select(injection => (float)FWEMath.Clamp(endpoint,
-                    2 * (float)data.TimeStep, injection.Delay)).ToArray();
+                    Math.Min(2 * (float)data.TimeStep, injection.Delay), injection.Delay)).ToArray();
                 HasChanges = data.Model != null || data.BaseLineCorrectedDataPoints?.Count > 0
                     || data.AverageHeatDirection != PeakHeatDirection.Unknown
                     || oldProcessor.BaselineCompleted || oldProcessor.IsLocked

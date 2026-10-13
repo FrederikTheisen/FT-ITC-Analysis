@@ -228,7 +228,9 @@ public sealed class SelectionMenuTests
             }
             finally
             {
+                DocumentDirtyTracker.MarkClean();
                 window.Close();
+                Assert.False(window.IsVisible);
                 DataManager.Clear(DataClearMode.ResetSession);
             }
         });

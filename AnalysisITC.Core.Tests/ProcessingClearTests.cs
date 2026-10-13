@@ -167,6 +167,52 @@ public sealed class ProcessingClearTests : IDisposable
         Assert.Equal(6, data.Injections[1].IntegrationEndOffset);
     }
 
+    [Theory]
+    [InlineData(20, 0, 10, 0)]
+    [InlineData(20, 0.5f, 10, 0.5f)]
+    [InlineData(20, 1.5f, 10, 1.5f)]
+    [InlineData(20, 2, 10, 2)]
+    [InlineData(0, 20, 0, 2)]
+    [InlineData(0.5f, 20, 0.5f, 2)]
+    public void ResetEndpointsStayWithinInjectionsShorterThanTwoSamples(
+        float firstDelay, float secondDelay, float expectedFirst, float expectedSecond)
+    {
+        var data = Experiment(); // Samples are one second apart.
+        data.Injections[0] = InjectionData.FromPEAQFile(data, 0, true, 0, 2e-6, firstDelay, 0, 25);
+        data.Injections[1] = InjectionData.FromPEAQFile(data, 1, true, firstDelay, 2e-6, secondDelay, 0, 25);
+        data.Injections[0].SetPeakArea(new FloatWithError(-2e-6));
+        data.Injections[1].SetPeakArea(new FloatWithError(-1e-6));
+        DataManager.AddData(data);
+        DocumentDirtyTracker.MarkClean();
+        var processor = data.Processor;
+        var solution = data.Solution;
+        var offsets = data.Injections.Select(injection => injection.IntegrationEndOffset).ToArray();
+        var revision = data.ProcessingRevision;
+
+        foreach (var scope in Enum.GetValues<ProcessingClearScope>())
+            Assert.True(DataManager.CanClearProcessing(scope));
+        var plan = DataManager.PrepareProcessingClear(ProcessingClearScope.All);
+        Assert.Same(processor, data.Processor);
+        Assert.Same(solution, data.Solution);
+        Assert.Equal(offsets, data.Injections.Select(injection => injection.IntegrationEndOffset));
+        Assert.Equal(revision, data.ProcessingRevision);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+
+        Assert.True(plan.TryApply());
+        Assert.Equal(expectedFirst, data.Injections[0].IntegrationEndOffset);
+        Assert.Equal(expectedSecond, data.Injections[1].IntegrationEndOffset);
+        Assert.All(data.Injections, injection =>
+        {
+            Assert.InRange(injection.IntegrationEndOffset, 0, injection.Delay);
+            Assert.False(injection.IsIntegrated);
+            Assert.True(double.IsNaN(injection.PeakArea.Value));
+        });
+        DocumentDirtyTracker.MarkClean();
+        Assert.False(DataManager.CanClearProcessing(ProcessingClearScope.All));
+        Assert.False(DataManager.PrepareProcessingClear(ProcessingClearScope.All).TryApply());
+        Assert.False(DocumentDirtyTracker.IsDirty);
+    }
+
     [Fact]
     public void ClearingZeroHeatsStillMakesSavedInputsStale()
     {
