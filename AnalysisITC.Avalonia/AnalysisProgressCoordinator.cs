@@ -51,18 +51,28 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
 
     void OnAnalysisStepFinished(object? sender, EventArgs e)
     {
-        UpdateProgress(OperationKind.Solver, 0);
+        string? message;
+        lock (stateLock)
+        {
+            message = activeSolver is SolverInterface { ErrorEstimationMethod: not ErrorEstimationMethod.None }
+                ? "Estimating uncertainty..."
+                : null;
+        }
+        UpdateProgress(OperationKind.Solver, 0, message);
     }
 
     void OnErrorEstimationIterationCompleted(object? sender, Tuple<int, int, float> e)
     {
-        UpdateProgress(OperationKind.Solver, e.Item3);
+        UpdateProgress(OperationKind.Solver, e.Item3,
+            "Estimating uncertainty...", $"{e.Item1}/{e.Item2}");
     }
 
     void OnSolverUpdated(object? sender, SolverUpdate update)
     {
-        if (update.Progress >= 0)
-            UpdateProgress(OperationKind.Solver, update.Progress);
+        // SolverUpdate's counters are shared mutable state. Capture the text
+        // before posting to the UI thread, while it still describes this event.
+        var counter = SolverUpdate.TotalSteps > 0 ? update.ProgressString : null;
+        UpdateProgress(OperationKind.Solver, update.Progress, update.Message, counter);
     }
 
     void OnSolverFinished(object? sender, SolverConvergence convergence)
@@ -107,7 +117,7 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         Dispatch(token, kind, () => StatusBarManager.StartInderminateProgress());
     }
 
-    void UpdateProgress(OperationKind kind, double progress)
+    void UpdateProgress(OperationKind kind, double progress, string? message = null, string? counter = null)
     {
         long token;
 
@@ -117,8 +127,12 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
             token = generation;
         }
 
-        var value = Math.Clamp(progress, 0, 1);
-        Dispatch(token, kind, () => StatusBarManager.SetProgress(value));
+        Dispatch(token, kind, () =>
+        {
+            if (progress >= 0) StatusBarManager.SetProgress(Math.Clamp(progress, 0, 1));
+            if (!string.IsNullOrWhiteSpace(message)) StatusBarManager.SetStatus(message, 0, priority: 1);
+            if (counter != null) StatusBarManager.SetSecondaryStatus(counter, 0);
+        });
     }
 
     void CompleteOperation(OperationKind kind, object? solver)

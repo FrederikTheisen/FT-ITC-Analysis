@@ -54,6 +54,8 @@ namespace AnalysisITC
         bool inspectorRefreshQueued;
         ExperimentData summaryExperiment;
         SolverInterface activeSolver;
+        // Status also follows Update Result solvers, which this workspace does not own.
+        SolverInterface statusSolver;
         NullModelComparison currentNullComparison;
         NSStackView nullHypothesisTestStack;
         NSStackView nullTestRowsStack;
@@ -83,8 +85,9 @@ namespace AnalysisITC
             Workspace.ContextInvalidated += OnContextRebuilt;
 
             // Solver events
+            SolverInterface.AnalysisStarted += OnAnalysisStarted;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
-            SolverInterface.AnalysisStepFinished += (_, _) => GraphView.Invalidate();
+            SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
             SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
             SolverInterface.SolverUpdated += (_, e) => e.SendToStatusBar();
 
@@ -1101,9 +1104,23 @@ namespace AnalysisITC
 
         // ── Solver event handlers ──────────────────────────────────────────
 
+        void OnAnalysisStarted(object sender, TerminationFlag e)
+        {
+            if (sender is SolverInterface { Silent: false } solver)
+                statusSolver = solver;
+        }
+
+        void OnAnalysisStepFinished(object sender, EventArgs e)
+        {
+            GraphView.Invalidate();
+            if (statusSolver is SolverInterface { ErrorEstimationMethod: not ErrorEstimationMethod.None })
+                StatusBarManager.SetStatus("Estimating uncertainty...", 0, priority: 1);
+        }
+
         void OnAnalysisFinished(object sender, SolverConvergence e)
         {
             if (activeSolver != null && !ReferenceEquals(sender, activeSolver)) return;
+            if (ReferenceEquals(sender, statusSolver)) statusSolver = null;
             currentNullComparison = activeSolver is Solver singleSolver
                 ? singleSolver.Model?.Solution?.NullComparison
                 : activeSolver is GlobalSolver globalSolver
@@ -1149,7 +1166,7 @@ namespace AnalysisITC
         void OnErrorIteration(object sender, Tuple<int, int, float> e)
         {
             StatusBarManager.SetProgress(e.Item3);
-            StatusBarManager.SetStatus("Estimating Errors...", 0, 2);
+            StatusBarManager.SetStatus("Estimating uncertainty...", 0, priority: 1);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
 
@@ -1287,6 +1304,8 @@ namespace AnalysisITC
 
             Workspace.ContextRebuilt -= OnContextRebuilt;
             Workspace.ContextInvalidated -= OnContextRebuilt;
+            SolverInterface.AnalysisStarted -= OnAnalysisStarted;
+            SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
             SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
             DataManager.SelectionDidChange -= OnSelectionChanged;
