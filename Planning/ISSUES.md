@@ -777,33 +777,49 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-103 - Avalonia reuses the fitted model for repeat fits
 
-- Priority: Medium
-- Status: Open; decision needed (2026-10-13). Found during the audit of the sequential/two-site fitting optimisation.
-- Location: Avalonia `AnalysisWorkspaceControl.RunFit` (rebuilds only when `!workspace.IsReady`); macOS `DataAnalysisViewController` fit start (`ApplyInspectorSettings` → `Workspace.TryRebuild()`); shared `SolverInterface.Initialize(factory)` in `Solver2.cs`.
-- Problem: macOS rebuilds the analysis before every fit, so each fit runs on new model instances without a solution. Avalonia rebuilds only when the workspace is not ready, so a repeat fit optimizes the same instance that the previous `Solution` (and any created Analysis Result) still references. While it is being optimized, that instance stays reachable through `ExperimentData.Solution.Model` by graph refreshes (`IntegratedHeatsGraphControl.FitToData`/`RefreshComputedData`, triggered by the residual, scaling and unified-axis display controls and experiment notifications), and by background report, figure and export generation. The two apps behave differently here.
-- Current mitigation: Core binding models now use their objective-evaluation context only on the thread that opened it, and other callers never write shared state, so readers cannot corrupt the objective. Readers can still see parameters partway through an update, so a graph or report produced during the fit may show a mixture of old and new values.
-- Open question: Should Avalonia rebuild before every fit as macOS does? Check first whether a rebuild changes the starting values, locks or options a user gets for a repeat fit in Avalonia. Related: ITC-104.
+- Priority: High
+- Status: Resolved (2026-10-13).
+- Problem: A second fit from a ready Avalonia workspace reused models referenced by completed solutions and Analysis Results. A trial evaluation changed retained model parameters and predictions without changing the reported estimate.
+- Resolution: Shared `AnalysisWorkspace.PrepareForSolve` copies the current context's configuration into new models before normalization and preflight. Values, locks, options, heat methods, limits, member order, global constraints and captured temperatures are preserved; solutions and prediction caches are not copied. Global relationships are rebuilt with the new members. Successful preparation replaces the context and attachments, advances the document revision, and uses the existing inspector-refresh event. Advancing the revision prevents a save already writing an earlier snapshot from marking the newly prepared fit clean. Failed preparation preserves the old context and attachments; session overrides are not rewritten.
+- Verification: Regression checks cover single, independent and pooled repeat fits; sequential options, locks, limits, temperature-dependent and thermodynamically linked constraints; retained parameters, predictions and uncertainty after optimizer/uncertainty cancellation; and failed preflight. Both desktop Run Fit entry points retain the first result through another fit. The original one-site audit probe also confirms distinct models and unchanged retained predictions. See PA-01 and the evidence record in [the combined audit worklist](PUBLICATION_READINESS_ACTIONS.md).
+- Boundary: The primary fit still appears before uncertainty finishes. Cancellation does not restore a previous attachment. Broader detached solving remains ITC-104.
 
 ## ITC-104 - Fits optimize the live, UI-reachable model instances
 
 - Priority: Low
-- Status: Open; idea (2026-10-13). Raised by an external review of fit concurrency.
+- Status: Deferred (2026-10-13), following the approved ITC-103/105 implementation scope.
 - Location: `AnalysisWorkspace.PrepareForSolve`/`AnalysisContext` (attach prepared models to `ExperimentData.Model`); `Solver.Analyze`/`GlobalSolver.Analyze` background tasks in `Solver2.cs`; `SolutionInterface.FromModel`.
-- Problem: Single and global fits optimize the models attached to the experiments, on a background task. The optimizer updates `Parameters` in place, so any code that evaluates the same instance during the fit reads parameters that are changing. Global members are the experiments' own models.
-- Idea: Fit a private copy and publish the completed model and solution at the end. This would remove all reads of models during a fit, but it changes how solutions are published and affects global-fit relationships, parent-solution links, cancellation and attachment. Not needed if ITC-103 is resolved by rebuilding before each fit and no other reader remains.
+- Architectural option: Fit a private copy and publish the completed model and solution at the end. This changes primary-fit display, global relationships, cancellation and attachment behavior.
+- Current boundary: ITC-103 gives each fit fresh models and protects completed results. ITC-105 excludes processing from project snapshot capture. No remaining concrete reader defect requiring detached solving was found in these checks. Revisit only with such a reproduction; no additional publication delay or rollback system is included.
 
 ## ITC-105 - Autosave can capture live fitted parameters during a fit
 
-- Priority: Low
-- Status: Open; reported by external review (2026-10-13), not independently verified.
-- Location: Autosave serialization (`FTXTCFormat`); models being fitted in the background (see ITC-104).
-- Problem: An autosave that runs during a fit may save the model's current trial parameters next to the previously reported estimates, so a recovered project could pair parameters and results that do not belong together.
-- Follow-up: Confirm whether autosave reads the parameters of a model being fitted, and decide whether autosave should wait for or skip models whose fit is still running.
+- Priority: High
+- Status: Resolved (2026-10-13), together with ITC-103.
+- Problem: The audit's actual autosave captured a trial model beside the previous reported estimate while processing was busy. Strict reopening accepted the inconsistent pair without issues.
+- Resolution: Autosave defers busy ticks without touching dirty state, recovery metadata or the previous snapshot. Multiple missed ticks become one save as soon as processing is idle; an existing writer can finish first. A pending request is discarded when the document becomes clean, autosave is disabled, or the manager stops. Save, Save As and Save Selected reject busy requests with one shared status message; they are not queued. Save-before-close returns false and keeps the document open. The existing synchronous FTXTC capture now produces private payload bytes under the shared processing-admission gate, only while idle; asynchronous writing and atomic replacement occur after that gate is released. The save semaphore, document identity/revision checks, public save conventions and file schemas are preserved.
+- Verification: Controlled tests cover processing starting before capture, exclusion while capture holds admission, and model mutation after capture during writing. Busy save entry points preserve files and dirty state; autosave also preserves recovery metadata. Saves and strict reopening succeed after completion and both cancellation stages. The original audit probe confirms no autosave writes while busy, the previous file is unchanged, and the deferred save resumes with consistent retained and current fits. See PA-02 and the evidence record in [the combined audit worklist](PUBLICATION_READINESS_ACTIONS.md).
 
-## ITC-106 - Injection inclusion can be changed from the Avalonia graph during a fit
+## ITC-106 - Injection inclusion could change during fitting
+
+- Status: Resolved (2026-10-13).
+- Problem: The objective reads `Include` at each evaluation, but desktop analysis and buffer-subtraction graphs permitted inclusion edits during active fitting/processing. Regression tests reproduced the Core and Avalonia paths and the native analysis graph path before the fix.
+- Resolution: Core `InjectionData.TryToggleDataPointActive` admits inclusion edits through the same gate used by processing admission. Busy edits do nothing and are not deferred; change notifications occur outside the gate and only after an accepted edit. The existing toggle entry point delegates to this policy. Avalonia analysis and buffer graphs use the guarded operation, and the analysis workspace marks its graph read-only while fitting. Native analysis/buffer graphs also discard presses received during processing, preventing a later mouse-up from applying them. Read-only graph hover remains available. Core and desktop regressions cover nested activity, unchanged dirty state/notifications, rejected fit/residual clicks, native press/release behavior, buffer graph events and resumed editing. The native fixture is included in the default managed test harness. This fixes inclusion editing, not the separate live-model and autosave issues ITC-103–105.
+
+## ITC-107 - Consider preserving the planned injection count in project files
 
 - Priority: Low
-- Status: Open; reported by external review (2026-10-13), not independently verified.
-- Location: Avalonia `IntegratedHeatsGraphControl` injection inclusion toggling; `AnalysisWorkspaceControl` fit-time control disabling.
-- Problem: Fit editors are disabled during a fit, but the graph still lets the user include or exclude injections. The objective reads `Include` at the start of each evaluation, so a change during a fit alters the data being fitted partway through, and the result may not match the injections shown as included. The macOS behaviour was not checked.
-- Follow-up: Decide whether inclusion edits should be blocked during fits, or deferred until the fit finishes.
+- Status: Open; idea (2026-10-14). Not implementation approval.
+- Location: Source-file readers, experiment metadata, and `.ftxtc` persistence; `DataValidator` orphan-injection handling provides the context.
+- Question: Should the saved project record the planned number of injections declared by the source file, independently of the retained injection count? Injections without thermogram data can be import artefacts and may legitimately be discarded; the question is whether the original plan should remain available as metadata.
+- Boundary: Keep the current handling of injections without data. This is not a proposal to prohibit their removal or force a new Traceability Mode restriction.
+- Open decisions: Which source formats provide an explicit planned count; how to represent unavailable counts without treating the retained count as the original plan; and whether this metadata should be displayed. Decide the optional `.ftxtc` representation after reading the format specification if implementation is approved.
+
+## ITC-108 - Consider requiring report injection tables in Traceability Mode
+
+- Priority: Low
+- Status: Open; idea (2026-10-14). Not implementation approval.
+- Location: `AnalysisReportOptions.IncludeInjectionTables`, both desktop report inspectors, and `Documentation/ANALYSIS_REPORT_MAP.md` E10/E11 and supporting-experiment tables.
+- Question: Should Traceability Mode require injection tables in analysis reports, or should they remain optional when the report accompanies the saved project? The current tables retain fitting-excluded injections; this concerns omitting an entire optional report table, not removing excluded rows from numerical exports.
+- Tradeoff: Required tables provide numerical evidence within the report but can substantially increase its length. No decision has been made to force their inclusion.
+- Boundary: Leave axis scaling, single/global Analysis Result creation, orphan-injection handling, and uncertainty display choices unchanged. Any approved report change should keep macOS and Avalonia aligned and update the report map.
