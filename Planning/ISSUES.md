@@ -824,3 +824,16 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Question: Should Traceability Mode require injection tables in analysis reports, or should they remain optional when the report accompanies the saved project? The current tables retain fitting-excluded injections; this concerns omitting an entire optional report table, not removing excluded rows from numerical exports.
 - Tradeoff: Required tables provide numerical evidence within the report but can substantially increase its length. No decision has been made to force their inclusion.
 - Boundary: Leave axis scaling, single/global Analysis Result creation, orphan-injection handling, and uncertainty display choices unchanged. Any approved report change should keep macOS and Avalonia aligned and update the report map.
+
+## ITC-109 - Status-bar progress indicator differs between platforms
+
+- Priority: Low
+- Status: Open; decision needed (2026-10-15). Split out of the ITC-098/ITC-100 plan ([ITC-098_FIT_PROGRESS_PLAN.md](ITC-098_FIT_PROGRESS_PLAN.md)) at the user's request.
+- Location: macOS `mac-status-progress` in `Main.storyboard` (small spinning `NSProgressIndicator`) and `StatusBarViewController.ApplyProgressUpdate`; Avalonia `StatusProgressBar` and `StatusProgressText` in `MainWindow.axaml` and `MainWindow.axaml.cs` (`SetProgressState`).
+- Problem: The status-bar indicator looks different on the two platforms. macOS shows a small round spinner, whose determinate form is a small pie that is hard to read. Avalonia shows a bar with a percentage label. Both switch between indeterminate and determinate from the same progress values. Once ITC-098 shows a counter such as "Bootstrap 40/100" in the secondary status, Avalonia's percentage label repeats that information.
+- Options:
+  - Bar on both platforms (reviewer recommendation). A bar shows a fraction legibly at status-bar size, Avalonia already has one, and it aligns the platforms. macOS would replace the spinner with a small bar.
+  - Round on both platforms. This looks calmer for indeterminate work, but Avalonia needs a custom control and the fraction is hard to read.
+  - Keep the current platform-specific styles.
+- Proposed behaviour if a change is made: indeterminate while fitting and assessing binding, because there is no honest fraction; determinate during uncertainty estimation, using the existing overall uncertainty progress across all members, while the secondary counter shows the current experiment's refits; hidden after completion. Remove or replace Avalonia's percentage label when the counter is shown.
+- Related: ITC-098 provides the phase and fraction; this issue decides how they are presented.
