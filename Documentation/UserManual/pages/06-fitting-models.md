@@ -58,9 +58,15 @@ Changing injection inclusion does not rerun the fit. The fitted curve and parame
 
 Injection bookkeeping determines the concentrations used by the fit and accounts for reaction heat carried out of the active cell by displaced solution. It does not change measured peak areas or baseline integration.
 
-- **MicroCal** uses the dilution and displaced-heat approximations documented for MicroCal analysis. Use it to reproduce or compare results calculated with that convention.
-- **Ideal continuous mixing** models concentrations with ideal exponential mixing and accounts for displaced heat along the continuous mixing trajectory. It uses the exponential concentration law previously exposed as the Exponential preference, but its heat calculation is different. This is the convention previously labelled Dumas in the user interface.
-- **Discrete displacement** is the default and recommended starting point for ordinary pulse injections. It represents the physical limiting case where injection displaces the previous cell mixture before appreciable mixing, then the remaining material mixes with the injected solution. This follows the discrete-injection formalism described by [Freire, Schön and Velazquez-Campoy (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5), also implemented by pytc.
+- **Discrete displacement** is the default starting point for ordinary pulse injections. It assumes that solution is displaced before appreciable mixing, then the remaining cell contents mix with the injected solution.
+- **Ideal continuous mixing** assumes mixing throughout the injection. Consider it for injections slow relative to cell mixing or to compare the opposite mixing limit.
+- **MicroCal** uses the documented MicroCal concentration and displaced-heat approximations. Choose it when reproducing or comparing MicroCal analyses.
+
+No method is assumed to be empirically superior. Injection bookkeeping is separate from dilution-heat background models and between-reload back-mixing.
+
+**Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
+
+### Concentrations and injection heat
 
 For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ be the initial cell concentration, and *C*ₛ the syringe concentration. Starting with no ligand in the cell:
 
@@ -112,13 +118,11 @@ For Discrete displacement, concentrations advance after each injection as follow
 >
 > The same fraction of each starting concentration remains, while the injected solution adds ligand from the syringe.
 
-Across a fixed-syringe segment, the fraction retained after each injection is multiplied across the injections rather than calculated from an exponential of total injected volume. Each injection must be smaller than the cell volume, although the total volume injected over the experiment can exceed it. Zero-volume steps leave the state unchanged. The heat correction uses the cell's pre-injection heat content, which differs from the MicroCal convention and can change fitted values.
+Discrete displacement follows the formalism described by [Freire, Schön and Velazquez-Campoy (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5). Across a fixed-syringe segment, the retained fractions are multiplied across the injections. Each injection must be smaller than the cell volume, although the total volume injected over the experiment can exceed it. The heat correction uses the cell's pre-injection heat content, which differs from the MicroCal convention and can change fitted values.
 
 For ideal continuous mixing, the midpoint is evaluated halfway through each injection on the changing concentration trajectory. The MicroCal option retains its own heat convention.
 
-**Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
-
-The ideal continuous mixing convention assumes mixing throughout the injection, so the outgoing mixture changes composition continuously. Consider it for injections slow relative to cell mixing or as a sensitivity comparison with the discrete limit. It is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), but uses FT-ITC's finite-injection approximation rather than that paper's imperfect-mixing model. It does not model kinetic single-injection experiments. No option is assumed to be empirically superior. The calculation uses a fixed integration rule without adaptive refinement, so unusually large injections or sharp transitions need additional scrutiny.
+The ideal continuous mixing heat calculation is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), but uses FT-ITC's finite-injection approximation rather than that paper's imperfect-mixing model. It does not model kinetic single-injection experiments. The calculation uses a fixed integration rule without adaptive refinement, so unusually large injections or sharp transitions need additional scrutiny.
 
 
 ## Models

@@ -484,10 +484,6 @@
     </Compile>
     <Compile Include="Drawing\AnalysisFigure.cs" />
     <Compile Include="Drawing\AnalysisGraph.cs" />
-    <Compile Include="TechnicalDetailsViewController.cs" />
-    <Compile Include="TechnicalDetailsViewController.designer.cs">
-      <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="ViewControllers\BufferSubtractionTool.cs" />
     <Compile Include="ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
@@ -541,9 +537,6 @@
   <ItemGroup>
     <BundleResource Include="..\Resources\HelpTextResource.txt">
       <Link>Resources\HelpTextResource.txt</Link>
-    </BundleResource>
-    <BundleResource Include="..\Resources\ScienceHelpResource.txt">
-      <Link>Resources\ScienceHelpResource.txt</Link>
     </BundleResource>
     <BundleResource Include="..\Resources\Buffers.json">
       <Link>Resources\Buffers.json</Link>

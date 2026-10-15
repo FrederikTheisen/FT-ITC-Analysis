@@ -141,7 +141,7 @@ Each experiment's processing or data-availability details include the injection 
 
 **Competitor properties** shows source values captured for the reported fit when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
 
-**Baseline method** identifies the current spline mode and the density setting for automatic point placement, or the selected polynomial or segmented degree.
+**Baseline method** identifies the current spline interpolation and actual point count, or the polynomial degree or segmented baseline type. Spline density describes the current points, including manual edits and conversions.
 
 When an experiment has no raw thermogram, **Data availability** identifies its input as imported integrated heats. Baseline and integration details appear only for experiments with a thermogram.
 

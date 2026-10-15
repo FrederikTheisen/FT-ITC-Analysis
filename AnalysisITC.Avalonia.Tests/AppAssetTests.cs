@@ -16,14 +16,14 @@ public sealed class AppAssetTests
         Assert.Equal("About FT-ITC Analysis", dialog.Title);
     }
 
-    [AvaloniaTheory]
-    [InlineData("HelpTextResource.txt")]
-    [InlineData("ScienceHelpResource.txt")]
-    public void HelpDocumentsAreBundledAndLoadable(string resourceName)
+    [AvaloniaFact]
+    public void UnifiedHelpResourceIsBundledAndLoadable()
     {
-        var text = AvaloniaHelpResourceLoader.LoadText(resourceName);
+        var text = AvaloniaHelpResourceLoader.LoadText("HelpTextResource.txt");
 
         Assert.False(string.IsNullOrWhiteSpace(text));
         Assert.Contains("##", text);
+        Assert.Single(typeof(MainWindow).Assembly.GetManifestResourceNames(),
+            name => name.EndsWith("HelpTextResource.txt") || name.EndsWith("ScienceHelpResource.txt"));
     }
 }

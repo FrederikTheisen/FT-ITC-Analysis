@@ -9,7 +9,9 @@ using Avalonia.Controls.Documents;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
@@ -27,8 +29,9 @@ public sealed class HelpWindow : Window
     readonly List<HelpTopicListItem> topicItems;
 
     HelpTopic? displayedSection;
+    HelpTopic? selectedTopic;
 
-    HelpWindow(string title, HelpDocument document)
+    internal HelpWindow(string title, HelpDocument document)
     {
         this.document = document;
         topicItems = BuildTopicItems(document).ToList();
@@ -72,7 +75,21 @@ public sealed class HelpWindow : Window
 
         topicList.ItemsSource = topicItems;
         topicList.ItemTemplate = new FuncDataTemplate<HelpTopicListItem>((item, _) => TopicCell(item));
+        topicList.Styles.Add(new Style(selector => selector.OfType<ListBoxItem>())
+        {
+            Setters =
+            {
+                new Setter(ListBoxItem.MinHeightProperty, 20d),
+                new Setter(ListBoxItem.PaddingProperty, new Thickness(12, 0)),
+                new Setter(ListBoxItem.MarginProperty, new Thickness(0)),
+            }
+        });
         topicList.SelectionChanged += (_, _) => SelectTopic((topicList.SelectedItem as HelpTopicListItem)?.Topic);
+        topicList.Tapped += (_, e) =>
+        {
+            if (e.Source is Visual source && source.GetVisualAncestors().Prepend(source).OfType<ListBoxItem>().Any())
+                SelectTopic((topicList.SelectedItem as HelpTopicListItem)?.Topic);
+        };
 
         var topicPane = new Border
         {
@@ -100,7 +117,7 @@ public sealed class HelpWindow : Window
             Text = PlainText(item.Topic.Title),
             FontSize = item.Topic.Level == 2 ? 13 : 12,
             FontWeight = item.Topic.Level == 2 ? FontWeight.SemiBold : AppTheme.BodyFontWeight,
-            Margin = new Thickness(item.Indent, 4, 8, 4),
+            Margin = new Thickness(item.Indent, 1, 8, 1),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
         AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, item.Topic.Level == 2 ? AppTheme.PrimaryText : AppTheme.SecondaryText);
@@ -125,20 +142,22 @@ public sealed class HelpWindow : Window
 
         var section = topic.Level == 2 ? topic : topic.Parent;
         if (section == null) return;
+        selectedTopic = topic;
 
         if (displayedSection != section)
             RenderSection(section);
 
-        if (topic.Level == 2)
-        {
-            documentScroll.Offset = new Vector(documentScroll.Offset.X, 0);
-            return;
-        }
-
         Dispatcher.UIThread.Post(() =>
         {
-            if (headingControls.TryGetValue(topic, out var heading))
-                heading.BringIntoView();
+            if (selectedTopic != topic) return;
+            UpdateLayout();
+            var offset = 0d;
+            if (topic.Level != 2 && headingControls.TryGetValue(topic, out var heading)
+                && heading.TranslatePoint(default, documentScroll) is { } position)
+                offset = documentScroll.Offset.Y + position.Y;
+
+            var maximum = Math.Max(0, documentScroll.Extent.Height - documentScroll.Viewport.Height);
+            documentScroll.Offset = new Vector(documentScroll.Offset.X, Math.Clamp(offset, 0, maximum));
         }, DispatcherPriority.Background);
     }
 
@@ -149,27 +168,42 @@ public sealed class HelpWindow : Window
         documentPanel.Children.Clear();
 
         var processed = MarkdownProcessor.ProcessWrittenText(section.RawMarkdown ?? "");
-        foreach (var block in SplitBlocks(processed))
+        foreach (var content in HelpContent.Parse(processed))
         {
-            if (block.StartsWith("## "))
+            if (content.IsEquation)
             {
-                var heading = Heading(block.Substring(3).Trim(), 24, FontWeight.SemiBold);
-                headingControls[section] = heading;
-                documentPanel.Children.Add(heading);
+                var equation = Paragraph(content.Text);
+                equation.FontSize = HelpContent.EquationFontSize;
+                equation.LineHeight = HelpContent.EquationLineHeight;
+                equation.TextAlignment = TextAlignment.Center;
+                equation.Margin = new Thickness(0, HelpContent.EquationSpacing);
+                AppTheme.Bind(equation, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+                documentPanel.Children.Add(equation);
                 continue;
             }
 
-            if (block.StartsWith("# "))
+            foreach (var block in SplitBlocks(content.Text))
             {
-                var title = block.Substring(2).Trim();
-                var heading = Heading(title, 18, FontWeight.SemiBold);
-                var child = section.Children.FirstOrDefault(topic => PlainText(topic.Title) == PlainText(title));
-                if (child != null) headingControls[child] = heading;
-                documentPanel.Children.Add(heading);
-                continue;
-            }
+                if (block.StartsWith("## "))
+                {
+                    var heading = Heading(block.Substring(3).Trim(), 24, FontWeight.SemiBold);
+                    headingControls[section] = heading;
+                    documentPanel.Children.Add(heading);
+                    continue;
+                }
 
-            documentPanel.Children.Add(Paragraph(block));
+                if (block.StartsWith("# "))
+                {
+                    var title = block.Substring(2).Trim();
+                    var heading = Heading(title, 18, FontWeight.SemiBold);
+                    var child = section.Children.FirstOrDefault(topic => PlainText(topic.Title) == PlainText(title));
+                    if (child != null) headingControls[child] = heading;
+                    documentPanel.Children.Add(heading);
+                    continue;
+                }
+
+                documentPanel.Children.Add(Paragraph(block));
+            }
         }
     }
 

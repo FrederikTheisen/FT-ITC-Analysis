@@ -26,6 +26,7 @@ namespace AnalysisITC
         static readonly nfloat MinimumSidebarWidth = 220;
         static readonly nfloat DefaultSidebarWidth = 260;
         static readonly nfloat MaximumSidebarWidth = 340;
+        static readonly nfloat TopicRowHeight = 20;
         const string TopicCellIdentifier = "HelpTopicCell";
 
         readonly NSViewController owner;
@@ -40,6 +41,7 @@ namespace AnalysisITC
         List<HelpTopic> topics = new List<HelpTopic>();
         HelpTopic displayedSection;
         bool installed;
+        int scrollRequest;
 
         public HelpDocumentView(NSViewController owner, NSTextView textView, string resourcePath)
         {
@@ -156,7 +158,8 @@ namespace AnalysisITC
             outlineView = new NSOutlineView(new CGRect(0, 0, DefaultSidebarWidth, height))
             {
                 HeaderView = null,
-                RowHeight = 24,
+                RowHeight = TopicRowHeight,
+                IntercellSpacing = CGSize.Empty,
                 AllowsMultipleSelection = false,
                 AllowsEmptySelection = false,
                 SelectionHighlightStyle = NSTableViewSelectionHighlightStyle.Regular,
@@ -175,6 +178,7 @@ namespace AnalysisITC
             outlineView.AddColumn(column);
             outlineView.OutlineTableColumn = column;
             outlineView.SelectionDidChange += OutlineView_SelectionDidChange;
+            outlineView.Activated += OutlineView_SelectionDidChange;
 
             return new NSScrollView(new CGRect(0, 0, DefaultSidebarWidth, height))
             {
@@ -285,34 +289,81 @@ namespace AnalysisITC
         void RenderText(string text)
         {
             var paddedText = text.TrimEnd() + Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine;
-            var processedText = MarkdownProcessor.ProcessWrittenText(paddedText);
-            var attributedString = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(processedText, font);
-
-            textView.TextStorage.SetString(attributedString);
+            using (var attributedString = new NSMutableAttributedString())
+            using (var equationFont = NSFont.FromDescription(font.FontDescriptor, (nfloat)HelpContent.EquationFontSize))
+            {
+                foreach (var block in HelpContent.Parse(paddedText))
+                {
+                    var content = block.Text + (block.IsEquation ? Environment.NewLine : "");
+                    var processedText = MarkdownProcessor.ProcessWrittenText(content);
+                    using (var rendered = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(processedText,
+                        block.IsEquation ? equationFont : font))
+                    {
+                        if (block.IsEquation)
+                        {
+                            using (var style = new NSMutableParagraphStyle
+                            {
+                                Alignment = NSTextAlignment.Center,
+                                MinimumLineHeight = (nfloat)HelpContent.EquationLineHeight,
+                                ParagraphSpacingBefore = (nfloat)HelpContent.EquationSpacing,
+                                ParagraphSpacing = (nfloat)HelpContent.EquationSpacing,
+                            })
+                                rendered.AddAttribute(NSStringAttributeKey.ParagraphStyle, style, new NSRange(0, rendered.Length));
+                        }
+                        attributedString.Append(rendered);
+                    }
+                }
+                textView.TextStorage.SetString(attributedString);
+            }
             textView.TextColor = NSColor.Label;
         }
 
         void ScrollToTop()
         {
-            owner.BeginInvokeOnMainThread(() =>
-            {
-                textView.ScrollRangeToVisible(new NSRange(0, 0));
-            });
+            ScrollToHeading(null);
         }
 
         void ScrollToHeading(string heading)
         {
+            var request = ++scrollRequest;
             owner.BeginInvokeOnMainThread(() =>
             {
+                if (request != scrollRequest) return;
+                var scroll = textView.EnclosingScrollView;
+                var layout = textView.LayoutManager;
+                var container = textView.TextContainer;
+                if (scroll == null || layout == null || container == null) return;
+
+                owner.View.LayoutSubtreeIfNeeded();
+                layout.EnsureLayoutForTextContainer(container);
                 var text = textView.Value ?? "";
-                var index = text.IndexOf(heading, StringComparison.Ordinal);
-                if (index < 0)
+                var index = -1;
+                if (!string.IsNullOrEmpty(heading))
                 {
-                    ScrollToTop();
-                    return;
+                    var candidate = text.IndexOf(heading, StringComparison.Ordinal);
+                    while (candidate >= 0)
+                    {
+                        var end = candidate + heading.Length;
+                        if ((candidate == 0 || text[candidate - 1] == '\n')
+                            && (end == text.Length || text[end] == '\n'))
+                        {
+                            index = candidate;
+                            break;
+                        }
+                        candidate = text.IndexOf(heading, candidate + 1, StringComparison.Ordinal);
+                    }
+                }
+                double top = 0;
+                if (index >= 0)
+                {
+                    var glyphs = layout.GetGlyphRange(new NSRange(index, 1));
+                    top = layout.BoundingRectForGlyphRange(glyphs, container).Y + textView.TextContainerOrigin.Y;
                 }
 
-                textView.ScrollRangeToVisible(new NSRange(index, 0));
+                var clip = scroll.ContentView;
+                var maximum = Math.Max(0, textView.Frame.Height - clip.Bounds.Height);
+                clip.ScrollToPoint(new CGPoint(clip.Bounds.X, Math.Max(0, Math.Min(top, maximum))));
+                scroll.ReflectScrolledClipView(clip);
             });
         }
 
@@ -454,7 +505,7 @@ namespace AnalysisITC
             [Export("outlineView:heightOfRowByItem:")]
             public override nfloat GetRowHeight(NSOutlineView outlineView, NSObject item)
             {
-                return 21;
+                return TopicRowHeight;
             }
         }
     }

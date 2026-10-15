@@ -152,15 +152,29 @@ The decision is made after a fitted coordinate has been transformed into the dis
 
 Changing **Errors** changes only how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit, change the best-fit parameters, or turn one error-estimation method into another. Bootstrap construction, parameter transformation, and the SD and percentile calculations are described under [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty).
 
-The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
+The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Its default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
-For locally fitted member parameters, summary values include individual parameter uncertainty. **Combined SD** is the square root of the between-experiment sample variance plus the mean individual variance; temperature trends use residual variance in place of sample variance. It describes combined spread, not the standard error of the mean, and observed spread may already contain fitting noise. **Approximate propagated interval** targets the average or evaluated trend: individual lower and upper 95% interval widths are propagated separately and combined with the observed-spread contribution. The best-fit central values remain unchanged, and asymmetric intervals can remain asymmetric. Exactly two observations at distinct temperatures propagate individual errors without estimating residual variance; additional observations, including replicates at those same temperatures, contribute residual spread. ΔCp propagates the corresponding slope uncertainty. These intervals do not have established 95% coverage, especially with few experiments, and covariance between experiments is omitted even for local parameters coupled through a global fit. Shared and temperature-constrained parameters retain their model-estimated uncertainty and CI95 meaning.
+### Summary uncertainty
+
+Use **Combined SD** to describe combined spread and the **Approximate propagated interval** for the average or evaluated temperature trend. Neither replaces individual parameter uncertainty.
+
+For local parameters, **Combined SD** is the square root of between-experiment sample variance plus mean individual variance; a temperature trend uses residual variance. It describes combined spread, not the standard error of the mean, and observed spread may already include fitting noise.
+
+The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. ΔCp uses slope uncertainty.
+
+These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
 
 ## Parameter correlation
 
 This view shows whether two fitted parameters tend to move together when the data are resampled. A strong relationship can mean that the data have difficulty separating their effects, but the display alone cannot establish why.
 
 **Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 30 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
+
+Matrix values range from −1 to +1. Point to a cell for Pearson's *r* and its Monte Carlo precision interval. An interval spanning zero leaves the sign unresolved at the current simulation precision. Check the panel's refit counts and warnings for coarse precision, failed or incomplete refits, and rank limits.
+
+For independent fits, select a member; correlations, intervals, counts, and warnings use only its refits. A joint fit can show **Shared** coordinates or **Shared + selected local** coordinates. The labels identify each parameter's scope.
+
+### Correlation calculation and limits
 
 > **Calculation:**
 >
@@ -176,15 +190,13 @@ For each off-diagonal cell, the application also reports an approximate 95% Mont
 >
 > *B* is the number of complete refits: usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation *r* = 1 and has no Fisher precision interval.
 
-Matrix values range from −1 to +1. Pointing to a cell shows *r* and the Monte Carlo precision interval; an interval spanning zero marks the sign as unresolved at the current simulation precision. The result panel separately reports attempted, usable, failed, and complete refits. It warns when fewer than 100 complete refits make precision coarse, at least 20% of attempted refits failed, a usable refit lacked a finite displayed coordinate, a sign is unresolved, or the matrix is structurally rank limited. The correlation matrix remains unavailable below 30 complete refits. For a single-experiment result, the scope is **Single experiment**. When experiments were fitted independently, select a member to view its **Single experiment** correlations; the matrix, precision intervals, refit counts, and warnings use that member's own refits. Another member's bootstrap count does not limit them. A jointly fitted multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
-
 Sequential correlations use the actual fitted coordinates. Affinity coordinates
 are labeled **log10 Ka1** through **log10 Ka4**, active enthalpy coordinates are
 included, and no N-value coordinate is added. A global result shows the shared
 per-step coordinates and, when requested, unconstrained coordinates for the
 selected member without duplicating constrained member values.
 
-> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient *r* itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. An interval spanning zero means only that the sign is unresolved at this Monte Carlo precision. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
+> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient *r* itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
 
 ## Advanced analysis views
 
