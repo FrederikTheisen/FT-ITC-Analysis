@@ -62,10 +62,44 @@ public partial class MainWindow : Window
     TaskCompletionSource<bool>? projectDialogClosed;
     int activeExperimentWorkspaceIndex;
     DataListItemControl? dropIndicatorControl;
+    readonly bool useMacTitleBar;
+    MacWindowTitleBarButtons? macTitleBarButtons;
 
-    public MainWindow()
+    public MainWindow() : this(OperatingSystem.IsMacOS())
     {
+    }
+
+    internal MainWindow(bool useMacTitleBar)
+    {
+        this.useMacTitleBar = useMacTitleBar;
         InitializeComponent();
+        if (useMacTitleBar)
+        {
+            WindowDecorations = WindowDecorations.Full;
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaTitleBarHeightHint = 52;
+            MacTitleBar.IsVisible = true;
+            InWindowMenuContainer.IsVisible = false;
+            WorkspaceTabs.Classes.Add("mac-workflow-tabs");
+            MacWorkflowSelector.SetOptions(new[] { "Overview", "Process Data", "Analyze Data", "Final Figure" },
+                Math.Clamp(WorkspaceTabs.SelectedIndex, 0, 3));
+            for (var i = 0; i < MacWorkflowSelector.ChoiceButtons.Count; i++)
+            {
+                var tooltip = i switch
+                {
+                    0 => WorkflowNavigationPresentation.OverviewTooltip,
+                    1 => WorkflowNavigationPresentation.ProcessingTooltip,
+                    2 => WorkflowNavigationPresentation.AnalysisTooltip,
+                    _ => WorkflowNavigationPresentation.FinalFigureTooltip
+                };
+                ToolTip.SetTip(MacWorkflowSelector.ChoiceButtons[i], tooltip);
+            }
+            MacWorkflowSelector.SelectionChanged += (_, _) =>
+            {
+                if (WorkspaceTabs.SelectedIndex != MacWorkflowSelector.SelectedIndex)
+                    WorkspaceTabs.SelectedIndex = MacWorkflowSelector.SelectedIndex;
+            };
+        }
         Opened += OnOpened;
         using (var iconStream = AppAssetLoader.Open("Resources/appicon.ico"))
             Icon = new WindowIcon(iconStream);
@@ -91,7 +125,14 @@ public partial class MainWindow : Window
         ItemsList.KeyDown += OnItemsListKeyDown;
         WorkspaceTabs.SelectionChanged += (_, e) =>
         {
-            if (ReferenceEquals(e.Source, WorkspaceTabs)) OnWorkspaceTabChanged();
+            if (ReferenceEquals(e.Source, WorkspaceTabs))
+            {
+                if (useMacTitleBar && WorkspaceTabs.SelectedIndex >= 0
+                    && WorkspaceTabs.SelectedIndex < MacWorkflowSelector.Options.Count
+                    && MacWorkflowSelector.SelectedIndex != WorkspaceTabs.SelectedIndex)
+                    MacWorkflowSelector.SelectedIndex = WorkspaceTabs.SelectedIndex;
+                OnWorkspaceTabChanged();
+            }
         };
         OverviewRawButton.Click += (_, _) => SelectOverviewMode(rawData: true);
         OverviewInjectionsButton.Click += (_, _) => SelectOverviewMode(rawData: false);
@@ -147,6 +188,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        macTitleBarButtons?.Dispose();
         AutoSaveManager.Shared.StopCleanly();
         DragDrop.RemoveDragOverHandler(this, OnDragOver);
         DragDrop.RemoveDragLeaveHandler(this, OnDragLeave);
@@ -231,6 +273,8 @@ public partial class MainWindow : Window
     }
 
     internal Menu MenuHost => InWindowMenu;
+    internal Border MenuContainer => InWindowMenuContainer;
+    internal bool UsesMacTitleBar => useMacTitleBar;
     internal AppMenuController MenuController => menuController!;
     internal IReadOnlyList<DataListEntry> DataListEntries => entries;
 
@@ -1387,6 +1431,15 @@ public partial class MainWindow : Window
     {
         selectedItem = item;
 
+        if (useMacTitleBar)
+        {
+            var showingResult = item is AnalysisResult;
+            MacWorkflowSelector.IsVisible = !showingResult;
+            MacWorkflowSelector.IsEnabled = item is ExperimentData;
+            MacResultTitle.IsVisible = showingResult;
+            MacResultTitle.Text = showingResult ? "Analysis result" : string.Empty;
+        }
+
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
         OverviewTitleText.Text = item == null
             ? "No Selection"
@@ -1736,6 +1789,8 @@ public partial class MainWindow : Window
 
     void OnOpened(object? sender, EventArgs e)
     {
+        if (useMacTitleBar)
+            macTitleBarButtons = MacWindowTitleBarButtons.Attach(this, MacTitleBar, leftInset: 16);
         MacWindowDocumentState.SetDocumentEdited(this, DocumentDirtyTracker.IsDirty);
     }
 

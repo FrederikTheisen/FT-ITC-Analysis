@@ -1,11 +1,14 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:AnalysisITC.Avalonia"
+        xmlns:controls="using:AnalysisITC.Avalonia.Controls"
+        xmlns:presentation="using:AnalysisITC.Core.Presentation"
         xmlns:processing="using:AnalysisITC.Avalonia.Processing"
         xmlns:analysis="using:AnalysisITC.Avalonia.Analysis"
         xmlns:finalfigure="using:AnalysisITC.Avalonia.FinalFigure"
         xmlns:results="using:AnalysisITC.Avalonia.Results"
         xmlns:listitems="using:AnalysisITC.Avalonia.ListItems"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
@@ -15,13 +18,29 @@
         Height="760"
         MinWidth="1000"
         MinHeight="600">
-    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource WorkspaceBackground}">
-        <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,0,0,1">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource WorkspaceBackground}">
+        <Border x:Name="InWindowMenuContainer" Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,0,0,1">
             <Menu x:Name="InWindowMenu"
                   Background="{DynamicResource PanelBackground}" />
         </Border>
 
-        <Grid Grid.Row="1">
+        <Grid x:Name="MacTitleBar" Grid.Row="1" Height="52" Background="{DynamicResource PanelBackground}" IsVisible="False"
+              chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <controls:SegmentedSelector x:Name="MacWorkflowSelector"
+                                     Width="440" Height="28" MinHeight="28"
+                                     VerticalAlignment="Center" HorizontalAlignment="Center"
+                                     ToolTip.Tip="{x:Static presentation:WorkflowNavigationPresentation.HeaderTooltip}"
+                                     AutomationProperties.Name="Experiment workflow"
+                                     chrome:WindowDecorationProperties.ElementRole="User" />
+            <TextBlock x:Name="MacResultTitle"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}"
+                       IsVisible="False" />
+            <Border Height="1" VerticalAlignment="Bottom"
+                    Background="{DynamicResource PanelBorder}" IsHitTestVisible="False" />
+        </Grid>
+
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
@@ -412,7 +431,7 @@
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="3" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="2*,*,Auto,Auto" RowDefinitions="20">
                 <TextBlock x:Name="StatusText"
                            AutomationProperties.LiveSetting="Polite"
@@ -447,4 +466,9 @@
             </Grid>
         </Border>
     </Grid>
+    <Window.Styles>
+        <Style Selector="TabControl.mac-workflow-tabs /template/ ItemsPresenter#PART_ItemsPresenter">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </Window.Styles>
 </Window>

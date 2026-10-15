@@ -39,7 +39,7 @@ internal sealed class AppMenuController
             });
         }
 
-        if (OperatingSystem.IsMacOS())
+        if (window.UsesMacTitleBar)
         {
             nativeCommandItems.Clear();
             nativeMenuItems.Clear();
@@ -62,12 +62,14 @@ internal sealed class AppMenuController
 
     void RefreshWindowMenu()
     {
-        if (OperatingSystem.IsMacOS())
+        if (window.UsesMacTitleBar)
         {
             window.MenuHost.IsVisible = false;
+            window.MenuContainer.IsVisible = false;
             return;
         }
 
+        window.MenuContainer.IsVisible = true;
         window.MenuHost.IsVisible = true;
         window.MenuHost.Items.Clear();
         foreach (var item in WindowMenuNodes(includeApplicationMenu: true).Select(CreateMenuItem))
