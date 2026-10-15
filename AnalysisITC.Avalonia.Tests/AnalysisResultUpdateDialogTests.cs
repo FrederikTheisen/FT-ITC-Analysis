@@ -57,6 +57,7 @@ public sealed class AnalysisResultUpdateDialogTests
                 workspace.UpdateResultAsync().GetAwaiter().GetResult();
 
                 Assert.Equal(1, prompt.CallCount);
+                Assert.False(prompt.CalculationWasBusy);
                 Assert.Same(originalSolution, result.Solution);
             });
         }
@@ -205,10 +206,12 @@ public sealed class AnalysisResultUpdateDialogTests
     sealed class CancellingPromptService : IAnalysisResultUpdatePromptService
     {
         public int CallCount { get; private set; }
+        public bool CalculationWasBusy { get; private set; }
 
         public Task<AnalysisResultUpdateOptions> ChooseOptionsAsync(AnalysisResult result)
         {
             CallCount++;
+            CalculationWasBusy = ProcessingActivity.IsBusy;
             return Task.FromResult<AnalysisResultUpdateOptions>(null!);
         }
     }

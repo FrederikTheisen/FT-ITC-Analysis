@@ -15,6 +15,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 using AnalysisITC.Platform.MacOS;
 
@@ -41,88 +42,11 @@ static class UpdateResultStatusTests
                 var secondary = Outlet<NSTextField>(status, "DocumentStatusLabel");
                 var progress = Outlet<NSProgressIndicator>(status, "ProgressIndicator");
 
-                // Update Result starts a solver outside the Analysis workspace.
-                // Publish its real events without relying on a numerical fit's timing.
-                foreach (var method in new[] { ErrorEstimationMethod.BootstrapResiduals,
-                    ErrorEstimationMethod.LeaveOneOut, ErrorEstimationMethod.ProfileLikelihood })
-                    foreach (var termination in new[] { SolverTermination.Converged,
-                        SolverTermination.Cancelled, SolverTermination.Failed })
-                    {
-                        StatusBarManager.ClearAppStatus();
-                        StatusBarManager.SetDefaultSecondaryStatus("Example project");
-                        var solver = new SolverInterface { ErrorEstimationMethod = method, BootstrapIterations = 100 };
-                        solver.Analyze();
-                        solver.ReportAnalysisStepFinished();
-                        Pump();
-                        Check(primary.StringValue == "Estimating uncertainty...",
-                            method + " did not announce uncertainty before the first counter");
-
-                        var expectedCounter = "";
-                        if (method == ErrorEstimationMethod.BootstrapResiduals)
-                        {
-                            solver.ReportBootstrapProgress(40);
-                            expectedCounter = "40/100";
-                        }
-                        else if (method == ErrorEstimationMethod.LeaveOneOut)
-                        {
-                            solver.ReportLeaveOneOutProgress(2, 5);
-                            expectedCounter = "2/5";
-                        }
-                        else
-                        {
-                            solver.ReportSolverUpdate(new SolverUpdate(2, 8)
-                            {
-                                Message = "Profile likelihood: endpoints found 2/8", Progress = 0.25f,
-                            });
-                            expectedCounter = "2/8";
-                        }
-                        Pump();
-                        Check(secondary.StringValue == expectedCounter, method + " counter missing");
-                        Check(primary.StringValue == (method == ErrorEstimationMethod.ProfileLikelihood
-                            ? "Profile likelihood: endpoints found 2/8" : "Estimating uncertainty..."),
-                            method + " operation status differs");
-                        Check(Math.Abs(progress.DoubleValue - (method == ErrorEstimationMethod.ProfileLikelihood ? 25 : 40)) < 0.00001,
-                            method + " progress differs");
-
-                        StatusBarManager.SetDefaultSecondaryStatus("Example project [M]");
-                        Check(secondary.StringValue == expectedCounter, "Project name replaced an active counter");
-                        solver.ReportAnalysisFinished(Convergence(termination));
-                        Pump();
-                        Check(secondary.StringValue == "Example project [M]", "Project name not restored after " + termination);
-                        Check(progress.Hidden, "Progress not hidden after " + termination);
-                    }
-
-                StatusBarManager.ClearAppStatus();
-                var noUncertainty = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.None };
-                noUncertainty.Analyze();
-                Pump();
-                var fittingMessage = primary.StringValue;
-                noUncertainty.ReportAnalysisStepFinished();
-                Pump();
-                Check(primary.StringValue == fittingMessage, "A fit with no uncertainty announced uncertainty estimation");
-                noUncertainty.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
-                Pump();
-
-                StatusBarManager.ClearAppStatus();
-                var independent = new SolverInterface();
-                independent.Analyze();
-                independent.ReportSolverUpdate(new SolverUpdate(1, 3)
-                {
-                    Message = "Estimating uncertainty...", Progress = 1f / 3,
-                });
-                Pump();
-                Check(primary.StringValue == "Estimating uncertainty..." && secondary.StringValue == "1/3",
-                    "Independent-fit operation status or counter missing");
-                independent.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
-                Pump();
-                Check(secondary.StringValue == "Example project [M]", "Independent completion did not restore the project name");
-
-                var missingCompletion = new SolverInterface();
-                missingCompletion.Analyze();
-                missingCompletion.ReportAnalysisFinished(null);
-                Pump();
-                Check(progress.Hidden && secondary.StringValue == "Example project [M]",
-                    "Missing completion crashed progress handling or left it active");
+                CheckProgress(primary, secondary, progress);
+                CheckMemberNames(primary);
+                CheckAdmission(analysis, primary);
+                CheckStaleProgress(primary, secondary);
+                CheckToolControls();
 
                 CheckResultFeedback(primary);
             }
@@ -138,6 +62,236 @@ static class UpdateResultStatusTests
             SolverUpdate.TotalSteps = savedTotal;
             PlatformServices.RegisterMainThreadDispatcher(savedDispatcher);
         }
+    }
+
+    static void CheckProgress(NSTextField primary, NSTextField secondary, NSProgressIndicator indicator)
+    {
+        foreach (var method in new[] { ErrorEstimationMethod.BootstrapResiduals,
+            ErrorEstimationMethod.LeaveOneOut, ErrorEstimationMethod.ProfileLikelihood })
+            foreach (var termination in new[] { SolverTermination.Converged,
+                SolverTermination.Cancelled, SolverTermination.Failed })
+                using (var activity = ProcessingActivity.TryBegin())
+                using (activity.Enter())
+                {
+                    StatusBarManager.ClearAppStatus();
+                    StatusBarManager.SetDefaultSecondaryStatus("Example project");
+                    var solver = new SolverInterface { ErrorEstimationMethod = method, BootstrapIterations = 100 };
+                    solver.Analyze();
+                    Pump();
+                    Check(primary.StringValue == "Fitting…", "The fitting phase was not presented");
+                    var initialFraction = StatusBarManager.Progress;
+                    solver.ReportAnalysisStepFinished();
+                    Pump();
+                    Check(primary.StringValue == "Fitting…" && StatusBarManager.Progress == initialFraction,
+                        "A primary-fit completion invented a phase or changed the native indicator");
+                    Publish(solver, FittingPhase.AssessingBinding, null, null, null);
+                    Pump();
+                    Check(primary.StringValue == "Assessing binding…" && StatusBarManager.Progress == initialFraction,
+                        "Assessment text reset the native indicator");
+                    Publish(solver, FittingPhase.EstimatingUncertainty, null, null, null);
+                    var counter = method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap 40/100"
+                        : method == ErrorEstimationMethod.LeaveOneOut ? "Leave-one-out 2/5" : "Profile searches 3/8";
+                    if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(40);
+                    else if (method == ErrorEstimationMethod.LeaveOneOut) solver.ReportLeaveOneOutProgress(2, 5);
+                    else Publish(solver, FittingPhase.EstimatingUncertainty, 3, 8, 0.375f);
+                    Pump();
+                    Check(primary.StringValue == "Estimating uncertainty…" && secondary.StringValue == counter,
+                        method + " phase or counter missing");
+                    Check(Math.Abs(indicator.DoubleValue - (method == ErrorEstimationMethod.ProfileLikelihood ? 37.5 : 40)) < 0.00001,
+                        method + " progress fraction changed");
+                    StatusBarManager.SetDefaultSecondaryStatus("Example project [M]");
+                    Check(secondary.StringValue == counter, "Project name replaced the active counter");
+                    solver.ReportAnalysisFinished(Convergence(termination));
+                    Pump();
+                    Check(secondary.StringValue == "Example project [M]" && indicator.Hidden,
+                        "Completion did not restore the project status and clear progress");
+                    Check(!primary.StringValue.Contains("RMSD") && !primary.StringValue.Contains("iterations"),
+                        "Routine completion contains fit diagnostics");
+                }
+
+        using (var activity = ProcessingActivity.TryBegin())
+        using (activity.Enter())
+        {
+            var solver = new SolverInterface();
+            solver.Analyze();
+            solver.ReportAnalysisFinished(null);
+            Pump();
+            Check(indicator.Hidden && primary.StringValue.StartsWith("Analysis failed:"),
+                "Missing completion did not produce a descriptive failure");
+        }
+    }
+
+    static void Publish(SolverInterface solver, FittingPhase phase, int? completed, int? total, float? fraction)
+    {
+        typeof(SolverInterface).GetMethod("PublishProgress", Instance).Invoke(solver,
+            new object[] { phase, completed, total, fraction, 0, null });
+    }
+
+    static void CheckAdmission(DataAnalysisViewController analysis, NSTextField primary)
+    {
+        var button = Outlet<NSButton>(analysis, "FitSimplexButton");
+        var draft = Outlet<NSPopUpButton>(analysis, "ModelTypeControl");
+        var label = new NSTextField { StringValue = "Analysis label", ToolTip = "Keep this tooltip", Enabled = true };
+        Outlet<NSTabView>(analysis, "AnalysisInspectorTabView").AddSubview(label);
+        var draftEnabled = draft.Enabled;
+        var draftTooltip = draft.ToolTip;
+        using (var activity = ProcessingActivity.TryBegin())
+        using (activity.Enter())
+        {
+            Pump();
+            Check(!button.Enabled && button.ToolTip == FittingStatusPresentation.BusyTooltip,
+                "Run Fit was not disabled with the shared busy tooltip");
+            Check(draft.Enabled == draftEnabled && draft.ToolTip == draftTooltip
+                && label.Enabled && label.ToolTip == "Keep this tooltip",
+                "unrelated work changed analysis drafts or label availability");
+            var before = primary.StringValue;
+            typeof(DataAnalysisViewController).GetMethod("RunFit", Instance).Invoke(analysis, null);
+            Check(primary.StringValue == before, "A refused fit changed the current operation's status");
+            Check(ProcessingActivity.TryBegin() == null, "A second native start was admitted");
+        }
+        Pump();
+        Check(button.ToolTip != FittingStatusPresentation.BusyTooltip, "The idle tooltip was not restored");
+    }
+
+    static void CheckToolControls()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateResult().Solution.Solutions[0].Data;
+        var second = CreateResult().Solution.Solutions[0].Data;
+        first.Instrument = second.Instrument = AppSettings.DefaultDesignerInstrument;
+        first.DataPoints.Add(new DataPoint(0, 0));
+        first.DataPoints.Add(new DataPoint(1, 0));
+        second.DataPoints.Add(new DataPoint(0, 0));
+        second.DataPoints.Add(new DataPoint(1, 0));
+        first.Processor.InitializeBaseline(AnalysisITC.Core.Processing.BaselineInterpolatorTypes.Polynomial);
+        DataManager.AddData(new[] { first, second });
+        DataManager.SelectIndex(0);
+        using (var merger = CreateController<ExperimentMergerViewController>())
+        using (var popover = CreateController<BaselineOptionsPopoverViewController>())
+        {
+            var cancel = new NSButton { Title = "Cancel", Action = new Selector("dismissController:"),
+                Target = merger, Enabled = true, ToolTip = "Dismiss this tool" };
+            merger.View.AddSubview(cancel);
+            var label = Outlet<NSTextField>(merger, "DeadVolLabel");
+            var draft = Outlet<NSTextField>(merger, "DeadVolumeTextField");
+            label.ToolTip = "Dead volume meaning";
+            var labelEnabled = label.Enabled;
+            var draftEnabled = draft.Enabled;
+            var copyAll = new NSButton { Title = "Copy to All", Action = new Selector("CopyToAllAction:"), Target = popover,
+                Enabled = true, ToolTip = "Copy processing" };
+            var copyRemaining = new NSButton { Title = "Copy to Non-Processed", Action = new Selector("CopyToNonProcessed:"),
+                Target = popover, Enabled = true, ToolTip = "Copy unprocessed data" };
+            var popoverLabel = new NSTextField { StringValue = "Processing settings", Enabled = true, ToolTip = "Keep label tooltip" };
+            popover.View.AddSubview(copyAll);
+            popover.View.AddSubview(copyRemaining);
+            popover.View.AddSubview(popoverLabel);
+            popover.ViewDidAppear();
+            Check(Outlet<NSButton>(popover, "ToSplineButton").Enabled, "Polynomial conversion should initially be available");
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                Pump();
+                Check(!Outlet<NSButton>(merger, "MergeButtonControl").Enabled
+                    && cancel.Enabled && cancel.ToolTip == "Dismiss this tool"
+                    && label.Enabled == labelEnabled && label.ToolTip == "Dead volume meaning" && draft.Enabled == draftEnabled,
+                    "unrelated work locked merger drafts, labels or Cancel");
+                Check(!copyAll.Enabled && !copyRemaining.Enabled && copyAll.ToolTip == FittingStatusPresentation.BusyTooltip,
+                    "popover copy starts remained available during another calculation");
+                Check(popoverLabel.Enabled && popoverLabel.ToolTip == "Keep label tooltip",
+                    "unrelated work changed a popover label");
+                first.Processor.InitializeBaseline(AnalysisITC.Core.Processing.BaselineInterpolatorTypes.Spline);
+            }
+            Pump();
+            Check(copyAll.Enabled && copyRemaining.Enabled && copyAll.ToolTip == "Copy processing",
+                "popover starts did not restore idle tooltips");
+            Check(!Outlet<NSButton>(popover, "ToSplineButton").Enabled,
+                "popover restored stale conversion eligibility after processing changed");
+        }
+        DataManager.Clear(DataClearMode.ResetSession);
+        DocumentDirtyTracker.MarkClean();
+    }
+
+    static void CheckMemberNames(NSTextField primary)
+    {
+        var previous = FittingStatusPresentation.ShowExperimentNames;
+        using (var activity = ProcessingActivity.TryBegin())
+        using (activity.Enter())
+        {
+            var solver = new SolverInterface();
+            solver.Analyze();
+            var handlers = (EventHandler<FittingProgress>)typeof(SolverInterface)
+                .GetField("ProgressChanged", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            var longName = "Long sample " + new string('x', 350);
+            try
+            {
+                FittingStatusPresentation.ShowExperimentNames = true;
+                handlers(solver, new FittingProgress(activity.Operation.Id, FittingPhase.Fitting,
+                    FittingScope.Individual, 2, 3, longName));
+                Pump();
+                Check(primary.StringValue == "Fitting 2 of 3: " + longName,
+                    "The native status did not keep action and original position before the long name");
+                FittingStatusPresentation.ShowExperimentNames = false;
+                handlers(solver, new FittingProgress(activity.Operation.Id, FittingPhase.Fitting,
+                    FittingScope.Individual, 2, 3, longName));
+                Pump();
+                Check(primary.StringValue == "Fitting 2 of 3", "Disabling names left a suffix or colon");
+                FittingStatusPresentation.ShowExperimentNames = true;
+                handlers(solver, new FittingProgress(activity.Operation.Id, FittingPhase.Fitting,
+                    FittingScope.Global, 2, 3, longName));
+                Pump();
+                Check(primary.StringValue == "Fitting 3 experiments globally…", "A global fit named one member");
+                solver.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+            }
+            finally { FittingStatusPresentation.ShowExperimentNames = previous; }
+        }
+    }
+
+    static void CheckStaleProgress(NSTextField primary, NSTextField secondary)
+    {
+        var dispatcher = PlatformServices.MainThreadDispatcher;
+        var queued = new QueuedDispatcher();
+        try
+        {
+            PlatformServices.RegisterMainThreadDispatcher(queued);
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                var old = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+                old.Analyze();
+                old.ReportBootstrapProgress(40);
+                old.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+            }
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                var current = new SolverInterface();
+                current.Analyze();
+                queued.Drain();
+                Pump();
+                Check(primary.StringValue == "Fitting…", "A queued older operation replaced the current status");
+                current.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+                current.ReportBootstrapProgress(40);
+                SolverInterface.TerminateAnalysisFlag.Raise();
+                Publish(current, FittingPhase.Stopping, null, null, null);
+                queued.Drain();
+                Pump();
+                Check(primary.StringValue == FittingStatusPresentation.StoppingAnalysis,
+                    "A queued pre-Stop snapshot restored an earlier phase");
+                Check(!secondary.StringValue.StartsWith("Bootstrap "), "A queued pre-Stop counter was restored");
+                Check(Math.Abs(StatusBarManager.Progress - 0.4) < 0.00001,
+                    "Stop changed an existing numeric progress fraction");
+                current.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+                queued.Drain();
+            }
+        }
+        finally { PlatformServices.RegisterMainThreadDispatcher(dispatcher); }
+    }
+
+    sealed class QueuedDispatcher : IMainThreadDispatcher
+    {
+        readonly Queue<Action> pending = new Queue<Action>();
+        public void Invoke(Action action) { pending.Enqueue(action); }
+        public void Drain() { while (pending.Count > 0) pending.Dequeue()(); }
     }
 
     static void CheckResultFeedback(NSTextField primary)
@@ -177,6 +331,7 @@ static class UpdateResultStatusTests
                         {
                             var temperature = controller.GetType().GetField("evaluationTemperatureText", Instance);
                             temperature.SetValue(controller, "17");
+                            RefuseConcurrentUpdate(controller, "UpdateResultAsync", result, primary);
                             Wait((Task)controller.GetType().GetMethod("UpdateResultAsync", Instance).Invoke(controller, null));
                             if (outcome != "accepted")
                                 Check((string)temperature.GetValue(controller) == "17", "A retained/failed update reset the evaluation temperature");
@@ -185,13 +340,16 @@ static class UpdateResultStatusTests
                     else
                     {
                         using (var controller = (MainWindowController)Create(typeof(MainWindowController)))
+                        {
+                            RefuseConcurrentUpdate(controller, "UpdateSelectedResult", result, primary);
                             Wait((Task)controller.GetType().GetMethod("UpdateSelectedResult", Instance).Invoke(controller, null));
+                        }
                     }
 
                     if (outcome == "accepted")
                     {
                         Check(!ReferenceEquals(original, result.Solution), entry + " did not replace the result");
-                        Check(messages.Any(message => message.Contains("RMSD") || message == "Analysis result updated"),
+                        Check(messages.Any(message => message.StartsWith("Result updated in ")),
                             entry + " did not report the accepted fit");
                     }
                     else
@@ -204,7 +362,7 @@ static class UpdateResultStatusTests
                             entry + " omitted the retention/failure status");
                         Check(primary.StringValue.StartsWith(outcome == "cancelled" ? "Profile result retained:" : "Result update failed:"),
                             entry + " hid the completion status behind an earlier message");
-                        Check(!messages.Any(message => message.Contains("RMSD") || message == "Analysis result updated"),
+                        Check(!messages.Any(message => message.StartsWith("Result updated in ")),
                             entry + " announced a replacement for a retained/failed update");
                     }
                 }
@@ -218,6 +376,30 @@ static class UpdateResultStatusTests
                     StatusBarManager.ClearAppStatus();
                 }
             }
+    }
+
+    static void RefuseConcurrentUpdate(object controller, string method, AnalysisResult result, NSTextField primary)
+    {
+        var original = result.Solution;
+        var stamp = SaveStamp();
+        using (var activity = ProcessingActivity.TryBegin())
+        using (activity.Enter())
+        {
+            Pump();
+            if (controller is AnalysisResultTabViewController)
+            {
+                var button = controller.GetType().GetField("updateResultControl", Instance).GetValue(controller) as NSButton;
+                Check(button != null && !button.Enabled && button.ToolTip == FittingStatusPresentation.BusyTooltip,
+                    "Update Result did not explain its disabled busy state");
+            }
+            var status = primary.StringValue;
+            var refused = (Task)controller.GetType().GetMethod(method, Instance).Invoke(controller, null);
+            Check(refused.IsCompleted, "A competing update was queued implicitly");
+            refused.GetAwaiter().GetResult();
+            Check(ReferenceEquals(result.Solution, original) && stamp.Equals(SaveStamp()),
+                "A refused update changed stored result state");
+            Check(primary.StringValue == status, "A refused update replaced the active status");
+        }
     }
 
     static AnalysisResult CreateResult()
@@ -275,6 +457,12 @@ static class UpdateResultStatusTests
                 if (tabs != null)
                     for (var index = 0; index < 4; index++) tabs.Add(new NSTabViewItem());
             }
+        if (controller is ExperimentMergerViewController)
+        {
+            var slider = Outlet<NSSlider>(controller, "BackMixingSliderControl");
+            slider.Action = new Selector("takeFloatValueFrom:");
+            slider.Target = Outlet<NSTextField>(controller, "BackMixFracLabel");
+        }
         controller.ViewDidLoad();
         return controller;
     }

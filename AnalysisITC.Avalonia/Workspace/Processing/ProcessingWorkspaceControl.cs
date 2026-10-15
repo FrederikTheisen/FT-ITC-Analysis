@@ -17,6 +17,7 @@ using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Processing
@@ -145,13 +146,21 @@ namespace AnalysisITC.Avalonia.Processing
         {
             UnsubscribeExperiment();
             CancelQueuedProcessingRefresh();
+            ProcessingActivity.Changed -= OnCalculationActivityChanged;
             base.OnDetachedFromVisualTree(e);
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
             SubscribeExperiment();
+            UpdateControls();
+        }
+
+        void OnCalculationActivityChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(UpdateControls);
         }
 
         void BuildLayout()
@@ -398,6 +407,10 @@ namespace AnalysisITC.Avalonia.Processing
                 return;
             }
 
+            var target = experiment;
+            using var lease = await ProcessingActivity.BeginAsync();
+            using var ownership = lease.Enter();
+            if (!ReferenceEquals(target, experiment) || experiment.Processor.BaselineType != BaselineInterpolatorTypes.None) return;
             experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
 
             if (experiment.Injections.Count > 0)
@@ -410,6 +423,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeBaselineTypeAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             var type = baselineTypeCombo.SelectedIndex switch
             {
@@ -427,6 +443,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeSplineAlgorithmAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
 
             spline.Algorithm = splineAlgorithmCombo.SelectedIndex == 0
@@ -440,6 +459,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeSplineDensityAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (splineDensityCombo.SelectedIndex < 0) return;
 
@@ -452,6 +474,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeSplineHandleModeAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (splineHandleCombo.SelectedIndex < 0) return;
 
@@ -463,6 +488,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeDegreeAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             var degree = (int)Math.Round((double)(degreeStepper.Value ?? 0));
 
@@ -485,6 +513,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeIntegrationStartAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             if (graph.SelectedInjectionIndex == -1)
                 experiment!.SetIntegrationStartTime((float)integrationStartSlider.Value);
@@ -501,6 +532,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeIntegrationLengthAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             ReplaceFitPeaksRecord();
             await ApplyIntegrationLengthAsync();
@@ -524,6 +558,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task ChangeDiscardIntegratedAsync()
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             experiment!.Processor.DiscardIntegratedPoints = discardIntegratedCheck.IsChecked == true;
             await ProcessDataAsync(replace: true, status: "Processing updated");
@@ -561,6 +598,9 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (!ContextIsValid || experiment!.InjectionCount == 0 || experiment.Processor.IsLocked || isPeakFitting)
                 return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             var targetExperiment = experiment!;
             isPeakFitting = true;
@@ -618,6 +658,10 @@ namespace AnalysisITC.Avalonia.Processing
         async Task CompleteIntegrationSliderEditAsync()
         {
             if (!ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.Current != null
+                ? await ProcessingActivity.BeginAsync() : ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             await ProcessOrIntegrateAfterRangeChangeAsync();
             UpdateControls();
@@ -626,6 +670,10 @@ namespace AnalysisITC.Avalonia.Processing
         async Task CompleteGraphIntegrationEditAsync()
         {
             if (!ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.Current != null
+                ? await ProcessingActivity.BeginAsync() : ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             if (experiment!.Processor.BaselineCompleted && experiment.Processor.DiscardIntegratedPoints)
                 await ProcessDataAsync(replace: true, status: "Integration updated");
@@ -640,6 +688,10 @@ namespace AnalysisITC.Avalonia.Processing
         async Task CompleteGraphSplineEditAsync()
         {
             if (!ProcessingIsEditable) return;
+            using var lease = ProcessingActivity.Current != null
+                ? await ProcessingActivity.BeginAsync() : ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             await ProcessDataAsync(replace: false, status: "Spline baseline updated");
         }
@@ -691,6 +743,9 @@ namespace AnalysisITC.Avalonia.Processing
         void ToggleLock()
         {
             if (!ContextIsValid || isPeakFitting) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             experiment!.Processor.ToggleLock();
             UpdateControls();
@@ -698,7 +753,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleSplineHandles()
         {
-            if (!ProcessingIsEditable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (!ProcessingOptionsAvailable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (spline.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth) return;
 
             spline.ShowHandles = !spline.ShowHandles;
@@ -708,7 +763,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleSplinePointTimeDragging()
         {
-            if (!ProcessingIsEditable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (!ProcessingOptionsAvailable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
 
             spline.AllowPointTimeDragging = !spline.AllowPointTimeDragging;
             UpdateControls();
@@ -716,7 +771,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleIntegrationRegionCopyIncludesStart()
         {
-            if (!ProcessingIsEditable) return;
+            if (!ProcessingOptionsAvailable) return;
 
             AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
             AppSettings.Save();
@@ -746,6 +801,9 @@ namespace AnalysisITC.Avalonia.Processing
         public async Task ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
             if (!ProcessingIsEditable || experiment!.Processor.Interpolator == null) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             var interpolator = experiment.Processor.Interpolator;
             if (interpolator is SplineInterpolator spline)
@@ -775,6 +833,9 @@ namespace AnalysisITC.Avalonia.Processing
         void CopyProcessingToActive()
         {
             if (!ContextIsValid || isPeakFitting) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             DataManager.CopySelectedProcessToActive();
             StatusChanged?.Invoke(this, "Processing copied to active data");
@@ -783,6 +844,9 @@ namespace AnalysisITC.Avalonia.Processing
         void CopyProcessingToNonProcessed()
         {
             if (!ContextIsValid || isPeakFitting) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             DataManager.CopySelectedProcessToNonProcessed();
             StatusChanged?.Invoke(this, "Processing copied to unprocessed data");
@@ -815,6 +879,9 @@ namespace AnalysisITC.Avalonia.Processing
         async Task CopySelectedIntegrationToNextAsync()
         {
             if (!ContextIsValid || experiment!.Processor.IsLocked || isPeakFitting) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             var selected = graph.SelectedInjectionIndex;
             if (selected < 0 || selected >= experiment.InjectionCount - 1) return;
@@ -842,8 +909,15 @@ namespace AnalysisITC.Avalonia.Processing
                 graph.FocusSelectedInjection();
         }
 
+        Control[] EditingControls() => new Control[] { baselineEditingPanel, integrationEditingPanel,
+            baselineTypeCombo, splineAlgorithmCombo, splineDensityCombo, splineHandleCombo,
+            degreeStepper, integrationStartSlider, integrationLengthSlider, fitPeaksButton,
+            copyNextButton, lockProcessorButton, copyActiveButton, copyNewButton,
+            convertSmoothButton, convertLinearButton, discardIntegratedCheck };
+
         void UpdateControls()
         {
+            foreach (var control in EditingControls()) CalculationControlAvailability.Restore(control);
             displayedProcessor = experiment?.Processor;
             isUpdatingControls = true;
 
@@ -945,6 +1019,9 @@ namespace AnalysisITC.Avalonia.Processing
             }
             finally
             {
+                foreach (var control in EditingControls())
+                    CalculationControlAvailability.Update(control, control.IsEnabled);
+                graph.IsEditingEnabled = graph.IsEditingEnabled && !ProcessingActivity.IsBusy;
                 isUpdatingControls = false;
             }
         }
@@ -1061,7 +1138,9 @@ namespace AnalysisITC.Avalonia.Processing
         }
 
         bool ContextIsValid => experiment != null && experiment.HasThermogram && experiment.Processor != null;
-        bool ProcessingIsEditable => ContextIsValid && !experiment!.Processor.IsLocked && !isPeakFitting;
+        bool ProcessingOptionsAvailable => ContextIsValid && !experiment!.Processor.IsLocked && !isPeakFitting;
+        bool ProcessingIsEditable => ProcessingOptionsAvailable
+            && (!ProcessingActivity.IsBusy || ProcessingActivity.Current != null);
 
         static int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {

@@ -10,10 +10,13 @@ using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 
 // Exercises native MouseDown/slider-cell tracking and the controller's actual
 // subscriptions, without building an app bundle or relying on physical input.
@@ -30,6 +33,10 @@ static class ProcessingSliderTests
         var application = NSApplication.SharedApplication;
         try
         {
+            ProcessingCompletionWithoutSelectedExperiment("result");
+            ProcessingCompletionWithoutSelectedExperiment("no selection");
+            ProcessingCompletionWithoutSelectedExperiment("empty project");
+            BusyOperationBlocksProcessingEdits();
             SliderPublishesOnlyOnRelease(CreateExperiment(), start: false, discard: true);
             SliderPublishesOnlyOnRelease(CreateExperiment(), start: true, discard: true);
             SliderPublishesOnlyOnRelease(CreateExperiment(), start: false, discard: false);
@@ -53,6 +60,118 @@ static class ProcessingSliderTests
         {
             Console.Error.WriteLine("FAIL: " + error);
             return 1;
+        }
+    }
+
+    static void ProcessingCompletionWithoutSelectedExperiment(string selection)
+    {
+        var experiment = CreateExperiment();
+        experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);
+        var model = new Offset(experiment);
+        model.InitializeParameters(experiment);
+        model.Solution = SolutionInterface.FromModel(model,
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot { Termination = SolverTermination.Converged }));
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        DataManager.Clear(DataClearMode.ResetSession);
+        DataManager.AddData(new[] { experiment });
+        var controller = CreateController(experiment);
+        try
+        {
+            DataManager.SelectIndex(0);
+            var startLabel = Outlet<NSTextField>(controller, "IntegrationStartDelayLabel");
+            var lengthLabel = Outlet<NSTextField>(controller, "IntegrationLengthLabel");
+            var lengthSlider = Outlet<NSSlider>(controller, "IntegrationLengthControl");
+            Check(lengthSlider.Enabled && lengthLabel.StringValue.Length > 0,
+                "selected experiment did not populate the integration controls");
+
+            // Loading releases its processing lease after AddData selects the final result.
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                if (selection == "result") DataManager.AddData(new ITCDataContainer[] { result });
+                else if (selection == "no selection") DataManager.SelectIndex(-1);
+                else DataManager.Clear(DataClearMode.ResetSession);
+                Check(DataManager.Current == null, "fixture still has an experiment selected");
+            }
+
+            Check(startLabel.StringValue == "" && lengthLabel.StringValue == "",
+                selection + ": completion retained stale integration labels");
+            Check(!lengthSlider.Enabled && !Outlet<NSSlider>(controller, "IntegrationDelayControl").Enabled
+                && !Outlet<NSButton>(controller, "FitPeaksButton").Enabled,
+                selection + ": completion enabled processing controls without an experiment");
+            Check(Outlet<NSTextField>(controller, "ProcessingSummaryLabel").StringValue == "No experiment selected",
+                selection + ": completion did not update the processing summary");
+
+            if (DataManager.SourceItems.Count == 0) DataManager.AddData(new[] { experiment });
+            DataManager.SelectIndex(0);
+            foreach (var mode in new[] { InjectionData.IntegrationLengthMode.Time,
+                InjectionData.IntegrationLengthMode.Factor, InjectionData.IntegrationLengthMode.Fit })
+            {
+                experiment.Processor.IntegrationLengthMode = mode;
+                experiment.Processor.IntegrationLengthFactor = 2;
+                using (var activity = ProcessingActivity.TryBegin()) { }
+                var expected = mode == InjectionData.IntegrationLengthMode.Factor
+                    ? 2f.ToString("F1") + "x" : experiment.Injections[0].IntegrationEndOffset.ToString("F1") + "s";
+                Check(lengthSlider.Enabled && lengthLabel.StringValue == expected
+                    && startLabel.FloatValue == experiment.Injections[0].IntegrationStartDelay,
+                    selection + ": reselection did not restore the " + mode + " integration labels");
+            }
+            Console.WriteLine("PASS: processing completion refresh with " + selection + " and experiment reselection");
+        }
+        finally
+        {
+            UnsubscribeController(controller);
+            controller.Dispose();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    static void BusyOperationBlocksProcessingEdits()
+    {
+        var experiment = CreateExperiment();
+        experiment.Processor.Interpolator = new BlockingPolynomial(experiment.Processor) { Degree = 0 };
+        Task.Run(() => experiment.Processor.ProcessData(showProgress: false)).GetAwaiter().GetResult();
+        DataManager.Clear(DataClearMode.ResetSession);
+        DataManager.AddData(new[] { experiment });
+        DataManager.SelectIndex(0);
+        var controller = CreateController(experiment);
+        var slider = Outlet<NSSlider>(controller, "IntegrationLengthControl");
+        var fitPeaks = Outlet<NSButton>(controller, "FitPeaksButton");
+        var original = experiment.Injections[0].IntegrationEndOffset;
+        var interpolator = experiment.Processor.Interpolator;
+        try
+        {
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                Check(!slider.Enabled && !fitPeaks.Enabled
+                    && slider.ToolTip == FittingStatusPresentation.BusyTooltip,
+                    "processing controls did not explain their busy state");
+                slider.FloatValue = original + 5;
+                typeof(DataProcessingViewControllet).GetMethod("IntegrationLengthSliderChanged", Instance)
+                    .Invoke(controller, new object[] { slider });
+                var mode = Outlet<NSSegmentedControl>(controller, "InterpolatorTypeControl");
+                mode.SelectedSegment = 0;
+                typeof(DataProcessingViewControllet).GetMethod("InterplolatorClicked", Instance)
+                    .Invoke(controller, new object[] { mode });
+                typeof(DataProcessingViewControllet).GetMethod("ToggleProcessingLock", Instance).Invoke(controller, null);
+                Check(experiment.Injections[0].IntegrationEndOffset == original
+                    && ReferenceEquals(interpolator, experiment.Processor.Interpolator)
+                    && !experiment.Processor.IsLocked,
+                    "a refused processing edit changed live inputs");
+            }
+            Check(slider.Enabled && fitPeaks.Enabled && slider.ToolTip != FittingStatusPresentation.BusyTooltip,
+                "processing controls did not return to their idle state");
+            typeof(DataProcessingViewControllet).GetMethod("ToggleProcessingLock", Instance).Invoke(controller, null);
+            Check(experiment.Processor.IsLocked && !slider.Enabled, "idle processing lock did not apply");
+            typeof(DataProcessingViewControllet).GetMethod("ToggleProcessingLock", Instance).Invoke(controller, null);
+            Check(!experiment.Processor.IsLocked && slider.Enabled, "idle processing unlock did not restore controls");
+        }
+        finally
+        {
+            UnsubscribeController(controller);
+            controller.Dispose();
+            DataManager.Clear(DataClearMode.ResetSession);
         }
     }
 

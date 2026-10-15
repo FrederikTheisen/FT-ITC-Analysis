@@ -5,6 +5,7 @@ using Avalonia.Threading;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia;
@@ -14,7 +15,6 @@ namespace AnalysisITC.Avalonia;
 /// </summary>
 internal sealed class AnalysisProgressCoordinator : IDisposable
 {
-    static readonly TimeSpan FitNotificationThreshold = TimeSpan.FromSeconds(15);
     enum OperationKind
     {
         None,
@@ -28,14 +28,16 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
     OperationKind activeOperation;
     object? activeSolver;
     bool disposed;
+    Guid operationId;
+    bool requiresCurrentOperation;
+    bool stopping;
 
     public AnalysisProgressCoordinator()
     {
         SolverInterface.AnalysisStarted += OnSolverStarted;
         SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
-        SolverInterface.ErrorEstimationIterationCompleted += OnErrorEstimationIterationCompleted;
-        SolverInterface.SolverUpdated += OnSolverUpdated;
-        SolverInterface.AnalysisFinished += OnSolverFinished;
+        SolverInterface.ProgressChanged += OnFittingProgress;
+        SolverInterface.FittingCompleted += OnSolverFinished;
 
         ResultAnalysisController.AnalysisStarted += OnAdvancedAnalysisStarted;
         ResultAnalysisController.IterationFinished += OnAdvancedAnalysisIterationFinished;
@@ -45,63 +47,74 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
     void OnSolverStarted(object? sender, TerminationFlag e)
     {
         if (sender is SolverInterface { Silent: true }) return;
+        if (sender is SolverInterface { Operation: not null } solver
+            && !ProcessingActivity.IsCurrentOperation(solver.OperationId)) return;
 
         BeginOperation(OperationKind.Solver, sender);
     }
 
     void OnAnalysisStepFinished(object? sender, EventArgs e)
     {
-        string? message;
+        // Preserve the existing indicator reset without inferring a phase.
+        lock (stateLock)
+            if (!ReferenceEquals(activeSolver, sender)) return;
+        UpdateProgress(OperationKind.Solver, 0);
+    }
+
+    void OnFittingProgress(object? sender, FittingProgress progress)
+    {
         lock (stateLock)
         {
-            message = activeSolver is SolverInterface { ErrorEstimationMethod: not ErrorEstimationMethod.None }
-                ? "Estimating uncertainty..."
-                : null;
+            if (!ReferenceEquals(activeSolver, sender) || operationId != progress.OperationId) return;
+            if (progress.Phase == FittingPhase.Stopping) stopping = true;
         }
-        UpdateProgress(OperationKind.Solver, 0, message);
+        UpdateProgress(OperationKind.Solver, progress.Fraction ?? -1,
+            FittingStatusPresentation.Message(progress), FittingStatusPresentation.Counter(progress));
     }
 
-    void OnErrorEstimationIterationCompleted(object? sender, Tuple<int, int, float> e)
+    void OnSolverFinished(object? sender, FittingCompletion completion)
     {
-        UpdateProgress(OperationKind.Solver, e.Item3,
-            "Estimating uncertainty...", $"{e.Item1}/{e.Item2}");
-    }
-
-    void OnSolverUpdated(object? sender, SolverUpdate update)
-    {
-        // SolverUpdate's counters are shared mutable state. Capture the text
-        // before posting to the UI thread, while it still describes this event.
-        var counter = SolverUpdate.TotalSteps > 0 ? update.ProgressString : null;
-        UpdateProgress(OperationKind.Solver, update.Progress, update.Message, counter);
-    }
-
-    void OnSolverFinished(object? sender, SolverConvergence convergence)
-    {
-        if (sender is SolverInterface { Silent: false }
-            && !convergence.Stopped
-            && convergence.TotalTime >= FitNotificationThreshold)
-            PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
-                "Model fitting finished", convergence.Message);
-
-        CompleteOperation(OperationKind.Solver, sender);
+        lock (stateLock)
+        {
+            if (!ReferenceEquals(activeSolver, sender) || operationId != completion.OperationId) return;
+        }
+        CompleteOperation(OperationKind.Solver, sender, () =>
+        {
+            if (completion.IsResultUpdate) StatusBarManager.ClearAppStatus();
+            else UncertaintyEstimationPresentation.PublishCompletion(completion.Solver, completion.Convergence,
+                    completion.Elapsed, operationId: completion.Solver.Operation == null ? Guid.Empty : completion.OperationId);
+        });
     }
 
     void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
     {
-        BeginOperation(OperationKind.AdvancedAnalysis, null);
+        if (sender is not AdvancedAnalysisEventSource source) return;
+        if (source.OperationId != Guid.Empty && !ProcessingActivity.IsCurrentOperation(source.OperationId)) return;
+        BeginOperation(OperationKind.AdvancedAnalysis, source.Analysis, source.OperationId);
     }
 
     void OnAdvancedAnalysisIterationFinished(object? sender, Tuple<int, int, float, string> e)
     {
+        if (!MatchesAdvancedSource(sender)) return;
         UpdateProgress(OperationKind.AdvancedAnalysis, e.Item3);
     }
 
     void OnAdvancedAnalysisFinished(object? sender, Tuple<int, TimeSpan> e)
     {
-        CompleteOperation(OperationKind.AdvancedAnalysis, null);
+        if (!MatchesAdvancedSource(sender)) return;
+        CompleteOperation(OperationKind.AdvancedAnalysis, ((AdvancedAnalysisEventSource)sender!).Analysis);
     }
 
-    void BeginOperation(OperationKind kind, object? solver)
+    bool MatchesAdvancedSource(object? sender)
+    {
+        if (sender is not AdvancedAnalysisEventSource source) return false;
+        lock (stateLock)
+            return !disposed && activeOperation == OperationKind.AdvancedAnalysis
+                && operationId == source.OperationId && IsCurrent()
+                && (source.Analysis == null || activeSolver == null || ReferenceEquals(source.Analysis, activeSolver));
+    }
+
+    void BeginOperation(OperationKind kind, object? solver, Guid capturedOperationId = default)
     {
         long token;
 
@@ -111,7 +124,10 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
 
             token = ++generation;
             activeOperation = kind;
-            activeSolver = kind == OperationKind.Solver ? solver : null;
+            activeSolver = solver;
+            stopping = false;
+            operationId = (solver as SolverInterface)?.OperationId ?? capturedOperationId;
+            requiresCurrentOperation = solver is SolverInterface fit ? fit.Operation != null : operationId != Guid.Empty;
         }
 
         Dispatch(token, kind, () => StatusBarManager.StartInderminateProgress());
@@ -129,27 +145,42 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
 
         Dispatch(token, kind, () =>
         {
+            bool showStopping;
+            lock (stateLock)
+            {
+                // Evaluate at delivery: older snapshots can be queued before Stop.
+                if (kind == OperationKind.Solver && SolverInterface.TerminateAnalysisFlag.Up) stopping = true;
+                showStopping = kind == OperationKind.Solver && stopping;
+            }
             if (progress >= 0) StatusBarManager.SetProgress(Math.Clamp(progress, 0, 1));
-            if (!string.IsNullOrWhiteSpace(message)) StatusBarManager.SetStatus(message, 0, priority: 1);
-            if (counter != null) StatusBarManager.SetSecondaryStatus(counter, 0);
+            if (showStopping)
+            {
+                StatusBarManager.SetStatus(FittingStatusPresentation.StoppingAnalysis, 0, priority: 1);
+                StatusBarManager.SetSecondaryStatus("", 0);
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(message)) StatusBarManager.SetStatus(message, 0, priority: 1);
+                if (counter != null) StatusBarManager.SetSecondaryStatus(counter, 0);
+            }
         });
     }
 
-    void CompleteOperation(OperationKind kind, object? solver)
+    void CompleteOperation(OperationKind kind, object? solver, Action? completion = null)
     {
         long token;
 
         lock (stateLock)
         {
             if (disposed || activeOperation != kind) return;
-            if (kind == OperationKind.Solver && activeSolver != null && !ReferenceEquals(activeSolver, solver)) return;
+            if (activeSolver != null && !ReferenceEquals(activeSolver, solver)) return;
 
             activeOperation = OperationKind.None;
             activeSolver = null;
             token = ++generation;
         }
 
-        DispatchCompletion(token, () => StatusBarManager.ClearAppStatus());
+        DispatchCompletion(token, completion ?? (() => StatusBarManager.ClearAppStatus()));
     }
 
     void Dispatch(long token, OperationKind kind, Action action)
@@ -158,7 +189,7 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         {
             lock (stateLock)
             {
-                if (disposed || generation != token || activeOperation != kind) return;
+                if (disposed || generation != token || activeOperation != kind || !IsCurrent()) return;
             }
 
             action();
@@ -171,12 +202,14 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         {
             lock (stateLock)
             {
-                if (disposed || generation != token || activeOperation != OperationKind.None) return;
+                if (disposed || generation != token || activeOperation != OperationKind.None || !IsCurrent()) return;
             }
 
             action();
         });
     }
+
+    bool IsCurrent() => !requiresCurrentOperation || ProcessingActivity.IsCurrentOperation(operationId);
 
     static void RunOnUiThread(Action action)
     {
@@ -198,9 +231,8 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
 
         SolverInterface.AnalysisStarted -= OnSolverStarted;
         SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
-        SolverInterface.ErrorEstimationIterationCompleted -= OnErrorEstimationIterationCompleted;
-        SolverInterface.SolverUpdated -= OnSolverUpdated;
-        SolverInterface.AnalysisFinished -= OnSolverFinished;
+        SolverInterface.ProgressChanged -= OnFittingProgress;
+        SolverInterface.FittingCompleted -= OnSolverFinished;
 
         ResultAnalysisController.AnalysisStarted -= OnAdvancedAnalysisStarted;
         ResultAnalysisController.IterationFinished -= OnAdvancedAnalysisIterationFinished;

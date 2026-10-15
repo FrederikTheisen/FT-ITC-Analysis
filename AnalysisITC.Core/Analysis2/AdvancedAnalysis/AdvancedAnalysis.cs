@@ -10,6 +10,17 @@ using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Analysis
 {
+    public sealed class AdvancedAnalysisEventSource
+    {
+        public Guid OperationId { get; }
+        public AdvancedAnalysis Analysis { get; }
+        internal AdvancedAnalysisEventSource(AdvancedAnalysis analysis = null)
+        {
+            OperationId = ProcessingActivity.Current?.Id ?? Guid.Empty;
+            Analysis = analysis;
+        }
+    }
+
     public static class ResultAnalysisController
     {
         public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
@@ -20,22 +31,26 @@ namespace AnalysisITC.Core.Analysis
 
         public static int CalculationIterations { get; set; } = 1000;
 
-        public static void ReportCalculationStarted() => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public static void ReportCalculationStarted(AdvancedAnalysis analysis = null)
         {
-            AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
-        });
+            var source = new AdvancedAnalysisEventSource(analysis);
+            PlatformServices.MainThreadDispatcher.Invoke(() => AnalysisStarted?.Invoke(source, TerminateAnalysisFlag));
+        }
 
-        public static void ReportCalculationProgress(int iteration, int totaliterations = 0, string description = null) => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public static void ReportCalculationProgress(int iteration, int totaliterations = 0, string description = null)
         {
+            var source = new AdvancedAnalysisEventSource();
             var totiter = totaliterations > 0 ? totaliterations : CalculationIterations;
+            var progress = new Tuple<int, int, float, string>(iteration, totiter, iteration / (float)totiter, description);
+            PlatformServices.MainThreadDispatcher.Invoke(() => IterationFinished?.Invoke(source, progress));
+        }
 
-            IterationFinished?.Invoke(null, new Tuple<int, int, float, string>(iteration, totiter, iteration / (float)totiter, description));
-        });
-
-        public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time) => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time)
         {
-            AnalysisFinished?.Invoke(analysis, new Tuple<int, TimeSpan>(iterations, time));
-        });
+            var source = new AdvancedAnalysisEventSource(analysis as AdvancedAnalysis);
+            var completion = new Tuple<int, TimeSpan>(iterations, time);
+            PlatformServices.MainThreadDispatcher.Invoke(() => AnalysisFinished?.Invoke(source, completion));
+        }
     }
 
     public class AdvancedAnalysis
@@ -62,9 +77,10 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual async Task<bool> PerformAnalysisAsync()
         {
-            using var activity = ProcessingActivity.Begin();
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
             ResultAnalysisController.TerminateAnalysisFlag.Lower();
-            ResultAnalysisController.ReportCalculationStarted();
+            ResultAnalysisController.ReportCalculationStarted(this);
 
             var start = DateTime.UtcNow;
             var previous = CaptureCommittedState();

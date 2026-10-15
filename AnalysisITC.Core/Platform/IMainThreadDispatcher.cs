@@ -6,4 +6,9 @@ namespace AnalysisITC.Platform
     {
         void Invoke(Action action);
     }
+
+    public interface IMainThreadAccessChecker
+    {
+        bool IsMainThread { get; }
+    }
 }

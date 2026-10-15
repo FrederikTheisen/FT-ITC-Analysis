@@ -258,7 +258,7 @@ public partial class MainWindow : Window
     internal bool SelectedExperimentIsIncluded() => selectedItem is ExperimentData data && data.Include;
     internal bool SelectedResultHasSolution() => selectedItem is AnalysisResult result && result.Solution != null;
     internal bool SelectedResultHasMemberSolutions() => selectedItem is AnalysisResult result && result.Solution?.Solutions?.Count > 0;
-    internal bool SelectedResultCanUpdate() => selectedItem is AnalysisResult result && result.Solution?.Model != null;
+    internal bool SelectedResultCanUpdate() => !ProcessingActivity.IsBusy && selectedItem is AnalysisResult result && result.Solution?.Model != null;
 
     internal Task OpenFilesFromMenuAsync() => startupReady ? OpenFilesAsync() : Task.CompletedTask;
 
@@ -1766,7 +1766,9 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(async () =>
         {
             if (!IsVisible) return;
-            SetStatus($"{message.Title}: {message.Message}");
+            if (sender is not ProcessingOperation owner || ProcessingActivity.IsCurrentOperation(owner.Id))
+                SetStatus($"{message.Title}: {message.Message}");
+            using var pause = (sender as ProcessingOperation)?.PauseElapsed();
             await AvaloniaAppNotificationService.ShowInfoAlertAsync(this, message.Title, message.Message);
         });
     }

@@ -785,7 +785,8 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
                 solver.Silent = true;
                 if (mode == "independent")
                 {
-                    var completion = new System.Threading.Tasks.TaskCompletionSource<SolverConvergence>();
+                    var completion = new System.Threading.Tasks.TaskCompletionSource<SolverConvergence>(
+                        TaskCreationOptions.RunContinuationsAsynchronously);
                     EventHandler<SolverConvergence> handler = (sender, result) =>
                     {
                         if (ReferenceEquals(sender, solver)) completion.TrySetResult(result);
@@ -797,6 +798,9 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
                         solver.Analyze();
                         var completed = await completion.Task.WaitAsync(TimeSpan.FromSeconds(30));
                         Assert.True(completed.Success);
+                        var deadline = DateTime.UtcNow.AddSeconds(10);
+                        while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline) await Task.Delay(1);
+                        Assert.False(ProcessingActivity.IsBusy);
                     }
                     finally { SolverInterface.AnalysisFinished -= handler; }
                 }

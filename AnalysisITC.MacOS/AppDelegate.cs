@@ -81,10 +81,19 @@ namespace AnalysisITC
         void RefreshProcessingClearMenu(NSMenu menu)
         {
             if (menu == null) return;
+            ConfigureProcessingClearTooltips(menu);
             foreach (var item in menu.Items)
             {
                 if (item.Identifier != null && item.Identifier.StartsWith("clearprocessing", StringComparison.Ordinal))
+                {
                     item.Enabled = ValidateMenuItem(item);
+                    if (ProcessingActivity.IsBusy) item.ToolTip = FittingStatusPresentation.BusyTooltip;
+                }
+                if (item.Identifier is "runtandemmixingscan" or "importprocessedtandemcsv")
+                {
+                    item.Enabled = !ProcessingActivity.IsBusy;
+                    item.ToolTip = ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip : null;
+                }
                 RefreshProcessingClearMenu(item.Submenu);
             }
         }
@@ -297,6 +306,10 @@ namespace AnalysisITC
             // (As specified in its Tag)
             switch (item.Identifier)
             {
+                case "runtandemmixingscan":
+                case "importprocessedtandemcsv":
+                    item.ToolTip = ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip : null;
+                    return !ProcessingActivity.IsBusy;
                 case "open":
                 case "toolbaropen": return AnalysisITC.UI.MacOS.MacDataReader.StartupComplete;
                 case "saveas":
@@ -480,6 +493,7 @@ namespace AnalysisITC
 
         private async Task RunTandemMixingScan()
         {
+            if (ProcessingActivity.IsBusy) return;
             var sources = DataManager.IncludedData
                 .Where(experiment => !experiment.IsTandemExperiment)
                 .ToList();
@@ -503,6 +517,9 @@ namespace AnalysisITC
 
             var matrixPath = savePanel.Url.Path;
             savePanel.Dispose();
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             var scanFractions = TandemMixingScanner.MixingFractionsForStep(0.0, 1.0, 0.01);
             var gridSize = scanFractions.Count;
             var pointsPerScan = gridSize * gridSize;
@@ -531,6 +548,7 @@ namespace AnalysisITC
                             settings,
                             (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
                             {
+                                if (!ProcessingActivity.IsCurrentOperation(activity.Operation.Id)) return;
                                 var overallCompleted = index * total + completed;
                                 var overallTotal = total * removeOverflowModes.Count;
                                 StatusBarManager.SetProgress(overallCompleted / (double)overallTotal);
@@ -625,6 +643,7 @@ namespace AnalysisITC
         [Action("ImportProcessedTandemCsv:")]
         private void ImportProcessedTandemCsv(NSObject sender)
         {
+            if (ProcessingActivity.IsBusy) return;
             var dialog = NSOpenPanel.OpenPanel;
             dialog.Title = "Import Processed Tandem CSV";
             dialog.CanChooseFiles = true;
@@ -637,6 +656,10 @@ namespace AnalysisITC
                 dialog.Dispose();
                 return;
             }
+
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) { dialog.Dispose(); return; }
+            using var ownership = activity.Enter();
 
             StatusBarManager.SetStatus("Reading processed tandem data...", 0);
             StatusBarManager.StartInderminateProgress();

@@ -17,6 +17,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
@@ -58,6 +59,7 @@ namespace AnalysisITC.Avalonia.Tools
         bool isBusy;
         public bool Created { get; private set; }
 
+        internal Button CreateButtonForTesting => createButton;
         internal ComboBox ModeComboForTesting => modeCombo;
         internal ComboBox AutoCriterionComboForTesting => autoCriterionCombo;
         internal Control AutoCriterionRowForTesting => autoCriterionRow;
@@ -109,6 +111,19 @@ namespace AnalysisITC.Avalonia.Tools
             WireEvents();
             SetAllMixingValues(0.20);
             RefreshControls();
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            ProcessingActivity.Changed -= OnCalculationActivityChanged;
+            base.OnClosed(e);
+        }
+
+        void OnCalculationActivityChanged(object? sender, EventArgs e)
+        {
+            if (Dispatcher.UIThread.CheckAccess()) RefreshControls();
+            else Dispatcher.UIThread.Post(RefreshControls);
         }
 
         void BuildLayout()
@@ -258,7 +273,7 @@ namespace AnalysisITC.Avalonia.Tools
             moveDownButton.IsEnabled = !isBusy && selected.Count > 0;
             experimentList.IsEnabled = !isBusy;
             modeCombo.IsEnabled = !isBusy;
-            createButton.IsEnabled = !isBusy && selected.Count >= 2 && autoAllowed && TryReadSettings(out _);
+            CalculationControlAvailability.Update(createButton, !isBusy && selected.Count >= 2 && autoAllowed && TryReadSettings(out _));
             cancelButton.IsEnabled = !isBusy;
 
             if (selected.Count < 2)
@@ -273,6 +288,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task CreateMergedExperimentAsync()
         {
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
             var selected = SelectedExperiments();
             if (selected.Count < 2 || !TryReadSettings(out var settings)) return;
 
@@ -294,6 +312,7 @@ namespace AnalysisITC.Avalonia.Tools
                         settings.Copy(),
                         (completed, total) => Dispatcher.UIThread.Post(() =>
                         {
+                            if (!ProcessingActivity.IsCurrentOperation(lease.Operation.Id)) return;
                             progressBar.Value = total <= 0 ? 0 : completed / (double)total;
                             SetStatus($"Scanning tandem back-mixing... {100 * progressBar.Value:0}%");
                         }),

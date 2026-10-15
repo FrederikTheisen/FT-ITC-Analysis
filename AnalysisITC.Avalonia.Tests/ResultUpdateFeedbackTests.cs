@@ -71,9 +71,10 @@ public sealed class ResultUpdateFeedbackTests
 
             if (outcome == "accepted")
             {
-                Assert.NotSame(original, result.Solution);
+                Assert.True(!ReferenceEquals(original, result.Solution), string.Join(" | ", statuses));
                 Assert.Equal(1, replaced);
-                Assert.Contains(statuses, text => text.Contains("RMSD"));
+                Assert.Contains(statuses, text => text.StartsWith("Result updated in "));
+                Assert.DoesNotContain(statuses, text => text.Contains("RMSD") || text.StartsWith("Analysis complete"));
             }
             else
             {

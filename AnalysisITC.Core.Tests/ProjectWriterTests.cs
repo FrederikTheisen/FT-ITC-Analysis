@@ -136,8 +136,13 @@ public sealed class ProjectWriterTests : IDisposable
             }));
             Assert.True(ProcessingActivity.IsBusy);
             Assert.True(DocumentDirtyTracker.IsDirty);
+            // End the simulated later fit before independently restoring the saved
+            // project; project restoration now requires its own calculation admission.
+            activity.Dispose();
+            activity = null;
             using var stream = File.OpenRead(path);
-            var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
+            var read = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict)
+                .WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Empty(read.Issues);
             var saved = read.Containers.OfType<ExperimentData>().Single(e => e.UniqueID == experiment.UniqueID);
             Assert.Equal(expected, saved.Injections.Select(i => saved.Solution.Model.Evaluate(i.ID)));

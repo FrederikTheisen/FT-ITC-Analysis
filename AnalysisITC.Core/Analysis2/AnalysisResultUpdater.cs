@@ -18,11 +18,13 @@ namespace AnalysisITC.Core.Analysis
             AnalysisResult result,
             AnalysisResultUpdateOptions options)
         {
-            using var activity = ProcessingActivity.Begin();
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
             if (result == null) throw new ArgumentNullException(nameof(result));
 
             var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
             var solver = PrepareSolver(result, options);
+            solver.IsResultUpdate = true;
             var convergence = await RunSolverAsync(solver);
             var solution = GetGlobalSolution(solver);
 
@@ -253,6 +255,7 @@ namespace AnalysisITC.Core.Analysis
             SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
             ApplyManualAssessments(solver, result);
 
+            solver.IsResultUpdate = true;
             return solver;
         }
 

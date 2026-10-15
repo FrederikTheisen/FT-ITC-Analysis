@@ -26,13 +26,14 @@ namespace AnalysisITC
 {
 	public partial class MainWindowController : NSWindowController
 	{
-        static readonly TimeSpan FitNotificationThreshold = TimeSpan.FromSeconds(15);
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
         NSLayoutConstraint workflowToolbarMenuWidthConstraint;
         NSSegmentedControl overviewDisplayControl;
         bool allowDirtyClose;
         bool autoSaveInitialized;
         bool stopableProcessRunning;
+        Guid stopableOperationId;
+        string processingCopyTooltip;
         SupportingFigureCanvasWindowController supportingFigureController;
         readonly SupportingFigureSelectionState supportingFigureSelection = new SupportingFigureSelectionState();
         ProjectInformationWindowController projectInformationController;
@@ -52,6 +53,9 @@ namespace AnalysisITC
         public override void WindowDidLoad()
         {
             base.WindowDidLoad();
+            processingCopyTooltip = ProcessSegControl.GetToolTip(1);
+            MacAnalysisProgressCoordinator.EnsureCreated();
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
 
             StateManager.ProgramStateChanged += OnProgramStateChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
@@ -296,26 +300,38 @@ namespace AnalysisITC
 
         private void StopableProcessFinished(object sender, object e)
         {
-            if (sender is SolverInterface { Silent: false }
-                && e is SolverConvergence convergence
-                && !convergence.Stopped
-                && convergence.TotalTime >= FitNotificationThreshold)
-                PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
-                    "Model fitting finished", convergence.Message);
-
+            var operation = sender is SolverInterface solver ? solver.OperationId
+                : sender is AdvancedAnalysisEventSource advanced ? advanced.OperationId : Guid.Empty;
+            if (operation != stopableOperationId || !ProcessingActivity.IsCurrentOperation(operation)) return;
             stopableProcessRunning = false;
             StopProcessButton.Hidden = true;
             UpdateContextToolbarMenu();
         }
 
+        void OnCalculationActivityChanged(object sender, EventArgs e) => BeginInvokeOnMainThread(() =>
+        {
+            if (Handle == IntPtr.Zero) return;
+            ProcessSegControl.SetEnabled(!ProcessingActivity.IsBusy && DataManager.Current?.Processor?.BaselineCompleted == true, 1);
+            ProcessSegControl.SetToolTip(ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip : processingCopyTooltip, 1);
+            UpdateContextToolbarMenu();
+        });
+
         private void StopableProcessStarted(object sender, TerminationFlag e)
         {
+            stopableOperationId = sender is SolverInterface solver ? solver.OperationId
+                : sender is AdvancedAnalysisEventSource advanced ? advanced.OperationId : Guid.Empty;
+            if (!ProcessingActivity.IsCurrentOperation(stopableOperationId)) return;
             stopableProcessRunning = true;
             StopProcessButton.Enabled = true;
             StopProcessButton.Hidden = false;
             UpdateContextToolbarMenu();
 
-            e.WasRaised += (object flag, EventArgs e) => StopProcessButton.Enabled = false;
+            var operation = stopableOperationId;
+            e.WasRaised += (object flag, EventArgs e) => BeginInvokeOnMainThread(() =>
+            {
+                if (operation == stopableOperationId && ProcessingActivity.IsCurrentOperation(operation))
+                    StopProcessButton.Enabled = false;
+            });
         }
 
         void OnShowAppMessage(object sender, HandledException e)
@@ -483,7 +499,7 @@ namespace AnalysisITC
             }
             else
             {
-                ProcessSegControl.SetEnabled(e.Processor.BaselineCompleted, 1);
+                ProcessSegControl.SetEnabled(!ProcessingActivity.IsBusy && e.Processor.BaselineCompleted, 1);
                 AnalysisSegControl.SetEnabled(e.Processor.BaselineCompleted, 1);
             }
         }
@@ -1063,6 +1079,11 @@ namespace AnalysisITC
             };
 
             if (!string.IsNullOrEmpty(identifier)) item.Identifier = identifier;
+            if (identifier == "updateresult" && ProcessingActivity.IsBusy)
+            {
+                item.Enabled = false;
+                item.ToolTip = FittingStatusPresentation.BusyTooltip;
+            }
             if (identifier == "deleteallresults") item.ToolTip = ProcessingClearPresentation.DeleteResultsTooltip;
             if (identifier == "projectinformation") item.ToolTip = ProjectInformationPresentation.FileMenuTooltip;
             if (activated != null) item.Activated += activated;
@@ -1109,7 +1130,7 @@ namespace AnalysisITC
         async Task UpdateSelectedResult()
         {
             var result = DataManager.SelectedResult;
-            if (result == null) return;
+            if (result == null || ProcessingActivity.IsBusy) return;
 
             var options = AnalysisResultUpdateOptions.StoredSettings;
             if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
@@ -1119,21 +1140,15 @@ namespace AnalysisITC
                 if (options == null) return;
             }
 
-            StatusBarManager.SetStatus("Updating analysis result...", 0, priority: 1);
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
+
+            StatusBarManager.SetStatus(FittingStatusPresentation.UpdatingResult, 0, priority: 1);
 
             try
             {
                 var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
-
-                StatusBarManager.ClearAppStatus();
-                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
-                    StatusBarManager.QueueStatus("Analysis result updated", 3000);
-                StatusBarManager.QueueStatus(UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence), 5000);
-                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
-                {
-                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, result.MemberAssessments);
-                    if (!string.IsNullOrWhiteSpace(boundaryWarning)) StatusBarManager.QueueStatus(boundaryWarning, 5000);
-                }
 
                 DataManager.InvokeUpdateDataViewCells();
                 DataManager.InvokeUpdateTable();
@@ -1141,12 +1156,15 @@ namespace AnalysisITC
                 FinalFigureGraphView.Invalidate();
                 AnalysisResultTabViewController.RequestDisplayRefresh();
                 UpdateContextToolbarMenu();
+                UncertaintyEstimationPresentation.PublishCompletion(null, convergence, activity.Operation.Elapsed,
+                    resultUpdate: true, solution: result.Solution, operationId: activity.Operation.Id,
+                    memberAssessments: result.MemberAssessments);
             }
             catch (Exception ex)
             {
                 StatusBarManager.ClearAppStatus();
                 AppEventHandler.DisplayHandledException(ex);
-                StatusBarManager.SetStatus($"Result update failed: {ex.Message}", 5000);
+                StatusBarManager.SetStatus(FittingStatusPresentation.Failure(ex, true), 5000);
                 UpdateContextToolbarMenu();
             }
         }
@@ -1259,7 +1277,14 @@ namespace AnalysisITC
             switch (sender.SelectedSegment)
             {
                 case 0: StateManager.SetProgramState(ProgramState.Load); break;
-                case 1: DataManager.CopySelectedProcessToAll(); break;
+                case 1:
+                    using (var activity = ProcessingActivity.TryBegin())
+                    {
+                        if (activity == null) break;
+                        using var ownership = activity.Enter();
+                        DataManager.CopySelectedProcessToAll();
+                    }
+                    break;
                 case 2: StateManager.SetProgramState(ProgramState.Analyze); break;
             }
         }
@@ -1311,6 +1336,12 @@ namespace AnalysisITC
             SolverInterface.TerminateAnalysisFlag.Raise();
             ResultAnalysisController.TerminateAnalysisFlag.Raise();
             DataManager.StopProcessCopying = true;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) ProcessingActivity.Changed -= OnCalculationActivityChanged;
+            base.Dispose(disposing);
         }
     }
 }

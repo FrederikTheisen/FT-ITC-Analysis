@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Avalonia.Threading;
+using Avalonia.Controls;
 
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
@@ -18,6 +20,23 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class TandemMergerWindowTests
 {
+    [AvaloniaFact]
+    public void AnotherCalculationDisablesTandemCreation()
+    {
+        RunWithExperiments(3, window =>
+        {
+            var create = window.CreateButtonForTesting;
+            using (var lease = ProcessingActivity.TryBegin()!)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(create.IsEnabled);
+                Assert.Equal(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(create));
+            }
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(create.IsEnabled);
+        });
+    }
+
     [AvaloniaTheory]
     [InlineData(2)]
     [InlineData(5)]

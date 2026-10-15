@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 using Accord.Math.Optimization;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 
 using Xunit;
 
@@ -21,6 +22,8 @@ public sealed class SolverEventTests
     [Fact]
     public async Task SharedStopCancelsEveryActiveNelderMeadSolver()
     {
+        using var activity = ProcessingActivity.TryBegin();
+        using var ownership = activity.Enter();
         SolverInterface.TerminateAnalysisFlag.Lower();
         var first = new CancellationProbeSolver();
         var second = new CancellationProbeSolver();
@@ -51,6 +54,8 @@ public sealed class SolverEventTests
     [Fact]
     public async Task CompletedSolverCannotDisposeAnotherSolversToken()
     {
+        using var activity = ProcessingActivity.TryBegin();
+        using var ownership = activity.Enter();
         SolverInterface.TerminateAnalysisFlag.Lower();
         var completed = new CancellationProbeSolver(returnWithoutCancellation: true);
         var active = new CancellationProbeSolver();

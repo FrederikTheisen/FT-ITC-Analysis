@@ -5,6 +5,8 @@ Revised 15 October 2026 from Codex's plan ("Improve fitting progress and complet
 ## Decisions
 
 - **One calculation at a time** (user-approved scope addition to ITC-098). While any fit, result update, uncertainty estimate, advanced analysis or processing operation is running, the app does not start another. See section A.
+- **Already-requested processing:** retain pending work and run it when admission becomes available, keeping the application busy through the handoff.
+- **Elapsed time:** measure the whole operation from successful admission through publication or the Update Result replacement/retention decision, including preparation, assessment and uncertainty estimation. Exclude admission waiting, user prompts, error dialogs and status-message delays. Persisted solver timings stay unchanged.
 - **Experiment names:** keep the shared code flag `FittingStatusPresentation.ShowExperimentNames` (default `true`). It exists so names can be switched off if they look poor in practice. There is no Preferences control or persisted setting. Names appear only when experiments are fitted individually; global fits never name a member.
 - **Global fits** use the same messages as a single-experiment fit. Only the first message states the number of experiments.
 - **Running messages** put the action first, then the position, then the experiment name, for example "Fitting 2 of 3: Sample B" (section D). The status bar shortens long text at the end on both platforms, so a long name is cut first and the action and position stay visible.
@@ -163,7 +165,7 @@ Do not document durations, message timing, execution order, the name flag, the o
 ## G. Tracker and priorities
 
 - **ITC-098 and ITC-100:** update both entries with the resolution, recording the one-calculation-at-a-time addition as user-approved scope for ITC-098.
-- **`Planning/FUNCTIONALITY_PRIORITIES.md`:** update the ITC-098/100 row.
+- **Functionality priorities:** record the completed ITC-098/100 item in `ISSUES.md` only (user decision on 15 October; the separate priorities file is absent).
 - **Report map:** check `Documentation/ANALYSIS_REPORT_MAP.md` only if report content changes. It should not.
 
 ## Validation

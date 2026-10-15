@@ -6,8 +6,9 @@ using AnalysisITC.Platform;
 
 namespace AnalysisITC.Platform.Avalonia
 {
-    public sealed class AvaloniaMainThreadDispatcher : IMainThreadDispatcher
+    public sealed class AvaloniaMainThreadDispatcher : IMainThreadDispatcher, IMainThreadAccessChecker
     {
+        public bool IsMainThread => Dispatcher.UIThread.CheckAccess();
         public void Invoke(Action action)
         {
             if (action == null) return;

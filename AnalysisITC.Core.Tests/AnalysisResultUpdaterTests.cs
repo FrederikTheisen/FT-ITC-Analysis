@@ -11,6 +11,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
 
 using Xunit;
@@ -718,11 +719,11 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         }
 
         var progress = new List<float>();
-        var statuses = new List<string>();
+        var statuses = new List<FittingProgress>();
         EventHandler<SolverUpdate> onUpdate = (_, update) => { if (update.Progress >= 0) progress.Add(update.Progress); };
-        EventHandler<string> onStatus = (_, status) => statuses.Add(status);
+        EventHandler<FittingProgress> onStatus = (_, status) => statuses.Add(status);
         SolverInterface.SolverUpdated += onUpdate;
-        StatusBarManager.StatusUpdated += onStatus;
+        SolverInterface.ProgressChanged += onStatus;
         try
         {
             await AnalysisResultUpdater.UpdateAsync(result);
@@ -730,7 +731,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         finally
         {
             SolverInterface.SolverUpdated -= onUpdate;
-            StatusBarManager.StatusUpdated -= onStatus;
+            SolverInterface.ProgressChanged -= onStatus;
         }
 
         Assert.All(result.Solution.Solutions, member => Assert.NotEmpty(member.BootstrapSolutions));
@@ -742,8 +743,9 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
             Assert.True(progress[index] >= progress[index - 1] - 0.02f,
                 $"Progress fell from {progress[index - 1]} to {progress[index]} at update {index}.");
         Assert.Equal(1f, progress.Last(), 1e-6f);
-        Assert.Contains(statuses, status => status != null && status.StartsWith("Fitting "));
-        Assert.DoesNotContain(statuses, status => status != null && status.Contains("Global."));
+        Assert.Contains(statuses, status => status.Phase == FittingPhase.Fitting);
+        Assert.All(statuses, status => Assert.Equal(singleExperiment
+            ? FittingScope.Single : FittingScope.Individual, status.Scope));
     }
 
     static AnalysisResult CreateResult(ErrorEstimationMethod method, int retainedBootstrapCount)

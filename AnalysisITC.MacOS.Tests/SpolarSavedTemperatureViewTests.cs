@@ -149,7 +149,8 @@ static class SpolarSavedTemperatureViewTests
         var completion = new TaskCompletionSource<bool>();
         EventHandler<Tuple<int, TimeSpan>> finished = (sender, _) =>
         {
-            if (ReferenceEquals(sender, result.SpolarRecordAnalysis)) completion.TrySetResult(true);
+            var source = sender as AdvancedAnalysisEventSource;
+            if (source != null && ReferenceEquals(source.Analysis, result.SpolarRecordAnalysis)) completion.TrySetResult(true);
         };
         ResultAnalysisController.AnalysisFinished += finished;
         try
@@ -159,6 +160,9 @@ static class SpolarSavedTemperatureViewTests
             while (!completion.Task.IsCompleted && DateTime.UtcNow < deadline)
                 NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.005));
             Check(completion.Task.IsCompleted, "native run entry point completes");
+            while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline)
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.005));
+            Check(!ProcessingActivity.IsBusy, "native advanced run releases admission after publication");
         }
         finally { ResultAnalysisController.AnalysisFinished -= finished; }
     }

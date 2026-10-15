@@ -25,6 +25,7 @@ namespace AnalysisITC.Avalonia.Processing
         GraphViewport view;
         bool hasView;
         bool isPointerCaptured;
+        ProcessingActivity.ProcessingLease? editingActivity;
         bool isZoomDragging;
         HitTarget dragTarget;
         Point dragStart;
@@ -334,6 +335,12 @@ namespace AnalysisITC.Avalonia.Processing
             dragStart = point;
             dragCurrent = point;
             dragTarget = HitTest(point, graph);
+            if (dragTarget.Kind is HitKind.IntegrationStart or HitKind.IntegrationEnd
+                or HitKind.SplinePoint or HitKind.SplineHandleLeft or HitKind.SplineHandleRight)
+            {
+                editingActivity = ProcessingActivity.TryBegin();
+                if (editingActivity == null) return;
+            }
             CaptureSplineDragReference();
             CaptureIntegrationDragReference();
             isPointerCaptured = true;
@@ -376,6 +383,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             if (isPointerCaptured)
             {
+                using var ownership = editingActivity?.Enter();
                 dragCurrent = point;
 
                 if (dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd)
@@ -416,6 +424,25 @@ namespace AnalysisITC.Avalonia.Processing
             InvalidateVisual();
         }
 
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            base.OnPointerCaptureLost(e);
+            if (!isPointerCaptured) return;
+            isPointerCaptured = false;
+            var lease = editingActivity;
+            using var ownership = lease?.Enter();
+            try
+            {
+                if (integrationDragChanged) IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
+                else if (SplineDragHasChanged()) SplineEditCompleted?.Invoke(this, EventArgs.Empty);
+            }
+            finally
+            {
+                editingActivity = null;
+                lease?.Dispose();
+            }
+        }
+
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
@@ -423,61 +450,71 @@ namespace AnalysisITC.Avalonia.Processing
             if (!isPointerCaptured)
                 return;
 
-            var graph = GraphLayout.Create(Bounds, view, Power);
-            var point = e.GetPosition(this);
-            var moved = Distance(dragStart, point) > AvaloniaGraphSettings.ProcessingDragThreshold;
-            var wasIntegrationDrag = dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd;
-            var wasSplineDrag = dragTarget.Kind == HitKind.SplinePoint || dragTarget.Kind == HitKind.SplineHandleLeft || dragTarget.Kind == HitKind.SplineHandleRight;
-
-            isPointerCaptured = false;
-            isZoomDragging = false;
-            e.Pointer.Capture(null);
-
-            if (!CanEditProcessing && (wasIntegrationDrag || wasSplineDrag))
+            var lease = editingActivity;
+            using var ownership = lease?.Enter();
+            try
             {
-                dragTarget = HitTarget.None;
-                integrationDragActivated = false;
-                integrationDragChanged = false;
+                var graph = GraphLayout.Create(Bounds, view, Power);
+                var point = e.GetPosition(this);
+                var moved = Distance(dragStart, point) > AvaloniaGraphSettings.ProcessingDragThreshold;
+                var wasIntegrationDrag = dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd;
+                var wasSplineDrag = dragTarget.Kind == HitKind.SplinePoint || dragTarget.Kind == HitKind.SplineHandleLeft || dragTarget.Kind == HitKind.SplineHandleRight;
+
+                isPointerCaptured = false;
+                isZoomDragging = false;
+                e.Pointer.Capture(null);
+
+                if (!CanEditProcessing && (wasIntegrationDrag || wasSplineDrag))
+                {
+                    dragTarget = HitTarget.None;
+                    integrationDragActivated = false;
+                    integrationDragChanged = false;
+                    Cursor = new Cursor(StandardCursorType.Cross);
+                    InvalidateVisual();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (wasIntegrationDrag)
+                {
+                    if (integrationDragActivated && integrationDragChanged)
+                        IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
+                    else
+                    {
+                        SelectedInjectionIndex = dragTarget.InjectionIndex;
+                        if (pressedClickCount > 1)
+                            FocusSelectedInjection();
+                    }
+                }
+                else if (wasSplineDrag)
+                {
+                    if (SplineDragHasChanged())
+                        SplineEditCompleted?.Invoke(this, EventArgs.Empty);
+                }
+                else if (moved)
+                {
+                    ZoomRegion(dragStart, point, graph);
+                }
+                else
+                {
+                    var hit = HitTest(point, graph);
+                    if (hit.InjectionIndex >= 0)
+                    {
+                        SelectedInjectionIndex = hit.InjectionIndex;
+                        if (pressedClickCount > 1)
+                            FocusSelectedInjection();
+                    }
+                }
+
                 Cursor = new Cursor(StandardCursorType.Cross);
                 InvalidateVisual();
                 e.Handled = true;
-                return;
             }
-
-            if (wasIntegrationDrag)
+            finally
             {
-                if (integrationDragActivated && integrationDragChanged)
-                    IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
-                else
-                {
-                    SelectedInjectionIndex = dragTarget.InjectionIndex;
-                    if (pressedClickCount > 1)
-                        FocusSelectedInjection();
-                }
+                editingActivity = null;
+                lease?.Dispose();
             }
-            else if (wasSplineDrag)
-            {
-                if (SplineDragHasChanged())
-                    SplineEditCompleted?.Invoke(this, EventArgs.Empty);
-            }
-            else if (moved)
-            {
-                ZoomRegion(dragStart, point, graph);
-            }
-            else
-            {
-                var hit = HitTest(point, graph);
-                if (hit.InjectionIndex >= 0)
-                {
-                    SelectedInjectionIndex = hit.InjectionIndex;
-                    if (pressedClickCount > 1)
-                        FocusSelectedInjection();
-                }
-            }
-
-            Cursor = new Cursor(StandardCursorType.Cross);
-            InvalidateVisual();
-            e.Handled = true;
         }
 
         protected override void OnPointerExited(PointerEventArgs e)
@@ -1075,6 +1112,9 @@ namespace AnalysisITC.Avalonia.Processing
             lockItem.Click += async (_, _) =>
             {
                 if (!CanEditProcessing) return;
+                using var lease = ProcessingActivity.TryBegin();
+                if (lease == null) return;
+                using var ownership = lease.Enter();
                 if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
                 if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
 
@@ -1098,6 +1138,9 @@ namespace AnalysisITC.Avalonia.Processing
             linearItem.Click += async (_, _) =>
             {
                 if (!CanEditProcessing) return;
+                using var lease = ProcessingActivity.TryBegin();
+                if (lease == null) return;
+                using var ownership = lease.Enter();
                 if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
                 if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
 
@@ -1112,6 +1155,9 @@ namespace AnalysisITC.Avalonia.Processing
             removeItem.Click += (_, _) =>
             {
                 if (!CanEditProcessing) return;
+                using var lease = ProcessingActivity.TryBegin();
+                if (lease == null) return;
+                using var ownership = lease.Enter();
                 if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
                 if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
 
@@ -1138,6 +1184,9 @@ namespace AnalysisITC.Avalonia.Processing
             dataItem.Click += (_, _) =>
             {
                 if (!CanEditProcessing) return;
+                using var lease = ProcessingActivity.TryBegin();
+                if (lease == null) return;
+                using var ownership = lease.Enter();
                 if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
 
                 currentSpline.InsertSplinePoint(time, usedatavalue: true);
@@ -1148,6 +1197,9 @@ namespace AnalysisITC.Avalonia.Processing
             baselineItem.Click += (_, _) =>
             {
                 if (!CanEditProcessing) return;
+                using var lease = ProcessingActivity.TryBegin();
+                if (lease == null) return;
+                using var ownership = lease.Enter();
                 if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
 
                 currentSpline.InsertSplinePoint(time, usedatavalue: false);
@@ -1167,7 +1219,9 @@ namespace AnalysisITC.Avalonia.Processing
             };
         }
 
-        bool CanEditProcessing => IsEditingEnabled && Experiment?.Processor?.IsLocked == false;
+        bool CanEditProcessing => (IsEditingEnabled || editingActivity != null)
+            && (editingActivity != null || !ProcessingActivity.IsBusy)
+            && Experiment?.Processor?.IsLocked == false;
 
         void CaptureSplineDragReference()
         {

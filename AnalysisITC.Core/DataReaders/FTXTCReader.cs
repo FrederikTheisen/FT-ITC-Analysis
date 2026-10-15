@@ -160,6 +160,9 @@ namespace AnalysisITC.Core.DataReaders
             FtxtcReadLimits limits = null, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
+            cancellationToken.ThrowIfCancellationRequested();
             var stage = "entry validation";
             AppEventHandler.PrintAndLog(
                 $"FTXTC read started: policy={policy}, interactive={interactive}");

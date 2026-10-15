@@ -1087,6 +1087,8 @@ namespace AnalysisITC.Core.Application
 
         public static async void CopySelectedProcessToSelection(ExperimentData current, List<ExperimentData> target)
         {
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
             StopProcessCopying = false;
 
             var int_delay = current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();

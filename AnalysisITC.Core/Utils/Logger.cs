@@ -46,6 +46,7 @@ namespace AnalysisITC.Core.Application
 
 		public static void DisplayHandledException(Exception ex)
 		{
+			var operation = ProcessingActivity.Current;
 			AddLog(ex);
 
 			var stacktrace = ex.StackTrace?.Split(new[] { Environment.NewLine }, StringSplitOptions.None) ?? new[] { "" };
@@ -58,14 +59,21 @@ namespace AnalysisITC.Core.Application
 				case HandledException:
 					PlatformServices.MainThreadDispatcher.Invoke(() =>
 						{
-							ShowAppMessage?.Invoke(null, ex as HandledException);
-							StatusBarManager.ClearAppStatus();
+							ShowMessage(ex as HandledException, operation);
 						});
 					break;
                 case OptimizerStopException: break;
-                case AggregateException: PlatformServices.MainThreadDispatcher.Invoke(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
-				default: PlatformServices.MainThreadDispatcher.Invoke(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
+                case AggregateException: PlatformServices.MainThreadDispatcher.Invoke(() => ShowMessage(new(ex.InnerException), operation)); break;
+				default: PlatformServices.MainThreadDispatcher.Invoke(() => ShowMessage(new(ex), operation)); break;
             }
+        }
+
+        static void ShowMessage(HandledException message, ProcessingOperation operation)
+        {
+            using var pause = operation?.PauseElapsed();
+            ShowAppMessage?.Invoke(operation, message);
+            if (operation == null || ProcessingActivity.IsCurrentOperation(operation.Id))
+                StatusBarManager.ClearAppStatus();
         }
 
 		public static string GetLogReport()

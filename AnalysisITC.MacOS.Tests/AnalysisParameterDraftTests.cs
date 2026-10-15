@@ -154,6 +154,9 @@ static class AnalysisParameterDraftTests
         SetOutlet(controllerType, controller, "UnlockParametersForErrorEstimationControl", Create<NSButton>());
         SetOutlet(controllerType, controller, "FitSimplexButton", Create<NSButton>());
         SetOutlet(controllerType, controller, "GraphView", Create<AnalysisGraphView>());
+        var modelMenu = Popup("Offset");
+        modelMenu.ItemAtIndex(0).Tag = (int)AnalysisModel.Offset;
+        SetOutlet(controllerType, controller, "ModelTypeControl", modelMenu);
 
         var parameters = draftType.GetProperty("Parameters").GetValue(draft) as IDictionary;
         var parameterDraft = parameters[ParameterType.Offset];
@@ -178,6 +181,8 @@ static class AnalysisParameterDraftTests
             var solver = controllerType.GetField("activeSolver", PrivateInstance).GetValue(controller);
             var candidate = (Model)solver.GetType().GetProperty("Model").GetValue(solver);
             Check(fitting, "the actual native Run Fit pipeline entered its fitting state");
+            Check(!mode.IsEnabled(0) && !mode.IsEnabled(1) && !modelMenu.ItemAtIndex(0).Enabled,
+                "native Run Fit kept its own model or fitting-mode editor active");
             Check(candidate.Parameters.Table[ParameterType.Offset].Value <= 50000,
                 "native Run Fit prepared the clamped candidate: " + candidate.Parameters.Table[ParameterType.Offset].Value);
             Check(completion.Task.Wait(TimeSpan.FromSeconds(30)), "native Run Fit completed");

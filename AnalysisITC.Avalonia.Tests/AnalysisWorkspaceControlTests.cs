@@ -995,6 +995,36 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
+    public void AnotherCalculationDisablesRunFitAndRejectsProgrammaticStarts()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("busy-fit.itc");
+        DataManager.AddData(experiment);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var original = workspace.ContextForTesting;
+            using (var lease = ProcessingActivity.TryBegin()!)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(workspace.CanRunFit);
+                Assert.False(workspace.CanStopFit);
+                workspace.RunFit();
+                Assert.Same(original, workspace.ContextForTesting);
+                var button = workspace.GetVisualDescendants().OfType<Button>()
+                    .Single(control => Equals(control.Content, "Run Fit"));
+                Assert.Equal(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(button));
+            }
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(workspace.CanRunFit);
+        }
+        finally { window.Close(); DataManager.Clear(DataClearMode.ResetSession); }
+    }
+
+    [AvaloniaFact]
     public async Task ConsecutiveRunFitCallsKeepTheFirstAnalysisResultIndependent()
     {
         DataManager.Clear(DataClearMode.ResetSession);

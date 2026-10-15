@@ -78,6 +78,8 @@ namespace AnalysisITC
         string evaluationTemperatureText = string.Empty;
         bool evaluationTextUsesKelvin;
         bool isUpdatingResult;
+        AdvancedAnalysis activeAdvancedAnalysis;
+        Guid advancedOperationId;
         bool isRunningAdvancedAnalysis;
         bool refreshQueued;
         bool eventsSubscribed;
@@ -189,6 +191,7 @@ namespace AnalysisITC
         {
             if (eventsSubscribed) return;
             eventsSubscribed = true;
+            ProcessingActivity.Changed += CalculationActivityChanged;
 
             DataManager.AnalysisResultSelected +=
                 DataManager_AnalysisResultSelected;
@@ -480,9 +483,11 @@ namespace AnalysisITC
             updateResultControl.Enabled =
                 !isUpdatingResult
                 && !isRunningAdvancedAnalysis
+                && !ProcessingActivity.IsBusy
                 && Solution.Model != null;
             updateResultControl.ToolTip =
-                "Refit this saved result using its stored model settings and the current experiment data.";
+                ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
+                    : "Refit this saved result using its stored model settings and the current experiment data.";
             updateResultControl.Activated += async (_, _) =>
                 await UpdateResultAsync();
 
@@ -588,17 +593,23 @@ namespace AnalysisITC
 
         async Task UpdateResultAsync()
         {
-            if (analysisResult == null
+            var result = analysisResult;
+            if (result == null
                 || isUpdatingResult
-                || isRunningAdvancedAnalysis) return;
+                || isRunningAdvancedAnalysis || ProcessingActivity.IsBusy) return;
 
             var options = AnalysisResultUpdateOptions.StoredSettings;
-            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(analysisResult))
+            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
             {
                 options = await PlatformServices.AnalysisResultUpdatePromptService
-                    .ChooseOptionsAsync(analysisResult);
+                    .ChooseOptionsAsync(result);
                 if (options == null) return;
             }
+
+            if (!ReferenceEquals(result, analysisResult)) return;
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
 
             try
             {
@@ -606,31 +617,25 @@ namespace AnalysisITC
                 RefreshSummary();
                 StatusBarManager.StartInderminateProgress();
                 StatusBarManager.SetStatus(
-                    "Updating analysis result…",
+                    FittingStatusPresentation.UpdatingResult,
                     0,
                     priority: 1);
 
                 var convergence =
-                    await AnalysisResultUpdater.UpdateAsync(analysisResult, options);
+                    await AnalysisResultUpdater.UpdateAsync(result, options);
 
-                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                if (ReferenceEquals(result, analysisResult) && string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                     ResetEvaluationTemperature();
                 RefreshAll();
-                var status = UncertaintyEstimationPresentation.UpdateStatus(analysisResult.Solution, convergence);
-                StatusBarManager.SetStatus(status, 5000);
-                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
-                {
-                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                        convergence.ParameterBoundaryContacts, analysisResult.MemberAssessments);
-                    if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                        StatusBarManager.QueueStatus(boundaryWarning, 5000);
-                }
+                UncertaintyEstimationPresentation.PublishCompletion(null, convergence, activity.Operation.Elapsed,
+                    resultUpdate: true, solution: result.Solution, operationId: activity.Operation.Id,
+                    memberAssessments: result.MemberAssessments);
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
                 StatusBarManager.SetStatus(
-                    $"Result update failed: {ex.Message}",
+                    FittingStatusPresentation.Failure(ex, true),
                     5000);
             }
             finally
@@ -992,8 +997,8 @@ namespace AnalysisITC
             var runButton = Button(
                 isRunningAdvancedAnalysis ? "Running…" : "Run Analysis");
             runButton.Enabled = !isRunningAdvancedAnalysis
-                && !isUpdatingResult;
-            runButton.ToolTip = StructuringPresentation.RunToolTip;
+                && !isUpdatingResult && !ProcessingActivity.IsBusy;
+            runButton.ToolTip = ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip : StructuringPresentation.RunToolTip;
             runButton.Activated += (_, _) =>
                 RunTemperatureAnalysis();
 
@@ -1090,9 +1095,10 @@ namespace AnalysisITC
             var runButton = Button(
                 isRunningAdvancedAnalysis ? "Running…" : "Run Analysis");
             runButton.Enabled = !isRunningAdvancedAnalysis
-                && !isUpdatingResult;
+                && !isUpdatingResult && !ProcessingActivity.IsBusy;
             runButton.ToolTip =
-                "Calculate electrostatic and counter-ion-release parameters from the result.";
+                ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
+                    : "Calculate electrostatic and counter-ion-release parameters from the result.";
             runButton.Activated += (_, _) => RunSaltAnalysis();
 
             AddPageView(analysisStack, Section(
@@ -1134,9 +1140,10 @@ namespace AnalysisITC
             var runButton = Button(
                 isRunningAdvancedAnalysis ? "Running…" : "Run Analysis");
             runButton.Enabled = !isRunningAdvancedAnalysis
-                && !isUpdatingResult;
+                && !isUpdatingResult && !ProcessingActivity.IsBusy;
             runButton.ToolTip =
-                "Calculate proton uptake and intrinsic binding enthalpy from buffer-dependent data.";
+                ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
+                    : "Calculate proton uptake and intrinsic binding enthalpy from buffer-dependent data.";
             runButton.Activated += (_, _) => RunProtonationAnalysis();
 
             AddPageView(
@@ -1178,9 +1185,14 @@ namespace AnalysisITC
         {
             var analysis = analysisResult?.SpolarRecordAnalysis;
             if (analysis == null || isRunningAdvancedAnalysis) return;
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
 
             analysis.FoldedMode = selectedSrFoldedMode;
             analysis.TempMode = StructuringPresentation.RunTemperatureMode;
+            activeAdvancedAnalysis = analysis;
+            advancedOperationId = activity.Operation.Id;
             isRunningAdvancedAnalysis = true;
             QueueRefresh();
             analysis.PerformAnalysis();
@@ -1190,7 +1202,12 @@ namespace AnalysisITC
         {
             var analysis = analysisResult?.ElectrostaticsAnalysis;
             if (analysis == null || isRunningAdvancedAnalysis) return;
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
 
+            activeAdvancedAnalysis = analysis;
+            advancedOperationId = activity.Operation.Id;
             isRunningAdvancedAnalysis = true;
             QueueRefresh();
             analysis.PerformAnalysis();
@@ -1200,7 +1217,12 @@ namespace AnalysisITC
         {
             var analysis = analysisResult?.ProtonationAnalysis;
             if (analysis == null || isRunningAdvancedAnalysis) return;
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
 
+            activeAdvancedAnalysis = analysis;
+            advancedOperationId = activity.Operation.Id;
             isRunningAdvancedAnalysis = true;
             QueueRefresh();
             analysis.PerformAnalysis();
@@ -1210,8 +1232,14 @@ namespace AnalysisITC
             object sender,
             TerminationFlag terminationFlag)
         {
+            var owner = activeAdvancedAnalysis;
+            var operation = advancedOperationId;
+            if (owner == null || sender is not AdvancedAnalysisEventSource source
+                || source.OperationId != operation || !ReferenceEquals(source.Analysis, owner)) return;
             BeginInvokeOnMainThread(() =>
             {
+                if (!ReferenceEquals(owner, activeAdvancedAnalysis)
+                    || !ProcessingActivity.IsCurrentOperation(operation)) return;
                 isRunningAdvancedAnalysis = true;
                 StatusBarManager.StartInderminateProgress();
                 StatusBarManager.SetStatus(
@@ -1226,8 +1254,14 @@ namespace AnalysisITC
             object sender,
             Tuple<int, int, float, string> progress)
         {
+            var owner = activeAdvancedAnalysis;
+            var operation = advancedOperationId;
+            if (owner == null || sender is not AdvancedAnalysisEventSource source
+                || source.OperationId != operation) return;
             BeginInvokeOnMainThread(() =>
             {
+                if (!ReferenceEquals(owner, activeAdvancedAnalysis)
+                    || !ProcessingActivity.IsCurrentOperation(operation)) return;
                 var message = string.IsNullOrWhiteSpace(progress.Item4)
                     ? $"Advanced analysis {100 * progress.Item3:F0}%"
                     : $"{progress.Item4}: {100 * progress.Item3:F0}%";
@@ -1243,9 +1277,21 @@ namespace AnalysisITC
             object sender,
             Tuple<int, TimeSpan> result)
         {
+            var owner = activeAdvancedAnalysis;
+            var operation = advancedOperationId;
+            if (owner == null || sender is not AdvancedAnalysisEventSource source
+                || source.OperationId != operation || !ReferenceEquals(source.Analysis, owner)) return;
             BeginInvokeOnMainThread(() =>
             {
+                if (!ReferenceEquals(owner, activeAdvancedAnalysis)) return;
+                activeAdvancedAnalysis = null;
+                advancedOperationId = Guid.Empty;
                 isRunningAdvancedAnalysis = false;
+                if (!ProcessingActivity.IsCurrentOperation(operation))
+                {
+                    QueueRefresh();
+                    return;
+                }
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.SetStatus(
                     $"Advanced analysis completed ({result.Item1} iterations).",
@@ -2528,6 +2574,7 @@ namespace AnalysisITC
         {
             if (eventsUnsubscribed || !eventsSubscribed) return;
             eventsUnsubscribed = true;
+            ProcessingActivity.Changed -= CalculationActivityChanged;
 
             DataManager.AnalysisResultSelected -=
                 DataManager_AnalysisResultSelected;
@@ -2548,6 +2595,11 @@ namespace AnalysisITC
             AppSettings.SettingsDidUpdate -=
                 AppSettings_SettingsDidUpdate;
         }
+
+        void CalculationActivityChanged(object sender, EventArgs e) => BeginInvokeOnMainThread(() =>
+        {
+            if (!eventsUnsubscribed && Handle != IntPtr.Zero) QueueRefresh();
+        });
 
         protected override void Dispose(bool disposing)
         {

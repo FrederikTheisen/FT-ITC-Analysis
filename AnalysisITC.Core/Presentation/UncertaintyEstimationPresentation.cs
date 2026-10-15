@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Presentation
@@ -27,6 +29,129 @@ namespace AnalysisITC.Core.Presentation
     /// <summary>Shared saved-evidence presentation for desktop result views and completion messages.</summary>
     public static class UncertaintyEstimationPresentation
     {
+        public static IReadOnlyList<FittingCompletionMessage> CompletionMessages(SolverInterface solver,
+            SolverConvergence convergence, TimeSpan elapsed, bool resultUpdate = false, GlobalSolution solution = null,
+            IEnumerable<BindingAssessmentMember> memberAssessments = null)
+        {
+            solution ??= solver is GlobalSolver global ? global.Model?.Solution
+                : solver is Solver local && local.Model?.Solution != null ? GlobalSolution.FromSingleExperimentSolver(local) : null;
+            var messages = new List<FittingCompletionMessage>();
+            if (!string.IsNullOrWhiteSpace(convergence?.ResultUpdateRetentionReason))
+                return new[] { new FittingCompletionMessage(convergence.ResultUpdateRetentionReason, 5000) };
+            if (convergence == null || convergence.Failed)
+            {
+                var reason = convergence == null ? "Completion information unavailable."
+                    : string.IsNullOrWhiteSpace(convergence.FailureReason) ? convergence.Message : convergence.FailureReason;
+                return new[] { new FittingCompletionMessage((resultUpdate ? "Result update failed: " : "Analysis failed: ") + reason, 5000) };
+            }
+            var cancelled = convergence.Stopped || convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                || solution?.Solutions.Any(member => member?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled) == true;
+            var duration = FittingStatusPresentation.Duration(elapsed);
+            var text = cancelled ? resultUpdate ? "Update cancelled; the existing result was kept" : "Analysis cancelled after " + duration
+                : (resultUpdate ? "Result updated in " : "Analysis complete in ") + duration;
+            if (!cancelled && convergence.MaxIterationsReached)
+            {
+                var limit = convergence.Termination == SolverTermination.EvaluationLimit ? "evaluation"
+                    : convergence.Termination == SolverTermination.TimeLimit ? "time" : "iteration";
+                text += "; fit stopped at the " + limit + " limit";
+            }
+            messages.Add(new FittingCompletionMessage(text, cancelled && resultUpdate ? 5000 : 3000));
+            if (resultUpdate && cancelled) return messages;
+            var assessments = memberAssessments ?? (solution != null ? BindingAssessmentMember.ForFit(solution)
+                : solver is Solver single ? BindingAssessmentMember.ForFit(single.Model?.Solution) : Array.Empty<BindingAssessmentMember>());
+            var warning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, assessments);
+            if (!string.IsNullOrWhiteSpace(warning)) messages.Add(new FittingCompletionMessage(warning, 5000));
+            var method = solution?.ErrorEstimationMethod ?? solver?.ErrorEstimationMethod ?? ErrorEstimationMethod.None;
+            if (method != ErrorEstimationMethod.None)
+                messages.Add(new FittingCompletionMessage(CompletionOutcome(solution, convergence, method), 3000));
+            return messages;
+        }
+
+        public static void PublishCompletion(SolverInterface solver, SolverConvergence convergence,
+            TimeSpan elapsed, bool resultUpdate = false, GlobalSolution solution = null, Guid operationId = default,
+            IEnumerable<BindingAssessmentMember> memberAssessments = null)
+        {
+            if (operationId != Guid.Empty && !Application.ProcessingActivity.IsCurrentOperation(operationId)) return;
+            Application.StatusBarManager.ClearAppStatus();
+            var messages = CompletionMessages(solver, convergence, elapsed, resultUpdate, solution, memberAssessments);
+            foreach (var message in messages)
+                Application.StatusBarManager.QueueStatus(message.Text, message.DurationMilliseconds);
+            if (convergence?.Stopped == false && elapsed >= TimeSpan.FromSeconds(15) && messages.Count > 0)
+                AnalysisITC.Platform.PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
+                    resultUpdate ? "Result update finished" : "Model fitting finished", messages[0].Text);
+        }
+
+        static string CompletionOutcome(GlobalSolution solution, SolverConvergence convergence, ErrorEstimationMethod method)
+        {
+            var name = method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap"
+                : method == ErrorEstimationMethod.LeaveOneOut ? "Leave-one-out" : "Profile likelihood";
+            if (solution != null && Independent(solution))
+            {
+                var statuses = solution.Solutions.Select(member => MemberOutcome(member, method)).ToList();
+                if (statuses.Distinct().Count() > 1)
+                {
+                    var order = new[] { "complete", "incomplete", "unavailable", "cancelled", "skipped (no binding)" };
+                    return name + ": " + string.Join(", ", order.Where(status => statuses.Contains(status))
+                        .Select(status => statuses.Count(value => value == status) + " " + status));
+                }
+                switch (statuses.FirstOrDefault())
+                {
+                    case "complete": return name + " complete";
+                    case "skipped (no binding)": return name + " skipped: no binding detected";
+                    case "cancelled": return name + " cancelled";
+                    case "unavailable": return name + " unavailable";
+                    case "incomplete" when method != ErrorEstimationMethod.ProfileLikelihood:
+                        var members = solution.Solutions;
+                        var requests = members.Select(member => ExpectedRefits(member, method)).ToList();
+                        return IncompleteRefits(name, members.Sum(member => member?.BootstrapSolutions.Count ?? 0),
+                            requests.All(request => request.HasValue) ? requests.Sum(request => request.Value) : (int?)null);
+                }
+            }
+            var outcome = solution == null ? convergence.ErrorEstimationOutcome : Outcome(solution);
+            var expected = method == ErrorEstimationMethod.BootstrapResiduals ? convergence.RequestedBootstrapIterations
+                : solution?.Model?.ShouldFitIndividually == false ? solution.Model.Models.Count
+                : ExpectedRefits(solution?.Solutions.FirstOrDefault(), method);
+            expected ??= convergence.ErrorEstimationAttemptedRefits;
+            var succeeded = solution?.BootstrapIterations ?? convergence.ErrorEstimationSucceededRefits ?? 0;
+            if (method != ErrorEstimationMethod.ProfileLikelihood && expected > succeeded
+                && outcome != ErrorEstimationOutcome.SkippedNoBinding && outcome != ErrorEstimationOutcome.Cancelled)
+                outcome = succeeded > 0 ? ErrorEstimationOutcome.PartialFailure : ErrorEstimationOutcome.CompleteFailure;
+            if (outcome == ErrorEstimationOutcome.SkippedNoBinding) return name + " skipped: no binding detected";
+            if (outcome == ErrorEstimationOutcome.Cancelled) return name + " cancelled";
+            if (outcome == ErrorEstimationOutcome.Completed) return name + " complete";
+            if (outcome != ErrorEstimationOutcome.PartialFailure) return name + " unavailable";
+            if (method == ErrorEstimationMethod.ProfileLikelihood && solution != null)
+            {
+                var summary = ProfileLikelihoodEstimator.Summarize(solution);
+                return name + " incomplete: " + summary.EndpointsFound + " of " + summary.TotalSides + " interval endpoints found";
+            }
+            return IncompleteRefits(name, succeeded, expected);
+        }
+
+        static string IncompleteRefits(string name, int succeeded, int? total) =>
+            name + " incomplete: " + succeeded + (total.HasValue ? " of " + total.Value : "") + " refits";
+
+        static int? ExpectedRefits(SolutionInterface member, ErrorEstimationMethod method) =>
+            method == ErrorEstimationMethod.LeaveOneOut
+                ? member?.Data?.Injections.Count(injection => injection.Include)
+                : member?.Convergence?.RequestedBootstrapIterations ?? member?.Convergence?.ErrorEstimationAttemptedRefits;
+
+        static string MemberOutcome(SolutionInterface member, ErrorEstimationMethod method)
+        {
+            var outcome = member?.ProfileLikelihoodRun?.Outcome ?? member?.Convergence?.ErrorEstimationOutcome ?? ErrorEstimationOutcome.NotRun;
+            if (outcome == ErrorEstimationOutcome.SkippedNoBinding) return "skipped (no binding)";
+            if (outcome == ErrorEstimationOutcome.Cancelled) return "cancelled";
+            if (method != ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var count = member?.BootstrapSolutions.Count ?? 0;
+                if (count == 0) return "unavailable";
+                if (outcome is ErrorEstimationOutcome.PartialFailure or ErrorEstimationOutcome.CompleteFailure
+                    || ExpectedRefits(member, method) > count) return "incomplete";
+            }
+            return outcome == ErrorEstimationOutcome.Completed ? "complete"
+                : outcome == ErrorEstimationOutcome.PartialFailure ? "incomplete" : "unavailable";
+        }
+
         public const string MethodTooltip = "Method selected to estimate fitted parameter uncertainty";
         public const string UpdateIterationsTooltip = "Requested refits for this complete rerun";
         const string MixedTooltip = "Some experiments skipped estimation because no binding was detected. Eligible experiments retain their own uncertainty; complete combined uncertainty is unavailable.";

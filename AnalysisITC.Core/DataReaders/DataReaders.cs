@@ -93,6 +93,8 @@ namespace AnalysisITC.Core.DataReaders
 
         public static async Task<DataReadResult> ReadPathsAsync(IEnumerable<string> paths, Action<string> didReadPath = null)
         {
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
             var loadedPaths = new List<string>();
             var importedExperiments = new List<ExperimentData>();

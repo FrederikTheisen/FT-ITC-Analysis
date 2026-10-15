@@ -74,10 +74,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         ExperimentData? experiment;
         SolverInterface? activeSolver;
+        ProcessingActivity.ProcessingLease? fittingActivity;
         NullModelComparison? currentNullComparison;
         ErrorEstimationMethod activeErrorMethod;
         bool isUpdatingControls;
         bool isFitting;
+        bool stoppingFit;
         bool experimentSubscribed;
         int experimentRefreshGeneration;
         bool experimentRefreshQueued;
@@ -179,8 +181,8 @@ namespace AnalysisITC.Avalonia.Analysis
             DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
-            SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
-            SolverInterface.SolverUpdated += OnSolverUpdated;
+            SolverInterface.ProgressChanged += OnFittingProgress;
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
 
             SubscribeExperiment();
             RefreshWorkspaceViews();
@@ -197,8 +199,8 @@ namespace AnalysisITC.Avalonia.Analysis
             workspace.RebuildFailed -= OnRebuildFailed;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
-            SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
-            SolverInterface.SolverUpdated -= OnSolverUpdated;
+            SolverInterface.ProgressChanged -= OnFittingProgress;
+            ProcessingActivity.Changed -= OnCalculationActivityChanged;
 
             base.OnDetachedFromVisualTree(e);
         }
@@ -719,9 +721,16 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void RunFit()
         {
+            if (isFitting) return;
+            var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
+            fittingActivity = lease;
+            SolverInterface.FittingCompleted += OnFittingCompleted;
             if (experiment == null)
             {
                 fitStatusText.Text = "No experiment selected";
+                ReleaseFittingActivity();
                 return;
             }
 
@@ -731,6 +740,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (!workspace.IsReady)
             {
                 fitStatusText.Text = "Analysis model is not ready";
+                ReleaseFittingActivity();
                 return;
             }
 
@@ -758,15 +768,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 FittingOptionsController.UseErrorWeightedFitting = requestedWeightedFitting;
 
                 activeSolver = solver;
+                stoppingFit = false;
                 currentNullComparison = null;
                 graph.NullComparison = null;
                 RefreshNullComparisonPresentation();
                 activeErrorMethod = solver.ErrorEstimationMethod;
 
-                var fitDescription = DescribeFit(solver);
-                fitStatusText.Text = fitDescription;
-                StatusBarManager.SetStatus(fitDescription, 0, priority: 1);
-                StatusChanged?.Invoke(this, fitDescription);
                 AppEventHandler.PrintAndLog(
                     $"Fit started: {DescribeFitScope(solver)}, model={DescribeFitModel(solver)}, optimizer={solver.SolverAlgorithm.GetProperties().ShortName}, errors={solver.ErrorEstimationMethod}");
 
@@ -778,6 +785,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     FocusFirstInitialLimitViolation(limitException);
                 isFitting = false;
                 activeSolver = null;
+                ReleaseFittingActivity();
                 UpdateFitButtonState();
                 StatusBarManager.ClearAppStatus();
                 if (ex is MissingModelOptionAttributesException)
@@ -788,7 +796,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 }
                 else
                 {
-                    fitStatusText.Text = "Error: fit failed";
+                    fitStatusText.Text = FittingStatusPresentation.Failure(ex);
+                    StatusBarManager.SetStatus(fitStatusText.Text, 5000);
                     AppEventHandler.DisplayHandledException(ex);
                 }
             }
@@ -823,9 +832,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void StopFit()
         {
+            if (!isFitting || activeSolver == null) return;
+            stoppingFit = true;
+            fitStatusText.Text = FittingStatusPresentation.StoppingAnalysis;
             SolverInterface.TerminateAnalysisFlag.Raise();
-            fitStatusText.Text = "Stopping fit...";
-            StatusBarManager.SetStatus("Stopping fit...", 0, priority: 3);
         }
 
         void OnAnalysisFinished(object? sender, SolverConvergence convergence)
@@ -837,8 +847,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!ReferenceEquals(sender, activeSolver)) return;
 
                 isFitting = false;
-                var elapsed = TimeUnitAttribute.FormatTimeSpanShort(convergence.TotalTime);
-                fitStatusText.Text = $"{convergence.Termination} | RMSD {convergence.UnweightedRmsd:G4} | {convergence.Iterations} iterations | {elapsed}";
 
                 AppEventHandler.PrintAndLog(
                     $"Fit ended: outcome={convergence.Termination}, iterations={convergence.Iterations}, RMSD={convergence.UnweightedRmsd:G17}, optimizerTime={convergence.Time.TotalMilliseconds:0.###}ms, totalTime={convergence.TotalTime.TotalMilliseconds:0.###}ms");
@@ -848,8 +856,6 @@ namespace AnalysisITC.Avalonia.Analysis
                         $"Error estimation ended: method={activeErrorMethod}, outcome={convergence.ErrorEstimationOutcome}, {convergence.ErrorEstimationSummary}, time={convergence.ErrorEstimationTime.TotalMilliseconds:0.###}ms");
                 }
 
-                var finishedProfileStatus = UncertaintyEstimationPresentation.Completion(activeSolver, convergence);
-
                 currentNullComparison = activeSolver is Solver singleSolverWithComparison
                     ? singleSolverWithComparison.Model?.Solution?.NullComparison
                     : activeSolver is GlobalSolver globalSolverWithComparison
@@ -857,98 +863,66 @@ namespace AnalysisITC.Avalonia.Analysis
                         : null;
                 graph.NullComparison = currentNullComparison;
                 RefreshNullComparisonPresentation();
-                var fitAssessments = activeSolver is Solver singleSolverWithAssessment
-                    ? BindingAssessmentMember.ForFit(singleSolverWithAssessment.Model?.Solution)
-                    : activeSolver is GlobalSolver globalSolverWithAssessment
-                        ? BindingAssessmentMember.ForFit(globalSolverWithAssessment.Model?.Solution)
-                        : Array.Empty<BindingAssessmentMember>();
-
-                activeSolver = null;
-                activeErrorMethod = ErrorEstimationMethod.None;
                 graph.FitToData();
                 RefreshWorkspaceViews();
                 FittingChanged?.Invoke(this, EventArgs.Empty);
-
-                var completionMessage = convergence.Message;
-                StatusBarManager.ClearAppStatus();
-                StatusBarManager.QueueStatus(completionMessage, 3000);
-                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, fitAssessments);
-                if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
-                StatusBarManager.QueueStatus($"{convergence.Iterations} iterations | {elapsed}", 3000);
-                if (convergence.Success)
-                    StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}", 2000);
-                if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
-                {
-                    var errorStatus = !string.IsNullOrEmpty(finishedProfileStatus)
-                        ? finishedProfileStatus
-                        : convergence.ErrorEstimationSummary;
-                    StatusBarManager.QueueStatus(errorStatus, 2000);
-                }
-                StatusChanged?.Invoke(this, completionMessage);
             });
         }
 
         void OnAnalysisStepFinished(object? sender, EventArgs e)
         {
-            if (!isFitting) return;
-
+            if (!isFitting || !ReferenceEquals(sender, activeSolver)) return;
+            var solver = activeSolver;
+            if (solver == null) return;
             RunOnUiThread(() =>
             {
-                if (!isFitting) return;
-
-                graph.RefreshComputedData();
-                if (activeErrorMethod == ErrorEstimationMethod.None) return;
-
-                fitStatusText.Text = $"Starting {DescribeErrorMethod(activeErrorMethod)}...";
-                StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
+                if (ReferenceEquals(solver, activeSolver) && isFitting) graph.RefreshComputedData();
             });
         }
 
-        void OnErrorIteration(object? sender, Tuple<int, int, float> e)
+        void OnFittingProgress(object? sender, FittingProgress progress)
         {
-            if (!isFitting || activeErrorMethod == ErrorEstimationMethod.None) return;
-
+            if (!ReferenceEquals(sender, activeSolver)) return;
+            var solver = activeSolver;
+            if (solver == null) return;
             RunOnUiThread(() =>
             {
-                if (!isFitting || activeErrorMethod == ErrorEstimationMethod.None) return;
-
-                fitStatusText.Text = $"{DescribeErrorMethod(activeErrorMethod)} {e.Item1}/{e.Item2}";
-                StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
+                if (!ReferenceEquals(solver, activeSolver) || solver.OperationId != progress.OperationId
+                    || (solver.Operation != null && !ProcessingActivity.IsCurrentOperation(progress.OperationId))) return;
+                if (progress.Phase == FittingPhase.Stopping || SolverInterface.TerminateAnalysisFlag.Up) stoppingFit = true;
+                fitStatusText.Text = stoppingFit ? FittingStatusPresentation.StoppingAnalysis
+                    : FittingStatusPresentation.Message(progress);
             });
         }
 
-        void OnSolverUpdated(object? sender, SolverUpdate update)
+        void OnFittingCompleted(object? sender, FittingCompletion completion)
         {
-            if (!isFitting) return;
-
+            if (!ReferenceEquals(sender, activeSolver)) return;
+            var solver = activeSolver;
+            if (solver == null) return;
             RunOnUiThread(() =>
             {
-                if (!isFitting) return;
-
-                if (activeErrorMethod != ErrorEstimationMethod.ProfileLikelihood
-                    && activeSolver is GlobalSolver globalSolver
-                    && globalSolver.Model.ShouldFitIndividually && update.Progress >= 0)
-                {
-                    var total = globalSolver.Model.Models.Count;
-                    var completed = Math.Clamp((int)Math.Round(update.Progress * total), 0, total);
-                    fitStatusText.Text = $"Fitting experiments {completed}/{total} ({update.Progress:P0})";
-                    StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
-                    return;
-                }
-
-                if (!string.IsNullOrWhiteSpace(update.Message))
-                {
-                    fitStatusText.Text = update.Message;
-                    StatusBarManager.SetStatus(update.Message, 0, priority: 1);
-                }
-                else if (update.Progress >= 0)
-                {
-                    fitStatusText.Text = $"Fitting progress {update.Progress:P0}";
-                    StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
-                }
+                if (!ReferenceEquals(solver, activeSolver)) return;
+                if (solver.Operation == null || ProcessingActivity.IsCurrentOperation(completion.OperationId))
+                    fitStatusText.Text = UncertaintyEstimationPresentation.CompletionMessages(solver,
+                        completion.Convergence, completion.Elapsed).First().Text;
+                activeSolver = null;
+                activeErrorMethod = ErrorEstimationMethod.None;
+                isFitting = false;
+                ReleaseFittingActivity();
+                UpdateFitButtonState();
             });
         }
+
+        void ReleaseFittingActivity()
+        {
+            SolverInterface.FittingCompleted -= OnFittingCompleted;
+            fittingActivity?.Dispose();
+            fittingActivity = null;
+        }
+
+        void OnCalculationActivityChanged(object? sender, EventArgs e)
+            => RunOnUiThread(UpdateFitButtonState);
 
         static void RunOnUiThread(Action action)
         {
@@ -1169,12 +1143,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateFitButtonState()
         {
-            graph.IsReadOnly = isFitting;
+            graph.IsReadOnly = isFitting || ProcessingActivity.IsBusy;
             var canFit = experiment != null
                 && workspace.IsReady
                 && !isFitting
                 && IsModelAvailable(workspace.Session.ModelType);
-            runFitButton.IsEnabled = canFit;
+            CalculationControlAvailability.Update(runFitButton, canFit);
             stopFitButton.IsEnabled = isFitting;
             modeSelector.IsEnabled = !isFitting;
             modelCombo.IsEnabled = !isFitting;

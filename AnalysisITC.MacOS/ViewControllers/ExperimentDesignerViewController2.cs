@@ -28,6 +28,7 @@ namespace AnalysisITC
         private SolverInterface FittingSolver;
         private List<(NSControl Control, bool Enabled)> FitLockedControls;
         private NSObject WindowCloseObserver;
+        MacCalculationControls calculationControls;
         private readonly ExperimentDesignerState DesignerState = new ExperimentDesignerState();
 
         public static bool AutoRunExperimentSimulation { get; set; } = true;
@@ -107,6 +108,8 @@ namespace AnalysisITC
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
 
             SetupExperiment();
+            MacAnalysisProgressCoordinator.EnsureCreated();
+            calculationControls = new MacCalculationControls(() => new[] { ApplyModelButton });
         }
 
         public override void ViewDidAppear()
@@ -120,6 +123,7 @@ namespace AnalysisITC
         private void ReleaseSubscriptions()
         {
             SolverInterface.AnalysisFinished -= SolverInterface_AnalysisFinished;
+            calculationControls?.Dispose();
             WindowCloseObserver?.Dispose();
             WindowCloseObserver = null;
         }
@@ -578,7 +582,6 @@ namespace AnalysisITC
 
         partial void ApplyModelSettings(NSButton sender)
         {
-            UpdateSyntheticData();
             FitSyntheticData();
         }
 
@@ -687,6 +690,10 @@ namespace AnalysisITC
         private void FitSyntheticData()
         {
             if (_isrunning || Factory == null || Data?.Model == null) return;
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
+            UpdateSyntheticData();
 
             SolverInterface solver;
             try
@@ -710,6 +717,12 @@ namespace AnalysisITC
 
             BeginFit(solver);
             solver.Analyze();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) ReleaseSubscriptions();
+            base.Dispose(disposing);
         }
     }
 }

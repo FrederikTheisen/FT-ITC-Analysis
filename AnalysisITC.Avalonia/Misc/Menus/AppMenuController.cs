@@ -82,6 +82,7 @@ internal sealed class AppMenuController
         {
             item.IsVisible = node.IsVisible;
             item.IsEnabled = command.CanExecute(null);
+            item.ToolTip = CommandTooltip(command.Id);
             item.ToggleType = command.HasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None;
             item.IsChecked = command.IsChecked;
         }
@@ -336,7 +337,8 @@ internal sealed class AppMenuController
             yield return node;
     }
 
-    static string? CommandTooltip(string id) => id switch
+    static string? CommandTooltip(string id) => id == "updateresult" && ProcessingActivity.IsBusy
+        ? FittingStatusPresentation.BusyTooltip : id switch
     {
         "projectinformation" => ProjectInformationPresentation.FileMenuTooltip,
         "deleteallresults" => ProcessingClearPresentation.DeleteResultsTooltip,
@@ -360,7 +362,7 @@ internal sealed class AppMenuController
                 IsVisible = node.IsVisible
             };
             var tooltip = CommandTooltip(node.Command.Id);
-            if (tooltip != null) ToolTip.SetTip(commandItem, tooltip);
+            if (tooltip != null) { ToolTip.SetTip(commandItem, tooltip); ToolTip.SetShowOnDisabled(commandItem, true); }
             return commandItem;
         }
 
@@ -414,6 +416,7 @@ internal sealed class AppMenuController
                 ToggleType = node.Command.HasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
                 IsChecked = node.Command.IsChecked,
                 IsEnabled = node.Command.CanExecute(null),
+                ToolTip = CommandTooltip(node.Command.Id),
                 IsVisible = node.IsVisible
             };
 

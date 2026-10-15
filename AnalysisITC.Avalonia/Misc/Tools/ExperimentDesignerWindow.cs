@@ -20,6 +20,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
@@ -63,9 +64,11 @@ namespace AnalysisITC.Avalonia.Tools
 
         ExperimentData? data;
         SolverInterface? fittingSolver;
+        ProcessingActivity.ProcessingLease? fittingActivity;
         SingleModelFactory? factory;
         bool isUpdating;
         bool isFitting;
+        bool isClosed;
 
         internal CheckBox SimulateNoiseCheckForTesting => simulateNoiseCheck;
         internal Slider NoiseLevelSliderForTesting => noiseLevelSlider;
@@ -109,12 +112,16 @@ namespace AnalysisITC.Avalonia.Tools
             WireEvents();
             RefreshNoiseControls();
             SetupExperiment();
-            SolverInterface.AnalysisFinished += OnAnalysisFinished;
+            SolverInterface.FittingCompleted += OnFittingCompleted;
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
+            RefreshFitAvailability();
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            SolverInterface.AnalysisFinished -= OnAnalysisFinished;
+            isClosed = true;
+            ProcessingActivity.Changed -= OnCalculationActivityChanged;
+            if (fittingActivity == null) SolverInterface.FittingCompleted -= OnFittingCompleted;
             base.OnClosed(e);
         }
 
@@ -517,6 +524,9 @@ namespace AnalysisITC.Avalonia.Tools
         void FitSyntheticData()
         {
             if (isFitting || factory == null || data?.Model == null) return;
+            fittingActivity = ProcessingActivity.TryBegin();
+            if (fittingActivity == null) return;
+            using var ownership = fittingActivity.Enter();
 
             try
             {
@@ -554,7 +564,7 @@ namespace AnalysisITC.Avalonia.Tools
             isFitting = true;
             setupPanel.IsEnabled = false;
             modelPanel.IsEnabled = false;
-            fitButton.IsEnabled = false;
+            CalculationControlAvailability.Update(fitButton, false);
             SetStatus("Fitting synthetic experiment...");
         }
 
@@ -564,10 +574,20 @@ namespace AnalysisITC.Avalonia.Tools
             isFitting = false;
             setupPanel.IsEnabled = true;
             modelPanel.IsEnabled = true;
-            fitButton.IsEnabled = true;
+            fittingActivity?.Dispose();
+            fittingActivity = null;
+            RefreshFitAvailability();
         }
 
-        void OnAnalysisFinished(object? sender, SolverConvergence e)
+        void OnCalculationActivityChanged(object? sender, EventArgs e)
+        {
+            if (Dispatcher.UIThread.CheckAccess()) RefreshFitAvailability();
+            else Dispatcher.UIThread.Post(RefreshFitAvailability);
+        }
+
+        void RefreshFitAvailability() => CalculationControlAvailability.Update(fitButton, !isFitting);
+
+        void OnFittingCompleted(object? sender, FittingCompletion completion)
         {
             if (fittingSolver == null || !ReferenceEquals(sender, fittingSolver)) return;
 
@@ -577,8 +597,10 @@ namespace AnalysisITC.Avalonia.Tools
                 if (!ReferenceEquals(sender, fittingSolver)) return;
 
                 EndFit();
+                if (isClosed) { SolverInterface.FittingCompleted -= OnFittingCompleted; return; }
                 graph.SetSource(data, fittedSolution);
-                SetStatus(e?.Failed == true ? "Fit failed." : "Synthetic fit complete.");
+                SetStatus(UncertaintyEstimationPresentation.CompletionMessages(completion.Solver,
+                    completion.Convergence, completion.Elapsed).First().Text);
             });
         }
 

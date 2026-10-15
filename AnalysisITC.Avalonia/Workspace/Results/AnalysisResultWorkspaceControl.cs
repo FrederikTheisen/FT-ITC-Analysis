@@ -97,6 +97,8 @@ namespace AnalysisITC.Avalonia.Results
         bool isUpdatingEvaluationControls;
         bool isUpdatingResult;
         bool isRunningAdvancedAnalysis;
+        Guid ownedAdvancedOperationId;
+        AdvancedAnalysis? ownedAdvancedAnalysis;
         bool evaluationUseKelvin;
         bool isUpdatingDisplayControls;
         BootstrapCorrelationResult? correlationResult;
@@ -313,40 +315,42 @@ namespace AnalysisITC.Avalonia.Results
 
         public async Task UpdateResultAsync()
         {
-            if (result == null || isUpdatingResult) return;
-
+            if (result == null || isUpdatingResult || ProcessingActivity.IsBusy) return;
+            var targetResult = result;
             var options = AnalysisResultUpdateOptions.StoredSettings;
-            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
+            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(targetResult))
             {
                 options = await PlatformServices.AnalysisResultUpdatePromptService
-                    .ChooseOptionsAsync(result);
+                    .ChooseOptionsAsync(targetResult);
                 if (options == null) return;
             }
 
+            if (isUpdatingResult) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
             try
             {
                 isUpdatingResult = true;
                 RefreshSummary();
-                StatusChanged?.Invoke(this, "Updating analysis result...");
+                StatusBarManager.SetStatus(FittingStatusPresentation.UpdatingResult, 0, priority: 1);
 
-                var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
+                var convergence = await AnalysisResultUpdater.UpdateAsync(targetResult, options);
 
                 Refresh();
-                var status = UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence);
-                StatusBarManager.SetStatus(status, 5000);
+                UncertaintyEstimationPresentation.PublishCompletion(null, convergence, lease.Operation.Elapsed,
+                    resultUpdate: true, solution: targetResult.Solution, operationId: lease.Operation.Id,
+                    memberAssessments: targetResult.MemberAssessments);
 
                 if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                 {
                     ResultUpdated?.Invoke(this, EventArgs.Empty);
-                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, result.MemberAssessments);
-                    if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                        StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 }
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
-                StatusBarManager.SetStatus($"Result update failed: {ex.Message}", 5000);
+                StatusBarManager.SetStatus(FittingStatusPresentation.Failure(ex, resultUpdate: true), 5000);
                 RefreshSummary();
             }
             finally
@@ -360,6 +364,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             base.OnAttachedToVisualTree(e);
             DataManager.ResultSolutionSelectionDidChange += OnResultSolutionSelectionChanged;
+            ProcessingActivity.Changed += OnCalculationActivityChanged;
             ResultAnalysisController.AnalysisStarted += OnAdvancedAnalysisStarted;
             ResultAnalysisController.IterationFinished += OnAdvancedAnalysisIterationFinished;
             ResultAnalysisController.AnalysisFinished += OnAdvancedAnalysisFinished;
@@ -368,6 +373,7 @@ namespace AnalysisITC.Avalonia.Results
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             DataManager.ResultSolutionSelectionDidChange -= OnResultSolutionSelectionChanged;
+            ProcessingActivity.Changed -= OnCalculationActivityChanged;
             ResultAnalysisController.AnalysisStarted -= OnAdvancedAnalysisStarted;
             ResultAnalysisController.IterationFinished -= OnAdvancedAnalysisIterationFinished;
             ResultAnalysisController.AnalysisFinished -= OnAdvancedAnalysisFinished;
@@ -664,32 +670,68 @@ namespace AnalysisITC.Avalonia.Results
             showNullPredictionCheck.IsEnabled = selectedFitGraph.NullComparison != null;
         }
 
-        void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
+        void OnCalculationActivityChanged(object? sender, EventArgs e)
         {
-            isRunningAdvancedAnalysis = true;
-            RefreshAnalysis();
-            StatusBarManager.SetStatus("Advanced analysis started...", 0, priority: 1);
-            StatusChanged?.Invoke(this, "Advanced analysis started...");
+            void RefreshControls() { RefreshSummary(); RefreshAnalysis(); }
+            Dispatcher.UIThread.Post(RefreshControls);
         }
+
+        void DispatchAdvancedAnalysis(object? sender, Action action)
+        {
+            if (sender is not AdvancedAnalysisEventSource source) return;
+            void Apply()
+            {
+                if (source.OperationId != ownedAdvancedOperationId
+                    || source.OperationId == Guid.Empty
+                    || !ProcessingActivity.IsCurrentOperation(source.OperationId)
+                    || (source.Analysis != null && !ReferenceEquals(source.Analysis, ownedAdvancedAnalysis))) return;
+                action();
+            }
+            if (Dispatcher.UIThread.CheckAccess()) Apply();
+            else Dispatcher.UIThread.Post(Apply);
+        }
+
+        void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
+            => DispatchAdvancedAnalysis(sender, () =>
+            {
+                isRunningAdvancedAnalysis = true;
+                RefreshAnalysis();
+                StatusBarManager.SetStatus("Advanced analysis started...", 0, priority: 1);
+                StatusChanged?.Invoke(this, "Advanced analysis started...");
+            });
 
         void OnAdvancedAnalysisIterationFinished(object? sender, Tuple<int, int, float, string> e)
-        {
-            var status = string.IsNullOrWhiteSpace(e.Item4)
-                ? $"Advanced analysis {100 * e.Item3:F0}%"
-                : $"{e.Item4}: {100 * e.Item3:F0}%";
-            StatusBarManager.SetStatus(status, 1000, priority: 1);
-            StatusChanged?.Invoke(this, status);
-        }
+            => DispatchAdvancedAnalysis(sender, () =>
+            {
+                var status = string.IsNullOrWhiteSpace(e.Item4)
+                    ? $"Advanced analysis {100 * e.Item3:F0}%"
+                    : $"{e.Item4}: {100 * e.Item3:F0}%";
+                StatusBarManager.SetStatus(status, 1000, priority: 1);
+                StatusChanged?.Invoke(this, status);
+            });
 
         void OnAdvancedAnalysisFinished(object? sender, Tuple<int, TimeSpan> e)
+            => DispatchAdvancedAnalysis(sender, () =>
+            {
+                isRunningAdvancedAnalysis = false;
+                RefreshPresentationData();
+                RefreshAnalysis();
+                ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
+                var status = $"Advanced analysis completed ({e.Item1} iterations).";
+                StatusBarManager.SetStatus(status, 5000);
+                StatusChanged?.Invoke(this, status);
+            });
+
+        async Task PerformOwnedAdvancedAnalysisAsync(AdvancedAnalysis analysis, Guid operationId)
         {
-            isRunningAdvancedAnalysis = false;
-            RefreshPresentationData();
-            RefreshAnalysis();
-            ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
-            var status = $"Advanced analysis completed ({e.Item1} iterations).";
-            StatusBarManager.SetStatus(status, 5000);
-            StatusChanged?.Invoke(this, status);
+            ownedAdvancedOperationId = operationId;
+            ownedAdvancedAnalysis = analysis;
+            isRunningAdvancedAnalysis = true;
+            try { await analysis.PerformAnalysisAsync(); }
+            finally
+            {
+                if (ownedAdvancedOperationId == operationId) isRunningAdvancedAnalysis = false;
+            }
         }
 
         public void Refresh()
@@ -747,6 +789,8 @@ namespace AnalysisITC.Avalonia.Results
                 VerticalAlignment = VerticalAlignment.Center,
                 IsEnabled = !isUpdatingResult && result.Solution?.Model != null
             };
+            ToolTip.SetTip(updateButton, "Refit using the saved analysis settings");
+            CalculationControlAvailability.Update(updateButton, !isUpdatingResult && result.Solution?.Model != null);
             updateButton.Click += async (_, _) => await UpdateResultAsync();
 
             summaryPanel.Children.Add(BuildValiditySection(report));
@@ -1200,9 +1244,10 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
-            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.IsEnabled = !isRunningAdvancedAnalysis && !ProcessingActivity.IsBusy;
             runButton.Click += async (_, _) => await RunTemperatureAnalysisAsync();
             ToolTip.SetTip(runButton, StructuringPresentation.RunToolTip);
+            CalculationControlAvailability.Update(runButton, !isRunningAdvancedAnalysis);
             var foldedModeCombo = WorkspaceControlBuilder.Combo(StructuringPresentation.InteractionOptions, selectedSrFoldedMode == FTSRMethod.SRFoldedMode.ID ? 1 : 0, 170);
             ToolTip.SetTip(foldedModeCombo, StructuringPresentation.InteractionToolTip);
             foldedModeCombo.SelectionChanged += (_, _) =>
@@ -1259,8 +1304,10 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
-            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.IsEnabled = !isRunningAdvancedAnalysis && !ProcessingActivity.IsBusy;
             runButton.Click += async (_, _) => await RunSaltAnalysisAsync();
+            ToolTip.SetTip(runButton, "Propagate fitted parameter uncertainty");
+            CalculationControlAvailability.Update(runButton, !isRunningAdvancedAnalysis);
             var saltModeCombo = WorkspaceControlBuilder.Combo(SaltModeNames, selectedSaltMode switch
             {
                 ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt => 0,
@@ -1307,8 +1354,10 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
-            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.IsEnabled = !isRunningAdvancedAnalysis && !ProcessingActivity.IsBusy;
             runButton.Click += async (_, _) => await RunProtonationAnalysisAsync();
+            ToolTip.SetTip(runButton, "Propagate fitted parameter uncertainty");
+            CalculationControlAvailability.Update(runButton, !isRunningAdvancedAnalysis);
 
             analysisPanel.Children.Add(Section("Protonation", new Control[]
             {
@@ -1335,24 +1384,33 @@ namespace AnalysisITC.Avalonia.Results
         async Task RunTemperatureAnalysisAsync()
         {
             if (result?.SpolarRecordAnalysis == null || isRunningAdvancedAnalysis) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
             result.SpolarRecordAnalysis.FoldedMode = selectedSrFoldedMode;
             result.SpolarRecordAnalysis.TempMode = StructuringPresentation.RunTemperatureMode;
-            await result.SpolarRecordAnalysis.PerformAnalysisAsync();
+            await PerformOwnedAdvancedAnalysisAsync(result.SpolarRecordAnalysis, lease.Operation.Id);
         }
 
         async Task RunSaltAnalysisAsync()
         {
             if (result?.ElectrostaticsAnalysis == null || isRunningAdvancedAnalysis) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
-            await result.ElectrostaticsAnalysis.PerformAnalysisAsync();
+            await PerformOwnedAdvancedAnalysisAsync(result.ElectrostaticsAnalysis, lease.Operation.Id);
         }
 
         async Task RunProtonationAnalysisAsync()
         {
             if (result?.ProtonationAnalysis == null || isRunningAdvancedAnalysis) return;
+            using var lease = ProcessingActivity.TryBegin();
+            if (lease == null) return;
+            using var ownership = lease.Enter();
 
-            await result.ProtonationAnalysis.PerformAnalysisAsync();
+            await PerformOwnedAdvancedAnalysisAsync(result.ProtonationAnalysis, lease.Operation.Id);
         }
 
         void RefreshTable()

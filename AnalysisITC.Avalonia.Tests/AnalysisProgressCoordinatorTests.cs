@@ -7,6 +7,8 @@ using Avalonia.Threading;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Platform;
 
 using Xunit;
@@ -49,8 +51,9 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         var solver = new SolverInterface { ErrorEstimationMethod = method, BootstrapIterations = 100 };
         solver.Analyze();
         solver.ReportAnalysisStepFinished();
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("Estimating uncertainty...", window.StatusText.Text);
+        Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
 
         if (method == ErrorEstimationMethod.BootstrapResiduals)
             solver.ReportBootstrapProgress(40);
@@ -58,8 +61,8 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
             solver.ReportLeaveOneOutProgress(2, 5);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Estimating uncertainty...", window.StatusText.Text);
-        Assert.Equal(method == ErrorEstimationMethod.BootstrapResiduals ? "40/100" : "2/5", secondary.Text);
+        Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
+        Assert.Equal(method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap 40/100" : "Leave-one-out 2/5", secondary.Text);
         Assert.Equal(0.4, StatusBarManager.Progress, precision: 6);
     }
 
@@ -70,15 +73,12 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
     {
         var solver = new SolverInterface();
         solver.Analyze();
-        solver.ReportSolverUpdate(new SolverUpdate(2, 8)
-        {
-            Message = "Profile likelihood: endpoints found 2/8",
-            Progress = progress,
-        });
+        solver.ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood;
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 2, 8, progress >= 0 ? progress : null);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Profile likelihood: endpoints found 2/8", window.StatusText.Text);
-        Assert.Equal("2/8", secondary.Text);
+        Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
+        Assert.Equal("Profile searches 2/8", secondary.Text);
         Assert.Equal(progress >= 0 ? 0.25 : -0.5, StatusBarManager.Progress);
     }
 
@@ -88,17 +88,17 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
     [InlineData(SolverTermination.Failed)]
     public void CompletionRestoresTheCurrentProjectNameAndHidesProgress(SolverTermination termination)
     {
-        var solver = new SolverInterface();
+        var solver = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
         solver.Analyze();
-        solver.ReportSolverUpdate(new SolverUpdate(1, 3) { Message = "Estimating uncertainty...", Progress = 1f / 3 });
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 3, 1f / 3);
         StatusBarManager.SetDefaultSecondaryStatus("Example project [M]");
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("1/3", secondary.Text);
+        Assert.Equal("Bootstrap 1/3", secondary.Text);
 
         // An unrelated solver's completion must not clear the active operation.
         new SolverInterface().ReportAnalysisFinished(Convergence(termination));
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("1/3", secondary.Text);
+        Assert.Equal("Bootstrap 1/3", secondary.Text);
 
         solver.ReportAnalysisFinished(Convergence(termination));
         Dispatcher.UIThread.RunJobs();
@@ -118,13 +118,14 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         {
             Task.Run(() =>
             {
-                solver.ReportSolverUpdate(new SolverUpdate(1, 3) { Progress = 1f / 3 });
-                solver.ReportSolverUpdate(new SolverUpdate(2, 3) { Progress = 2f / 3 });
+                solver.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+                solver.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 3, 1f / 3);
+                solver.PublishProgress(FittingPhase.EstimatingUncertainty, 2, 3, 2f / 3);
             }).GetAwaiter().GetResult();
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(new[] { "1/3", "2/3" }, counters);
-            Assert.Equal("2/3", secondary.Text);
+            Assert.Equal(new[] { "Bootstrap 1/3", "Bootstrap 2/3" }, counters);
+            Assert.Equal("Bootstrap 2/3", secondary.Text);
         }
         finally
         {
@@ -137,10 +138,7 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
     {
         var solver = new SolverInterface();
         solver.Analyze();
-        Task.Run(() => solver.ReportSolverUpdate(new SolverUpdate(1, 3)
-        {
-            Message = "Estimating uncertainty...", Progress = 1f / 3,
-        })).GetAwaiter().GetResult();
+        Task.Run(() => solver.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 3, 1f / 3)).GetAwaiter().GetResult();
 
         solver.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
         StatusBarManager.SetStatus("Analysis result updated", 0);
@@ -149,6 +147,121 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         Assert.Equal("Example project", secondary.Text);
         Assert.Equal("Analysis result updated", window.StatusText.Text);
         Assert.Equal(-1, StatusBarManager.Progress);
+    }
+
+    [AvaloniaFact]
+    public void NewOperationRejectsDelayedProgressAndCompletionFromPreviousOperation()
+    {
+        var first = new SolverInterface();
+        using (var lease = ProcessingActivity.TryBegin()!)
+        {
+            using var ownership = lease.Enter();
+            first.Analyze();
+            Task.Run(() => first.PublishProgress(FittingPhase.EstimatingUncertainty, 9, 10, 0.9f)).GetAwaiter().GetResult();
+        }
+        using var next = ProcessingActivity.TryBegin()!;
+        using var nextOwnership = next.Enter();
+        var second = new SolverInterface();
+        second.Analyze();
+        second.PublishProgress(FittingPhase.AssessingBinding);
+        first.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Assessing binding…", window.StatusText.Text);
+        Assert.DoesNotContain("9/10", secondary.Text ?? "");
+    }
+
+    [AvaloniaFact]
+    public void NamedProgressRespectsTheSharedNameGateAndTailTrimming()
+    {
+        var previous = FittingStatusPresentation.ShowExperimentNames;
+        var solver = new SolverInterface();
+        solver.Analyze();
+        try
+        {
+            FittingStatusPresentation.ShowExperimentNames = true;
+            var name = new string('x', 300);
+            solver.PublishProgress(FittingPhase.AssessingBinding, memberName: name);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Assessing binding: " + name, window.StatusText.Text);
+            Assert.Equal(global::Avalonia.Media.TextTrimming.CharacterEllipsis, window.StatusText.TextTrimming);
+            FittingStatusPresentation.ShowExperimentNames = false;
+            solver.PublishProgress(FittingPhase.AssessingBinding, memberName: name);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Assessing binding…", window.StatusText.Text);
+        }
+        finally { FittingStatusPresentation.ShowExperimentNames = previous; }
+    }
+
+    [AvaloniaFact]
+    public void QueuedUncertaintyProgressCannotRestoreTextOrCounterAfterStop()
+    {
+        var solver = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+        solver.Analyze();
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 2, 10, 0.2f);
+        Task.Run(() => solver.PublishProgress(FittingPhase.EstimatingUncertainty, 5, 10, 0.5f))
+            .GetAwaiter().GetResult();
+        try
+        {
+            SolverInterface.TerminateAnalysisFlag.Raise();
+            solver.PublishProgress(FittingPhase.Stopping);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FittingStatusPresentation.StoppingAnalysis, window.StatusText.Text);
+            Assert.Equal("Example project", secondary.Text);
+            Assert.Equal(0.5, StatusBarManager.Progress, precision: 6);
+
+            // Once observed, stopping stays latched for this operation.
+            SolverInterface.TerminateAnalysisFlag.Lower();
+            solver.PublishProgress(FittingPhase.EstimatingUncertainty, 6, 10, 0.6f);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FittingStatusPresentation.StoppingAnalysis, window.StatusText.Text);
+            Assert.Equal("Example project", secondary.Text);
+            Assert.Equal(0.6, StatusBarManager.Progress, precision: 6);
+        }
+        finally { SolverInterface.TerminateAnalysisFlag.Lower(); }
+    }
+
+    [AvaloniaFact]
+    public void DelayedAdvancedEventsCannotReplaceANewRunOrReachAnUnrelatedWorkspace()
+    {
+        var delayed = new QueuedDispatcher();
+        var workspace = new AnalysisResultWorkspaceControl();
+        var resultWindow = new Window { Content = workspace };
+        var statuses = new List<string>();
+        workspace.StatusChanged += (_, value) => statuses.Add(value);
+        resultWindow.Show();
+        try
+        {
+            using (var first = ProcessingActivity.TryBegin()!)
+            {
+                using var ownership = first.Enter();
+                PlatformServices.RegisterMainThreadDispatcher(delayed);
+                ResultAnalysisController.ReportCalculationStarted();
+                ResultAnalysisController.ReportCalculationProgress(9, 10, "Old analysis");
+                ResultAnalysisController.ReportAnalysisFinished(new AdvancedAnalysis(null!), 9, TimeSpan.FromSeconds(1));
+            }
+            using var next = ProcessingActivity.TryBegin()!;
+            using var nextOwnership = next.Enter();
+            PlatformServices.RegisterMainThreadDispatcher(null!);
+            ResultAnalysisController.ReportCalculationStarted();
+            ResultAnalysisController.ReportCalculationProgress(3, 4);
+            delayed.Drain();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0.75, StatusBarManager.Progress, precision: 6);
+            Assert.Empty(statuses);
+            Assert.DoesNotContain("Old analysis", window.StatusText.Text ?? "");
+        }
+        finally
+        {
+            PlatformServices.RegisterMainThreadDispatcher(null!);
+            resultWindow.Close();
+        }
+    }
+
+    sealed class QueuedDispatcher : IMainThreadDispatcher
+    {
+        readonly List<Action> actions = new();
+        public void Invoke(Action action) => actions.Add(action);
+        public void Drain() { foreach (var action in actions) action(); actions.Clear(); }
     }
 
     public void Dispose()

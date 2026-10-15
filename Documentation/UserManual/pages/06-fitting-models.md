@@ -387,7 +387,11 @@ This setting does not change or rerun the primary best fit. It changes only the 
 
 ## Fit execution and diagnostics
 
-**Run Fit** starts the primary optimization and the selected error-estimation calculation. **Stop** requests cancellation of the active calculation. When fitting ends, the status reports the termination state, RMSD, iteration count, and elapsed time. A resampling calculation also reports its outcome and the number of successful and failed refits.
+**Run Fit** starts the analysis. **Stop** requests cancellation of the active calculation.
+
+While the analysis runs, the status bar identifies the current calculation: fitting, binding assessment, or uncertainty estimation. For independently fitted experiments, it shows the experiment name and position. The secondary status counts completed refits or profile searches.
+
+When the analysis ends, the status bar shows the outcome and total time, followed by the uncertainty outcome. Check a fit that stopped at a limit, or uncertainty reported as incomplete, unavailable, or skipped, before using the result.
 
 The **Display** tab exposes complementary diagnostics:
 

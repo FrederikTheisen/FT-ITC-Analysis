@@ -42,6 +42,8 @@ namespace AnalysisITC.Core.DataReaders
         internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false, bool processProcessorData = true)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
 
             MemoryStream buffered = null;
             var input = stream;

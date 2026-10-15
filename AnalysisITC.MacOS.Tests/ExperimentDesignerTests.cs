@@ -11,6 +11,8 @@ using ObjCRuntime;
 using AnalysisITC;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 // Drives the real designer controller with code-created outlets; no storyboard or app bundle.
@@ -31,6 +33,7 @@ static class ExperimentDesignerTests
             SetupAndModelChangesKeepEnteredValues(autoRun: true);
             SetupAndModelChangesKeepEnteredValues(autoRun: false);
             FitLocksControlsAndRestoresTheirStates();
+            BusyOperationBlocksDesignerFit();
             Console.WriteLine("PASS: native designer keeps entered values, rebinds controls and restores control states after fitting");
             return 0;
         }
@@ -38,6 +41,36 @@ static class ExperimentDesignerTests
         {
             Console.Error.WriteLine(error);
             return 1;
+        }
+    }
+
+    static void BusyOperationBlocksDesignerFit()
+    {
+        using (var controller = CreateController())
+        {
+            var factory = Factory(controller);
+            var fit = Outlet<NSButton>(controller, "ApplyModelButton");
+            var concentration = Outlet<NSTextField>(controller, "CellConcField");
+            var label = Outlet<NSTextField>(controller, "InstrumentDescriptionField");
+            concentration.ToolTip = "Designer concentration draft";
+            label.ToolTip = "Instrument description";
+            var concentrationEnabled = concentration.Enabled;
+            var labelEnabled = label.Enabled;
+            using (var activity = ProcessingActivity.TryBegin())
+            using (activity.Enter())
+            {
+                Check(!fit.Enabled && fit.ToolTip == FittingStatusPresentation.BusyTooltip,
+                    "designer fit was not disabled for another calculation");
+                Check(concentration.Enabled == concentrationEnabled && label.Enabled == labelEnabled
+                    && concentration.ToolTip == "Designer concentration draft" && label.ToolTip == "Instrument description",
+                    "unrelated work locked designer drafts or rewrote label tooltips");
+                Invoke(controller, "ApplyModelSettings", fit);
+                Check(ReferenceEquals(factory, Factory(controller))
+                    && controller.GetType().GetField("FittingSolver", Instance).GetValue(controller) == null,
+                    "refused designer fit prepared or started a solver");
+            }
+            Check(fit.Enabled && fit.ToolTip != FittingStatusPresentation.BusyTooltip,
+                "designer fit did not restore its idle state");
         }
     }
 

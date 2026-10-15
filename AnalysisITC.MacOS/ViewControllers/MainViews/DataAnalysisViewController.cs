@@ -54,8 +54,8 @@ namespace AnalysisITC
         bool inspectorRefreshQueued;
         ExperimentData summaryExperiment;
         SolverInterface activeSolver;
-        // Status also follows Update Result solvers, which this workspace does not own.
-        SolverInterface statusSolver;
+        Guid activeOperationId;
+        MacCalculationControls calculationControls;
         NullModelComparison currentNullComparison;
         NSStackView nullHypothesisTestStack;
         NSStackView nullTestRowsStack;
@@ -79,17 +79,17 @@ namespace AnalysisITC
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
+            MacAnalysisProgressCoordinator.EnsureCreated();
+            calculationControls = new MacCalculationControls(() => new[] { FitSimplexButton }, () => ToggleFitButtons(true));
 
             // Workspace events
             Workspace.ContextRebuilt += OnContextRebuilt;
             Workspace.ContextInvalidated += OnContextRebuilt;
 
             // Solver events
-            SolverInterface.AnalysisStarted += OnAnalysisStarted;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
+            SolverInterface.FittingCompleted += OnFittingCompleted;
             SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
-            SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
-            SolverInterface.SolverUpdated += (_, e) => e.SendToStatusBar();
 
             // Data events
             DataManager.SelectionDidChange += OnSelectionChanged;
@@ -157,6 +157,7 @@ namespace AnalysisITC
 
         partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
+            if (isFitting) return;
             Workspace.SetGlobalMode(IsGlobalMode);
             RebuildInspectorEditorViews();
             RefreshGlobalModeControls();
@@ -165,6 +166,7 @@ namespace AnalysisITC
 
         partial void AnalysisModelClicked(NSPopUpButton sender)
         {
+            if (isFitting) return;
             Workspace.SetModelType(ModelFromControl);
             RebuildInspectorEditorViews();
             RefreshModelAvailability();
@@ -1025,6 +1027,9 @@ namespace AnalysisITC
 
         void RunFit()
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!AnalysisInputsAreReady()
                 || !AnalysisBuilder.IsModelAvailable(ModelFromControl, IsGlobalMode))
             {
@@ -1052,6 +1057,7 @@ namespace AnalysisITC
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
                 activeSolver = solver;
+                activeOperationId = activity.Operation.Id;
                 currentNullComparison = null;
                 GraphView.NullComparison = null;
                 RefreshNullHypothesisTestPresentation();
@@ -1061,6 +1067,7 @@ namespace AnalysisITC
                 // out-of-range automatic or reused value therefore keeps Run Fit
                 // available and leaves the inspector values unchanged.
                 isFitting = true;
+                RefreshGlobalModeControls();
                 ToggleFitButtons(false);
 
                 solver.Analyze();
@@ -1087,6 +1094,7 @@ namespace AnalysisITC
                     AppEventHandler.DisplayHandledException(ex);
                 }
                 isFitting = false;
+                RefreshGlobalModeControls();
                 ToggleFitButtons(true);
             }
         }
@@ -1104,35 +1112,22 @@ namespace AnalysisITC
 
         // ── Solver event handlers ──────────────────────────────────────────
 
-        void OnAnalysisStarted(object sender, TerminationFlag e)
-        {
-            if (sender is SolverInterface { Silent: false } solver)
-                statusSolver = solver;
-        }
-
         void OnAnalysisStepFinished(object sender, EventArgs e)
         {
+            if (sender != null && !ReferenceEquals(sender, activeSolver)
+                || !ProcessingActivity.IsCurrentOperation(activeOperationId)) return;
             GraphView.Invalidate();
-            if (statusSolver is SolverInterface { ErrorEstimationMethod: not ErrorEstimationMethod.None })
-                StatusBarManager.SetStatus("Estimating uncertainty...", 0, priority: 1);
         }
 
         void OnAnalysisFinished(object sender, SolverConvergence e)
         {
-            if (activeSolver != null && !ReferenceEquals(sender, activeSolver)) return;
-            if (ReferenceEquals(sender, statusSolver)) statusSolver = null;
+            if (!ReferenceEquals(sender, activeSolver)
+                || !ProcessingActivity.IsCurrentOperation(activeOperationId)) return;
             currentNullComparison = activeSolver is Solver singleSolver
                 ? singleSolver.Model?.Solution?.NullComparison
                 : activeSolver is GlobalSolver globalSolver
                     ? globalSolver.Model?.Solution?.NullComparison
                     : null;
-            var finishedUncertaintyStatus = UncertaintyEstimationPresentation.Completion(sender as SolverInterface, e);
-            var fitAssessments = sender is Solver singleSolverWithAssessment
-                ? BindingAssessmentMember.ForFit(singleSolverWithAssessment.Model?.Solution)
-                : sender is GlobalSolver globalSolverWithAssessment
-                    ? BindingAssessmentMember.ForFit(globalSolverWithAssessment.Model?.Solution)
-                    : Array.Empty<BindingAssessmentMember>();
-            activeSolver = null;
             GraphView.NullComparison = currentNullComparison;
             AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
             AppEventHandler.PrintAndLog("Iterations: " + e.Iterations, 1);
@@ -1145,29 +1140,20 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog("Stopped: " + e.Stopped, 1);
             AppEventHandler.PrintAndLog("Failed:  " + e.Failed, 1);
 
-            StatusBarManager.ClearAppStatus();
-            StatusBarManager.QueueStatus($"{e.Message}", 3000);
-            var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                e.ParameterBoundaryContacts, fitAssessments);
-            if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                StatusBarManager.QueueStatus(boundaryWarning, 5000);
-            StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);
-            if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.UnweightedRmsd:G4}", 2000);
-            var uncertaintyStatus = finishedUncertaintyStatus;
-            if (!string.IsNullOrEmpty(uncertaintyStatus)) StatusBarManager.QueueStatus(uncertaintyStatus, 2000);
-
             GraphView.Invalidate();
             RefreshAnalysisSummary();
             RefreshFitSummary();
-            isFitting = false;
-            ToggleFitButtons(true);
         }
 
-        void OnErrorIteration(object sender, Tuple<int, int, float> e)
+        void OnFittingCompleted(object sender, FittingCompletion completion)
         {
-            StatusBarManager.SetProgress(e.Item3);
-            StatusBarManager.SetStatus("Estimating uncertainty...", 0, priority: 1);
-            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
+            if (!ReferenceEquals(completion.Solver, activeSolver) || completion.OperationId != activeOperationId
+                || !ProcessingActivity.IsCurrentOperation(activeOperationId)) return;
+            activeSolver = null;
+            activeOperationId = Guid.Empty;
+            isFitting = false;
+            RefreshGlobalModeControls();
+            ToggleFitButtons(true);
         }
 
         // ── Misc ───────────────────────────────────────────────────────────
@@ -1282,9 +1268,10 @@ namespace AnalysisITC
 
         void ToggleFitButtons(bool enable)
         {
-            bool canFit = enable && !isFitting && CanRunFit();
+            bool canFit = enable && !isFitting && !ProcessingActivity.IsBusy && CanRunFit();
             FitSimplexButton.Enabled = canFit;
             RefreshErrorWeightedFittingAvailability();
+            calculationControls?.Refresh();
         }
 
         bool CanRunFit()
@@ -1304,10 +1291,10 @@ namespace AnalysisITC
 
             Workspace.ContextRebuilt -= OnContextRebuilt;
             Workspace.ContextInvalidated -= OnContextRebuilt;
-            SolverInterface.AnalysisStarted -= OnAnalysisStarted;
             SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
-            SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
+            SolverInterface.FittingCompleted -= OnFittingCompleted;
+            calculationControls?.Dispose();
             DataManager.SelectionDidChange -= OnSelectionChanged;
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;

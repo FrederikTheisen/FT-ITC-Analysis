@@ -12,6 +12,8 @@ using Avalonia.Threading;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 
 using Xunit;
 
@@ -218,6 +220,24 @@ public sealed class ExperimentDesignerRetentionTests
             Assert.True(window.FitButtonForTesting.IsEnabled);
             Assert.False(window.InjectionVolumeBoxForTesting.IsEnabled);
             Assert.False(window.NoiseLevelSliderForTesting.IsEnabled);
+        });
+    }
+
+    [AvaloniaFact]
+    public void AnotherCalculationDisablesDesignerFitAndRestoresItsTooltip()
+    {
+        WithWindow(window =>
+        {
+            var tooltip = ToolTip.GetTip(window.FitButtonForTesting);
+            using (var lease = ProcessingActivity.TryBegin()!)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(window.FitButtonForTesting.IsEnabled);
+                Assert.Equal(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(window.FitButtonForTesting));
+            }
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.FitButtonForTesting.IsEnabled);
+            Assert.Equal(tooltip, ToolTip.GetTip(window.FitButtonForTesting));
         });
     }
 

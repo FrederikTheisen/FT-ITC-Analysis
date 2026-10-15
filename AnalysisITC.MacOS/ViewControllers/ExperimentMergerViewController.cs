@@ -32,6 +32,7 @@ namespace AnalysisITC
         ExperimentMergeQueueDelegate mergeDelegate;
         Dictionary<NSControl, bool> ToolControlEnabledStates;
         bool IsCreatingMergedExperiment;
+        MacCalculationControls calculationControls;
 
         const int ConcatMethodSegment = 0;
         const int AutoBackMixingMethodSegment = 2;
@@ -106,6 +107,7 @@ namespace AnalysisITC
             SetupMethodControls();
 
             ValidateMergeButton();
+            calculationControls = new MacCalculationControls(() => new[] { MergeButtonControl }, ValidateMergeButton);
         }
 
         void SetupMethodControls()
@@ -170,8 +172,10 @@ namespace AnalysisITC
             var n = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
 
             MergeButtonControl.Enabled = !IsCreatingMergedExperiment
+                && !ProcessingActivity.IsBusy
                 && n > 1
                 && (!IsAutoBackMixingEnabled || n <= 5);
+            calculationControls?.Refresh();
         }
 
         void SetToolInteractionEnabled(bool enabled)
@@ -257,6 +261,9 @@ namespace AnalysisITC
 
         async partial void CreateNewMergedExperimentAction(NSObject sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
             MergeSettings.MixingFraction = BackMixingSliderControl.FloatValue;
             MergeSettings.DidRemoveOverflow = RemovedTitratedAfterExperimentControl.State == NSCellStateValue.On;
@@ -284,6 +291,7 @@ namespace AnalysisITC
                         MergeSettings.Copy(),
                         (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
                         {
+                            if (!ProcessingActivity.IsCurrentOperation(activity.Operation.Id) || !IsCreatingMergedExperiment) return;
                             var progress = completed / (double)total;
                             StatusBarManager.SetProgress(progress);
                             StatusBarManager.SetSecondaryStatus($"{100 * progress:0}%", 0);
@@ -354,6 +362,12 @@ namespace AnalysisITC
             base.ViewWillDisappear();
 
             StatusBarManager.ClearAppStatus();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) calculationControls?.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

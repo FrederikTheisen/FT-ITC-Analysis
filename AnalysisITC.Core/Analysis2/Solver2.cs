@@ -16,6 +16,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -79,6 +80,95 @@ namespace AnalysisITC.Core.Analysis
         public static event EventHandler<SolverConvergence> AnalysisFinished;
         public static event EventHandler AnalysisStepFinished;
         public static event EventHandler<SolverUpdate> SolverUpdated;
+        public static event EventHandler<FittingProgress> ProgressChanged;
+        public static event EventHandler<FittingCompletion> FittingCompleted;
+        public ProcessingOperation Operation { get; private set; }
+        Guid standaloneOperationId = Guid.NewGuid();
+        public Guid OperationId => Operation?.Id ?? standaloneOperationId;
+        public bool IsResultUpdate { get; internal set; }
+        protected bool deferCompletion;
+        bool completionPublished;
+        SolverConvergence pendingCompletion;
+        int currentMemberPosition;
+        string currentMemberName;
+        FittingPhase currentPhase;
+        int? currentCompleted, currentTotal;
+        readonly object progressGate = new();
+        long progressSequence, deliveredProgressSequence;
+        FittingProgress deliveredProgress;
+        internal Action<FittingPhase, int?, int?, float?> ProgressObserver { get; set; }
+
+        internal void PublishProgress(FittingPhase phase, int? completed = null, int? total = null, float? fraction = null,
+            int memberPosition = 0, string memberName = null)
+        {
+            if (ProgressObserver != null) { ProgressObserver(phase, completed, total, fraction); return; }
+            if (Silent) return;
+            FittingProgress snapshot;
+            long sequence;
+            lock (progressGate)
+            {
+                if (TerminateAnalysisFlag.Up) { phase = FittingPhase.Stopping; completed = total = null; }
+                if (phase != currentPhase || memberPosition > 0 && memberPosition != currentMemberPosition
+                    || total.HasValue && currentTotal.HasValue && total != currentTotal)
+                    currentCompleted = currentTotal = null;
+                if (completed.HasValue) currentCompleted = Math.Max(currentCompleted ?? completed.Value, completed.Value);
+                if (total.HasValue) currentTotal = total;
+                currentPhase = phase;
+                if (phase == FittingPhase.Stopping) currentCompleted = currentTotal = null;
+                completed = currentCompleted;
+                total = currentTotal;
+                if (memberPosition > 0) { currentMemberPosition = memberPosition; currentMemberName = memberName; }
+                var global = this as GlobalSolver;
+                var count = global?.Model?.Models.Count ?? 1;
+                var scope = count > 1 && global?.Model?.ShouldFitIndividually == false ? FittingScope.Global
+                    : count > 1 ? FittingScope.Individual : FittingScope.Single;
+                if (scope == FittingScope.Individual)
+                {
+                    memberPosition = currentMemberPosition > 0 ? currentMemberPosition : 1;
+                    memberName ??= currentMemberName ?? global.Model.Models[memberPosition - 1].Data.Name;
+                }
+                if (scope == FittingScope.Single)
+                    memberName ??= (this as Solver)?.Model?.Data?.Name ?? global?.Model?.Models.FirstOrDefault()?.Data?.Name;
+                snapshot = new FittingProgress(OperationId, phase, scope, memberPosition, count, memberName,
+                    ErrorEstimationMethod, completed, total, fraction);
+                sequence = ++progressSequence;
+            }
+            PlatformServices.MainThreadDispatcher.Invoke(() => DeliverProgress(snapshot, sequence));
+        }
+
+        void DeliverProgress(FittingProgress snapshot, long sequence)
+        {
+            lock (progressGate)
+            {
+                if (snapshot.OperationId == OperationId)
+                {
+                    // Dispatch stays outside the lock, so parallel callers can arrive
+                    // out of capture order. Keep the latest delivered text/counter,
+                    // while forwarding every original indicator fraction (ITC-109).
+                    if (deliveredProgress != null && sequence < deliveredProgressSequence)
+                        snapshot = new FittingProgress(snapshot.OperationId, deliveredProgress.Phase,
+                            deliveredProgress.Scope, deliveredProgress.MemberPosition, deliveredProgress.MemberCount,
+                            deliveredProgress.MemberName, deliveredProgress.Method, deliveredProgress.Completed,
+                            deliveredProgress.Total, snapshot.Fraction);
+                    else
+                    {
+                        deliveredProgress = snapshot;
+                        deliveredProgressSequence = sequence;
+                    }
+                }
+            }
+            ProgressChanged?.Invoke(this, snapshot);
+        }
+
+        protected void PublishCompletion()
+        {
+            TerminateAnalysisFlag.WasRaised -= ReportStopping;
+            if (Silent || completionPublished || pendingCompletion == null) return;
+            completionPublished = true;
+            var snapshot = new FittingCompletion(OperationId, this, pendingCompletion,
+                Operation?.Elapsed ?? pendingCompletion.TotalTime, IsResultUpdate);
+            PlatformServices.MainThreadDispatcher.Invoke(() => FittingCompleted?.Invoke(this, snapshot));
+        }
 
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
         public int MaxOptimizerIterations { get; set; } = AppSettings.MaximumOptimizerIterations;
@@ -302,6 +392,8 @@ namespace AnalysisITC.Core.Analysis
         {
             // Capture the member step now; a posted dispatch could otherwise read the next member's step.
             var background = Silent ? SolverUpdate.BackgroundBootstrapUpdate(iteration, total) : null;
+            PublishProgress(FittingPhase.EstimatingUncertainty, iteration, total,
+                background?.Progress ?? iteration / (float)total);
             PlatformServices.MainThreadDispatcher.Invoke(() =>
             {
                 if (background == null) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, total, iteration / (float)total));
@@ -315,45 +407,66 @@ namespace AnalysisITC.Core.Analysis
 
             PlatformServices.MainThreadDispatcher.Invoke(() =>
             {
-                AnalysisStepFinished?.Invoke(null, null);
+                AnalysisStepFinished?.Invoke(this, EventArgs.Empty);
             });
         }
 
-        public void ReportAnalysisFinished(SolverConvergence convergence) => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public void ReportAnalysisFinished(SolverConvergence convergence)
         {
             if (Silent) return;
             // Every completion listener, including desktop progress handlers,
             // needs a concrete outcome even when no solver result was produced.
             convergence ??= SolverConvergence.FromException(new InvalidOperationException(
                 "Analysis finished without convergence information."), starttime);
-            AnalysisFinished?.Invoke(this, convergence);
-        });
+            pendingCompletion = convergence;
+            if (!deferCompletion || IsResultUpdate) PublishCompletion();
+            PlatformServices.MainThreadDispatcher.Invoke(() => AnalysisFinished?.Invoke(this, convergence));
+        }
 
-        public void ReportSolverUpdate(SolverUpdate update) => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public void ReportSolverUpdate(SolverUpdate update)
         {
-            if (!Silent) SolverUpdated?.Invoke(null, update);
-        });
+            if (!Silent && update.Progress >= 0)
+            {
+                FittingPhase phase;
+                lock (progressGate) phase = currentPhase;
+                PublishProgress(phase, fraction: update.Progress);
+            }
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            {
+                if (!Silent) SolverUpdated?.Invoke(null, update);
+            });
+        }
 
         public virtual void Analyze()
         {
             starttime = DateTime.Now;
+            var operation = ProcessingActivity.Current;
+            lock (progressGate)
+            {
+                Operation = operation;
+                standaloneOperationId = Guid.NewGuid();
+                currentMemberPosition = 0;
+                currentMemberName = null;
+                currentCompleted = currentTotal = null;
+                deliveredProgress = null;
+            }
+            completionPublished = false;
+            pendingCompletion = null;
             TerminateAnalysisFlag.Lower();
+            TerminateAnalysisFlag.WasRaised -= ReportStopping;
+            TerminateAnalysisFlag.WasRaised += ReportStopping;
             AnalysisStarted?.Invoke(this, TerminateAnalysisFlag);
 
             StatusBarManager.StartInderminateProgress();
 
-            string mdl = this switch
-            {
-                Solver => (this as Solver).Model.ModelType.ToString(),
-                GlobalSolver global => (global.Model.ShouldFitIndividually ? "" : "Global.") + global.Model.ModelType.ToString(),
-                _ => "",
-            };
-            StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.GetProperties().ShortName + "...", 0, priority: 1);
+            PublishProgress(FittingPhase.Fitting);
         }
+
+        void ReportStopping(object sender, EventArgs e) => PublishProgress(FittingPhase.Stopping);
 
         private void TerminateAnalysisFlag_WasRaised(object sender, EventArgs e)
         {
-            StatusBarManager.SetStatus("Terminating analysis...", 0, 3);
+            PublishProgress(FittingPhase.Stopping);
 
             // Each solver owns its optimizer token. The shared termination flag broadcasts the
             // stop request, while this handler only cancels this solver's token.
@@ -378,6 +491,7 @@ namespace AnalysisITC.Core.Analysis
         public virtual SolverConvergence Solve()
         {
             using var activity = ProcessingActivity.Begin();
+            Operation = ProcessingActivity.Current;
             ApplyErrorEstimationPolicy();
 
             // Subscribe to the termination flag so we can stop the underlying solver when requested.
@@ -420,6 +534,7 @@ namespace AnalysisITC.Core.Analysis
                     switch (UncertaintyGate?.Invoke(convergence) ?? UncertaintyDecision.Estimate)
                     {
                         case UncertaintyDecision.Estimate:
+                            if (ErrorEstimationMethod != ErrorEstimationMethod.None) PublishProgress(FittingPhase.EstimatingUncertainty);
                             EstimateUncertainty(convergence);
                             break;
                         case UncertaintyDecision.Skip:
@@ -866,7 +981,9 @@ namespace AnalysisITC.Core.Analysis
 
         public override async void Analyze()
         {
-            using var activity = ProcessingActivity.Begin();
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
+            deferCompletion = true;
             // Prepare analysis state and notify listeners.
             base.Analyze();
 
@@ -930,10 +1047,12 @@ namespace AnalysisITC.Core.Analysis
 
                 ReportAnalysisFinished(conv);
             }
+            finally { PublishCompletion(); }
         }
 
         void CalculateNullComparison()
         {
+            PublishProgress(FittingPhase.AssessingBinding);
             try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
                 SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1232,6 +1351,9 @@ namespace AnalysisITC.Core.Analysis
                 progress: progress =>
                 {
                     ProfileProgressObserver?.Invoke(progress);
+                    if (ProfileProgressObserver == null)
+                        PublishProgress(FittingPhase.EstimatingUncertainty, progress.CompletedSides, progress.TotalSides,
+                            progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides);
                     ReportSolverUpdate(new SolverUpdate(progress.CompletedSides, Math.Max(1, progress.TotalSides))
                     {
                         Progress = progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides,
@@ -1269,7 +1391,9 @@ namespace AnalysisITC.Core.Analysis
 
         public override async void Analyze()
         {
-            using var activity = ProcessingActivity.Begin();
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
+            deferCompletion = true;
             base.Analyze();
             ApplyErrorEstimationPolicy();
 
@@ -1297,7 +1421,7 @@ namespace AnalysisITC.Core.Analysis
                         var profileEndpointOffset = 0;
                         var profileAttemptedOffset = 0;
 
-                        void ConfigureProfileProgress(SolverInterface solver)
+                        void ConfigureProfileProgress(SolverInterface solver, Model member)
                         {
                             if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood) return;
                             var completedOffset = profileCompletedOffset;
@@ -1308,6 +1432,9 @@ namespace AnalysisITC.Core.Analysis
                                 var completed = completedOffset + profile.CompletedSides;
                                 var endpoints = endpointOffset + profile.EndpointsFound;
                                 var attempted = attemptedOffset + profile.AttemptedSolverCalls;
+                                PublishProgress(FittingPhase.EstimatingUncertainty, profile.CompletedSides, profile.TotalSides,
+                                    profileTotalSides == 0 ? 1 : (float)completed / profileTotalSides,
+                                    Model.Models.IndexOf(member) + 1, member.Data.Name);
                                 ReportSolverUpdate(new SolverUpdate(completed, Math.Max(1, profileTotalSides))
                                 {
                                     Progress = profileTotalSides == 0 ? 1 : (float)completed / profileTotalSides,
@@ -1336,13 +1463,17 @@ namespace AnalysisITC.Core.Analysis
                             if (TerminateAnalysisFlag.Up) throw new OptimizerStopException();
 
                             var solver = SolverInterface.Initialize(mdl);
+                            var position = Model.Models.IndexOf(mdl) + 1;
+                            solver.ProgressObserver = (phase, completed, total, fraction) =>
+                                PublishProgress(phase, completed, total, fraction, position, mdl.Data.Name);
+                            PublishProgress(FittingPhase.Fitting, memberPosition: position, memberName: mdl.Data.Name);
                             solver.ErrorEstimationMethod = ErrorEstimationMethod;
                             solver.BootstrapIterations = BootstrapIterations;
                             solver.SolverAlgorithm = SolverAlgorithm;
                             solver.UseErrorWeightedFitting = this.UseErrorWeightedFitting;
                             solver.Silent = true;
                             if (deferEstimation) solver.UncertaintyGate = _ => UncertaintyDecision.Defer;
-                            else ConfigureProfileProgress(solver);
+                            else ConfigureProfileProgress(solver, mdl);
 
                             var con = solver.Solve();
                             solver.UncertaintyGate = null;
@@ -1384,7 +1515,9 @@ namespace AnalysisITC.Core.Analysis
                                         con.MarkErrorEstimationSkippedForNoBinding();
                                     else
                                     {
-                                        ConfigureProfileProgress(solver);
+                                        PublishProgress(FittingPhase.EstimatingUncertainty,
+                                            memberPosition: Model.Models.IndexOf(mdl) + 1, memberName: mdl.Data.Name);
+                                        ConfigureProfileProgress(solver, mdl);
                                         solver.EstimateUncertainty(con);
                                         TrackProfileProgress(mdl);
                                     }
@@ -1420,6 +1553,7 @@ namespace AnalysisITC.Core.Analysis
                             var profileSummary = ProfileLikelihoodEstimator.Summarize(Model.Solution);
                             convergence.SetErrorEstimationOutcome(profileSummary.Outcome);
                             convergence.AppendErrorEstimationSummary(profileSummary.Diagnostics);
+                            PublishProgress(FittingPhase.EstimatingUncertainty, fraction: 1);
                             ReportSolverUpdate(new SolverUpdate(profileSummary.TotalSides, Math.Max(1, profileSummary.TotalSides))
                             {
                                 Progress = 1,
@@ -1482,6 +1616,7 @@ namespace AnalysisITC.Core.Analysis
 
                 ReportAnalysisFinished(conv);
             }
+            finally { PublishCompletion(); }
         }
 
         /// <summary>Manual member assessments by experiment ID, applied when deciding to skip (Update Result).</summary>
@@ -1494,6 +1629,7 @@ namespace AnalysisITC.Core.Analysis
 
         void CalculateNullComparison()
         {
+            PublishProgress(FittingPhase.AssessingBinding);
             try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
                 SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1773,11 +1909,16 @@ namespace AnalysisITC.Core.Analysis
             if (Model.ShouldFitIndividually) return;
             var run = ProfileLikelihoodEstimator.Run(Model, SolverAlgorithm, UseErrorWeightedFitting,
                 MaxBootstrapOptimizerIterations, ErrorEstimationToleranceModifier,
-                progress: progress => ReportSolverUpdate(new SolverUpdate(progress.CompletedSides, Math.Max(1, progress.TotalSides))
+                progress: progress =>
                 {
-                    Progress = progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides,
-                    Message = $"Profile likelihood: endpoints found {progress.EndpointsFound}/{progress.TotalSides}; attempted solver calls={progress.AttemptedSolverCalls}"
-                }));
+                    PublishProgress(FittingPhase.EstimatingUncertainty, progress.CompletedSides, progress.TotalSides,
+                        progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides);
+                    ReportSolverUpdate(new SolverUpdate(progress.CompletedSides, Math.Max(1, progress.TotalSides))
+                    {
+                        Progress = progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides,
+                        Message = $"Profile likelihood: endpoints found {progress.EndpointsFound}/{progress.TotalSides}; attempted solver calls={progress.AttemptedSolverCalls}"
+                    });
+                });
             if (Model.Solution == null) return;
             Model.Solution.ProfileLikelihoodRun = run;
             foreach (var member in Model.Models)

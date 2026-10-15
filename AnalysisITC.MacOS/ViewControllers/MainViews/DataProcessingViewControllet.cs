@@ -10,6 +10,7 @@ using System.Linq;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.UI.MacOS.Drawing;
 
@@ -33,6 +34,9 @@ namespace AnalysisITC
         ExperimentData integrationSliderOwner;
         double integrationSliderLastValue;
         bool integrationSliderChanged;
+        ProcessingActivity.ProcessingLease integrationSliderActivity;
+        MacCalculationControls calculationControls;
+        readonly Dictionary<NSMenuItem, string> idleMenuTooltips = new();
 
         private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
 
@@ -75,6 +79,15 @@ namespace AnalysisITC
 
             ConfigureProcessingOptionsMenu();
             RefreshProcessingSummary();
+            calculationControls = new MacCalculationControls(() => new NSControl[]
+            {
+                ProcessingLockButton, InterpolatorTypeControl, SplineAlgoControl,
+                SplinePointDensityControl, SplineHandleModeControl, PolynomialDegreeSlider, ZLimitSlider,
+                PolynomialDiscardIntegrationRange, SplineDiscardIntegrationRange, FitPeaksButton,
+                IntegrationDelayControl, IntegrationLengthControl, CopyToNextButton,
+                ConvertToLinearSplineButton, ConvertToSmoothSplineButton,
+            }.Concat(MacCalculationControls.ForActions(View, "CopySettingsToAllClicked:"))
+                .Where(control => control is not IntegrationRangeSlider { IsTrackingRange: true }), UpdateUI);
         }
 
         private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)
@@ -123,20 +136,40 @@ namespace AnalysisITC
         /// <summary>
         /// Initialize a baseline for data that does not have any baseline
         /// </summary>
-        void InitializeData()
+        async void InitializeData()
         {
-            if (Data != null)
-            {
-                if (Processor != null)
-                {
-                    if (Processor.BaselineType == BaselineInterpolatorTypes.None)
-                    {
-                        Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
-                        UpdateIntegrationEndPoint(Data.Injections[0].Delay / 2);
+            var data = Data;
+            var processor = data?.Processor;
+            if (!ContextIsValid || processor == null || processor.IsLocked
+                || processor.BaselineType != BaselineInterpolatorTypes.None || data.Injections.Count == 0)
+                return;
+            var documentId = DocumentDirtyTracker.CurrentDocumentId;
+            ProcessingActivity.ProcessingLease activity = null;
+            IDisposable ownership = null;
 
-                        UpdateProcessing(true);
-                    }
-                }
+            try
+            {
+                activity = await ProcessingActivity.BeginAsync();
+                ownership = activity.Enter();
+                if (Handle == IntPtr.Zero || documentId != DocumentDirtyTracker.CurrentDocumentId
+                    || !ReferenceEquals(data, Data) || !DataManager.Data.Contains(data)
+                    || !ReferenceEquals(processor, data.Processor) || !ContextIsValid
+                    || processor.IsLocked || processor.BaselineType != BaselineInterpolatorTypes.None
+                    || data.Injections.Count == 0)
+                    return;
+
+                processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+                UpdateIntegrationEndPoint(data.Injections[0].Delay / 2, process: false);
+                await processor.ProcessData();
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+            finally
+            {
+                ownership?.Dispose();
+                activity?.Dispose();
             }
         }
 
@@ -380,6 +413,17 @@ namespace AnalysisITC
                             item.Enabled = canChooseConversionDensity;
                         break;
                 }
+                if (ProcessingActivity.IsBusy && IsLiveProcessingCommand(item.Identifier))
+                {
+                    if (!idleMenuTooltips.ContainsKey(item)) idleMenuTooltips[item] = item.ToolTip;
+                    item.Enabled = false;
+                    item.ToolTip = FittingStatusPresentation.BusyTooltip;
+                }
+                else if (idleMenuTooltips.TryGetValue(item, out var tooltip))
+                {
+                    item.ToolTip = tooltip;
+                    idleMenuTooltips.Remove(item);
+                }
             }
 
             if (SplineConversionPointDensityControl != null)
@@ -393,6 +437,7 @@ namespace AnalysisITC
 
             if (SplinePointDensityControl != null)
                 SplinePointDensityControl.Enabled = splineInterpolator != null;
+            calculationControls?.Refresh();
         }
 
         void UpdateProcessingLockUI()
@@ -442,10 +487,14 @@ namespace AnalysisITC
             CopyToNextButton.Enabled = integrationEditingEnabled &&
                 BaselineGraphView.SelectedPeak >= 0 &&
                 BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1;
+            calculationControls?.Refresh();
         }
 
         void ToggleProcessingLock()
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid || Processor?.Interpolator == null) return;
 
             Processor.ToggleLock();
@@ -457,6 +506,7 @@ namespace AnalysisITC
         void ProcessingOptionsMenuItemActivated(object sender, EventArgs e)
         {
             if (sender is not NSMenuItem item) return;
+            if (ProcessingActivity.IsBusy && IsLiveProcessingCommand(item.Identifier)) return;
 
             var splineInterpolator = Processor?.Interpolator as SplineInterpolator;
 
@@ -489,16 +539,23 @@ namespace AnalysisITC
                     ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
                     break;
                 case CopyToActiveMenuIdentifier:
-                    DataManager.CopySelectedProcessToActive();
+                    CopyProcessing(false);
                     break;
                 case CopyToNonProcessedMenuIdentifier:
-                    DataManager.CopySelectedProcessToNonProcessed();
+                    CopyProcessing(true);
                     break;
             }
         }
 
+        static bool IsLiveProcessingCommand(string identifier) => identifier is
+            LockProcessorMenuIdentifier or ConvertToSmoothSplineMenuIdentifier or ConvertToLinearSplineMenuIdentifier
+            or CopyToActiveMenuIdentifier or CopyToNonProcessedMenuIdentifier;
+
         async void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid || Processor?.Interpolator == null || Processor.IsLocked) return;
 
             if (Processor.Interpolator is SplineInterpolator splineInterpolator)
@@ -581,12 +638,17 @@ namespace AnalysisITC
 
         void UpdateSliderLabels()
         {
-            IntegrationStartDelayLabel.FloatValue = IntegrationDelayControl.FloatValue;
-            var lengthlabel = GetLengthSliderParameter();
             if (Data != null)
             {
+                IntegrationStartDelayLabel.FloatValue = IntegrationDelayControl.FloatValue;
+                var lengthlabel = GetLengthSliderParameter();
                 if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "x";
                 else IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "s";
+            }
+            else
+            {
+                IntegrationStartDelayLabel.StringValue = "";
+                IntegrationLengthLabel.StringValue = "";
             }
 
             PolynomialDegreeLabel.StringValue = PolynomialDegreeFromSlider(PolynomialDegreeSlider.IntValue).ToString();
@@ -595,6 +657,9 @@ namespace AnalysisITC
 
         partial void DiscardIntRangeAction(NSButton sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             DiscardIntegratedPoints = !DiscardIntegratedPoints;
 
             PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
@@ -610,6 +675,9 @@ namespace AnalysisITC
 
         partial void InterplolatorClicked(NSSegmentedControl sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid) return;
             // Determine baseline type
             BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch
@@ -631,6 +699,9 @@ namespace AnalysisITC
 
         partial void SplineAlgoClicked(NSSegmentedControl sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid) return;
             if (Processor.Interpolator is not SplineInterpolator splineInterpolator) return;
 
@@ -652,6 +723,9 @@ namespace AnalysisITC
 
         partial void SplineHandleModeControlClicked(NSSegmentedControl sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid) return;
 
             // Select between mean or median since segment 3 is not available
@@ -685,6 +759,9 @@ namespace AnalysisITC
 
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid) return;
             if (Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomialInterpolator)
             {
@@ -705,6 +782,9 @@ namespace AnalysisITC
 
         partial void ZLimitChanged(NSSlider sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid) return;
             if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator polynomialInterpolator) return;
 
@@ -722,6 +802,9 @@ namespace AnalysisITC
 
         partial void SplinePointDensityAction(NSSegmentedControl sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (sender == SplineConversionPointDensityControl)
             {
                 UpdateProcessingOptionsMenu();
@@ -802,6 +885,9 @@ namespace AnalysisITC
 
         async partial void FitPeaksClicked(NSButton sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid || Data.Injections.Count == 0) return;
 
             try
@@ -825,6 +911,9 @@ namespace AnalysisITC
 
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
         {
+            using var activity = integrationSliderActivity == null ? ProcessingActivity.TryBegin() : null;
+            if (activity == null && integrationSliderActivity == null) return;
+            using var ownership = (integrationSliderActivity ?? activity).Enter();
             if (!AcceptIntegrationSliderAction(sender)) return;
             UpdateSliderLabels();
             UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue, !IntegrationDelayControl.IsTrackingRange);
@@ -832,6 +921,9 @@ namespace AnalysisITC
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
+            using var activity = integrationSliderActivity == null ? ProcessingActivity.TryBegin() : null;
+            if (activity == null && integrationSliderActivity == null) return;
+            using var ownership = (integrationSliderActivity ?? activity).Enter();
             if (!AcceptIntegrationSliderAction(sender)) return;
             UpdateSliderLabels();
             UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter(), refreshBaseline: !IntegrationLengthControl.IsTrackingRange);
@@ -839,6 +931,8 @@ namespace AnalysisITC
 
         void IntegrationSliderTrackingStarted(object sender, EventArgs e)
         {
+            integrationSliderActivity = ProcessingActivity.TryBegin();
+            if (integrationSliderActivity == null) return;
             trackingIntegrationSlider = (IntegrationRangeSlider)sender;
             integrationSliderOwner = Data;
             integrationSliderLastValue = trackingIntegrationSlider.DoubleValue;
@@ -861,6 +955,10 @@ namespace AnalysisITC
         void IntegrationSliderTrackingCompleted(object sender, EventArgs e)
         {
             if (!ReferenceEquals(sender, trackingIntegrationSlider)) return;
+            using var activity = integrationSliderActivity;
+            integrationSliderActivity = null;
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             var publish = integrationSliderChanged && ReferenceEquals(Data, integrationSliderOwner);
             trackingIntegrationSlider = null;
             integrationSliderOwner = null;
@@ -888,7 +986,7 @@ namespace AnalysisITC
             return (float)(Math.Log(value, 5) * IntegrationLengthControl.MaxValue);
         }
 
-        void UpdateIntegrationEndPoint(float time_or_factor, bool refreshBaseline = true)
+        void UpdateIntegrationEndPoint(float time_or_factor, bool refreshBaseline = true, bool process = true)
         {
             if (!ContextIsValid || Processor.IsLocked) return;
 
@@ -914,6 +1012,9 @@ namespace AnalysisITC
                 }
 
                 BaselineGraphView.Invalidate();
+
+                // Initialization supplies the endpoint before its single awaited processing pass.
+                if (!process) return;
 
                 if (refreshBaseline && DiscardIntegratedPoints)
                     UpdateProcessing();
@@ -1030,6 +1131,9 @@ namespace AnalysisITC
 
         partial void CopyToNextButtonAction(NSObject sender)
         {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
             if (!ContextIsValid || Processor.IsLocked) return;
 
             int selected = BaselineGraphView?.SelectedPeak ?? -1;
@@ -1102,7 +1206,16 @@ namespace AnalysisITC
 
         partial void CopySettingsToAllClicked(NSObject sender)
         {
-            DataManager.CopySelectedProcessToActive();
+            CopyProcessing(false);
+        }
+
+        void CopyProcessing(bool nonProcessed)
+        {
+            using var activity = ProcessingActivity.TryBegin();
+            if (activity == null) return;
+            using var ownership = activity.Enter();
+            if (nonProcessed) DataManager.CopySelectedProcessToNonProcessed();
+            else DataManager.CopySelectedProcessToActive();
         }
 
         void UpdateProcessing(bool replace = true)
@@ -1114,7 +1227,12 @@ namespace AnalysisITC
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) DataManager.DataDidChange -= OnProcessingDataChanged;
+            if (disposing)
+            {
+                DataManager.DataDidChange -= OnProcessingDataChanged;
+                calculationControls?.Dispose();
+                integrationSliderActivity?.Dispose();
+            }
             base.Dispose(disposing);
         }
 
