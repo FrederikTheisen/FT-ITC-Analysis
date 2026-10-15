@@ -332,12 +332,12 @@ namespace AnalysisITC.Avalonia.Results
                 var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
 
                 Refresh();
-                ResultUpdated?.Invoke(this, EventArgs.Empty);
                 var status = UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence);
                 StatusBarManager.SetStatus(status, 5000);
 
                 if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
                 {
+                    ResultUpdated?.Invoke(this, EventArgs.Empty);
                     var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts, result.MemberAssessments);
                     if (!string.IsNullOrWhiteSpace(boundaryWarning))
                         StatusBarManager.QueueStatus(boundaryWarning, 5000);

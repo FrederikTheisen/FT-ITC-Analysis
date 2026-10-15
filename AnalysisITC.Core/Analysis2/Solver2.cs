@@ -321,7 +321,12 @@ namespace AnalysisITC.Core.Analysis
 
         public void ReportAnalysisFinished(SolverConvergence convergence) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
-            if (!Silent) AnalysisFinished?.Invoke(this, convergence);
+            if (Silent) return;
+            // Every completion listener, including desktop progress handlers,
+            // needs a concrete outcome even when no solver result was produced.
+            convergence ??= SolverConvergence.FromException(new InvalidOperationException(
+                "Analysis finished without convergence information."), starttime);
+            AnalysisFinished?.Invoke(this, convergence);
         });
 
         public void ReportSolverUpdate(SolverUpdate update) => PlatformServices.MainThreadDispatcher.Invoke(() =>

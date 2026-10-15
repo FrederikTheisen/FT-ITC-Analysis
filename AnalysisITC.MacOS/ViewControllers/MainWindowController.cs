@@ -1146,6 +1146,7 @@ namespace AnalysisITC
             {
                 StatusBarManager.ClearAppStatus();
                 AppEventHandler.DisplayHandledException(ex);
+                StatusBarManager.SetStatus($"Result update failed: {ex.Message}", 5000);
                 UpdateContextToolbarMenu();
             }
         }

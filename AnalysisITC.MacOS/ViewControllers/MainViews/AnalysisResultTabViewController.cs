@@ -613,7 +613,8 @@ namespace AnalysisITC
                 var convergence =
                     await AnalysisResultUpdater.UpdateAsync(analysisResult, options);
 
-                ResetEvaluationTemperature();
+                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                    ResetEvaluationTemperature();
                 RefreshAll();
                 var status = UncertaintyEstimationPresentation.UpdateStatus(analysisResult.Solution, convergence);
                 StatusBarManager.SetStatus(status, 5000);

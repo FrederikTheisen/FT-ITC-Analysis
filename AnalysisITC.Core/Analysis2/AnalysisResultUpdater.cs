@@ -450,7 +450,18 @@ namespace AnalysisITC.Core.Analysis
                 if (!ReferenceEquals(sender, solver)) return;
 
                 SolverInterface.AnalysisFinished -= OnAnalysisFinished;
-                completion.TrySetResult(convergence);
+                if (convergence == null)
+                    completion.TrySetException(new InvalidOperationException(
+                        "Analysis update finished without convergence information. The existing result was retained."));
+                else if (convergence.Failed)
+                {
+                    var reason = string.IsNullOrWhiteSpace(convergence.FailureReason)
+                        ? convergence.Message : convergence.FailureReason;
+                    completion.TrySetException(new InvalidOperationException(
+                        $"Analysis update did not produce a usable result. The existing result was retained. {reason}", convergence.RootCause));
+                }
+                else
+                    completion.TrySetResult(convergence);
             }
 
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
