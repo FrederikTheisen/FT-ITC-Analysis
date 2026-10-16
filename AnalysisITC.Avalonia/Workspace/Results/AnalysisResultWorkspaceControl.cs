@@ -1187,14 +1187,17 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildAvailabilitySection()
         {
-            return Section("Available analyses", new Control[]
+            var rows = new List<Control>
             {
                 Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair(StructuringPresentation.Title, result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable",
                     labelTooltip: StructuringPresentation.TitleToolTip),
                 Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
-            });
+            };
+            if (!string.IsNullOrWhiteSpace(result?.ProtonationAnalysisUnavailableReason))
+                rows.Add(Message(result.ProtonationAnalysisUnavailableReason));
+            return Section("Available analyses", rows.ToArray());
         }
 
         void RefreshCorrelationAnalysis()

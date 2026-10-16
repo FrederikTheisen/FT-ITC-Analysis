@@ -199,7 +199,7 @@ between Std. and Diag.
 | Experiment | "1A. Name", with assessment on a second line when applicable. |
 | Temperature (°C) | Temperature dependence enabled. |
 | [Ions] (mM) | Electrostatics enabled. |
-| ∆H,prot (kJ/mol) | Protonation enabled. |
+| ∆H,prot (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
 | One column per model parameter | "(fixed)" for fixed values; "—" for non-finite values. |
 | RMSD (µJ) | Member fit RMSD. |
 | AICc / AIC | "AIC <value>" when no AICc; omitted when no per-experiment criteria. |
@@ -491,6 +491,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | **V01** | **Error list instead of a report** | no result; duplicate or missing selection; no model or experiments; missing/non-finite parameters where binding is shown |
 
 ## Rules that affect many blocks
+
+- Buffer-protonation eligibility requires usable thermochemistry for every member and at least two distinct finite buffer enthalpies. A06 follows this shared eligibility; missing values never supply zero and members are not silently omitted. X06 remains conditional on a completed saved fit. Unavailability explanations appear in both desktop inspectors; no report block or layout is added (CR-021).
 
 - Experiment conditions subtitles use 11 pt light text in the normal text color and a 3 pt gap below their heading. Initial concentrations form one field with syringe first and cell second (`100 µM ▸ 10 µM`); remaining fields use spaced pipes (` | `). Each concentration retains its own unit; unavailable concentrations are omitted without leaving an orphan triangle. The heading and complete wrapped subtitle stay together. Temperature follows the report's °C/K setting and retains the report's two-decimal rounding while omitting trailing zeros; concentrations omit uncertainty. Ionic strength is included only from an explicit attribute, without calculation. Detailed rows retain their full values and uncertainties.
 

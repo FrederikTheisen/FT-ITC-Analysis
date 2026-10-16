@@ -822,9 +822,10 @@ namespace AnalysisITC.Core.Analysis.Models
                 output.Add(new("[I]", new FloatWithError(BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
             }
 
-            if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
+            if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy)
+                && BufferAttribute.TryGetProtonationEnthalpy(Model.Data, out var bufferEnthalpy))
             {
-                output.Add(new(MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(ReportEnergyUnit, "F1", true, true)));
+                output.Add(new(MarkdownStrings.ProtonationEnthalpy, bufferEnthalpy.ToString(ReportEnergyUnit, "F1", true, true)));
             }
 
             return output;

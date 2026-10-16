@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 using AnalysisITC.Core.Data;
-using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
@@ -21,8 +20,10 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var sol in Data.Solution.Solutions)
             {
+                if (!BufferAttribute.TryGetProtonationEnthalpy(sol.Data, sol.Temp, out var bufferEnthalpy))
+                    throw new InvalidOperationException(ProtonationAnalysisAvailability.GetUnavailableReason(Data.Solution.Solutions));
                 DataPoints.Add(new Tuple<double, FloatWithError>(
-                    ((Buffer)sol.Data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
+                    bufferEnthalpy.Value,
                     sol.TotalEnthalpy));
             }
         }

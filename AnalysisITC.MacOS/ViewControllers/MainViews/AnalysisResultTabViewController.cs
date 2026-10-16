@@ -742,31 +742,29 @@ namespace AnalysisITC
                     AddProtonationAnalysisSections();
                     break;
                 default:
-                    AddPageView(analysisStack, Section(
-                        "Available analyses",
-                        Pair(
-                            "Temperature presentation",
-                            analysisResult.IsTemperatureDependenceEnabled
-                                ? "Available"
-                                : "Unavailable"),
-                        Pair(
-                            StructuringPresentation.Title,
-                            analysisResult.IsSpolarRecordAnalysisEnabled
-                                ? "Available"
-                                : "Unavailable",
-                            StructuringPresentation.TitleToolTip),
-                        Pair(
-                            "Electrostatics",
-                            analysisResult.IsElectrostaticsAnalysisDependenceEnabled
-                                ? "Available"
-                                : "Unavailable"),
-                        Pair(
-                            "Protonation",
-                            analysisResult.IsProtonationAnalysisEnabled
-                                ? "Available"
-                                : "Unavailable")));
+                    AddPageView(analysisStack, BuildAvailabilitySection());
                     break;
             }
+        }
+
+        NSView BuildAvailabilitySection()
+        {
+            NSTextField reason = null;
+            if (!string.IsNullOrWhiteSpace(analysisResult.ProtonationAnalysisUnavailableReason))
+            {
+                reason = NSTextField.CreateWrappingLabel(analysisResult.ProtonationAnalysisUnavailableReason);
+                reason.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+                reason.TextColor = NSColor.SecondaryLabel;
+                reason.Selectable = true;
+                reason.TranslatesAutoresizingMaskIntoConstraints = false;
+            }
+            return Section("Available analyses",
+                Pair("Temperature presentation", analysisResult.IsTemperatureDependenceEnabled ? "Available" : "Unavailable"),
+                Pair(StructuringPresentation.Title, analysisResult.IsSpolarRecordAnalysisEnabled ? "Available" : "Unavailable",
+                    StructuringPresentation.TitleToolTip),
+                Pair("Electrostatics", analysisResult.IsElectrostaticsAnalysisDependenceEnabled ? "Available" : "Unavailable"),
+                Pair("Protonation", analysisResult.IsProtonationAnalysisEnabled ? "Available" : "Unavailable"),
+                reason);
         }
 
         NSView BuildAnalysisNullComparisonSection()

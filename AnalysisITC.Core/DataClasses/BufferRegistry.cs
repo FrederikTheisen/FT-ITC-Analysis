@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Data
@@ -135,22 +136,33 @@ namespace AnalysisITC.Core.Data
 
         /// <summary>
         /// Ionization (deprotonation) enthalpy ΔH° for the step chosen at the provided pH.
-        /// Returns 0 if missing.
+        /// Returns NaN if unavailable.
         /// </summary>
         public static double GetIonizationEnthalpy(BufferSpec buffer, double temperatureK, double pH)
         {
-            if (buffer?.ThermoSteps == null || buffer.ThermoSteps.Length == 0) return 0.0;
+            return TryGetIonizationEnthalpy(buffer, temperatureK, pH, out var enthalpy) ? enthalpy : double.NaN;
+        }
+
+        public static bool TryGetIonizationEnthalpy(BufferSpec buffer, double temperatureK, double pH, out double enthalpy)
+        {
+            enthalpy = double.NaN;
+            if (buffer?.ThermoSteps == null || buffer.ThermoSteps.Length == 0
+                || buffer.LegacyEnum == (int)Buffer.Null || string.Equals(buffer.Id, "null", StringComparison.OrdinalIgnoreCase)
+                || !FWEMath.IsFinite(temperatureK) || !FWEMath.IsFinite(pH)) return false;
 
             var idx = GetEffectiveStepIndex(buffer, pH);
-            idx = Math.Min(idx, buffer.ThermoSteps.Length - 1);
+            if (idx >= buffer.ThermoSteps.Length) return false;
 
             var step = buffer.ThermoSteps[idx];
-            if (step == null) return 0.0;
+            if (step == null || !FWEMath.IsFinite(step.DH298_Jmol) || !FWEMath.IsFinite(step.DCp_JmolK)) return false;
 
             var dH298 = step.DH298_Jmol;
             var dCp = step.DCp_JmolK;
 
-            return dH298 + dCp * (temperatureK - ReferenceTemperatureK);
+            var evaluated = dH298 + dCp * (temperatureK - ReferenceTemperatureK);
+            if (!FWEMath.IsFinite(evaluated)) return false;
+            enthalpy = evaluated;
+            return true;
         }
 
         /// <summary>
@@ -220,10 +232,10 @@ namespace AnalysisITC.Core.Data
     public sealed class BufferThermoStep
     {
         [JsonPropertyName("dH298_Jmol")]
-        public double DH298_Jmol { get; set; }
+        public double DH298_Jmol { get; set; } = double.NaN;
 
         [JsonPropertyName("dCp_JmolK")]
-        public double DCp_JmolK { get; set; }
+        public double DCp_JmolK { get; set; } = double.NaN;
     }
 
     /// <summary>

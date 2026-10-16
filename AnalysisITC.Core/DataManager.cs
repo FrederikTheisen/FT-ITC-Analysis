@@ -799,7 +799,7 @@ namespace AnalysisITC.Core.Application
 
         static double OrderOnIonicProtonationEnthalpy(ITCDataContainer item)
         {
-            if (item is ExperimentData data) return BufferAttribute.GetProtonationEnthalpy(data);
+            if (item is ExperimentData data && BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)) return enthalpy.Value;
             return double.MaxValue;
         }
 

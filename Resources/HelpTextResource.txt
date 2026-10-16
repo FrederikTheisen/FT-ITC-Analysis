@@ -353,7 +353,7 @@ For one-set-of-sites results, open the additional analysis tabs when the experim
 
 **Ionic strength:** compare experiments with varied ionic strength and recorded salt metadata.
 
-**Protonation:** compare experiments with varied buffer metadata.
+**Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection.
 
 Check buffer constants and conditions before interpreting these analyses. Completed structuring outputs retain their saved estimates and evaluation temperature until rerun.
 

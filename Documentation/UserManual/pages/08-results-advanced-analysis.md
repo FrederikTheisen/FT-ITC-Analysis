@@ -226,7 +226,7 @@ The Salt output includes the extrapolated **Kd0** and **Counter ion** result whe
 
 ### Protonation
 
-The **Protonation** view requires a **Buffer** attribute for every member and at least two distinct buffer identities. Its calculated output contains **Protons** and **Binding H**, with uncertainty when the stored analysis contains the corresponding uncertainty results.
+The **Protonation** view requires a **Buffer** attribute and available buffer ionization enthalpy at the experimental temperature for every member, with at least two distinct enthalpy values across the collection. **Available analyses** explains which buffers and experiments lack usable thermochemistry. These buffers remain selectable for ordinary fitting; missing thermochemistry is unavailable rather than zero, and members are not automatically omitted to enable protonation analysis. Its calculated output contains **Protons** and **Binding H**, with uncertainty when the stored analysis contains the corresponding uncertainty results.
 
 The view relates the stored member binding enthalpies to the buffer protonation information associated with their conditions. The result is conditional on the recorded buffer identities, their temperature-dependent protonation enthalpies, and the model assumptions; it does not identify a particular residue or microscopic protonation event.
 

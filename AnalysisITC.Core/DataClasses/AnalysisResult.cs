@@ -90,7 +90,8 @@ namespace AnalysisITC.Core.Data
             : IsElectrostaticsAnalysisDependenceEnabled ? string.Empty : "Electrostatics analysis requires varying ionic strength and salt metadata for every experiment.";
         public string ProtonationAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
-            : IsProtonationAnalysisEnabled ? string.Empty : "Protonation analysis requires multiple buffers with protonation metadata.";
+            : protonationAnalysisUnavailableReason;
+        string protonationAnalysisUnavailableReason = string.Empty;
 
         public FTSRMethod SpolarRecordAnalysis { get; private set; }
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
@@ -519,16 +520,8 @@ namespace AnalysisITC.Core.Data
 
             IsElectrostaticsAnalysisDependenceEnabled = IsAdvancedAnalysisAvailable && variable_is && allsalt;
 
-            //Check if all data has buffer info and figure out if any are different
-            if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer)))
-            {
-                var firstSolutionBuffer = Solution.Solutions.First().Data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue;
-
-                IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && Solution.Solutions
-                    .Skip(1)
-                    .Any(sol => sol.Data.Attributes
-                    .Find(att => att.Key == AttributeKey.Buffer).IntValue != firstSolutionBuffer);
-            }
+            protonationAnalysisUnavailableReason = ProtonationAnalysisAvailability.GetUnavailableReason(Solution.Solutions);
+            IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && string.IsNullOrEmpty(protonationAnalysisUnavailableReason);
         }
 
         void InitializeAnalyses()

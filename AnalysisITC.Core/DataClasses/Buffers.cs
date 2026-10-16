@@ -14,7 +14,7 @@ namespace AnalysisITC.Core.Data
 {
 	public enum Buffer
 	{
-        [Buffer("Generic Buffer", 7.0, 0, 0, "Unknown Buffer", new[] { 0.0, 0.0 })]
+        [Buffer("Generic Buffer", 7.0, 0, 0, "Unknown Buffer")]
         Null = -1,
 		[Buffer("Hepes", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
 		Hepes,
@@ -102,7 +102,7 @@ namespace AnalysisITC.Core.Data
         public static BufferAttribute GetProperties(this Buffer value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(BufferAttribute), false).FirstOrDefault() as BufferAttribute;
+            var attribute = fieldInfo?.GetCustomAttributes(typeof(BufferAttribute), false).FirstOrDefault() as BufferAttribute;
 
             return attribute;
         }
@@ -115,8 +115,14 @@ namespace AnalysisITC.Core.Data
 
         public static double GetProtonationEnthalpy(this Buffer value, double temperature)
         {
-			if (value == Buffer.Null) return 0;
-            return value.GetProperties().ProtonationEnthalpy.Evaluate(temperature);
+            return value.TryGetProtonationEnthalpy(temperature, out var enthalpy) ? enthalpy : double.NaN;
+        }
+
+        public static bool TryGetProtonationEnthalpy(this Buffer value, double temperature, out double enthalpy)
+        {
+            enthalpy = double.NaN;
+            return value != Buffer.Null && value.GetProperties() is BufferAttribute properties
+                && properties.TryGetProtonationEnthalpy(temperature, out enthalpy);
         }
     }
 
@@ -138,7 +144,19 @@ namespace AnalysisITC.Core.Data
 		public double[] dPKadT { get; private set; }
 		int[] AcidCharges { get; set; }
 
-		public LinearFit ProtonationEnthalpy { get; private set; } = new(0, 0, 25);
+		public LinearFit ProtonationEnthalpy { get; private set; }
+
+        public bool TryGetProtonationEnthalpy(double temperature, out double enthalpy)
+        {
+            enthalpy = double.NaN;
+            if (ProtonationEnthalpy == null || !FWEMath.IsFinite(temperature)
+                || !FWEMath.IsFinite(ProtonationEnthalpy.Slope)
+                || !FWEMath.IsFinite(ProtonationEnthalpy.Intercept)) return false;
+            var evaluated = ProtonationEnthalpy.Evaluate(temperature);
+            if (!FWEMath.IsFinite(evaluated)) return false;
+            enthalpy = evaluated;
+            return true;
+        }
 
         /// <summary>
         /// Number of transitions as the number of pKa values
@@ -229,7 +247,12 @@ namespace AnalysisITC.Core.Data
             AddAliases(names);
         }
 
-        public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
+        public BufferAttribute(string name, double pka, double tc, int za, string description)
+            : this(name, pka, tc, za, description, (double[])null)
+        {
+        }
+
+        public BufferAttribute(string name, double pka, double tc, int za, string description, double dh)
         {
             ListName = name;
             Description = description;
@@ -299,12 +322,13 @@ namespace AnalysisITC.Core.Data
 			}
 			tooltip = tooltip.Substring(0, tooltip.Length - 2);
 
-            if (ProtonationEnthalpy.Intercept != 0)
+            if (TryGetProtonationEnthalpy(25, out var enthalpy))
             {
-                var protonation = new Energy(ProtonationEnthalpy.Evaluate(25));
+                var protonation = new Energy(enthalpy);
                 var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, protonation.Value);
                 tooltip += Environment.NewLine + MarkdownStrings.ProtonationEnthalpy + "@25°C = " + protonation.ToFormattedString(unit, withunit: true, permole: true);
             }
+            else tooltip += Environment.NewLine + "Buffer ionization enthalpy unavailable";
 
 			return tooltip;
         }
@@ -532,18 +556,24 @@ namespace AnalysisITC.Core.Data
 
 		public static Energy GetProtonationEnthalpy(ExperimentData data)
 		{
-			return TryGetProtonationEnthalpy(data, out var enthalpy) ? enthalpy : new Energy(0);
+            return TryGetProtonationEnthalpy(data, out var enthalpy) ? enthalpy : new Energy(double.NaN);
 		}
 
 		public static bool TryGetProtonationEnthalpy(ExperimentData data, out Energy enthalpy)
 		{
-			enthalpy = new Energy(0);
+            return TryGetProtonationEnthalpy(data, data?.MeasuredTemperature ?? double.NaN, out enthalpy);
+        }
+
+        public static bool TryGetProtonationEnthalpy(ExperimentData data, double temperature, out Energy enthalpy)
+        {
+            enthalpy = new Energy(double.NaN);
 
 			var bufferAttribute = data?.Attributes?.Find(att => att.Key == AttributeKey.Buffer);
 			if (bufferAttribute == null) return false;
 
 			var buffer = (Buffer)bufferAttribute.IntValue;
-			enthalpy = new Energy(buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
+            if (!buffer.TryGetProtonationEnthalpy(temperature, out var value)) return false;
+            enthalpy = new Energy(value);
 			return true;
 		}
 
