@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.LogicalTree;
@@ -23,6 +25,7 @@ using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -573,6 +576,636 @@ public sealed class AnalysisWorkspaceControlTests
                 DataManager.Clear(DataClearMode.ResetSession);
             }
         });
+    }
+
+    [AvaloniaTheory]
+    [InlineData("B,C", "C")]
+    [InlineData("B,A", "A")]
+    public async Task CancelledFitUsesLatestSelectedExperimentOnNextRun(string selectionPath, string expectedName)
+    {
+        await WaitForFitToFinish();
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+
+        var first = CreateFitExperiment("selection-race-A.itc", 2000);
+        var second = CreateFitExperiment("selection-race-B.itc", -3000);
+        var third = CreateFitExperiment("selection-race-C.itc", 1000);
+        AttachFittedSolution(first);
+        DataManager.AddData(new[] { first, second, third });
+
+        var selected = new Dictionary<string, ExperimentData>(StringComparer.Ordinal)
+        {
+            ["A"] = first,
+            ["B"] = second,
+            ["C"] = third
+        };
+        var workspace = new AnalysisWorkspaceControl { Experiment = first };
+        var window = new Window { Content = workspace };
+        var analysisStartCount = 0;
+        ExperimentData? nextRunData = null;
+        Model? firstRunModel = null;
+        EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+        {
+            analysisStartCount++;
+            if (analysisStartCount == 1)
+            {
+                if (sender is Solver solver) firstRunModel = solver.Model;
+                foreach (var key in selectionPath.Split(','))
+                    workspace.Experiment = selected[key];
+            }
+            else if (sender is Solver secondSolver)
+            {
+                nextRunData = secondSolver.Model.Data;
+            }
+
+            workspace.StopFit();
+        };
+
+        try
+        {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(workspace.CanRunFit);
+
+            workspace.RunFit();
+            await WaitForFitToFinish();
+
+            Assert.Same(selected[expectedName], workspace.Experiment);
+            Assert.Empty(DataManager.Results);
+            var retainedSolution = firstRunModel!.Solution;
+            var retainedOffset = firstRunModel.Parameters.Table[ParameterType.Offset].Value;
+            var retainedPrediction = firstRunModel.Evaluate(0);
+
+            Assert.True(workspace.CanRunFit);
+            var runButton = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Run Fit"));
+            runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForFitToFinish();
+
+            Assert.Equal(2, analysisStartCount);
+            Assert.Same(selected[expectedName], nextRunData);
+            // Starting another fit on A intentionally attaches a fresh prepared
+            // model. The retained first-fit snapshot itself must remain unchanged.
+            if (!ReferenceEquals(selected[expectedName], first))
+            {
+                Assert.Same(firstRunModel, first.Model);
+                Assert.Same(retainedSolution, first.Solution);
+            }
+            Assert.Same(retainedSolution, firstRunModel.Solution);
+            Assert.Equal(retainedOffset, firstRunModel.Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(retainedPrediction, firstRunModel.Evaluate(0));
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+        }
+
+    }
+
+    [AvaloniaTheory]
+    [InlineData("unready")]
+    [InlineData("result")]
+    [InlineData("none")]
+    public async Task MainWindowSelectionDuringFitClearsStaleReadyContext(string selectionTarget)
+    {
+        await WaitForFitToFinish();
+        var application = Application.Current!;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateFitExperiment("main-selection-A.itc", 2000);
+        var second = CreateFitExperiment("main-selection-B.itc", -3000);
+        var unready = CreateFitExperiment("main-selection-unready.itc", 2000);
+        unready.Injections.RemoveRange(2, 3);
+        var resultModel = AttachFittedSolution(first);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(
+            new Solver { Model = resultModel }));
+        DataManager.AddData(new ITCDataContainer[] { first, second, unready, result });
+        MainWindow? window = null;
+        ExperimentData? startedData = null;
+        var analysisStartCount = 0;
+        ListBox? items = null;
+        AnalysisWorkspaceControl? workspace = null;
+        EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+        {
+            analysisStartCount++;
+            if (sender is Solver solver) startedData = solver.Model.Data;
+            items!.SelectedIndex = selectionTarget switch
+            {
+                "unready" => 2,
+                "result" => 3,
+                _ => -1
+            };
+            workspace!.StopFit();
+        };
+
+        application.Styles.Add(theme);
+        try
+        {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            window = new MainWindow();
+            window.Show();
+            items = window.FindControl<ListBox>("ItemsList")!;
+            var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
+            workspace = window.FindControl<AnalysisWorkspaceControl>("AnalysisWorkspace")!;
+
+            items.SelectedIndex = 0;
+            tabs.SelectedIndex = 2;
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(workspace.GetVisualAncestors(), ancestor => ReferenceEquals(ancestor, window));
+            Assert.Same(first, workspace.Experiment);
+            var runButton = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Run Fit"));
+            Assert.True(runButton.IsEnabled);
+
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForFitToFinish();
+            Assert.Same(first, startedData);
+            Assert.Null(workspace.ContextForTesting);
+            Assert.False(workspace.CanRunFit);
+            if (selectionTarget == "unready") Assert.Same(unready, workspace.Experiment);
+            else Assert.Null(workspace.Experiment);
+            Assert.Single(DataManager.Results);
+
+            workspace.RunFit();
+            Assert.Equal(1, analysisStartCount);
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            if (window != null)
+            {
+                DocumentDirtyTracker.MarkClean();
+                window.Close();
+                Assert.False(window.IsVisible);
+            }
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+            application.Styles.Remove(theme);
+        }
+
+    }
+
+    [AvaloniaFact]
+    public async Task SuccessfulMainWindowFitKeepsRetainedAWhenNextFitTargetsB()
+    {
+        await WaitForFitToFinish();
+        var application = Application.Current!;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateFitExperiment("successful-selection-A.itc", 2000);
+        var second = CreateFitExperiment("successful-selection-B.itc", -3000);
+        DataManager.AddData(new[] { first, second });
+        MainWindow? window = null;
+        AnalysisWorkspaceControl? workspace = null;
+        ListBox? items = null;
+        var analysisStartCount = 0;
+        Model? firstRunModel = null;
+        ExperimentData? secondRunData = null;
+        double? secondRunOffset = null;
+        bool secondRunOffsetLocked = false;
+        EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+        {
+            analysisStartCount++;
+            if (sender is not Solver solver) return;
+            if (analysisStartCount == 1)
+            {
+                firstRunModel = solver.Model;
+                CoreWorkspaceFor(workspace!).SetParameterOverride(
+                    ParameterType.Offset, 250, isLocked: true, rebuild: false);
+                items!.SelectedIndex = 1;
+            }
+            else
+            {
+                secondRunData = solver.Model.Data;
+                secondRunOffset = solver.Model.Parameters.Table[ParameterType.Offset].Value;
+                secondRunOffsetLocked = solver.Model.Parameters.Table[ParameterType.Offset].IsLocked;
+                workspace!.StopFit();
+            }
+        };
+
+        application.Styles.Add(theme);
+        try
+        {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            window = new MainWindow();
+            window.Show();
+            items = window.FindControl<ListBox>("ItemsList")!;
+            var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
+            workspace = window.FindControl<AnalysisWorkspaceControl>("AnalysisWorkspace")!;
+            items.SelectedIndex = 0;
+            tabs.SelectedIndex = 2;
+            window.UpdateLayout();
+            workspace.ErrorMethodComboForTesting.SelectedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            var runButton = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Run Fit"));
+            Assert.True(runButton.IsEnabled);
+            runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForFitToFinish();
+
+            Assert.Equal(1, analysisStartCount);
+            Assert.Same(second, workspace.Experiment);
+            Assert.Equal(250, workspace.ContextForTesting!.SingleModel.Parameters.Table[ParameterType.Offset].Value);
+            Assert.True(workspace.ContextForTesting.SingleModel.Parameters.Table[ParameterType.Offset].IsLocked);
+            Assert.Same(firstRunModel, first.Model);
+            Assert.NotNull(first.Solution);
+            var retainedSolution = first.Solution;
+            var retainedOffset = first.Model!.Parameters.Table[ParameterType.Offset].Value;
+            var retainedPrediction = first.Model.Evaluate(0);
+            Assert.Empty(DataManager.Results);
+
+            var completionStatus = workspace.FitStatusForTesting;
+            Assert.StartsWith("Analysis complete in ", completionStatus);
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith("Analysis complete in ", workspace.FitStatusForTesting);
+            Assert.Equal(completionStatus, workspace.FitStatusForTesting);
+            Assert.Same(second, workspace.ContextForTesting!.SingleModel.Data);
+            Assert.True(workspace.CanRunFit);
+
+            // The next fit starts immediately from the selected B context.
+            runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForFitToFinish();
+
+            Assert.Equal(2, analysisStartCount);
+            Assert.Same(second, secondRunData);
+            Assert.Equal(250, secondRunOffset);
+            Assert.True(secondRunOffsetLocked);
+            Assert.Same(firstRunModel, first.Model);
+            Assert.Same(retainedSolution, first.Solution);
+            Assert.Equal(retainedOffset, first.Model!.Parameters.Table[ParameterType.Offset].Value);
+            Assert.Equal(retainedPrediction, first.Model.Evaluate(0));
+
+            // An ordinary idle selection change clears the preserved completion text.
+            items.SelectedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("5/5 points with fitted solution", workspace.FitStatusForTesting);
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            if (window != null)
+            {
+                DocumentDirtyTracker.MarkClean();
+                window.Close();
+                Assert.False(window.IsVisible);
+            }
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+            application.Styles.Remove(theme);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task UnreadyOrMissingExperimentCannotReusePreviouslyReadyFitContext()
+    {
+        await WaitForFitToFinish();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var ready = CreateFitExperiment("ready-before-unready.itc", 2000);
+        var unready = new ExperimentData("unready-selection.itc");
+        var workspace = new AnalysisWorkspaceControl { Experiment = ready };
+        var window = new Window { Content = workspace };
+        var analysisStartCount = 0;
+        EventHandler<TerminationFlag> onAnalysisStarted = (_, _) => analysisStartCount++;
+        SolverInterface.AnalysisStarted += onAnalysisStarted;
+        window.Show();
+        try
+        {
+            Assert.True(workspace.CanRunFit);
+            workspace.Experiment = unready;
+            Assert.Same(unready, workspace.Experiment);
+            Assert.False(workspace.CanRunFit);
+            workspace.RunFit();
+            Assert.Equal(0, analysisStartCount);
+
+            workspace.Experiment = null;
+            Assert.Null(workspace.Experiment);
+            Assert.False(workspace.CanRunFit);
+            workspace.RunFit();
+            Assert.Equal(0, analysisStartCount);
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ProgrammaticRunFitRebuildsWhenReadyContextBelongsToAnotherExperiment()
+    {
+        await WaitForFitToFinish();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateFitExperiment("stale-context-A.itc", 2000);
+        var second = CreateFitExperiment("stale-context-B.itc", -3000);
+        DataManager.AddData(new[] { first, second });
+        var previousFittingOptions = CaptureFittingOptions();
+        var workspace = new AnalysisWorkspaceControl { Experiment = first };
+        var window = new Window { Content = workspace };
+        ExperimentData? startedData = null;
+        EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+        {
+            if (sender is Solver solver) startedData = solver.Model.Data;
+            workspace.StopFit();
+        };
+        SolverInterface.AnalysisStarted += onAnalysisStarted;
+        window.Show();
+        try
+        {
+            var coreWorkspace = CoreWorkspaceFor(workspace);
+            Assert.True(coreWorkspace.TryRebuild(new[] { second }));
+            Assert.Same(second, coreWorkspace.Context.SingleModel.Data);
+
+            // RunFit must validate the active experiment identity itself, even
+            // when called directly while the button reflects stale readiness.
+            workspace.RunFit();
+            Assert.True(workspace.CanStopFit, workspace.FitStatusForTesting);
+            await WaitForFitToFinish();
+            Assert.Same(first, startedData);
+            Assert.Same(first, workspace.ContextForTesting!.SingleModel.Data);
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+            RestoreFittingOptions(previousFittingOptions);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task GlobalFitNavigationPreservesIncludedOrderWhileFitIsActive()
+    {
+        await WaitForFitToFinish();
+        var application = Application.Current!;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        var previousCreateResult = AppSettings.CreateGlobalAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateFitExperiment("global-selection-A.itc", 2000);
+        var second = CreateFitExperiment("global-selection-B.itc", -3000);
+        var excluded = CreateFitExperiment("global-selection-excluded.itc", 1000);
+        DataManager.AddData(new[] { first, second, excluded });
+        excluded.Include = false;
+        MainWindow? window = null;
+        application.Styles.Add(theme);
+        try
+        {
+            window = new MainWindow();
+            window.Show();
+            var items = window.FindControl<ListBox>("ItemsList")!;
+            var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
+            var workspace = window.FindControl<AnalysisWorkspaceControl>("AnalysisWorkspace")!;
+            items.SelectedIndex = 0;
+            tabs.SelectedIndex = 2;
+            window.UpdateLayout();
+            workspace.ModeSelectorForTesting.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+
+            var expected = new[] { first, second };
+            Assert.True(workspace.ContextForTesting!.IsMultiExperiment);
+            Assert.Equal(expected, workspace.ContextForTesting.GlobalModel.Models.Select(model => model.Data));
+            Assert.True(workspace.CanRunFit);
+
+            ExperimentData[]? startedInputs = null;
+            var fitStartCount = 0;
+            EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+            {
+                fitStartCount++;
+                if (sender is GlobalSolver solver)
+                    startedInputs = solver.Model.Models.Select(model => model.Data).ToArray();
+                items.SelectedIndex = -1;
+                workspace.StopFit();
+            };
+            AppSettings.CreateGlobalAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            try
+            {
+                var runButton = workspace.GetVisualDescendants().OfType<Button>()
+                    .Single(button => Equals(button.Content, "Run Fit"));
+                Assert.True(runButton.IsEnabled);
+                runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await WaitForFitToFinish();
+            }
+            finally
+            {
+                SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            }
+
+            Assert.Equal(expected, startedInputs);
+            Assert.Null(workspace.Experiment);
+            Assert.False(workspace.CanRunFit);
+            Assert.Null(workspace.ContextForTesting);
+            workspace.RunFit();
+            Assert.False(ProcessingActivity.IsBusy);
+            Assert.Null(workspace.ContextForTesting);
+
+            items.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(excluded, workspace.Experiment);
+            Assert.Equal(expected, workspace.ContextForTesting!.GlobalModel.Models.Select(model => model.Data));
+            Assert.Equal(expected, DataManager.IncludedData);
+            Assert.True(workspace.CanRunFit);
+
+            var globalRunButton = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Run Fit"));
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            try
+            {
+                globalRunButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await WaitForFitToFinish();
+            }
+            finally
+            {
+                SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            }
+            Assert.Equal(2, fitStartCount);
+            Assert.Equal(expected, startedInputs);
+            Assert.Null(workspace.Experiment);
+            Assert.False(workspace.CanRunFit);
+            Assert.Null(workspace.ContextForTesting);
+
+            items.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(second, workspace.Experiment);
+            Assert.Equal(expected, workspace.ContextForTesting!.GlobalModel.Models.Select(model => model.Data));
+            Assert.Equal(expected, DataManager.IncludedData);
+            Assert.True(workspace.CanRunFit);
+        }
+        finally
+        {
+            if (window != null)
+            {
+                DocumentDirtyTracker.MarkClean();
+                window.Close();
+                Assert.False(window.IsVisible);
+            }
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateGlobalAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+            application.Styles.Remove(theme);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task MainWindowFitHonorsResultCreationAndAutoOpenSettings(bool createResult, bool autoOpen)
+    {
+        await WaitForFitToFinish();
+        var application = Application.Current!;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateFitExperiment("result-options.itc", 2000);
+        DataManager.AddData(experiment);
+        MainWindow? window = null;
+        AnalysisResult? autoOpenRequested = null;
+        EventHandler<AnalysisResult> onResultSelected = (_, result) => autoOpenRequested = result;
+        DataManager.AnalysisResultSelected += onResultSelected;
+        application.Styles.Add(theme);
+        try
+        {
+            AppSettings.CreateSingleAnalysisResult = createResult;
+            AppSettings.AutoOpenNewAnalysisResult = autoOpen;
+            window = new MainWindow();
+            window.Show();
+            var items = window.FindControl<ListBox>("ItemsList")!;
+            var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
+            var workspace = window.FindControl<AnalysisWorkspaceControl>("AnalysisWorkspace")!;
+            items.SelectedIndex = -1;
+            items.SelectedIndex = 0;
+            tabs.SelectedIndex = 2;
+            window.UpdateLayout();
+            workspace.ErrorMethodComboForTesting.SelectedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+            var runButton = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Run Fit"));
+            Assert.True(runButton.IsEnabled);
+
+            runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForFitToFinish();
+
+            Assert.Equal(createResult ? 1 : 0, DataManager.Results.Count);
+            if (createResult && autoOpen)
+            {
+                // Core requests auto-open. Avalonia's later selection restoration
+                // is tracked separately as CR-038.
+                Assert.Same(Assert.Single(DataManager.Results), autoOpenRequested);
+            }
+            else
+            {
+                Assert.Null(autoOpenRequested);
+                Assert.Null(DataManager.SelectedResult);
+                Assert.Same(experiment, workspace.Experiment);
+            }
+
+            if (!createResult)
+            {
+                Assert.StartsWith("Analysis complete in ", workspace.FitStatusForTesting);
+                experiment.RemoveModel();
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal("5/5 integrated points", workspace.FitStatusForTesting);
+            }
+        }
+        finally
+        {
+            DataManager.AnalysisResultSelected -= onResultSelected;
+            if (window != null)
+            {
+                DocumentDirtyTracker.MarkClean();
+                window.Close();
+                Assert.False(window.IsVisible);
+            }
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+            application.Styles.Remove(theme);
+        }
+    }
+
+    static ExperimentData CreateFitExperiment(string fileName, double heatPerMole)
+    {
+        var experiment = CreateReadyExperiment(fileName);
+        foreach (var injection in experiment.Injections)
+            injection.SetPeakArea(new FloatWithError(heatPerMole * injection.InjectionMass, 1e-8));
+        return experiment;
+    }
+
+    static CoreAnalysisWorkspace CoreWorkspaceFor(AnalysisWorkspaceControl control)
+        => (CoreAnalysisWorkspace)typeof(AnalysisWorkspaceControl)
+            .GetField("workspace", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(control)!;
+
+    static FittingOptionsSnapshot CaptureFittingOptions()
+        => new(
+            FittingOptionsController.Algorithm,
+            FittingOptionsController.ErrorEstimationMethod,
+            FittingOptionsController.BootstrapIterations,
+            FittingOptionsController.IncludeConcentrationVariance,
+            FittingOptionsController.UnlockBootstrapParameters,
+            FittingOptionsController.UseErrorWeightedFitting);
+
+    static void RestoreFittingOptions(FittingOptionsSnapshot snapshot)
+    {
+        FittingOptionsController.Algorithm = snapshot.Algorithm;
+        FittingOptionsController.ErrorEstimationMethod = snapshot.ErrorEstimationMethod;
+        FittingOptionsController.BootstrapIterations = snapshot.BootstrapIterations;
+        FittingOptionsController.IncludeConcentrationVariance = snapshot.IncludeConcentrationVariance;
+        FittingOptionsController.UnlockBootstrapParameters = snapshot.UnlockBootstrapParameters;
+        FittingOptionsController.UseErrorWeightedFitting = snapshot.UseErrorWeightedFitting;
+    }
+
+    readonly record struct FittingOptionsSnapshot(
+        SolverAlgorithm Algorithm,
+        ErrorEstimationMethod ErrorEstimationMethod,
+        int BootstrapIterations,
+        bool IncludeConcentrationVariance,
+        bool UnlockBootstrapParameters,
+        bool UseErrorWeightedFitting);
+
+    static async Task WaitForFitToFinish()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+        Assert.False(ProcessingActivity.IsBusy);
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaTheory]

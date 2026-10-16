@@ -80,6 +80,8 @@ namespace AnalysisITC.Avalonia.Analysis
         bool isUpdatingControls;
         bool isFitting;
         bool stoppingFit;
+        bool contextRebuildDeferred;
+        bool preserveFitCompletionStatus;
         bool experimentSubscribed;
         int experimentRefreshGeneration;
         bool experimentRefreshQueued;
@@ -137,6 +139,7 @@ namespace AnalysisITC.Avalonia.Analysis
             set
             {
                 if (ReferenceEquals(experiment, value)) return;
+                ClearPreservedFitCompletionStatus();
 
                 UnsubscribeExperiment();
                 CancelQueuedExperimentRefresh();
@@ -149,7 +152,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 RefreshNullComparisonPresentation();
                 SubscribeExperiment();
                 RebuildAnalysisContext();
-                UpdateStatus();
+                if (!isFitting) UpdateStatus();
             }
         }
 
@@ -343,31 +346,40 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void ExperimentProcessingChanged(object? sender, EventArgs e)
         {
-            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: true);
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: true,
+                clearCompletionStatus: true);
         }
 
         void ExperimentSolutionChanged(object? sender, EventArgs e)
         {
             // Heat-only experiments have fitted solutions without a completed baseline.
-            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: false);
+            var source = sender as ExperimentData;
+            QueueExperimentRefresh(source, requireCompletedBaseline: false,
+                clearCompletionStatus: source?.Model == null);
         }
 
         void ExperimentPointInclusionChanged(object? sender, EventArgs e)
         {
-            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: false);
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: false,
+                clearCompletionStatus: true);
         }
 
-        void QueueExperimentRefresh(ExperimentData? source, bool requireCompletedBaseline)
+        void QueueExperimentRefresh(
+            ExperimentData? source,
+            bool requireCompletedBaseline,
+            bool clearCompletionStatus = false)
         {
             if (!Dispatcher.UIThread.CheckAccess())
             {
-                Dispatcher.UIThread.Post(() => QueueExperimentRefresh(source, requireCompletedBaseline));
+                Dispatcher.UIThread.Post(() => QueueExperimentRefresh(source, requireCompletedBaseline,
+                    clearCompletionStatus));
                 return;
             }
 
             var current = experiment;
             if (current == null || (source != null && !ReferenceEquals(source, current))) return;
             if (requireCompletedBaseline && !current.Processor.BaselineCompleted) return;
+            if (clearCompletionStatus) ClearPreservedFitCompletionStatus();
             if (experimentRefreshQueued) return;
 
             var generation = experimentRefreshGeneration;
@@ -399,6 +411,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void RefreshIncludedDataState()
         {
+            ClearPreservedFitCompletionStatus();
             RebuildAnalysisContext();
             graph.FitToData();
             UpdateStatus();
@@ -433,9 +446,13 @@ namespace AnalysisITC.Avalonia.Analysis
             UpdateErrorEstimationControlState();
         }
 
-        void RebuildAnalysisContext()
+        void RebuildAnalysisContext(bool reconcileWhileFitting = false)
         {
-            if (isFitting) return;
+            if (isFitting && !reconcileWhileFitting)
+            {
+                contextRebuildDeferred = true;
+                return;
+            }
 
             RefreshModelChoices();
 
@@ -444,15 +461,14 @@ namespace AnalysisITC.Avalonia.Analysis
                 workspace.SetGlobalMode(IsGlobalMode);
                 workspace.TryRebuild(Array.Empty<ExperimentData>());
                 RefreshWorkspaceViews();
+                contextRebuildDeferred = false;
                 return;
             }
 
-            var modeChanged = workspace.Session.IsGlobal != IsGlobalMode;
             workspace.SetGlobalMode(IsGlobalMode);
-            if (!modeChanged && !workspace.TryRebuild(AnalysisExperiments()))
+            if (!workspace.TryRebuild(AnalysisExperiments()))
                 RefreshWorkspaceViews();
-            else if (modeChanged && !AnalysisInputsAreReady())
-                RefreshWorkspaceViews();
+            contextRebuildDeferred = false;
         }
 
         void OnContextRebuilt(object? sender, EventArgs e)
@@ -470,7 +486,8 @@ namespace AnalysisITC.Avalonia.Analysis
             Dispatcher.UIThread.Post(() =>
             {
                 analysisSummaryText.Text = "No analysis ready";
-                fitStatusText.Text = e.Message;
+                if (!isFitting && !preserveFitCompletionStatus)
+                    fitStatusText.Text = e.Message;
                 UpdateFitButtonState();
             });
         }
@@ -502,6 +519,47 @@ namespace AnalysisITC.Avalonia.Analysis
             return requiredData.Count > 0
                 && (!workspace.Session.IsGlobal || requiredData.Count > 1)
                 && requiredData.All(AnalysisBuilder.IsAnalysisReady);
+        }
+
+        bool AnalysisContextMatchesCurrentInputs()
+        {
+            var context = workspace.Context;
+            var expectedData = AnalysisExperiments();
+            if (context == null
+                || context.ModelType != workspace.Session.ModelType
+                || context.IsMultiExperiment != workspace.Session.IsGlobal
+                || expectedData.Count == 0
+                || (workspace.Session.IsGlobal && expectedData.Count < 2))
+                return false;
+
+            var contextData = context.IsMultiExperiment
+                ? context.GlobalModel.Models.Select(model => model.Data).ToList()
+                : new List<ExperimentData> { context.SingleModel.Data };
+            return contextData.Count == expectedData.Count
+                && contextData.Zip(expectedData, ReferenceEquals).All(matches => matches);
+        }
+
+        bool CurrentFitInputsAreReady()
+        {
+            var selectedModelMatches = modelCombo.SelectedItem is ComboBoxItem item
+                && item.Tag is AnalysisModel selectedModel
+                && selectedModel == workspace.Session.ModelType;
+            return experiment != null
+                && workspace.Session.IsGlobal == IsGlobalMode
+                && selectedModelMatches
+                && AnalysisInputsAreReady()
+                && workspace.IsReady
+                && AnalysisContextMatchesCurrentInputs()
+                && IsModelAvailable(workspace.Session.ModelType);
+        }
+
+        bool EnsureCurrentAnalysisContext()
+        {
+            workspace.SetGlobalMode(IsGlobalMode);
+            if (contextRebuildDeferred || !AnalysisContextMatchesCurrentInputs())
+                workspace.TryRebuild(AnalysisExperiments());
+            contextRebuildDeferred = false;
+            return CurrentFitInputsAreReady();
         }
 
         List<ExperimentData> AnalysisExperiments()
@@ -566,6 +624,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (isUpdatingControls) return;
             if (modelCombo.SelectedItem is not ComboBoxItem item || item.Tag is not AnalysisModel model || !item.IsEnabled) return;
 
+            ClearPreservedFitCompletionStatus();
             workspace.SetModelType(model);
             RebuildAnalysisContext();
         }
@@ -574,6 +633,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (isUpdatingControls) return;
 
+            ClearPreservedFitCompletionStatus();
             RefreshModelChoices();
             RebuildAnalysisContext();
             graph.FitToData();
@@ -654,6 +714,7 @@ namespace AnalysisITC.Avalonia.Analysis
             combo.SelectionChanged += (_, _) =>
             {
                 if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not VariableConstraint constraint) return;
+                ClearPreservedFitCompletionStatus();
                 if (descriptor.IsFamily && workspace.Session.ModelType == AnalysisModel.SequentialBindingSites)
                     workspace.SetSequentialConstraintFamily(key, constraint);
                 else
@@ -682,11 +743,13 @@ namespace AnalysisITC.Avalonia.Analysis
                 parameter,
                 apply: (key, value, isLocked) =>
                 {
+                    ClearPreservedFitCompletionStatus();
                     workspace.SetParameterOverride(key, value, isLocked);
                     FittingChanged?.Invoke(this, EventArgs.Empty);
                 },
                 reset: key =>
                 {
+                    ClearPreservedFitCompletionStatus();
                     workspace.ResetParameterOverride(key);
                     FittingChanged?.Invoke(this, EventArgs.Empty);
                 },
@@ -712,6 +775,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     options,
                     apply: (key, copy) =>
                     {
+                        ClearPreservedFitCompletionStatus();
                         workspace.SetModelOption(key, copy);
                         Dispatcher.UIThread.Post(RebuildOptionRows);
                         FittingChanged?.Invoke(this, EventArgs.Empty);
@@ -722,6 +786,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public void RunFit()
         {
             if (isFitting) return;
+            preserveFitCompletionStatus = false;
             var lease = ProcessingActivity.TryBegin();
             if (lease == null) return;
             using var ownership = lease.Enter();
@@ -734,16 +799,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
-            if (!workspace.IsReady)
-                workspace.Rebuild();
-
-            if (!workspace.IsReady)
-            {
-                fitStatusText.Text = "Analysis model is not ready";
-                ReleaseFittingActivity();
-                return;
-            }
-
             try
             {
                 FittingOptionsController.IncludeConcentrationVariance = concentrationUncertaintyCheck.IsChecked == true;
@@ -751,6 +806,13 @@ namespace AnalysisITC.Avalonia.Analysis
                 var requestedWeightedFitting = weightedFitCheck.IsChecked == true;
                 var useErrorWeightedFitting = requestedWeightedFitting
                     && CanUseErrorWeightedFitting();
+                if (!EnsureCurrentAnalysisContext())
+                {
+                    fitStatusText.Text = "Analysis model is not ready";
+                    ReleaseFittingActivity();
+                    UpdateFitButtonState();
+                    return;
+                }
                 var solver = workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
@@ -846,8 +908,6 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 if (!ReferenceEquals(sender, activeSolver)) return;
 
-                isFitting = false;
-
                 AppEventHandler.PrintAndLog(
                     $"Fit ended: outcome={convergence.Termination}, iterations={convergence.Iterations}, RMSD={convergence.UnweightedRmsd:G17}, optimizerTime={convergence.Time.TotalMilliseconds:0.###}ms, totalTime={convergence.TotalTime.TotalMilliseconds:0.###}ms");
                 if (activeErrorMethod != ErrorEstimationMethod.None)
@@ -903,15 +963,36 @@ namespace AnalysisITC.Avalonia.Analysis
             RunOnUiThread(() =>
             {
                 if (!ReferenceEquals(solver, activeSolver)) return;
-                if (solver.Operation == null || ProcessingActivity.IsCurrentOperation(completion.OperationId))
+                var completionIsCurrent = solver.Operation == null
+                    || ProcessingActivity.IsCurrentOperation(completion.OperationId);
+                if (completionIsCurrent)
+                {
                     fitStatusText.Text = UncertaintyEstimationPresentation.CompletionMessages(solver,
                         completion.Convergence, completion.Elapsed).First().Text;
+                    preserveFitCompletionStatus = true;
+                }
+                RefreshSelectedExperimentEvidence();
                 activeSolver = null;
                 activeErrorMethod = ErrorEstimationMethod.None;
+                if (contextRebuildDeferred || !AnalysisContextMatchesCurrentInputs())
+                    RebuildAnalysisContext(reconcileWhileFitting: true);
+                contextRebuildDeferred = false;
+                graph.FitToData();
+                RefreshWorkspaceViews();
                 isFitting = false;
                 ReleaseFittingActivity();
                 UpdateFitButtonState();
+                FittingChanged?.Invoke(this, EventArgs.Empty);
             });
+        }
+
+        void RefreshSelectedExperimentEvidence()
+        {
+            currentNullComparison = experiment?.Solution?.NullComparison
+                ?? experiment?.Solution?.ParentSolution?.NullComparison;
+            graph.NullComparison = currentNullComparison;
+            RefreshFitSummary();
+            RefreshNullComparisonPresentation();
         }
 
         void ReleaseFittingActivity()
@@ -1091,6 +1172,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateStatus()
         {
+            if (isFitting || preserveFitCompletionStatus)
+            {
+                UpdateFitButtonState();
+                return;
+            }
+
             if (experiment == null)
             {
                 fitStatusText.Text = "No experiment selected";
@@ -1129,6 +1216,15 @@ namespace AnalysisITC.Avalonia.Analysis
             UpdateFitButtonState();
         }
 
+        void ClearPreservedFitCompletionStatus()
+        {
+            if (!isFitting && preserveFitCompletionStatus)
+            {
+                preserveFitCompletionStatus = false;
+                UpdateStatus();
+            }
+        }
+
         static string InitialLimitStatus(IReadOnlyList<InitialParameterLimitViolation> violations)
         {
             if (violations == null || violations.Count == 0) return string.Empty;
@@ -1145,9 +1241,9 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             graph.IsReadOnly = isFitting || ProcessingActivity.IsBusy;
             var canFit = experiment != null
-                && workspace.IsReady
-                && !isFitting
-                && IsModelAvailable(workspace.Session.ModelType);
+                && CurrentFitInputsAreReady()
+                && !contextRebuildDeferred
+                && !isFitting;
             CalculationControlAvailability.Update(runFitButton, canFit);
             stopFitButton.IsEnabled = isFitting;
             modeSelector.IsEnabled = !isFitting;
@@ -1251,6 +1347,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void RestoreAnalysisDefaults()
         {
+            ClearPreservedFitCompletionStatus();
             FittingOptionsController.ResetToPreferenceDefaults();
             ModelFactory.ResetStoredAnalysisState();
             workspace.ResetStoredAnalysisState();
@@ -1267,6 +1364,7 @@ namespace AnalysisITC.Avalonia.Analysis
         void ChangeParameterLimits()
         {
             if (isUpdatingControls || parameterLimitsCombo.SelectedIndex < 0) return;
+            ClearPreservedFitCompletionStatus();
             SetParameterLimitSetting(parameterLimitsCombo.SelectedIndex switch
             {
                 1 => ParameterLimitSetting.Extended,
@@ -1278,6 +1376,7 @@ namespace AnalysisITC.Avalonia.Analysis
         void ChangeErrorMethod()
         {
             if (isUpdatingControls) return;
+            ClearPreservedFitCompletionStatus();
             UpdateErrorEstimationControlState();
         }
 
@@ -1293,6 +1392,7 @@ namespace AnalysisITC.Avalonia.Analysis
         void ChangeConcentrationUncertainty()
         {
             if (isUpdatingControls) return;
+            ClearPreservedFitCompletionStatus();
             FittingOptionsController.IncludeConcentrationVariance =
                 concentrationUncertaintyCheck.IsChecked == true;
         }
@@ -1300,18 +1400,21 @@ namespace AnalysisITC.Avalonia.Analysis
         void ChangeUnlockParameters()
         {
             if (isUpdatingControls) return;
+            ClearPreservedFitCompletionStatus();
             FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
         }
 
         void ChangeCreateResult()
         {
             if (isUpdatingControls || IsCreateAnalysisResultEnabled() == (createResultCheck.IsChecked == true)) return;
+            ClearPreservedFitCompletionStatus();
             ToggleCreateAnalysisResult();
         }
 
         void ChangeAutoOpenResult()
         {
             if (isUpdatingControls || AppSettings.AutoOpenNewAnalysisResult == (autoOpenResultCheck.IsChecked == true)) return;
+            ClearPreservedFitCompletionStatus();
             ToggleAutoOpenNewResult();
         }
 
