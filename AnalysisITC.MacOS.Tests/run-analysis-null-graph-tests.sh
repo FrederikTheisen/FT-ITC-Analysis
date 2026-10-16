@@ -27,7 +27,7 @@ dotnet build AnalysisITC.Core/AnalysisITC.Core.csproj --configuration Debug \
 if (( $# > 0 )); then
     native_tests=("$@")
 else
-    native_tests=(AnalysisNullGraphTests DissociationGraphTests InjectionEditingTests ProjectInformationTests AnalysisParameterDraftTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests ExperimentDesignerTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests UpdateResultStatusTests)
+    native_tests=(AnalysisNullGraphTests DissociationGraphTests InjectionEditingTests ProjectInformationTests AnalysisParameterDraftTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests ExperimentDesignerTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests UpdateResultStatusTests TandemCreationTests)
 fi
 for native_test in "${native_tests[@]}"; do
 "$mono_root/Commands/mcs" \

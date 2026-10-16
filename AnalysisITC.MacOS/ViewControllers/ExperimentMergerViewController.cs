@@ -342,6 +342,10 @@ namespace AnalysisITC
 
                 DismissViewController(this);
             }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
             finally
             {
                 IsCreatingMergedExperiment = false;

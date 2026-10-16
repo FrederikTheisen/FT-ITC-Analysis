@@ -680,6 +680,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-054 — Native tandem creation lets validation errors escape its UI action
 
 - Priority: Medium
+- Status: Resolved (2026-10-16).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.MacOS/ViewControllers/ExperimentMergerViewController.cs:262`; `AnalysisITC.MacOS/ViewControllers/ExperimentMergerViewController.cs:289`; `AnalysisITC.Core/TandemMixingScan.cs:572`
@@ -688,6 +689,9 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Choose two admitted raw sources with unintegrated included injections and request automatic back-mixing. Core validation throws during the scan.
 - Consequence: The exception bypasses the application's handled-error route after controls and admission are restored. Actual process termination was not established.
 - Suggested direction: Present validation/creation failures through the handled-error path while retaining operation ownership through that presentation.
+- Resolution (2026-10-16): The native creation action catches exceptions from scanning, concatenation and awaited processing through `AppEventHandler.DisplayHandledException`. Its activity lease, entered ownership and creating flag remain active during error presentation; the existing `finally` restores controls before the action releases admission. Failure keeps the merger open with its selections/settings for retry. Source eligibility, scan validation, scientific calculations and successful publication/notification/dismissal are unchanged.
+- Validation: The new `TandemCreationTests` native harness reproduced eight escaped exceptions before the fix: two attempts for each automatic criterion with included unintegrated injections, and two attempts each for simple/fixed creation with an injected awaited processing-publication failure. All eight now produce exactly one handled error without escaping, retain the current operation and disabled creation controls through a nested Cocoa event loop, keep unrelated processing queued until presentation returns, preserve source data/document dirty state/drafts, and allow retry. Both successful simple/fixed cases process and publish the tandem, retain ordered source provenance, request the completion notification and dismiss the real sheet. Native managed compilation and `ProcessingInitializationTests` pass. The combined runner's `UpdateResultStatusTests` stops at an unrelated stale reflection helper supplying six arguments to the current seven-parameter `PublishProgress`; a temporary copy supplying the missing optional null argument passes the full status harness, and the repository copy is unchanged. `git diff --check` passes. Evidence: `/private/tmp/cr054-native-red.log`, `/private/tmp/cr054-native-green.log`, `/private/tmp/cr054-status-compat/validation.log`.
+- Boundaries: The harness uses real native actions/sheets and Cocoa continuations, intercepting the handled-message callback to exercise its nested event loop. It does not establish actual process termination in the original application or test a full installed application. No Core/Avalonia production changes, manual/help changes, packaging, signing or pushes are included.
 
 ## CR-055 — Native Buffer Subtraction inherits a filter that excludes tandem targets
 
