@@ -511,6 +511,7 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 
 ## Revision notes
 
+- 2026-10-16: The macOS report builder's interpretation editor surround uses the system window background for a lighter appearance. Report preview and PDF content are unchanged.
 - 2026-10-12: Analysis summary uses an order list and grouped block details. A01 contains its Std. and Diag. versions; A03 is retained as a historical alias for A01 · Std. Trace. changes are marked within the affected rows. A06 now explicitly distinguishes Standard no-binding blanks from retained Diagnostic values; the earlier blanket "blank for no-binding" wording was incomplete. Report behavior is unchanged.
 - 2026-10-07: X moved from after E to directly after A; each X chapter still starts a new page.
 - 2026-10-07: F06 Contents lists X chapters, indented under their result.

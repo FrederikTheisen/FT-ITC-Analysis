@@ -67,7 +67,7 @@ namespace AnalysisITC
         readonly NSView previewHost = new NSView
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly NSView interpretationHost = new AnalysisReportBackgroundView(
-            CGRect.Empty, NSColor.UnderPageBackground)
+            CGRect.Empty, NSColor.WindowBackground)
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly PdfView pdfView = new PdfView();
         readonly NSTextField placeholder = Label("No preview yet\n\nSelect Preview to build the report.");
