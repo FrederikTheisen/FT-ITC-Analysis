@@ -2124,6 +2124,7 @@ public partial class MainWindow : Window
             append.Click += (_, _) => Close(ProjectLoadAction.Append);
 
             var cancel = DialogButton("Cancel");
+            cancel.IsCancel = true;
             cancel.Click += (_, _) => Close(ProjectLoadAction.Cancel);
 
             var buttons = new StackPanel
@@ -2163,7 +2164,7 @@ public partial class MainWindow : Window
         public static async Task<ProjectLoadAction> PromptAsync(Window owner)
         {
             var dialog = new ProjectLoadDialogWindow();
-            return await dialog.ShowDialog<ProjectLoadAction>(owner);
+            return await dialog.ShowDialog<ProjectLoadAction?>(owner) ?? ProjectLoadAction.Cancel;
         }
     }
 
@@ -2207,6 +2208,7 @@ public partial class MainWindow : Window
             save.Click += (_, _) => Close(PendingSaveAction.Save);
 
             var cancel = DialogButton("Cancel");
+            cancel.IsCancel = true;
             cancel.Click += (_, _) => Close(PendingSaveAction.Cancel);
 
             var discard = DialogButton(discardButtonText);
@@ -2249,7 +2251,7 @@ public partial class MainWindow : Window
         public static async Task<PendingSaveAction> PromptAsync(Window owner, SavePromptReason reason)
         {
             var dialog = new SaveChangesDialogWindow(reason);
-            return await dialog.ShowDialog<PendingSaveAction>(owner);
+            return await dialog.ShowDialog<PendingSaveAction?>(owner) ?? PendingSaveAction.Cancel;
         }
     }
 
