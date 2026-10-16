@@ -34,6 +34,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-002 — Corrected-view spline dragging accumulates displacement on every pointer event
 
 - Priority: High
+- Status: Resolved (2026-10-16).
 - Confidence: Confirmed
 - Category: Scientific integrity
 - Location: `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs:894`; `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs:1226`; `AnalysisITC.Core/DataProcessing.cs:1736`
@@ -42,6 +43,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: With time dragging disabled, drag a sampled-time spline point above zero and continue horizontally at +0.1 µW. A 5 µW point becomes 5.1, then 5.2, then 5.3 µW on successive events.
 - Consequence: The final baseline depends on event count and pointer path rather than the intended displacement. Release retains the altered point and recalculates heats; returning the cursor to zero does not undo the accumulated movement.
 - Suggested direction: Calculate each update from the captured original power and a stable cursor displacement for the entire drag.
+- Resolution (2026-10-16): Avalonia now uses the captured point power plus cursor displacement from the drag start in both raw and corrected views, preserving the initial click offset. Both cursor positions use the same graph transform. The current cursor-to-time calculation and time clamps, point locking, baseline rebuild and release processing remain unchanged; the unused `BaselinePowerAt` helper was removed. CR-033 is addressed separately below.
+- Validation: Headless press/move/release events reproduced a 5.1 to 5.2 µW change at an identical cursor position before the fix; repeated events now retain exactly the first power and rebuilt baseline value. Thirteen new cases cover this regression, raw/corrected views, time dragging on/off, Joule/calorie power displays, off-center presses, upward/downward movement, return to the drag start, neighbor spacing and data-range clamps. All 22 graph tests pass; the full Avalonia suite passes with 511 passed and one existing opt-in skip. No interactive desktop verification was performed.
 
 ## CR-003 — Copying a locked baseline leaves destinations with old calculated heats
 
@@ -417,6 +420,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-033 — Corrected-view spline handles use raw baseline coordinates
 
 - Priority: Medium
+- Status: Resolved (2026-10-16).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs:654`; `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs:710`; `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs:1033`
@@ -425,6 +429,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Enable Smooth handles and Corrected data on a trace with a baseline offset larger than the corrected plot range and a modest local slope.
 - Consequence: Handles become detached from their point or disappear outside the clipped plot, where they cannot be dragged. Raw view is a workaround; this is distinct from drag accumulation.
 - Suggested direction: Use the same raw/corrected coordinate basis for anchor drawing, handle drawing and handle hit-testing.
+- Resolution (2026-10-16): Avalonia drawing and hit-testing now share one handle-endpoint calculation using the anchor's displayed height: point power in raw view and zero in corrected view. The existing slope offsets, horizontal handle length, clipping, visibility, drag sensitivity, locks and release processing are retained. The CR-002 drag-reference fix is preserved; no Core, native macOS or serialization changes are included.
+- Validation: Twenty-four new headless cases inspect recorded drawing geometry and exercise actual press/move/release events for both handles, raw/corrected views, zero/positive/negative locked slopes and Joule/calorie power displays. Before the fix, all 12 corrected-view cases failed while raw-view cases and existing graph tests passed. All 46 graph cases now pass, including connector alignment, slope direction/magnitude, repeated-event stability, unchanged point power/time and one completion on release. The full Avalonia suite, run with `--no-build` after a concurrent PDB-file lock blocked rebuilding, finished with 547 passed, one existing opt-in skip and one unrelated failure: the concurrently added `AvaloniaJsonSettingsStoreTests.FailedReplacementLeavesSavedSettingsIntactAndCanBeRetried` expects `IOException` but receives `UnauthorizedAccessException` for a directory at the backup path on macOS. That failure also reproduces in isolation. No interactive desktop verification was performed.
 
 ## CR-034 — A report build can overwrite a newer explanation choice
 
