@@ -67,7 +67,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | **I01** | **[Warn] Out-of-date interpretation / Interpretation freshness unknown** | generated text not current; never for manual text |
 | | · Reason + "The approved text has been retained and should be reviewed before use." | |
 | **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual text without "## " gets "Overall interpretation" heading |
-| **I03** | **Source and editing history** (rows) | |
+| **I03** | **Source and editing history** (rows) | Trace only |
 | | · Source: Written by the user · Saved | manual text |
 | | · Source: Automatically generated · User edited (Yes / Not marked as user-edited) · Provider · Model · Reasoning · Scientific guidance · Generated · Approved · Request | generated text; missing fields "not supplied" |
 

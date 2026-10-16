@@ -475,7 +475,7 @@ The back-mixing factor is the fraction of a homogeneous dead-volume compartment 
 The cubic must keep rising or keep falling across the window. This assumes the local isotherm does not turn near the reload. Where the data barely distinguish fractions, a weak, chosen preference favors 5%; it is not measured mixing information.
 
 ## Traceability and attribution
-Enable **Traceability Mode** to keep excluded injections visible in figures and add report attribution and sign-off fields. Excluded points remain excluded from fitting.
+Enable **Traceability Mode** to keep excluded injections visible in figures and add report attribution, interpretation source and editing history, and sign-off fields. Excluded points remain excluded from fitting.
 
 Confirm the operator at launch. **Continue** saves the entered name; **Quit** or closing the confirmation exits. If the operator changes during a session, update the name in General Preferences before creating or updating results.
 

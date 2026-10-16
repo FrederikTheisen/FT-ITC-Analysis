@@ -239,7 +239,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report, resultResolver, experimentResolver,
                     options.ResultOrderIds));
-                var section = BuildInterpretationSection(report, results);
+                var section = BuildInterpretationSection(report, results, options);
                 var contentsIndex = document.Sections.ToList().FindIndex(item =>
                     item.Blocks.Any(block => block is AnalysisReportTableOfContentsBlock));
                 document.InsertSection(contentsIndex < 0 ? 1 : contentsIndex + 1, section);
@@ -277,7 +277,8 @@ namespace AnalysisITC.Core.Presentation
 
         static AnalysisReportSection BuildInterpretationSection(
             AnalysisITC.Core.Data.AnalysisReport report,
-            IReadOnlyList<AnalysisResult> results)
+            IReadOnlyList<AnalysisResult> results,
+            AnalysisReportOptions options)
         {
             var section = new AnalysisReportSection(
                 AnalysisReportSectionKind.Interpretation,
@@ -294,7 +295,8 @@ namespace AnalysisITC.Core.Presentation
                     AnalysisReportNoticeLevel.Warning));
             AddMarkdownBlocks(section, record.InterpretationMarkdown,
                 record.Origin == AnalysisInterpretationOrigin.AiGenerated);
-            AddInterpretationProvenance(section, record);
+            if (options.ExtraTraceability)
+                AddInterpretationProvenance(section, record);
             return section;
         }
 
@@ -304,8 +306,9 @@ namespace AnalysisITC.Core.Presentation
             var section = new AnalysisReportSection(AnalysisReportSectionKind.Interpretation, "interpretation", "Interpretation",
                 AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
             AddMarkdownBlocks(section, markdown, true);
-            AddInterpretationProvenance(section, provenance ?? new AnalysisInterpretationRecord
-            { Provider = "openai", Model = "configured model", ServiceRequestId = new string('0', 32), GeneratedAtUtc = DateTime.UtcNow, ApprovedAtUtc = DateTime.UtcNow });
+            if (AppSettings.TraceabilityModeEnabled)
+                AddInterpretationProvenance(section, provenance ?? new AnalysisInterpretationRecord
+                { Provider = "openai", Model = "configured model", ServiceRequestId = new string('0', 32), GeneratedAtUtc = DateTime.UtcNow, ApprovedAtUtc = DateTime.UtcNow });
             document.AddSection(section);
             return document;
         }

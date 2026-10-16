@@ -191,7 +191,7 @@ Review and edit the returned draft, then choose **Use in report** to add it to t
 
 Markdown tables require a header and separator row. Use a few columns to keep them readable; unsupported formatting may appear as literal text in the report.
 
-Canceling, closing the dialog, or encountering a service error leaves previously approved text unchanged. Study context, the thermogram setting, approved text, and generation details are saved with the report. Changes to selected results, supporting evidence, context, or settings can mark an approved automated interpretation as out of date. Older approved interpretations remain readable even when their freshness cannot be verified. The report distinguishes manually written interpretations from automatically generated text and subsequent edits.
+Canceling, closing the dialog, or encountering a service error leaves previously approved text unchanged. Study context, the thermogram setting, approved text, and generation details are saved with the report. Changes to selected results, supporting evidence, context, or settings can mark an approved automated interpretation as out of date. Older approved interpretations remain readable even when their freshness cannot be verified. In Traceability Mode, the report includes interpretation source and editing history, distinguishing manually written text from automatically generated text and subsequent edits.
 
 Local report editing and PDF export remain available if automated interpretation is unavailable.
 

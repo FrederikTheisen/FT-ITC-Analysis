@@ -25,6 +25,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
+[Collection("Preferences")]
 public sealed class AnalysisInterpretationTests
 {
     [Theory]
@@ -483,7 +484,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Null(report.ApprovedInterpretation);
         report.ApproveInterpretation(generated.Interpretation);
         Assert.NotEqual(default, report.ApprovedInterpretation.ApprovedAtUtc);
-        var current = AnalysisReportBuilder.Build(report, id => id == result.UniqueID ? result : null);
+        var current = AnalysisReportBuilder.Build(report, id => id == result.UniqueID ? result : null,
+            new AnalysisReportOptions { ExtraTraceability = true });
         Assert.Equal(AnalysisReportSectionKind.Cover, current.Sections[0].Kind);
         Assert.Equal(AnalysisReportSectionKind.Interpretation, current.Sections[1].Kind);
         var interpretation = current.Sections[1];
@@ -512,6 +514,48 @@ public sealed class AnalysisInterpretationTests
             .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Interpretation freshness unknown");
         Assert.Contains("The approved text has been retained", notice.Message, StringComparison.Ordinal);
         Assert.Equal(generated.Interpretation.InterpretationMarkdown, report.ApprovedInterpretation.InterpretationMarkdown);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    public async Task InterpretationHistoryIsVisibleOnlyWithTraceability(
+        bool manual, bool reportTraceability, bool globalTraceability)
+    {
+        var originalTraceability = AppSettings.TraceabilityModeEnabled;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = globalTraceability;
+            var result = await LoadResult();
+            var report = ReportFor(result);
+            if (manual)
+                report.SetManualInterpretation("## Overall interpretation\nWritten interpretation.");
+            else
+            {
+                var generated = await new AnalysisInterpretationService(new StubProvider()).GenerateAsync(report, result);
+                report.ApproveInterpretation(generated.Interpretation);
+            }
+            var savedRecord = report.ApprovedInterpretation;
+            var document = AnalysisReportBuilder.Build(report, _ => result,
+                new AnalysisReportOptions { ExtraTraceability = reportTraceability });
+            var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
+            Assert.Equal(reportTraceability || globalTraceability,
+                section.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                    .Any(block => block.Title == "Source and editing history"));
+            Assert.Contains(section.Blocks.OfType<AnalysisReportHeadingBlock>(),
+                block => block.Text == "Overall interpretation");
+
+            var preview = AnalysisReportBuilder.BuildInterpretationPreview(savedRecord.InterpretationMarkdown, savedRecord);
+            Assert.Equal(globalTraceability,
+                preview.Sections.Single().Blocks.OfType<AnalysisReportKeyValueBlock>()
+                    .Any(block => block.Title == "Source and editing history"));
+            Assert.Equal(JsonSerializer.Serialize(savedRecord), JsonSerializer.Serialize(report.ApprovedInterpretation));
+        }
+        finally { AppSettings.TraceabilityModeEnabled = originalTraceability; }
     }
 
     [Fact]
@@ -547,7 +591,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Empty(report.ApprovedInterpretation.Model);
         Assert.Equal(AnalysisInterpretationFreshness.Current,
             AnalysisInterpretationService.EvaluateFreshness(report, result).Status);
-        var document = AnalysisReportBuilder.Build(report, _ => result);
+        var document = AnalysisReportBuilder.Build(report, _ => result,
+            new AnalysisReportOptions { ExtraTraceability = true });
         var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
         var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
             item => item.Title == "Source and editing history");
@@ -582,7 +627,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         Assert.True(report.ApprovedInterpretation.UserEdited);
         Assert.Equal("stub", report.ApprovedInterpretation.Provider);
-        var document = AnalysisReportBuilder.Build(report, _ => result);
+        var document = AnalysisReportBuilder.Build(report, _ => result,
+            new AnalysisReportOptions { ExtraTraceability = true });
         var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
             .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Source and editing history");
         Assert.Equal(
