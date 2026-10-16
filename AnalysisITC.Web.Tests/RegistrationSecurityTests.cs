@@ -109,6 +109,49 @@ public sealed class RegistrationSecurityTests : IDisposable
     }
 
     [Fact]
+    public void AccessCodeRetryAfterReconciliationCompletesAndAdvancesQueue()
+    {
+        var (store, outbox, configured) = CreateServices();
+        var now = new DateTime(2026, 10, 16, 10, 0, 0, DateTimeKind.Utc);
+        var submitted = outbox.Submit("Name", "user@example.org", null, "terms", "privacy", now);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now));
+        outbox.MarkSent(submitted.RegistrationId, RegistrationMessageKinds.Activation, now);
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, now.AddMinutes(1)));
+        var registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(Options.Create(configured)));
+        registry.CreateRegisteredWithCode(access.RegistrationId, access.Name, access.Email, access.Organization, access.Secret);
+        outbox.MarkRetry(access.RegistrationId, 1, now.AddMinutes(11), "provider_unavailable");
+        var later = outbox.Submit("Later", "later@example.org", null, "terms", "privacy", now.AddMinutes(12));
+
+        // Reopen the persisted stores and run the same reconciliation as service startup.
+        (store, outbox, _) = CreateServices();
+        store.ReconcileActiveAccounts(registry.List());
+        using var db = store.Open();
+        Assert.Equal("active", Scalar<string>(db, "SELECT state FROM registration_accounts WHERE email='user@example.org'"));
+        var activatedAt = Scalar<string>(db, "SELECT activated_at_utc FROM registration_accounts WHERE email='user@example.org'");
+        var retry = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddMinutes(13)));
+        Assert.Equal(access.RegistrationId, retry.RegistrationId);
+        Assert.Equal(access.Secret, retry.Secret);
+        Assert.Equal(access.IdempotencyKey, retry.IdempotencyKey);
+        Assert.Equal(1, retry.Attempts);
+
+        outbox.MarkSent(retry.RegistrationId, retry.Kind, now.AddMinutes(13));
+        Assert.Equal("sent", Scalar<string>(db,
+            "SELECT d.state FROM registration_delivery d JOIN registration_accounts a ON a.id=d.registration_id WHERE a.email='user@example.org'"));
+        Assert.Equal(0L, Scalar<long>(db,
+            "SELECT count(*) FROM registration_delivery d JOIN registration_accounts a ON a.id=d.registration_id WHERE a.email='user@example.org' AND d.last_failure_code IS NOT NULL"));
+        Assert.Equal(activatedAt, Scalar<string>(db, "SELECT activated_at_utc FROM registration_accounts WHERE email='user@example.org'"));
+
+        // Repeated completion must preserve the account and leave the next message available.
+        outbox.MarkSent(retry.RegistrationId, retry.Kind, now.AddMinutes(14));
+        Assert.Equal(activatedAt, Scalar<string>(db, "SELECT activated_at_utc FROM registration_accounts WHERE email='user@example.org'"));
+        var next = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddMinutes(14)));
+        Assert.Equal(later.RegistrationId, next.RegistrationId);
+        outbox.MarkSent(next.RegistrationId, next.Kind, now.AddMinutes(14));
+        Assert.Null(outbox.GetPending(now.AddDays(1)));
+    }
+
+    [Fact]
     public void ActivationExpiresAtTheExactBoundaryAndMalformedValuesAreRejected()
     {
         var (_, outbox, _) = CreateServices();

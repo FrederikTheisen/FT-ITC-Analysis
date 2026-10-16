@@ -242,8 +242,10 @@ public sealed class RegistrationDeliveryOutbox
         using (var account = db.CreateCommand())
         {
             account.Transaction = tx;
+            // Startup reconciliation may already have activated a provisioned account
+            // while its access-code email was waiting for retry.
             account.CommandText = kind == RegistrationMessageKinds.AccessCode
-                ? "UPDATE registration_accounts SET state='active',activated_at_utc=$time,failure_code=NULL WHERE id=$id AND state='activating'"
+                ? "UPDATE registration_accounts SET state='active',activated_at_utc=COALESCE(activated_at_utc,$time),failure_code=NULL WHERE id=$id AND state IN ('activating','active')"
                 : "UPDATE registration_accounts SET state='activation-sent',delivered_at_utc=$time,failure_code=NULL WHERE id=$id AND state IN ('pending','failed','activation-sent')";
             account.Parameters.AddWithValue("$time", sentAtUtc.ToString("O", CultureInfo.InvariantCulture)); account.Parameters.AddWithValue("$id", registrationId);
             if (account.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
