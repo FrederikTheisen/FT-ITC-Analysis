@@ -211,7 +211,7 @@ public sealed class FittingStatusPresentationTests
     }
 
     [Fact]
-    public void ParallelRefitCountersAndExistingFractionsAreCapturedBeforeDelayedDispatch()
+    public void ParallelRefitCountersAndMonotonicFractionsKeepCapturedMemberOffsets()
     {
         var dispatcher = new QueuedDispatcher();
         var previousDispatcher = PlatformServices.MainThreadDispatcher;
@@ -219,7 +219,7 @@ public sealed class FittingStatusPresentationTests
         var previousTotal = SolverUpdate.TotalSteps;
         var owner = new Solver { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals, BootstrapIterations = 100 };
         var child = new Solver { Silent = true, BootstrapIterations = 100 };
-        child.ProgressObserver = (phase, completed, total, fraction) => owner.PublishProgress(phase, completed, total, fraction);
+        child.SetProgressOwner(owner, 0, null);
         var received = new List<FittingProgress>();
         EventHandler<FittingProgress> capture = (sender, progress) =>
         { if (ReferenceEquals(sender, owner)) received.Add(progress); };
@@ -239,9 +239,10 @@ public sealed class FittingStatusPresentationTests
             Assert.Equal(100, received.Last().Completed);
             for (var index = 1; index < received.Count; index++)
                 Assert.True(received[index].Completed >= received[index - 1].Completed);
-            var expectedFractions = Enumerable.Range(1, 100)
-                .Select(completed => 1f / 3 * completed / 100 + 1f / 3);
-            Assert.Equal(expectedFractions, received.Select(progress => progress.Fraction.Value).OrderBy(value => value));
+            Assert.All(received, progress => Assert.InRange(progress.Fraction.Value, 1f / 3 - 1e-6f, 2f / 3 + 1e-6f));
+            for (var index = 1; index < received.Count; index++)
+                Assert.True(received[index].Fraction >= received[index - 1].Fraction);
+            Assert.Equal(2d / 3, received.Last().Fraction.Value, 6);
             Assert.All(received, progress =>
             {
                 Assert.Equal(owner.OperationId, progress.OperationId);

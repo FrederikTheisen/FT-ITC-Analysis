@@ -4,6 +4,7 @@ using Accord.Math.Optimization;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
+using System.Runtime.ExceptionServices;
 using Accord.Math;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Platform;
@@ -96,12 +97,165 @@ namespace AnalysisITC.Core.Analysis
         readonly object progressGate = new();
         long progressSequence, deliveredProgressSequence;
         FittingProgress deliveredProgress;
-        internal Action<FittingPhase, int?, int?, float?> ProgressObserver { get; set; }
+        SolverInterface progressOwner;
+        ProgressDeliveryState progressDelivery = new();
+        internal Action<FittingPhase, int?, int?, float?, ProgressIdentity?> ProgressObserver { get; set; }
+
+        bool HasMonotonicRefitProgress => ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+            || ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut;
+
+        internal void SetProgressOwner(SolverInterface owner, int position, string name)
+        {
+            progressOwner = owner;
+            progressDelivery = owner.progressDelivery;
+            var delivery = progressDelivery;
+            ProgressObserver = (phase, completed, total, fraction, identity) =>
+            {
+                if (ReferenceEquals(owner.progressDelivery, delivery))
+                    owner.PublishProgress(phase, completed, total, fraction, position, name, identity);
+            };
+        }
+
+        internal void BeginUncertaintyProgressPass()
+        {
+            if (progressOwner != null || !HasMonotonicRefitProgress) return;
+            lock (progressGate)
+            {
+                currentCompleted = currentTotal = null;
+                deliveredProgress = null;
+                lock (progressDelivery.Gate)
+                {
+                    progressDelivery.Pass++;
+                    progressDelivery.HighestFraction = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Captures the operation and uncertainty pass a report belongs to, so notifications
+        /// submitted separately for one report cannot be attributed to different passes.
+        /// </summary>
+        ProgressIdentity CaptureProgressIdentity()
+        {
+            var owner = progressOwner ?? this;
+            var delivery = progressDelivery;
+            lock (delivery.Gate) return new ProgressIdentity(delivery, owner.OperationId, delivery.Pass);
+        }
+
+        void DispatchProgress(float? fraction, bool uncertainty, Action<float?> notify, ProgressIdentity? identity = null)
+        {
+            var owner = progressOwner ?? this;
+            if (!owner.HasMonotonicRefitProgress)
+            {
+                PlatformServices.MainThreadDispatcher.Invoke(() => notify(fraction));
+                return;
+            }
+
+            var delivery = identity?.Delivery ?? progressDelivery;
+            lock (delivery.Gate)
+            {
+                if (!ReferenceEquals(owner.progressDelivery, delivery)) return;
+                delivery.Pending.Enqueue(new ProgressNotification(identity?.OperationId ?? owner.OperationId,
+                    identity?.Pass ?? delivery.Pass, uncertainty, fraction, notify));
+                if (delivery.Draining) return;
+                delivery.Draining = true;
+            }
+            var started = 0;
+            try
+            {
+                // Neither dispatch nor observers run while a state lock is held.
+                PlatformServices.MainThreadDispatcher.Invoke(() =>
+                {
+                    Interlocked.Exchange(ref started, 1);
+                    owner.DrainProgress(delivery);
+                });
+            }
+            catch
+            {
+                // Once started, the drainer owns cleanup; it releases delivery before
+                // rethrowing an observer failure, so another producer may already drain.
+                if (Volatile.Read(ref started) == 0)
+                    lock (delivery.Gate) delivery.Draining = false;
+                throw;
+            }
+        }
+
+        void DrainProgress(ProgressDeliveryState delivery)
+        {
+            var finished = false;
+            ExceptionDispatchInfo failure = null;
+            try
+            {
+                while (true)
+                {
+                    ProgressNotification notification;
+                    float? fraction;
+                    lock (delivery.Gate)
+                    {
+                        if (!ReferenceEquals(progressDelivery, delivery)) delivery.Pending.Clear();
+                        if (delivery.Pending.Count == 0)
+                        {
+                            delivery.Draining = false;
+                            finished = true;
+                            break;
+                        }
+                        notification = delivery.Pending.Dequeue();
+                        if (notification.OperationId != OperationId
+                            || notification.Uncertainty && notification.Pass != delivery.Pass) continue;
+                        fraction = notification.Fraction;
+                        if (notification.Uncertainty && fraction.HasValue && fraction.Value >= 0)
+                        {
+                            fraction = Math.Max(delivery.HighestFraction ?? fraction.Value, fraction.Value);
+                            delivery.HighestFraction = fraction;
+                        }
+                    }
+                    // An observer failure must not strand later notifications, such as completion,
+                    // that have no further report to schedule their delivery.
+                    try { notification.Notify(fraction); }
+                    catch (Exception ex) { failure ??= ExceptionDispatchInfo.Capture(ex); }
+                }
+            }
+            finally
+            {
+                // On normal exit the flag was cleared atomically with the empty check.
+                if (!finished) lock (delivery.Gate) delivery.Draining = false;
+            }
+            failure?.Throw();
+        }
+
+        internal sealed class ProgressDeliveryState
+        {
+            internal readonly object Gate = new();
+            internal readonly Queue<ProgressNotification> Pending = new();
+            internal bool Draining;
+            internal long Pass;
+            internal float? HighestFraction;
+        }
+
+        internal readonly struct ProgressIdentity
+        {
+            internal ProgressIdentity(ProgressDeliveryState delivery, Guid operationId, long pass)
+            { Delivery = delivery; OperationId = operationId; Pass = pass; }
+            internal ProgressDeliveryState Delivery { get; }
+            internal Guid OperationId { get; }
+            internal long Pass { get; }
+        }
+
+        internal sealed class ProgressNotification
+        {
+            internal readonly Guid OperationId;
+            internal readonly long Pass;
+            internal readonly bool Uncertainty;
+            internal readonly float? Fraction;
+            internal readonly Action<float?> Notify;
+            internal ProgressNotification(Guid operationId, long pass, bool uncertainty, float? fraction, Action<float?> notify)
+            { OperationId = operationId; Pass = pass; Uncertainty = uncertainty; Fraction = fraction; Notify = notify; }
+        }
 
         internal void PublishProgress(FittingPhase phase, int? completed = null, int? total = null, float? fraction = null,
-            int memberPosition = 0, string memberName = null)
+            int memberPosition = 0, string memberName = null, ProgressIdentity? identity = null)
         {
-            if (ProgressObserver != null) { ProgressObserver(phase, completed, total, fraction); return; }
+            if (ProgressObserver != null) { ProgressObserver(phase, completed, total, fraction, identity); return; }
             if (Silent) return;
             FittingProgress snapshot;
             long sequence;
@@ -133,18 +287,20 @@ namespace AnalysisITC.Core.Analysis
                     ErrorEstimationMethod, completed, total, fraction);
                 sequence = ++progressSequence;
             }
-            PlatformServices.MainThreadDispatcher.Invoke(() => DeliverProgress(snapshot, sequence));
+            DispatchProgress(snapshot.Fraction, snapshot.Phase == FittingPhase.EstimatingUncertainty,
+                fraction => DeliverProgress(snapshot, sequence, fraction), identity);
         }
 
-        void DeliverProgress(FittingProgress snapshot, long sequence)
+        void DeliverProgress(FittingProgress snapshot, long sequence, float? fraction)
         {
+            snapshot = new FittingProgress(snapshot.OperationId, snapshot.Phase, snapshot.Scope,
+                snapshot.MemberPosition, snapshot.MemberCount, snapshot.MemberName, snapshot.Method,
+                snapshot.Completed, snapshot.Total, fraction);
             lock (progressGate)
             {
                 if (snapshot.OperationId == OperationId)
                 {
-                    // Dispatch stays outside the lock, so parallel callers can arrive
-                    // out of capture order. Keep the latest delivered text/counter,
-                    // while forwarding every original indicator fraction (ITC-109).
+                    // Keep metadata current even if capture and submission were reordered.
                     if (deliveredProgress != null && sequence < deliveredProgressSequence)
                         snapshot = new FittingProgress(snapshot.OperationId, deliveredProgress.Phase,
                             deliveredProgress.Scope, deliveredProgress.MemberPosition, deliveredProgress.MemberCount,
@@ -167,7 +323,7 @@ namespace AnalysisITC.Core.Analysis
             completionPublished = true;
             var snapshot = new FittingCompletion(OperationId, this, pendingCompletion,
                 Operation?.Elapsed ?? pendingCompletion.TotalTime, IsResultUpdate);
-            PlatformServices.MainThreadDispatcher.Invoke(() => FittingCompleted?.Invoke(this, snapshot));
+            DispatchProgress(null, uncertainty: false, _ => FittingCompleted?.Invoke(this, snapshot));
         }
 
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
@@ -392,20 +548,22 @@ namespace AnalysisITC.Core.Analysis
         {
             // Capture the member step now; a posted dispatch could otherwise read the next member's step.
             var background = Silent ? SolverUpdate.BackgroundBootstrapUpdate(iteration, total) : null;
+            // Both notifications belong to the pass current when the report was made.
+            var identity = CaptureProgressIdentity();
             PublishProgress(FittingPhase.EstimatingUncertainty, iteration, total,
-                background?.Progress ?? iteration / (float)total);
-            PlatformServices.MainThreadDispatcher.Invoke(() =>
+                background?.Progress ?? iteration / (float)total, identity: identity);
+            DispatchProgress(background?.Progress ?? iteration / (float)total, uncertainty: true, fraction =>
             {
-                if (background == null) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, total, iteration / (float)total));
-                else SolverUpdated?.Invoke(null, background);
-            });
+                if (background == null) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, total, fraction.Value));
+                else SolverUpdated?.Invoke(null, background.CopyWithProgress(fraction.Value));
+            }, identity);
         }
 
         public void ReportAnalysisStepFinished()
         {
             if (Silent || !CanReportAnalysisStepFinished) return;
 
-            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            DispatchProgress(null, uncertainty: false, _ =>
             {
                 AnalysisStepFinished?.Invoke(this, EventArgs.Empty);
             });
@@ -420,21 +578,25 @@ namespace AnalysisITC.Core.Analysis
                 "Analysis finished without convergence information."), starttime);
             pendingCompletion = convergence;
             if (!deferCompletion || IsResultUpdate) PublishCompletion();
-            PlatformServices.MainThreadDispatcher.Invoke(() => AnalysisFinished?.Invoke(this, convergence));
+            DispatchProgress(null, uncertainty: false, _ => AnalysisFinished?.Invoke(this, convergence));
         }
 
         public void ReportSolverUpdate(SolverUpdate update)
         {
-            if (!Silent && update.Progress >= 0)
+            if (Silent) return;
+            var snapshot = update.CopyWithProgress(update.Progress);
+            FittingPhase phase;
+            lock (progressGate) phase = currentPhase;
+            // Both notifications belong to the pass current when the update was made.
+            var identity = CaptureProgressIdentity();
+            if (snapshot.Progress >= 0)
             {
-                FittingPhase phase;
-                lock (progressGate) phase = currentPhase;
-                PublishProgress(phase, fraction: update.Progress);
+                PublishProgress(phase, fraction: snapshot.Progress, identity: identity);
             }
-            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            DispatchProgress(snapshot.Progress, phase == FittingPhase.EstimatingUncertainty, fraction =>
             {
-                if (!Silent) SolverUpdated?.Invoke(null, update);
-            });
+                SolverUpdated?.Invoke(null, snapshot.CopyWithProgress(fraction.Value));
+            }, identity);
         }
 
         public virtual void Analyze()
@@ -449,6 +611,7 @@ namespace AnalysisITC.Core.Analysis
                 currentMemberName = null;
                 currentCompleted = currentTotal = null;
                 deliveredProgress = null;
+                progressDelivery = new ProgressDeliveryState();
             }
             completionPublished = false;
             pendingCompletion = null;
@@ -580,6 +743,7 @@ namespace AnalysisITC.Core.Analysis
 
         internal void EstimateUncertainty(SolverConvergence convergence)
         {
+            BeginUncertaintyProgressPass();
             switch (ErrorEstimationMethod)
             {
                 case ErrorEstimationMethod.BootstrapResiduals:
@@ -1464,8 +1628,7 @@ namespace AnalysisITC.Core.Analysis
 
                             var solver = SolverInterface.Initialize(mdl);
                             var position = Model.Models.IndexOf(mdl) + 1;
-                            solver.ProgressObserver = (phase, completed, total, fraction) =>
-                                PublishProgress(phase, completed, total, fraction, position, mdl.Data.Name);
+                            solver.SetProgressOwner(this, position, mdl.Data.Name);
                             PublishProgress(FittingPhase.Fitting, memberPosition: position, memberName: mdl.Data.Name);
                             solver.ErrorEstimationMethod = ErrorEstimationMethod;
                             solver.BootstrapIterations = BootstrapIterations;

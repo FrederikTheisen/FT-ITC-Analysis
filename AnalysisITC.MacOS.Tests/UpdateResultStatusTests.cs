@@ -99,6 +99,14 @@ static class UpdateResultStatusTests
                         method + " phase or counter missing");
                     Check(Math.Abs(indicator.DoubleValue - (method == ErrorEstimationMethod.ProfileLikelihood ? 37.5 : 40)) < 0.00001,
                         method + " progress fraction changed");
+                    if (method != ErrorEstimationMethod.ProfileLikelihood)
+                    {
+                        if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(20);
+                        else solver.ReportLeaveOneOutProgress(1, 5);
+                        Pump();
+                        Check(Math.Abs(indicator.DoubleValue - 40) < 0.00001 && secondary.StringValue == counter,
+                            method + " late report lowered the indicator or counter");
+                    }
                     StatusBarManager.SetDefaultSecondaryStatus("Example project [M]");
                     Check(secondary.StringValue == counter, "Project name replaced the active counter");
                     solver.ReportAnalysisFinished(Convergence(termination));
@@ -124,7 +132,7 @@ static class UpdateResultStatusTests
     static void Publish(SolverInterface solver, FittingPhase phase, int? completed, int? total, float? fraction)
     {
         typeof(SolverInterface).GetMethod("PublishProgress", Instance).Invoke(solver,
-            new object[] { phase, completed, total, fraction, 0, null });
+            new object[] { phase, completed, total, fraction, 0, null, null });
     }
 
     static void CheckAdmission(DataAnalysisViewController analysis, NSTextField primary)
