@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 using SkiaSharp;
@@ -202,7 +203,14 @@ sealed class SkiaFigureCanvasRenderer
 
     public void WritePdf(SkiaFigureCanvasRenderPlan plan, string path)
     {
+        using var stream = File.Create(path);
+        WritePdf(plan, stream);
+    }
+
+    public void WritePdf(SkiaFigureCanvasRenderPlan plan, Stream stream)
+    {
         if (plan == null) throw new ArgumentNullException(nameof(plan));
+        if (stream == null) throw new ArgumentNullException(nameof(stream));
         if (!plan.IsValid) throw new InvalidOperationException(plan.ValidationError);
 
         var metadata = new SKDocumentPdfMetadata
@@ -214,7 +222,8 @@ sealed class SkiaFigureCanvasRenderer
             Keywords = string.Join(", ", plan.Figures.Select(figure => figure.Title).Where(title => !string.IsNullOrWhiteSpace(title)))
         };
 
-        using var pdf = SKDocument.CreatePdf(path, metadata);
+        using var pdf = SKDocument.CreatePdf(stream, metadata)
+            ?? throw new InvalidOperationException("The supporting figure PDF renderer could not be created.");
         foreach (var page in plan.Pages.Count == 0 ? new[] { plan } : plan.Pages)
         {
             var canvas = pdf.BeginPage(page.CanvasWidth, page.CanvasHeight);

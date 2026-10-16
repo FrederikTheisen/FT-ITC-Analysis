@@ -256,23 +256,42 @@ namespace AnalysisITC
 
                 panel.BeginSheet(View.Window, result =>
                 {
-                    if (result != (int)NSModalResponse.OK || panel.Url == null) return;
-
                     try
                     {
-                        File.WriteAllText(panel.Url.Path, output);
+                        if (result != (int)NSModalResponse.OK || panel.Url == null) return;
+                        var path = panel.Url.Path;
+                        var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+                        var outcome = WriteResultTable(path, output, approved);
+                        if (!outcome.IsSuccess)
+                        {
+                            ExportFailurePresentation.Report("Analysis result table", outcome);
+                            return;
+                        }
                         StatusBarManager.SetStatus("Analysis result table exported", 3000);
                     }
                     catch (Exception ex)
                     {
-                        AppEventHandler.DisplayHandledException(ex);
+                        ReportResultTableBoundaryFailure(ex);
                     }
                 });
             }
             catch (Exception ex)
             {
-                AppEventHandler.DisplayHandledException(ex);
+                ReportResultTableBoundaryFailure(ex);
             }
+        }
+
+        static void ReportResultTableBoundaryFailure(Exception error) =>
+            ExportFailurePresentation.Report("Analysis result table",
+                ExportOutcome.Failure(0, error ?? new InvalidOperationException("An unknown export error occurred.")));
+
+        internal static ExportOutcome WriteResultTable(string path, string output, ISet<string> approvedReplacementPaths)
+        {
+            return ExportBatchWriter.Write(new[] { path }, approvedReplacementPaths, (_, stream) =>
+            {
+                var bytes = new System.Text.UTF8Encoding(false).GetBytes(output ?? string.Empty);
+                stream.Write(bytes, 0, bytes.Length);
+            });
         }
     }
 

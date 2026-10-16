@@ -5,7 +5,6 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
@@ -352,60 +351,64 @@ namespace AnalysisITC
 
         public static void Export(ExportDataSelection selection)
         {
-            var modelSelection = FinalFigureModelPresentation.Selection;
-            var datas = GetExportData(selection).Where(d => d != null).ToList();
-            if (datas.Count == 0)
+            try
             {
-                AppEventHandler.DisplayHandledException(new HandledException(
-                    HandledException.Severity.Warning,
-                    "No Figures Selected",
-                    "No final figures matched the current export selection."));
-                return;
-            }
-
-            if (selection == ExportDataSelection.SelectedData)
-            {
-                ExportSingleFigure(datas[0], modelSelection);
-                return;
-            }
-
-            var projectFolderName = GetProjectFolderName();
-            var dlg = new NSOpenPanel();
-            dlg.Title = "Export Figures";
-            dlg.Message = $"Choose a parent folder. Figures will be exported to {projectFolderName}/.";
-            dlg.Prompt = "Export";
-            dlg.CanChooseDirectories = true;
-            dlg.CanCreateDirectories = true;
-            dlg.CanChooseFiles = false;
-
-
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (result) =>
-            {
-                if (result == (int)NSModalResponse.OK)
+                var modelSelection = FinalFigureModelPresentation.Selection;
+                var datas = GetExportData(selection).Where(d => d != null).ToList();
+                if (datas.Count == 0)
                 {
-                    var parentFolderPath = dlg.Url?.Path;
-                    if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
+                    AppEventHandler.DisplayHandledException(new HandledException(
+                        HandledException.Severity.Warning,
+                        "No Figures Selected",
+                        "No final figures matched the current export selection."));
+                    return;
+                }
 
-                    var projectFolderPath = Path.Combine(parentFolderPath, projectFolderName);
+                if (selection == ExportDataSelection.SelectedData)
+                {
+                    ExportSingleFigure(datas[0], modelSelection);
+                    return;
+                }
+
+                var projectFolderName = GetProjectFolderName();
+                var dlg = new NSOpenPanel();
+                dlg.Title = "Export Figures";
+                dlg.Message = $"Choose a parent folder. Figures will be exported to {projectFolderName}/.";
+                dlg.Prompt = "Export";
+                dlg.CanChooseDirectories = true;
+                dlg.CanCreateDirectories = true;
+                dlg.CanChooseFiles = false;
+
+
+                dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (result) =>
+                {
                     try
                     {
-                        Directory.CreateDirectory(projectFolderPath);
+                        if (result != (int)NSModalResponse.OK) return;
+                        var parentFolderPath = dlg.Url?.Path;
+                        if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
 
-                        var exportedCount = ExportFiguresWithoutOverwriting(datas, projectFolderPath, modelSelection);
+                        var projectFolderPath = Path.Combine(parentFolderPath, projectFolderName);
+                        var targets = FigureExportPlanner.CreateTargets(datas, projectFolderPath);
+                        var outcome = RunFigureBatchAfterConfirmation(targets, modelSelection, "Final figures",
+                            approved => ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, approved),
+                            () => Directory.CreateDirectory(projectFolderPath));
+                        if (outcome == null || !outcome.IsSuccess) return;
 
                         StatusBarManager.SetStatus(
-                            $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {Path.GetFileName(projectFolderPath)}",
+                            $"{outcome.CompletedCount} final figure{(outcome.CompletedCount == 1 ? "" : "s")} exported to {Path.GetFileName(projectFolderPath)}",
                             3000);
                     }
-                    catch (Exception ex)
+                    catch (Exception error)
                     {
-                        AppEventHandler.DisplayHandledException(new HandledException(
-                            HandledException.Severity.Error,
-                            "Could Not Export Final Figures",
-                            $"Could not export final figures to:\n{projectFolderPath}\n\n{ex.Message}"));
+                        ReportFinalFigureBoundaryFailure(error);
                     }
-                }
-            });
+                });
+            }
+            catch (Exception error)
+            {
+                ReportFinalFigureBoundaryFailure(error);
+            }
         }
 
         static void ExportSingleFigure(ExperimentData data, PublicationFigureModelSelection selection)
@@ -418,27 +421,45 @@ namespace AnalysisITC
             panel.AllowedFileTypes = new[] { "pdf" };
             panel.CanCreateDirectories = true;
 
-            panel.BeginSheet(NSApplication.SharedApplication.MainWindow, result =>
+            try
             {
-                if (result != (int)NSModalResponse.OK) return;
-
-                var path = panel.Url?.Path;
-                if (string.IsNullOrWhiteSpace(path)) return;
-                if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
-
-                try
+                panel.BeginSheet(NSApplication.SharedApplication.MainWindow, result =>
                 {
-                    WriteFigurePdf(data, path, owner, ownerSolution, selection);
-                    StatusBarManager.SetStatus("Final figure exported", 3000);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.DisplayHandledException(ex);
-                }
-            });
+                    try
+                    {
+                        if (result != (int)NSModalResponse.OK) return;
+
+                        var selectedPath = panel.Url?.Path;
+                        if (string.IsNullOrWhiteSpace(selectedPath)) return;
+                        var path = selectedPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                            ? selectedPath
+                            : selectedPath + ".pdf";
+
+                        var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+                        if (!string.Equals(path, selectedPath, StringComparison.Ordinal) && approved.Count > 0
+                            && !ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, approved)) return;
+                        var outcome = ExportBatchWriter.Write(new[] { path }, approved,
+                            (_, stream) => WriteFigurePdf(data, stream, owner, ownerSolution, selection));
+                        if (!outcome.IsSuccess)
+                        {
+                            ExportFailurePresentation.Report("Final figure", outcome);
+                            return;
+                        }
+                        StatusBarManager.SetStatus("Final figure exported", 3000);
+                    }
+                    catch (Exception error) { ReportFinalFigureBoundaryFailure(error); }
+                });
+            }
+            catch (Exception error) { ReportFinalFigureBoundaryFailure(error); }
         }
 
         public static void Export(AnalysisResult result)
+        {
+            try { ExportAssociatedResult(result); }
+            catch (Exception error) { ReportFinalFigureBoundaryFailure(error); }
+        }
+
+        static void ExportAssociatedResult(AnalysisResult result)
         {
             var modelSelection = FinalFigureModelPresentation.Selection;
             if (result == null)
@@ -480,6 +501,8 @@ namespace AnalysisITC
                 return;
             }
 
+            var savedMembers = result.Solution?.Solutions?.ToList() ?? new List<SolutionInterface>();
+
             var dlg = new NSOpenPanel();
             dlg.Title = "Export Analysis Result Figures";
             dlg.Message = "Choose the parent folder for the exported PDF figures.";
@@ -488,147 +511,118 @@ namespace AnalysisITC
             dlg.CanCreateDirectories = true;
             dlg.CanChooseFiles = false;
 
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (modalResult) =>
+            try
             {
-                if (modalResult != (int)NSModalResponse.OK) return;
-
-                var parentFolderPath = dlg.Url?.Path;
-                if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
-
-                var resultFolderPath = Path.Combine(parentFolderPath, SanitizeFileName(result.Name));
-                var exportTargets = CreateFigureExportTargets(
-                    datas,
-                    resultFolderPath,
-                    data => $"{data.Name}");
-
-                if (!ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, exportTargets.Select(t => t.Path)))
-                    return;
-
-                try
+                dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (modalResult) =>
                 {
-                    Directory.CreateDirectory(resultFolderPath);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.DisplayHandledException(new HandledException(
-                        HandledException.Severity.Error,
-                        "Could Not Create Export Folder",
-                        $"Could not create the export folder:\n{resultFolderPath}\n\n{ex.Message}"));
-                    return;
-                }
-
-                foreach (var target in exportTargets)
-                {
-                    var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
-                        ReferenceEquals(candidate?.Data, target.Data));
-                    if (solution?.Model == null)
-                        throw new InvalidOperationException($"No fitted model is available for {target.Data.Name} in this analysis result.");
-
-                    WriteFigurePdf(target.Data, target.Path, result, solution, modelSelection);
-                }
-
-                StatusBarManager.SetStatus("Analysis result figures exported", 3000);
-            });
-        }
-
-        static List<FigureExportTarget> CreateFigureExportTargets(List<ExperimentData> datas, string folderPath)
-        {
-            return CreateFigureExportTargets(datas, folderPath, data => data.Name);
-        }
-
-        static List<FigureExportTarget> CreateFigureExportTargets(IEnumerable<ExperimentData> datas, string folderPath, Func<ExperimentData, string> nameFactory)
-        {
-            var targets = new List<FigureExportTarget>();
-            var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var data in datas)
-            {
-                var baseFileName = SanitizeFileName(nameFactory(data));
-                var fileName = baseFileName + ".pdf";
-                var suffix = 2;
-
-                while (usedFileNames.Contains(fileName))
-                {
-                    fileName = $"{baseFileName} ({suffix}).pdf";
-                    suffix++;
-                }
-
-                usedFileNames.Add(fileName);
-                targets.Add(new FigureExportTarget(data, Path.Combine(folderPath, fileName)));
-            }
-
-            return targets;
-        }
-
-        static int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> datas, string folderPath, PublicationFigureModelSelection selection)
-        {
-            var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var exportedCount = 0;
-
-            foreach (var data in datas)
-            {
-                var baseFileName = SanitizeFileName(data.Name);
-                var temporaryPath = Path.Combine(folderPath, "." + Guid.NewGuid().ToString("N") + ".tmp.pdf");
-
-                try
-                {
-                    WriteFigurePdf(data, temporaryPath, selection: selection);
-
-                    for (var suffix = 1; ; suffix++)
+                    try
                     {
-                        var fileName = suffix == 1
-                            ? baseFileName + ".pdf"
-                            : $"{baseFileName} ({suffix}).pdf";
+                        if (modalResult != (int)NSModalResponse.OK) return;
 
-                        if (!usedFileNames.Add(fileName))
-                            continue;
+                        var parentFolderPath = dlg.Url?.Path;
+                        if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
 
-                        var outputPath = Path.Combine(folderPath, fileName);
-                        try
+                        var resultFolderPath = Path.Combine(parentFolderPath, FigureExportPlanner.SanitizeFileName(result.Name) ?? "Untitled Figure");
+                        var exportTargets = FigureExportPlanner.CreateTargets(datas, resultFolderPath);
+                        var paths = exportTargets.Select(target => target.Path).ToList();
+                        var approved = ExportBatchWriter.CaptureExistingPaths(paths);
+
+                        if (!ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, approved)) return;
+
+                        var outcome = WriteAssociatedFigureBatch(exportTargets, approved, result, savedMembers, modelSelection,
+                            () => Directory.CreateDirectory(resultFolderPath));
+                        if (!outcome.IsSuccess)
                         {
-                            File.Move(temporaryPath, outputPath);
-                            exportedCount++;
-                            break;
+                            ExportFailurePresentation.Report("Analysis result figures", outcome);
+                            return;
                         }
-                        catch (IOException) when (File.Exists(outputPath))
-                        {
-                            // Another export created this name after it was selected.
-                            // Keep the existing file and try the next suffix.
-                        }
+
+                        StatusBarManager.SetStatus("Analysis result figures exported", 3000);
                     }
-                }
-                finally
-                {
-                    if (File.Exists(temporaryPath))
-                        File.Delete(temporaryPath);
-                }
+                    catch (Exception error) { ReportFinalFigureBoundaryFailure(error); }
+                });
             }
+            catch (Exception error) { ReportFinalFigureBoundaryFailure(error); }
+        }
 
-            return exportedCount;
+        internal static ExportOutcome WriteFigureBatch(IReadOnlyList<FigureExportTarget> targets,
+            ISet<string> approvedReplacementPaths, PublicationFigureModelSelection selection, Action prepare = null)
+        {
+            if (targets == null) throw new ArgumentNullException(nameof(targets));
+            var paths = targets.Select(target => target.Path).ToList();
+            return ExportBatchWriter.Write(paths, approvedReplacementPaths,
+                (index, stream) => WriteFigurePdf(targets[index].Experiment, stream, selection: selection), prepare);
+        }
+
+        internal static ExportOutcome RunFigureBatchAfterConfirmation(
+            IReadOnlyList<FigureExportTarget> targets,
+            PublicationFigureModelSelection selection,
+            string outputDescription,
+            Func<ISet<string>, bool> confirm,
+            Action prepare = null)
+        {
+            if (targets == null) throw new ArgumentNullException(nameof(targets));
+            var paths = targets.Select(target => target.Path).ToList();
+            var approved = ExportBatchWriter.CaptureExistingPaths(paths);
+            if (approved.Count > 0 && (confirm == null || !confirm(approved))) return null;
+
+            var outcome = WriteFigureBatch(targets, approved, selection, prepare);
+            if (!outcome.IsSuccess) ExportFailurePresentation.Report(outputDescription, outcome);
+            return outcome;
+        }
+
+        internal static ExportOutcome WriteAssociatedFigureBatch(IReadOnlyList<FigureExportTarget> targets,
+            ISet<string> approvedReplacementPaths, AnalysisResult result,
+            IReadOnlyList<SolutionInterface> savedMembers,
+            PublicationFigureModelSelection selection, Action prepare = null)
+        {
+            if (targets == null) throw new ArgumentNullException(nameof(targets));
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            var members = savedMembers ?? throw new ArgumentNullException(nameof(savedMembers));
+            var paths = targets.Select(target => target.Path).ToList();
+            return ExportBatchWriter.Write(paths, approvedReplacementPaths, (index, stream) =>
+            {
+                var target = targets[index];
+                var solution = members.FirstOrDefault(candidate => ReferenceEquals(candidate?.Data, target.Experiment));
+                if (solution?.Model == null)
+                    throw new InvalidOperationException($"No fitted model is available for {target.Experiment.Name} in this analysis result.");
+                WriteFigurePdf(target.Experiment, stream, result, solution, selection);
+            }, prepare);
         }
 
         internal static string GetProjectFolderName()
         {
             var projectPath = FTITCFormat.CurrentAccessedAppDocumentPath;
-            var projectName = string.IsNullOrWhiteSpace(projectPath)
-                ? null
-                : Path.GetFileNameWithoutExtension(projectPath);
-
-            if (string.IsNullOrWhiteSpace(projectName))
-                projectName = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-
-            return SanitizeFileName(projectName);
+            return FigureExportPlanner.GetProjectFolderName(projectPath, DateTime.Now);
         }
 
         internal static void WriteFigurePdf(ExperimentData data, string outputPath,
             AnalysisResult owner = null, SolutionInterface ownerSolution = null,
             PublicationFigureModelSelection? selection = null)
         {
+            using (var pdfData = CreateFigurePdfData(data, owner, ownerSolution, selection))
+                File.WriteAllBytes(outputPath, pdfData.ToArray());
+        }
+
+        internal static void WriteFigurePdf(ExperimentData data, Stream output,
+            AnalysisResult owner = null, SolutionInterface ownerSolution = null,
+            PublicationFigureModelSelection? selection = null)
+        {
+            if (output == null) throw new ArgumentNullException(nameof(output));
+            using (var pdfData = CreateFigurePdfData(data, owner, ownerSolution, selection))
+            {
+                if (pdfData.Length == 0) throw new InvalidOperationException("The native PDF renderer produced no data.");
+                var bytes = pdfData.ToArray();
+                output.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        static NSData CreateFigurePdfData(ExperimentData data, AnalysisResult owner,
+            SolutionInterface ownerSolution, PublicationFigureModelSelection? selection)
+        {
             var g = CreateFigure(data, null, owner, ownerSolution,
                 selection ?? FinalFigureModelPresentation.Selection, out var model);
-            var path = NSUrl.CreateFileUrl(outputPath, null);
             var parameters = BuildPdfMetadataKeywords(data, model);
-
             var pdfInfo = new CGPDFInfo
             {
                 Title = data.Name,
@@ -638,37 +632,53 @@ namespace AnalysisITC
                 Keywords = parameters.ToArray(),
             };
 
-            var x = new CGContextPDF(path, pdfInfo);
-            var printBox = g.PrintBox;
-            var pdfSize = new CGSize(
-                printBox.Width * FinalFigurePdfScale,
-                printBox.Height * FinalFigurePdfScale);
-            x.BeginPage(new CGRect(CGPoint.Empty, pdfSize));
-            x.SaveState();
-            x.ScaleCTM(FinalFigurePdfScale, FinalFigurePdfScale);
-            g.Draw(x, new CGPoint(printBox.Width / 2, printBox.Height / 2));
-            x.RestoreState();
-            x.EndPage();
-            x.Close();
-            path.Dispose();
+            var dataBuffer = new NSMutableData();
+            try
+            {
+                using (var consumer = new CGDataConsumer(dataBuffer))
+                using (var context = new CGContextPDF(consumer, pdfInfo))
+                {
+                    if (consumer.Handle == IntPtr.Zero || context.Handle == IntPtr.Zero)
+                        throw new InvalidOperationException("Could not create the native PDF renderer.");
+                    var printBox = g.PrintBox;
+                    var pdfSize = new CGSize(printBox.Width * FinalFigurePdfScale, printBox.Height * FinalFigurePdfScale);
+                    context.BeginPage(new CGRect(CGPoint.Empty, pdfSize));
+                    context.SaveState();
+                    context.ScaleCTM(FinalFigurePdfScale, FinalFigurePdfScale);
+                    g.Draw(context, new CGPoint(printBox.Width / 2, printBox.Height / 2));
+                    context.RestoreState();
+                    context.EndPage();
+                    context.Close();
+                }
+                if (dataBuffer.Length == 0)
+                    throw new InvalidOperationException("The native PDF renderer produced no data.");
+                return dataBuffer;
+            }
+            catch
+            {
+                dataBuffer.Dispose();
+                throw;
+            }
         }
 
         static string SanitizeFileName(string name)
-        {
-            var cleanName = string.IsNullOrWhiteSpace(name) ? "Untitled Figure" : name.Trim();
-
-            foreach (var invalidChar in Path.GetInvalidFileNameChars())
-            {
-                cleanName = cleanName.Replace(invalidChar, '_');
-            }
-
-            return string.IsNullOrWhiteSpace(cleanName) ? "Untitled Figure" : cleanName;
-        }
+            => FigureExportPlanner.SanitizeFileName(name) ?? "Untitled Figure";
 
         static bool ConfirmOverwriteIfNeeded(NSWindow parent, IEnumerable<string> outputPaths)
         {
-            var existing = outputPaths.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            return ConfirmOverwriteIfNeeded(parent, ExportBatchWriter.CaptureExistingPaths(outputPaths));
+        }
+
+        static bool ConfirmOverwriteIfNeeded(NSWindow parent, ISet<string> existingPaths)
+            => ConfirmOverwriteIfNeeded(parent, existingPaths, (alert, window) =>
+                parent != null ? (IntPtr)(long)alert.RunSheetModal(parent) : (IntPtr)(long)alert.RunModal());
+
+        internal static bool ConfirmOverwriteIfNeeded(NSWindow parent, ISet<string> existingPaths,
+            Func<NSAlert, NSWindow, IntPtr> showModal)
+        {
+            var existing = (existingPaths ?? new HashSet<string>()).ToList();
             if (existing.Count == 0) return true;
+            if (showModal == null) throw new ArgumentNullException(nameof(showModal));
 
             var alert = new NSAlert
             {
@@ -681,21 +691,22 @@ namespace AnalysisITC
 
             alert.AddButton("Overwrite");
             alert.AddButton("Cancel");
-
-            var response = parent != null ? alert.RunSheetModal(parent) : alert.RunModal();
-            return response == (int)NSAlertButtonReturn.First;
+            alert.Layout();
+            IntPtr response;
+            var window = alert.Window;
+            var closeObserver = parent == null
+                ? NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
+                    _ => NSApplication.SharedApplication.AbortModal(), window)
+                : null;
+            try { response = showModal(alert, parent); }
+            finally { closeObserver?.Dispose(); }
+            return response == (IntPtr)(long)NSAlertButtonReturn.First;
         }
 
-        class FigureExportTarget
+        static void ReportFinalFigureBoundaryFailure(Exception error)
         {
-            public FigureExportTarget(ExperimentData data, string path)
-            {
-                Data = data;
-                Path = path;
-            }
-
-            public ExperimentData Data { get; }
-            public string Path { get; }
+            ExportFailurePresentation.Report("Final figures",
+                ExportOutcome.Failure(0, error ?? new InvalidOperationException("An unknown export error occurred.")));
         }
 
         static IEnumerable<ExperimentData> GetExportData(ExportDataSelection selection)

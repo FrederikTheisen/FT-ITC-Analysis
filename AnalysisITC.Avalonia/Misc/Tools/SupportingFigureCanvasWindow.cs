@@ -23,8 +23,10 @@ using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Tools
@@ -81,6 +83,7 @@ namespace AnalysisITC.Avalonia.Tools
         internal TextBlock FigureSizeTextForTesting => figureSizeText;
         internal TextBlock PreviewFigureSizeTextForTesting => previewFigureSizeText;
         internal TextBlock StatusTextForTesting => statusText;
+        internal Func<FilePickerSaveOptions, Task<IStorageFile?>>? SaveFilePickerForTesting { get; set; }
         internal StackPanel PreviewPagesForTesting => previewPages;
         internal PublicationFigureCanvasOptions CanvasOptionsForTesting => CurrentCanvasOptions();
         internal SkiaFigureCanvasRenderPlan? CurrentPlanForTesting => currentPlan;
@@ -548,29 +551,59 @@ namespace AnalysisITC.Avalonia.Tools
             }
         }
 
-        async Task ExportPdfAsync()
+        internal async Task ExportPdfAsync()
         {
-            RefreshPreview();
-            var plan = currentPlan;
-            if (plan == null || !plan.IsValid) return;
-
-            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            string? path = null;
+            try
             {
-                Title = "Export Supporting Figure",
-                SuggestedFileName = "supporting-figure.pdf",
-                FileTypeChoices = new[]
-                {
-                    new FilePickerFileType("Vector PDF") { Patterns = new[] { "*.pdf" } },
-                    FilePickerFileTypes.All
-                }
-            });
-            var path = file?.TryGetLocalPath();
-            if (string.IsNullOrWhiteSpace(path)) return;
-            if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+                RefreshPreview();
+                var plan = currentPlan;
+                if (plan == null || !plan.IsValid) return;
 
-            renderer.WritePdf(plan, path);
-            statusText.Text = $"Supporting figure PDF exported · {plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm.";
-            StatusBarManager.SetStatus("Supporting figure PDF exported", 3000);
+                var pickerOptions = new FilePickerSaveOptions
+                {
+                    Title = "Export Supporting Figure",
+                    SuggestedFileName = "supporting-figure.pdf",
+                    FileTypeChoices = new[]
+                    {
+                        new FilePickerFileType("Vector PDF") { Patterns = new[] { "*.pdf" } },
+                        FilePickerFileTypes.All
+                    }
+                };
+                var file = SaveFilePickerForTesting != null
+                    ? await SaveFilePickerForTesting(pickerOptions)
+                    : await StorageProvider.SaveFilePickerAsync(pickerOptions);
+                var selectedPath = file?.TryGetLocalPath();
+                if (string.IsNullOrWhiteSpace(selectedPath)) return;
+                path = selectedPath;
+                if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+                var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+                if (!string.Equals(selectedPath, path, StringComparison.Ordinal) && approved.Contains(path) &&
+                    !PlatformServices.ExportPromptService.ConfirmOverwrite(new[] { path }))
+                    return;
+
+                var outcome = ExportBatchWriter.Write(new[] { path }, approved, (_, stream) => renderer.WritePdf(plan, stream));
+                if (!outcome.IsSuccess)
+                {
+                    ReportExportFailure(outcome);
+                    return;
+                }
+
+                statusText.Text = $"Supporting figure PDF exported · {plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm.";
+                StatusBarManager.SetStatus("Supporting figure PDF exported", 3000);
+            }
+            catch (Exception ex)
+            {
+                ReportExportFailure(ExportOutcome.Failure(1, ex, path));
+            }
+        }
+
+        void ReportExportFailure(ExportOutcome outcome)
+        {
+            var message = ExportFailurePresentation.FormatMessage("Supporting figure PDF export", outcome);
+            statusText.Text = message;
+            StatusBarManager.SetStatus(message, 5000);
+            ExportFailurePresentation.Report("Supporting figure PDF export", outcome);
         }
 
         void ClearPreview(bool keepPlan = false)

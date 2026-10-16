@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Results;
@@ -15,6 +18,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Platform;
 using Xunit;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -22,6 +26,36 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ClassifiedOutputUiTests
 {
+    [AvaloniaFact]
+    public void AnalysisResultExportPickerFailureIsHandledOnce()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var result = CreateResult();
+        DataManager.AddData(new ITCDataContainer[] { result.Solution.Solutions[0].Data, result });
+        var exporter = new AnalysisResultExporterWindow
+        {
+            SaveFilePickerForTesting = _ => Task.FromException<IStorageFile?>(new IOException("result picker unavailable"))
+        };
+        var notifications = new List<HandledException>();
+        EventHandler<HandledException> handler = (_, message) => notifications.Add(message);
+        AppEventHandler.ShowAppMessage += handler;
+        try
+        {
+            exporter.ExportToFileForTesting().GetAwaiter().GetResult();
+
+            var message = Assert.Single(notifications);
+            Assert.Contains("result picker unavailable", message.Message);
+            Assert.Contains("result picker unavailable", exporter.StatusTextForTesting);
+            Assert.DoesNotContain("exported", exporter.StatusTextForTesting, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            AppEventHandler.ShowAppMessage -= handler;
+            exporter.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
     [AvaloniaFact]
     public void BuiltInPurposeSelectorsDefaultToStandardAndRemainIndependentOfRowMode()
     {

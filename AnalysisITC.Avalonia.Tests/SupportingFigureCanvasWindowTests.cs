@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Data;
@@ -9,6 +12,8 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Numerics;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.Platform.Storage;
+using AnalysisITC.Platform;
 using Xunit;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -16,6 +21,47 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SupportingFigureCanvasWindowTests
 {
+    [AvaloniaFact]
+    public void SupportingFigureExportPickerFailureIsHandledOnce()
+    {
+        var experiment = new ExperimentData("export.itc")
+        {
+            CellConcentration = new FloatWithError(1e-3),
+            SyringeConcentration = new FloatWithError(1e-3),
+            CellVolume = 1.4e-3,
+        };
+        for (var index = 0; index < 3; index++)
+        {
+            var injection = new InjectionData(experiment, index, 1e-6, 1e-9, include: true)
+            {
+                ActualCellConcentration = 1e-3,
+                ActualTitrantConcentration = (index + 1) * 2e-6,
+            };
+            injection.SetPeakArea(new FloatWithError(1e-6));
+            experiment.Injections.Add(injection);
+        }
+        var window = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), null);
+        window.SetCompositionForTesting(new[] { experiment });
+        window.SaveFilePickerForTesting = _ => Task.FromException<IStorageFile?>(new IOException("supporting picker unavailable"));
+        var notifications = new List<HandledException>();
+        EventHandler<HandledException> handler = (_, message) => notifications.Add(message);
+        AppEventHandler.ShowAppMessage += handler;
+        try
+        {
+            window.ExportPdfAsync().GetAwaiter().GetResult();
+
+            var message = Assert.Single(notifications);
+            Assert.Contains("supporting picker unavailable", message.Message);
+            Assert.Contains("supporting picker unavailable", window.StatusTextForTesting.Text);
+            Assert.DoesNotContain("exported", window.StatusTextForTesting.Text, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            AppEventHandler.ShowAppMessage -= handler;
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void OpenSupportingFigureRefreshesExcludedPointsWhenTraceabilityModeChanges()
     {

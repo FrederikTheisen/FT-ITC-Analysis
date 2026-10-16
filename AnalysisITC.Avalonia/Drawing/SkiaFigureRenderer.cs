@@ -114,7 +114,8 @@ public sealed class SkiaFigureRenderer
             Keywords = string.Join(", ", document.MetadataKeywords)
         };
 
-        using var pdf = SKDocument.CreatePdf(stream, metadata);
+        using var pdf = SKDocument.CreatePdf(stream, metadata)
+            ?? throw new InvalidOperationException("The final figure PDF renderer could not be created.");
         var canvas = pdf.BeginPage(layout.PageWidth, layout.PageHeight);
         DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default, fonts);
         pdf.EndPage();

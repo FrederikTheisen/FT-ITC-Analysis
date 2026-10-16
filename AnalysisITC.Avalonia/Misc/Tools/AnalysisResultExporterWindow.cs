@@ -3,6 +3,7 @@ using AnalysisITC.Core.Presentation;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -47,6 +48,9 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock statusText = Text();
 
         internal ComboBox EnergyUnitComboForTesting => energyUnitCombo;
+        internal string StatusTextForTesting => statusText.Text ?? "";
+        internal Func<FilePickerSaveOptions, Task<IStorageFile?>>? SaveFilePickerForTesting { get; set; }
+        internal Task ExportToFileForTesting() => ExportToFileAsync();
 
         public AnalysisResultExporterWindow()
         {
@@ -217,32 +221,65 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task ExportToFileAsync()
         {
-            var output = BuildOutput();
-            if (string.IsNullOrWhiteSpace(output)) return;
-
-            var options = CurrentOptions();
-            var storage = StorageProvider;
-            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            string? path = null;
+            try
             {
-                Title = "Export Analysis Results",
-                SuggestedFileName = "analysis_results." + options.FileExtension,
-                FileTypeChoices = new[]
+                var output = BuildOutput();
+                if (string.IsNullOrWhiteSpace(output)) return;
+
+                var options = CurrentOptions();
+                var pickerOptions = new FilePickerSaveOptions
                 {
-                    new FilePickerFileType(options.FileExtension.ToUpperInvariant())
+                    Title = "Export Analysis Results",
+                    SuggestedFileName = "analysis_results." + options.FileExtension,
+                    FileTypeChoices = new[]
                     {
-                        Patterns = new[] { "*." + options.FileExtension }
-                    },
-                    FilePickerFileTypes.All
+                        new FilePickerFileType(options.FileExtension.ToUpperInvariant())
+                        {
+                            Patterns = new[] { "*." + options.FileExtension }
+                        },
+                        FilePickerFileTypes.All
+                    }
+                };
+                var file = SaveFilePickerForTesting != null
+                    ? await SaveFilePickerForTesting(pickerOptions)
+                    : await StorageProvider.SaveFilePickerAsync(pickerOptions);
+
+                var selectedPath = file?.TryGetLocalPath();
+                if (string.IsNullOrWhiteSpace(selectedPath)) return;
+                path = selectedPath;
+                if (string.IsNullOrWhiteSpace(Path.GetExtension(path)))
+                    path += "." + options.FileExtension;
+                var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+                if (!string.Equals(selectedPath, path, StringComparison.Ordinal) && approved.Contains(path) &&
+                    !PlatformServices.ExportPromptService.ConfirmOverwrite(new[] { path }))
+                    return;
+
+                var outcome = await ExportBatchWriter.WriteAsync(new[] { path }, approved, async (_, stream) =>
+                {
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: true);
+                    await writer.WriteAsync(output).ConfigureAwait(false);
+                    await writer.FlushAsync().ConfigureAwait(false);
+                });
+                if (!outcome.IsSuccess)
+                {
+                    ReportExportFailure(outcome);
+                    return;
                 }
-            });
 
-            var path = file?.TryGetLocalPath();
-            if (string.IsNullOrWhiteSpace(path)) return;
-            if (string.IsNullOrWhiteSpace(Path.GetExtension(path)))
-                path += "." + options.FileExtension;
+                SetStatus("Analysis result table exported.");
+            }
+            catch (Exception ex)
+            {
+                ReportExportFailure(ExportOutcome.Failure(1, ex, path));
+            }
+        }
 
-            await File.WriteAllTextAsync(path, output);
-            SetStatus("Analysis result table exported.");
+        void ReportExportFailure(ExportOutcome outcome)
+        {
+            var message = ExportFailurePresentation.FormatMessage("Analysis result table export", outcome);
+            SetStatus(message);
+            ExportFailurePresentation.Report("Analysis result table export", outcome);
         }
 
         void SetStatus(string message)

@@ -13,6 +13,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
@@ -841,28 +842,62 @@ namespace AnalysisITC
 
         void ExportPdf()
         {
-            RefreshPreview();
-            if (currentPlan == null || !currentPlan.IsValid || currentPdfData == null) return;
-            var panel = NSSavePanel.SavePanel;
-            panel.Title = "Export Supporting Figure";
-            panel.NameFieldStringValue = "supporting-figure.pdf";
-            panel.AllowedFileTypes = new[] { "pdf" };
-            panel.CanCreateDirectories = true;
-            panel.BeginSheet(Window, result =>
+            try
             {
-                if (result != (int)NSModalResponse.OK || panel.Url == null) return;
-                try
+                RefreshPreview();
+                if (currentPlan == null || !currentPlan.IsValid || currentPdfData == null) return;
+                var pdfBytes = currentPdfData.ToArray();
+                var layout = currentPlan.LayoutResult;
+                var panel = NSSavePanel.SavePanel;
+                panel.Title = "Export Supporting Figure";
+                panel.NameFieldStringValue = "supporting-figure.pdf";
+                panel.AllowedFileTypes = new[] { "pdf" };
+                panel.CanCreateDirectories = true;
+                panel.BeginSheet(Window, result =>
                 {
-                    File.WriteAllBytes(panel.Url.Path, currentPdfData.ToArray());
-                    statusLabel.StringValue = $"Supporting figure exported · {currentPlan.LayoutResult.FigureWidthCentimeters:F2} × {currentPlan.LayoutResult.FigureHeightCentimeters:F2} cm";
-                    StatusBarManager.SetStatus("Supporting figure PDF exported", 3000);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.DisplayHandledException(ex);
-                }
+                    try
+                    {
+                        if (result != (int)NSModalResponse.OK || panel.Url == null) return;
+                        var path = panel.Url.Path;
+                        var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+                        var outcome = WriteSupportingFigurePdf(path, pdfBytes, approved);
+                        if (!outcome.IsSuccess)
+                        {
+                            statusLabel.StringValue = $"Supporting figure export failed after {outcome.CompletedCount} of {outcome.PlannedCount} files.";
+                            ExportFailurePresentation.Report("Supporting figure", outcome);
+                            return;
+                        }
+                        statusLabel.StringValue = $"Supporting figure exported · {layout.FigureWidthCentimeters:F2} × {layout.FigureHeightCentimeters:F2} cm";
+                        StatusBarManager.SetStatus("Supporting figure PDF exported", 3000);
+                    }
+                    catch (Exception error)
+                    {
+                        statusLabel.StringValue = "Supporting figure export failed: " + error.Message;
+                        ReportSupportingFigureBoundaryFailure(error);
+                    }
+                });
+            }
+            catch (Exception error)
+            {
+                statusLabel.StringValue = "Supporting figure export failed: " + error.Message;
+                ReportSupportingFigureBoundaryFailure(error);
+            }
+        }
+
+        internal static ExportOutcome WriteSupportingFigurePdf(string path, byte[] pdfBytes,
+            ISet<string> approvedReplacementPaths)
+        {
+            return ExportBatchWriter.Write(new[] { path }, approvedReplacementPaths, (_, stream) =>
+            {
+                if (pdfBytes == null || pdfBytes.Length == 0)
+                    throw new InvalidOperationException("The supporting figure renderer produced no PDF data.");
+                stream.Write(pdfBytes, 0, pdfBytes.Length);
             });
         }
+
+        static void ReportSupportingFigureBoundaryFailure(Exception error) =>
+            ExportFailurePresentation.Report("Supporting figure",
+                ExportOutcome.Failure(0, error ?? new InvalidOperationException("An unknown export error occurred.")));
 
         void ReplacePdf(NSData data, PdfDocument document)
         {

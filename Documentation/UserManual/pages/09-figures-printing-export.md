@@ -24,9 +24,11 @@ The **Export PDF** controls offer three scopes:
 - **Selected** opens a save dialog for the displayed experiment figure and suggests the experiment name as the PDF filename.
 - **Active** exports figures for Active Experiment Data. **All** exports figures for all Experiment Data in the project.
 
-For **Active** and **All**, choose a parent folder and the app creates or reuses a subfolder named after the saved project file (without its extension). For an unsaved session, it uses the local export date (`yyyyMMdd`) as the folder name. Existing PDFs are kept; when a filename is already in use, the new figure gets a numeric suffix such as `Experiment (2).pdf`.
+For **Active** and **All**, choose a parent folder and the app creates or reuses a subfolder named after the saved project file (without its extension). For an unsaved session, it uses the local export date (`yyyyMMdd`) as the folder name.
 
-The result-list command **Export Associated Final Figures...** writes one final-figure PDF per member experiment using that result's saved fits and the current **Plotted model** choice. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
+The result-list command **Export Associated Final Figures...** writes one final-figure PDF per member experiment using that result's saved fits and the current **Plotted model** choice. Choose a parent folder; the app creates or reuses a subfolder named after the result. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
+
+All figure batches use experiment names for their PDF filenames. When names in the same batch would collide, numeric suffixes such as `Experiment (2).pdf` keep them distinct. If any destination PDFs already exist, the app asks once before replacing them; **Cancel** stops the entire export without writing files. Repeating an export replaces the approved PDFs rather than creating additional suffixed copies.
 
 Final Figure preview, PDF export, and printing use the same selected model. Associated and batch exports also use this choice.
 

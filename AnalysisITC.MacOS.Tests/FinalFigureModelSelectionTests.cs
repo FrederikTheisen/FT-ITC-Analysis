@@ -1,5 +1,6 @@
 // Managed native figure/control regression checks; no bundle or signing targets.
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -95,6 +96,21 @@ static class FinalFigureModelSelectionTests
             WritePdf(data, directory, "native-associated-binding", result, member, PublicationFigureModelSelection.BindingModel);
             WritePdf(data, directory, "native-associated-null", result, member, PublicationFigureModelSelection.NullModel);
             WritePdf(data, directory, "native-associated-none", result, member, PublicationFigureModelSelection.None);
+            var associatedDirectory = Path.Combine(directory, "associated-batch");
+            Directory.CreateDirectory(associatedDirectory);
+            var associatedTargets = FigureExportPlanner.CreateTargets(new[] { data }, associatedDirectory);
+            var associatedWriter = typeof(FinalFigureGraphView).GetMethod("WriteAssociatedFigureBatch", InternalStatic);
+            var associatedOutcome = (ExportOutcome)associatedWriter.Invoke(null, new object[]
+            {
+                associatedTargets,
+                ExportBatchWriter.CaptureExistingPaths(associatedTargets.Select(target => target.Path).ToList()),
+                result,
+                result.Solution.Solutions.ToList(),
+                PublicationFigureModelSelection.BindingModel,
+                null
+            });
+            Check(associatedOutcome.IsSuccess && File.Exists(associatedTargets[0].Path),
+                "Associated batch did not render the saved result-member fit");
             Check(ReferenceEquals(attached, data.Solution), "Export reattached a solution");
 
             // Unavailable Null: observations only, never the Binding fit.
@@ -115,9 +131,46 @@ static class FinalFigureModelSelectionTests
                 .Invoke(null, new object[] { ExportDataSelection.AllData }) == 2, "All export omitted unfitted observations");
             var batchDirectory = Path.Combine(directory, "batch");
             Directory.CreateDirectory(batchDirectory);
-            Check((int)typeof(FinalFigureGraphView).GetMethod("ExportFiguresWithoutOverwriting", InternalStatic)
-                .Invoke(null, new object[] { new[] { data, unfitted }, batchDirectory, PublicationFigureModelSelection.NullModel }) == 2,
+            var targets = FigureExportPlanner.CreateTargets(new[] { data, unfitted }, batchDirectory);
+            var writeBatch = typeof(FinalFigureGraphView).GetMethod("WriteFigureBatch", InternalStatic);
+            var firstOutcome = (ExportOutcome)writeBatch.Invoke(null, new object[]
+            {
+                targets, ExportBatchWriter.CaptureExistingPaths(targets.Select(target => target.Path).ToList()),
+                PublicationFigureModelSelection.NullModel, null
+            });
+            Check(firstOutcome.IsSuccess && firstOutcome.CompletedCount == 2,
                 "Unavailable Null batch export failed");
+            Check(targets.All(target => File.Exists(target.Path)), "Planned native batch paths were not written");
+
+            File.WriteAllText(targets[0].Path, "previous export");
+            var approved = ExportBatchWriter.CaptureExistingPaths(targets.Select(target => target.Path).ToList());
+            var secondOutcome = (ExportOutcome)writeBatch.Invoke(null, new object[]
+            {
+                targets, approved, PublicationFigureModelSelection.NullModel, null
+            });
+            Check(secondOutcome.IsSuccess && secondOutcome.ReplacedCount == 2,
+                "Approved repeat export did not replace the planned PDFs");
+            Check(!Directory.GetFiles(batchDirectory).Any(path => Path.GetFileName(path).EndsWith(" (2).pdf", StringComparison.OrdinalIgnoreCase)),
+                "Repeat export created a suffix file instead of replacing the approved path");
+
+            var partialTargets = new[]
+            {
+                targets[0],
+                new FigureExportTarget(unfitted, Path.Combine(batchDirectory, "missing", "later.pdf"))
+            };
+            var partial = (ExportOutcome)writeBatch.Invoke(null, new object[]
+            {
+                partialTargets, ExportBatchWriter.CaptureExistingPaths(partialTargets.Select(target => target.Path).ToList()),
+                PublicationFigureModelSelection.NullModel, null
+            });
+            Check(!partial.IsSuccess && partial.PlannedCount == 2 && partial.CompletedCount == 1
+                && partial.ReplacedCount == 1 && partial.FailedPath == partialTargets[1].Path,
+                "Partial native batch did not report its committed file and failed destination");
+            Check(!File.Exists(partialTargets[1].Path), "Failed output destination was created");
+            Check(ExportFailurePresentation.FormatMessage("Final figures", partial).Contains("mix of old and new exports"),
+                "Partial native export omitted the mixed-folder explanation");
+
+            NativeOverwriteConfirmationAndFailureReporting(data, directory);
 
             // Unified enthalpy axis resolves other experiments with the selected model.
             var reference = Experiment();
@@ -235,6 +288,90 @@ static class FinalFigureModelSelectionTests
     static DataFittingGraph Graph(FinalFigure figure)
         => (DataFittingGraph)typeof(FinalFigure).GetField("IntegrationGraph", AnyInstance).GetValue(figure);
 
+    static void NativeOverwriteConfirmationAndFailureReporting(ExperimentData data, string directory)
+    {
+        var outputDirectory = Path.Combine(directory, "confirmed-batch");
+        Directory.CreateDirectory(outputDirectory);
+        var targets = FigureExportPlanner.CreateTargets(new[] { data }, outputDirectory);
+        var initial = RunConfirmedBatch(targets, existing => true);
+        Check(initial != null && initial.IsSuccess, "Initial planned export failed");
+        var original = File.ReadAllBytes(targets[0].Path);
+
+        var cancelled = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing,
+            (IntPtr)(long)NSAlertButtonReturn.Second));
+        Check(cancelled == null && Equal(original, File.ReadAllBytes(targets[0].Path)),
+            "Cancel changed the existing PDF");
+
+        var closed = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing, IntPtr.Zero));
+        Check(closed == null && Equal(original, File.ReadAllBytes(targets[0].Path)),
+            "Closing the overwrite prompt changed the existing PDF");
+
+        var overwritten = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing,
+            (IntPtr)(long)NSAlertButtonReturn.First));
+        Check(overwritten != null && overwritten.IsSuccess && overwritten.ReplacedCount == 1,
+            "Overwrite did not commit to the approved planned path");
+        Check(!Directory.GetFiles(outputDirectory).Any(path => Path.GetFileName(path).EndsWith(" (2).pdf", StringComparison.OrdinalIgnoreCase)),
+            "Approved repeat export created a suffix file");
+
+        var missingTarget = new FigureExportTarget(data, Path.Combine(outputDirectory, "missing", "later.pdf"));
+        var partialTargets = new[] { targets[0], missingTarget };
+        var messageCount = 0;
+        HandledException shown = null;
+        EventHandler<HandledException> capture = (sender, message) =>
+        {
+            if (message.Title != "Export Failed") return;
+            messageCount++;
+            shown = message;
+        };
+        var previousHandler = AppEventHandler.ShowAppMessage;
+        AppEventHandler.ShowAppMessage = capture;
+        try
+        {
+            var outcome = RunConfirmedBatch(partialTargets, existing => ShowOverwritePrompt(existing,
+                (IntPtr)(long)NSAlertButtonReturn.First));
+            Check(outcome != null && !outcome.IsSuccess && outcome.CompletedCount == 1 && outcome.ReplacedCount == 1,
+                "Mixed native batch did not expose the committed replacement count");
+            Check(messageCount == 1 && shown != null && shown.Message.Contains("mix of old and new exports"),
+                "Mixed native failure did not show one shared handled-error notification");
+        }
+        finally { AppEventHandler.ShowAppMessage = previousHandler; }
+    }
+
+    static ExportOutcome RunConfirmedBatch(IReadOnlyList<FigureExportTarget> targets,
+        Func<ISet<string>, bool> confirm)
+    {
+        var method = typeof(FinalFigureGraphView).GetMethod("RunFigureBatchAfterConfirmation", InternalStatic);
+        return (ExportOutcome)method.Invoke(null, new object[]
+        {
+            targets, PublicationFigureModelSelection.NullModel, "Final figures", confirm, null
+        });
+    }
+
+    static bool ShowOverwritePrompt(ISet<string> existing, IntPtr response)
+    {
+        var showModal = new Func<NSAlert, NSWindow, IntPtr>((alert, parent) =>
+        {
+            Check(alert.AlertStyle == NSAlertStyle.Warning && alert.Buttons.Length == 2,
+                "Native overwrite alert style or buttons are incorrect");
+            Check(alert.Buttons[0].Title == "Overwrite" && alert.Buttons[1].Title == "Cancel",
+                "Native overwrite alert button labels or order are incorrect");
+            Check(alert.InformativeText.Contains("This export will overwrite"),
+                "Native overwrite alert did not identify the existing export");
+            return response;
+        });
+        var method = typeof(FinalFigureGraphView).GetMethod("ConfirmOverwriteIfNeeded", InternalStatic, null,
+            new[] { typeof(NSWindow), typeof(ISet<string>), typeof(Func<NSAlert, NSWindow, IntPtr>) }, null);
+        return (bool)method.Invoke(null, new object[] { null, existing, showModal });
+    }
+
+    static bool Equal(byte[] first, byte[] second)
+    {
+        if (first.Length != second.Length) return false;
+        for (var index = 0; index < first.Length; index++)
+            if (first[index] != second[index]) return false;
+        return true;
+    }
+
     static SolutionInterface ActiveSolution(DataFittingGraph graph)
         => (SolutionInterface)typeof(DataFittingGraph).GetProperty("ActiveSolution", AnyInstance).GetValue(graph);
 
@@ -242,7 +379,8 @@ static class FinalFigureModelSelectionTests
         PublicationFigureModelSelection selection)
     {
         var path = Path.Combine(directory, name + ".pdf");
-        typeof(FinalFigureGraphView).GetMethod("WriteFigurePdf", InternalStatic)
+        typeof(FinalFigureGraphView).GetMethod("WriteFigurePdf", InternalStatic, null,
+                new[] { typeof(ExperimentData), typeof(string), typeof(AnalysisResult), typeof(SolutionInterface), typeof(PublicationFigureModelSelection?) }, null)
             .Invoke(null, new object[] { data, path, owner, member, (PublicationFigureModelSelection?)selection });
         Check(new FileInfo(path).Length > 500, "PDF is empty");
         if (!String.IsNullOrEmpty(QaDirectory))

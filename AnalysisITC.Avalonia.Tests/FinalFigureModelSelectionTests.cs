@@ -132,7 +132,7 @@ public sealed class FinalFigureModelSelectionTests
                 SaveQa(missing, "avalonia-unavailable-null");
                 var batchDirectory = Path.Combine(directory, "batch");
                 Directory.CreateDirectory(batchDirectory);
-                Assert.Equal(2, workspace.ExportFiguresWithoutOverwriting(new[] { data, other }, batchDirectory,
+                Assert.Equal(2, workspace.ExportFigureBatch(new[] { data, other }, batchDirectory,
                     PublicationFigureModelSelection.NullModel));
                 Assert.Equal(2, Directory.GetFiles(batchDirectory, "*.pdf").Length);
                 Assert.All(Directory.GetFiles(directory, "*.pdf"), path => Assert.True(new FileInfo(path).Length > 500));

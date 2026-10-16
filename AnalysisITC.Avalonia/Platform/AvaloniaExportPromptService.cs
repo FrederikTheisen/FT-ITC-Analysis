@@ -34,10 +34,7 @@ namespace AnalysisITC.Platform.Avalonia
                 AllowMultiple = false
             });
 
-            var path = folders.FirstOrDefault()?.TryGetLocalPath();
-            if (!string.IsNullOrWhiteSpace(path)) Directory.CreateDirectory(path);
-
-            return path ?? "";
+            return folders.FirstOrDefault()?.TryGetLocalPath() ?? "";
         }
 
         public bool ConfirmOverwrite(IEnumerable<string> outputPaths)

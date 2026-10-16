@@ -422,6 +422,10 @@ Review the thermogram, integrated heats, model overlay, and optional residuals. 
 
 Set energy units, axes, typography, and curve settings before export. **Auto Y axis includes excluded points** lets excluded injections affect automatic heat and residual ranges; explicit limits take precedence. Supporting Figure and Analysis Report follow the assessment policies in **Binding assessment**.
 
+**Active** and **All** figure exports use a subfolder named after the project, or the local export date for an unsaved session. **Export Associated Final Figures** uses a subfolder named after the result. Choose a parent folder for either export.
+
+Figure batches ask once before replacing existing PDFs; **Cancel** stops the entire export without writing files. Repeated exports reuse the same filenames. Numeric suffixes distinguish experiment names that collide within a batch.
+
 # Exporting and checking plots
 
 Use **File > Export**, context menus, or the result exporter for data and figures. The selected tool determines whether traces, heats, uncertainties, or fitted parameters are included. Fitted values can also be copied from the result view.

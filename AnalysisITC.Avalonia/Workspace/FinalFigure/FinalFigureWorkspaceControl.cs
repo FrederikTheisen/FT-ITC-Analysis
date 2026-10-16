@@ -31,6 +31,7 @@ using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.FinalFigure
@@ -77,6 +78,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         readonly Button exportButton = Button("Export", 0);
+        internal Func<FilePickerSaveOptions, Task<IStorageFile?>>? SaveFilePickerForTesting { get; set; }
 
         readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
         readonly NumericUpDown heightStepper = Stepper(10, 4, 28, 0.5m, formatString: "0.##");
@@ -1025,6 +1027,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public async Task ExportPdfAsync()
         {
+            await RunExportActionAsync("Final figure export", ExportPdfCoreAsync);
+        }
+
+        async Task ExportPdfCoreAsync()
+        {
             var selection = FinalFigureModelPresentation.Selection;
             if (selectedItem is AnalysisResult result)
             {
@@ -1041,9 +1048,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var experiment = figureExperiment;
 
             var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (storage == null) return;
+            if (storage == null && SaveFilePickerForTesting == null) return;
 
-            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            var pickerOptions = new FilePickerSaveOptions
             {
                 Title = "Export Final Figure",
                 SuggestedFileName = SanitizeFileName(experiment.Name) + ".pdf",
@@ -1052,17 +1059,29 @@ namespace AnalysisITC.Avalonia.FinalFigure
                     new FilePickerFileType("PDF figure") { Patterns = new[] { "*.pdf" } },
                     FilePickerFileTypes.All
                 }
-            });
+            };
+            var file = SaveFilePickerForTesting != null
+                ? await SaveFilePickerForTesting(pickerOptions)
+                : await storage!.SaveFilePickerAsync(pickerOptions);
 
-            var path = file == null ? null : GetLocalPath(file);
-            if (string.IsNullOrWhiteSpace(path)) return;
+            var selectedPath = file == null ? null : GetLocalPath(file);
+            if (string.IsNullOrWhiteSpace(selectedPath)) return;
+            var path = selectedPath!;
             if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+            var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+            if (!string.Equals(selectedPath, path, StringComparison.Ordinal) && approved.Contains(path) &&
+                !PlatformServices.ExportPromptService.ConfirmOverwrite(new[] { path }))
+                return;
 
-            ExportExperimentFigure(experiment, path, selection);
-            StatusChanged?.Invoke(this, "Final figure exported");
+            WriteSingleFigure(experiment, path, selection, approved);
         }
 
         public async Task ExportCurrentPdfAsync()
+        {
+            await RunExportActionAsync("Final figure export", ExportCurrentPdfCoreAsync);
+        }
+
+        async Task ExportCurrentPdfCoreAsync()
         {
             if (figureExperiment == null)
             {
@@ -1075,6 +1094,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public async Task ExportActivePdfAsync()
         {
+            await RunExportActionAsync("Final figure export", ExportActivePdfCoreAsync);
+        }
+
+        async Task ExportActivePdfCoreAsync()
+        {
             var experiments = DataManager.Data
                 .Where(experiment => experiment.Include)
                 .ToList();
@@ -1084,23 +1108,31 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public async Task ExportAllPdfAsync()
         {
+            await RunExportActionAsync("Final figure export", ExportAllPdfCoreAsync);
+        }
+
+        async Task ExportAllPdfCoreAsync()
+        {
             await ExportExperimentSetAsync(DataManager.Data.ToList(), "Choose Figure Export Folder");
         }
 
         async Task ExportSelectedSetPdfAsync()
         {
-            switch ((ExportDataSelection)exportSelectionSelector.SelectedIndex)
+            await RunExportActionAsync("Final figure export", async () =>
             {
-                case ExportDataSelection.SelectedData:
-                    await ExportCurrentPdfAsync();
-                    break;
-                case ExportDataSelection.IncludedData:
-                    await ExportActivePdfAsync();
-                    break;
-                case ExportDataSelection.AllData:
-                    await ExportAllPdfAsync();
-                    break;
-            }
+                switch ((ExportDataSelection)exportSelectionSelector.SelectedIndex)
+                {
+                    case ExportDataSelection.SelectedData:
+                        await ExportCurrentPdfCoreAsync();
+                        break;
+                    case ExportDataSelection.IncludedData:
+                        await ExportActivePdfCoreAsync();
+                        break;
+                    case ExportDataSelection.AllData:
+                        await ExportAllPdfCoreAsync();
+                        break;
+                }
+            });
         }
 
         void OnExportDataChanged(object? sender, ExperimentData? experiment)
@@ -1144,9 +1176,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             var selection = FinalFigureModelPresentation.Selection;
             var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (storage == null) return;
+            if (storage == null && SaveFilePickerForTesting == null) return;
 
-            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            var pickerOptions = new FilePickerSaveOptions
             {
                 Title = "Export Final Figure",
                 SuggestedFileName = SanitizeFileName(experiment.Name) + ".pdf",
@@ -1155,14 +1187,21 @@ namespace AnalysisITC.Avalonia.FinalFigure
                     new FilePickerFileType("PDF figure") { Patterns = new[] { "*.pdf" } },
                     FilePickerFileTypes.All
                 }
-            });
+            };
+            var file = SaveFilePickerForTesting != null
+                ? await SaveFilePickerForTesting(pickerOptions)
+                : await storage!.SaveFilePickerAsync(pickerOptions);
 
-            var path = file == null ? null : GetLocalPath(file);
-            if (string.IsNullOrWhiteSpace(path)) return;
+            var selectedPath = file == null ? null : GetLocalPath(file);
+            if (string.IsNullOrWhiteSpace(selectedPath)) return;
+            var path = selectedPath!;
             if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+            var approved = ExportBatchWriter.CaptureExistingPaths(new[] { path });
+            if (!string.Equals(selectedPath, path, StringComparison.Ordinal) && approved.Contains(path) &&
+                !PlatformServices.ExportPromptService.ConfirmOverwrite(new[] { path }))
+                return;
 
-            ExportExperimentFigure(experiment, path, selection);
-            StatusChanged?.Invoke(this, "Final figure exported");
+            WriteSingleFigure(experiment, path, selection, approved);
         }
 
         async Task ExportExperimentSetAsync(IReadOnlyList<ExperimentData> experiments, string title)
@@ -1195,16 +1234,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var projectFolderName = GetProjectFolderName();
             var projectFolderPath = Path.Combine(folderPath, projectFolderName);
 
-            try
-            {
-                Directory.CreateDirectory(projectFolderPath);
-                var exportedCount = ExportFiguresWithoutOverwriting(exportable, projectFolderPath, selection);
-                StatusChanged?.Invoke(this, $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {projectFolderName}");
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke(this, $"Could not export final figures: {ex.Message}");
-            }
+            ExportFigureBatch(exportable, projectFolderPath, selection, projectFolderName);
         }
 
         async Task ExportResultFiguresAsync(AnalysisResult result)
@@ -1230,19 +1260,41 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
             if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            Directory.CreateDirectory(folderPath);
+            ExportResultFiguresToFolder(result, experiments, folderPath, selection);
+        }
 
-            foreach (var target in CreateFigureExportTargets(experiments, folderPath))
+        internal int ExportResultFiguresToFolder(AnalysisResult result, IReadOnlyList<ExperimentData> experiments,
+            string folderPath, PublicationFigureModelSelection selection)
+        {
+            var resultFolderName = FigureExportPlanner.SanitizeFileName(result.Name) ?? "Analysis Result";
+            var resultFolderPath = Path.Combine(folderPath, resultFolderName);
+            var exportTargets = FigureExportPlanner.CreateTargets(experiments, resultFolderPath);
+            if (exportTargets.Count == 0) return 0;
+
+            var members = exportTargets.Select(target =>
             {
                 var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
                     ReferenceEquals(candidate?.Data, target.Experiment));
                 if (solution?.Model == null)
                     throw new InvalidOperationException($"No fitted model is available for {target.Experiment.Name} in this analysis result.");
+                return (Target: target, Solution: solution);
+            }).ToArray();
+            var paths = members.Select(member => member.Target.Path).ToArray();
+            var approved = ExportBatchWriter.CaptureExistingPaths(paths);
+            if (!PlatformServices.ExportPromptService.ConfirmOverwrite(paths)) return 0;
 
-                ExportExperimentFigure(target.Experiment, target.Path, selection, result, solution);
+            var outcome = ExportBatchWriter.Write(paths, approved,
+                (index, stream) => WriteFigureToStream(members[index].Target.Experiment,
+                    members[index].Target.Path, selection, result, members[index].Solution, stream),
+                () => Directory.CreateDirectory(resultFolderPath));
+            if (!outcome.IsSuccess)
+            {
+                ReportExportFailure(outcome, "Associated final figure export");
+                return outcome.CompletedCount;
             }
 
-            StatusChanged?.Invoke(this, $"{experiments.Count} final figure{(experiments.Count == 1 ? "" : "s")} exported");
+            StatusChanged?.Invoke(this, $"{paths.Length} final figure{(paths.Length == 1 ? "" : "s")} exported");
+            return paths.Length;
         }
 
         internal void ExportExperimentFigure(ExperimentData experiment, string path,
@@ -1254,74 +1306,86 @@ namespace AnalysisITC.Avalonia.FinalFigure
             renderer.WritePdf(document, path);
         }
 
-        internal int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> experiments, string folderPath, PublicationFigureModelSelection selection)
+        void WriteSingleFigure(ExperimentData experiment, string path, PublicationFigureModelSelection selection,
+            ISet<string>? approvedPaths = null)
         {
-            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var exportedCount = 0;
-
-            foreach (var experiment in experiments)
+            var approved = approvedPaths ?? ExportBatchWriter.CaptureExistingPaths(new[] { path });
+            var outcome = ExportBatchWriter.Write(new[] { path }, approved,
+                (_, stream) => WriteFigureToStream(experiment, path, selection, null, null, stream));
+            if (!outcome.IsSuccess)
             {
-                var temporaryPath = Path.Combine(folderPath, "." + Guid.NewGuid().ToString("N") + ".tmp.pdf");
-
-                try
-                {
-                    ExportExperimentFigure(experiment, temporaryPath, selection);
-
-                    while (true)
-                    {
-                        var outputPath = GetAvailableExportPath(folderPath, experiment.Name, usedNames);
-                        try
-                        {
-                            File.Move(temporaryPath, outputPath);
-                            exportedCount++;
-                            break;
-                        }
-                        catch (IOException) when (File.Exists(outputPath))
-                        {
-                            // Keep the existing PDF and try the next available name.
-                        }
-                    }
-                }
-                finally
-                {
-                    if (File.Exists(temporaryPath))
-                        File.Delete(temporaryPath);
-                }
+                ReportExportFailure(outcome, "Final figure export");
+                return;
             }
 
-            return exportedCount;
+            StatusChanged?.Invoke(this, "Final figure exported");
         }
 
-        internal static string GetAvailableExportPath(string folderPath, string experimentName, ISet<string> usedNames)
+        internal void ExportSingleFigureToPathForTesting(ExperimentData experiment, string path,
+            PublicationFigureModelSelection selection) => WriteSingleFigure(experiment, path, selection);
+
+        void WriteFigureToStream(ExperimentData experiment, string path,
+            PublicationFigureModelSelection selection, AnalysisResult? owner, SolutionInterface? ownerSolution, Stream stream)
         {
-            var baseName = SanitizeFileName(experimentName);
+            var options = BuildEffectiveOptions(experiment, owner, selection);
+            var source = CreateFigureSource(experiment, selection, owner, ownerSolution);
+            var document = PublicationFigureBuilder.Build(source, options);
+            renderer.WritePdf(document, stream);
+        }
 
-            for (var suffix = 1; ; suffix++)
+        internal int ExportFigureBatch(IEnumerable<ExperimentData> experiments, string folderPath,
+            PublicationFigureModelSelection selection, string? statusFolderName = null)
+        {
+            var targets = FigureExportPlanner.CreateTargets(experiments, folderPath);
+            if (targets.Count == 0) return 0;
+
+            var paths = targets.Select(target => target.Path).ToArray();
+            var approved = ExportBatchWriter.CaptureExistingPaths(paths);
+            if (!PlatformServices.ExportPromptService.ConfirmOverwrite(paths)) return 0;
+
+            var outcome = ExportBatchWriter.Write(paths, approved,
+                (index, stream) => WriteFigureToStream(targets[index].Experiment, targets[index].Path,
+                    selection, null, null, stream),
+                () => Directory.CreateDirectory(folderPath));
+            if (!outcome.IsSuccess)
             {
-                var fileName = suffix == 1
-                    ? baseName + ".pdf"
-                    : $"{baseName} ({suffix}).pdf";
-
-                if (!usedNames.Add(fileName))
-                    continue;
-
-                var path = Path.Combine(folderPath, fileName);
-                if (!File.Exists(path))
-                    return path;
+                ReportExportFailure(outcome, "Final figure export");
+                return outcome.CompletedCount;
             }
+
+            var folderDescription = string.IsNullOrWhiteSpace(statusFolderName) ? Path.GetFileName(folderPath) : statusFolderName;
+            StatusChanged?.Invoke(this, $"{paths.Length} final figure{(paths.Length == 1 ? "" : "s")} exported to {folderDescription}");
+            return paths.Length;
+        }
+
+        async Task RunExportActionAsync(string description, Func<Task> action)
+        {
+            try
+            {
+                await action();
+            }
+            catch (Exception ex)
+            {
+                ReportExportFailure(ExportOutcome.Failure(1, ex), description);
+            }
+        }
+
+        internal Task RunExportActionForTesting(Func<Task> action) =>
+            RunExportActionAsync("Final figure export", action);
+
+        void ReportExportFailure(ExportOutcome outcome, string description)
+        {
+            var message = ExportFailurePresentation.FormatMessage(description, outcome);
+            statusText.Text = message;
+            StatusChanged?.Invoke(this, message);
+            StatusBarManager.SetStatus(message, 5000);
+            ExportFailurePresentation.Report(description, outcome);
         }
 
         static string GetProjectFolderName()
         {
             var projectPath = FTITCFormat.CurrentAccessedAppDocumentPath;
-            var projectName = string.IsNullOrWhiteSpace(projectPath)
-                ? null
-                : Path.GetFileNameWithoutExtension(projectPath);
-
-            if (string.IsNullOrWhiteSpace(projectName))
-                projectName = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-
-            return SanitizeFileName(projectName);
+            return FigureExportPlanner.GetProjectFolderName(projectPath, DateTime.Now);
         }
 
         static IEnumerable<ExperimentData> GetResultExperiments(AnalysisResult result)
@@ -1335,30 +1399,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ?? Enumerable.Empty<ExperimentData>();
         }
 
-        static List<FigureExportTarget> CreateFigureExportTargets(IEnumerable<ExperimentData> experiments, string folderPath)
-        {
-            var targets = new List<FigureExportTarget>();
-            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var experiment in experiments)
-            {
-                var baseName = SanitizeFileName(experiment.Name);
-                var fileName = baseName + ".pdf";
-                var suffix = 2;
-
-                while (usedNames.Contains(fileName))
-                {
-                    fileName = $"{baseName} ({suffix}).pdf";
-                    suffix++;
-                }
-
-                usedNames.Add(fileName);
-                targets.Add(new FigureExportTarget(experiment, Path.Combine(folderPath, fileName)));
-            }
-
-            return targets;
-        }
-
         static string? GetLocalPath(IStorageFile file)
         {
             var path = file.TryGetLocalPath();
@@ -1369,12 +1409,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         static string SanitizeFileName(string name)
         {
-            var cleanName = string.IsNullOrWhiteSpace(name) ? "Untitled Figure" : name.Trim();
-
-            foreach (var invalidChar in Path.GetInvalidFileNameChars())
-                cleanName = cleanName.Replace(invalidChar, '_');
-
-            return string.IsNullOrWhiteSpace(cleanName) ? "Untitled Figure" : cleanName;
+            return FigureExportPlanner.SanitizeFileName(name) ?? "Untitled Figure";
         }
 
         static Bitmap ToAvaloniaBitmap(SKBitmap bitmap)

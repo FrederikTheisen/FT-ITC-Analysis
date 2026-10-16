@@ -1,5 +1,7 @@
 using AnalysisITC.Avalonia.FinalFigure;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
@@ -167,7 +169,7 @@ public sealed class FinalFigureWorkspaceControlTests
     }
 
     [AvaloniaFact]
-    public void ExportFileNamesSkipExistingFilesAndDuplicates()
+    public void ExportFilePlannerReservesNaturalNamesBeforeAssigningCollisionSuffixes()
     {
         var folderPath = Path.Combine(Path.GetTempPath(), "FinalFigureExportTests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folderPath);
@@ -175,15 +177,18 @@ public sealed class FinalFigureWorkspaceControlTests
         try
         {
             File.WriteAllText(Path.Combine(folderPath, "Experiment.pdf"), "existing PDF");
-            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var experiments = new[]
+            {
+                new ExperimentData("one.itc") { Name = "Experiment" },
+                new ExperimentData("two.itc") { Name = "Experiment" },
+                new ExperimentData("three.itc") { Name = "Experiment (2)" },
+                new ExperimentData("four.itc") { Name = "Bad/Name" }
+            };
 
-            var firstPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Experiment", usedNames);
-            var secondPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Experiment", usedNames);
-            var sanitizedPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Bad/Name", usedNames);
+            var targets = FigureExportPlanner.CreateTargets(experiments, folderPath);
 
-            Assert.Equal(Path.Combine(folderPath, "Experiment (2).pdf"), firstPath);
-            Assert.Equal(Path.Combine(folderPath, "Experiment (3).pdf"), secondPath);
-            Assert.Equal(Path.Combine(folderPath, "Bad_Name.pdf"), sanitizedPath);
+            Assert.Equal(new[] { "Experiment.pdf", "Experiment (3).pdf", "Experiment (2).pdf", "Bad_Name.pdf" },
+                targets.Select(target => Path.GetFileName(target.Path)));
         }
         finally
         {
