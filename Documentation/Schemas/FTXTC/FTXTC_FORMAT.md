@@ -96,11 +96,21 @@ freshness. Server scientific-guidance revisions do not make unchanged evidence s
 scientific and output instruction text used but cannot reconstruct it. The interpretation transport contract version is
 independent of the native project schema.
 
-Report metadata optionally records `lastEditedUtc`, the time of the last actual edit to its
-saved name, selections, settings, context, or text. Opening, generating output, saving,
-restoring, and project reordering do not change it. Missing historical timestamps remain
-unknown until an edit; creation time is not substituted. This addition keeps package schema
-1.6 and report schema 1. Detached and imported copies retain the recorded timestamp.
+Report metadata optionally records `lastEditedUtc`, the time of the last Save Report,
+Save Report As, or Project Information rename that changed saved content. No-op saves,
+opening, generating output, saving the project, restoration, and project reordering do
+not change it. Missing historical timestamps remain unknown until a saved change;
+creation time is not substituted. This keeps package schema 1.6 and report schema 1.
+Detached and imported copies retain the recorded timestamp. Report drafts are detached
+and are not included in project saves or autosave until explicitly saved.
+
+Result metadata optionally stores `lastContentChangedUtc`, a UTC timestamp of the
+last result content modification, including names, comments, binding assessments,
+and solution updates. It is separate from `date`, which retains its existing
+creation/fit-update meaning. Reading, rendering, project saving, restoration, and
+identity remapping do not advance this timestamp; copied and imported results retain
+it. Missing values remain absent, and report review checks fall back to the result's
+historical local `date`. This optional field does not change the project schema version.
 
 New interpretation freshness uses `sha256:utf8:canonical-package-json-v2`, which excludes
 only the report display name and its report evidence-catalog label from the fingerprint.
@@ -110,6 +120,25 @@ remain readable and are verified using the optional `reportNameForFingerprint` i
 interpretation provenance, retaining the name used before a rename. Original stored
 fingerprints are never rewritten. The optional name is absent until needed by a legacy
 record, and does not enter the interpretation package or scientific evidence.
+
+Optional interpretation provenance `reportIdForFingerprint` and `reportDateUtcForFingerprint`
+retain the source report identity and exact package date string across Save Report As.
+The date is the package's UTC round-trip (`O`) string, not a separately converted date
+value. Both v1 and v2 freshness checks substitute these values only while checking the
+original fingerprint; new requests use the current report identity. Repeated copies
+retain the original source. New interpretations begin in their own report context.
+The optional `confirmedAtUtc` records confirmation that retained text is still accurate,
+without changing approval dates or fingerprints. `reviewedResultIds` records the result
+scope at writing, approval, or confirmation; absent historical scope is captured when
+the report's selections next change. The builder's review warning compares that scope
+and each result's `lastContentChangedUtc` (or historical local `date` when absent)
+against the UTC writing/approval/confirmation time. It is separate from fingerprint
+freshness and is not printed.
+
+A user text edit replaces the active interpretation record with manual origin and
+the current writing time and reviewed result scope. AI generation metadata and
+fingerprint provenance are not retained on this manual record. Returning to earlier
+wording does not restore earlier provenance or clear the editing session's dirty flag.
 
 Report metadata optionally stores a `presentationSettings` object containing the optional user-entered `reportId` (empty when absent), title, subtitle, automatic-title state, energy family and optional exact-unit override, temperature unit, uncertainty style, injection-table and repeated-experiment choices, extra traceability state, and advanced-section requests with optional correlation member scope. The optional `expandedExplanations` boolean defaults to false when absent, preserving earlier report presentation. Enum-like fields use stable wire identifiers. Author name, software version, and generation time are refreshed at report generation and are never stored in this object. Older reports without these settings use desktop defaults.
 

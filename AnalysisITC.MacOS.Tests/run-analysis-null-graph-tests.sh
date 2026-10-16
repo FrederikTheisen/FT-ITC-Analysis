@@ -35,6 +35,7 @@ for native_test in "${native_tests[@]}"; do
     -r:AnalysisITC.Core/bin/Debug/netstandard2.0/AnalysisITC.Core.dll \
     -r:"$xamarin_root/lib/64bits/full/Xamarin.Mac.dll" \
     -r:"$mono_root/lib/mono/4.5/Facades/netstandard.dll" \
+    -r:"$mono_root/lib/mono/4.5/System.Net.Http.dll" \
     -out:"$check_dir/$native_test.exe" \
     "AnalysisITC.MacOS.Tests/$native_test.cs"
 done

@@ -137,7 +137,7 @@ public sealed class ProjectInformationTests
         Assert.Same(tie, AnalysisReportPresentation.FindMatchingReport(reports, new[] { "b", "a" }));
         Assert.Equal(4, reports.Length);
         Assert.Equal(new[] { "b", "a" }, tie.ResultIds);
-        Assert.True(tie.LastEditedUtc > edited);
+        Assert.Equal(edited, tie.LastEditedUtc);
     }
 
     [Fact]
@@ -334,7 +334,7 @@ public sealed class ProjectInformationTests
         {
             var before = report.LastEditedUtc;
             change();
-            Assert.True(report.LastEditedUtc > before);
+            Assert.Equal(before, report.LastEditedUtc);
             var after = report.LastEditedUtc;
             change();
             Assert.Equal(after, report.LastEditedUtc);
@@ -504,7 +504,7 @@ public sealed class ProjectInformationTests
     }
 
     [Fact]
-    public void IdenticalAiApprovalOrEditorTextDoesNotCountAsAnEdit()
+    public void IdenticalAiApprovalIsANoOpButExplicitUserEditingReplacesAiOrigin()
     {
         var report = new AnalysisReport();
         var record = new AnalysisInterpretationRecord
@@ -514,13 +514,16 @@ public sealed class ProjectInformationTests
         var timestamp = report.LastEditedUtc;
         var approved = report.ApprovedInterpretation.ApprovedAtUtc;
         report.ApproveInterpretation(record);
+        Assert.Equal(approved, report.ApprovedInterpretation.ApprovedAtUtc);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         report.UpdateApprovedInterpretationText(record.InterpretationMarkdown);
         Assert.Equal(timestamp, report.LastEditedUtc);
-        Assert.Equal(approved, report.ApprovedInterpretation.ApprovedAtUtc);
-        Assert.False(report.ApprovedInterpretation.UserEdited);
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.True(report.ApprovedInterpretation.ApprovedAtUtc >= approved);
         report.UpdateApprovedInterpretationText("## Overall interpretation\nChanged text.");
-        Assert.True(report.LastEditedUtc > timestamp);
-        Assert.True(report.ApprovedInterpretation.UserEdited);
+        Assert.Equal(timestamp, report.LastEditedUtc);
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.Contains("Changed text.", report.ApprovedInterpretation.InterpretationMarkdown);
     }
 
     [Fact]
@@ -561,7 +564,9 @@ public sealed class ProjectInformationTests
         using (var zip = new ZipArchive(unchanged, ZipArchiveMode.Read, leaveOpen: true))
         using (var json = JsonDocument.Parse(zip.GetEntry("reports/000000/report.json").Open()))
             Assert.False(json.RootElement.TryGetProperty("lastEditedUtc", out _));
-        legacy.Name = "Edited legacy report";
+        legacy.Name = "Uncommitted legacy edit";
+        Assert.Null(legacy.LastEditedUtc);
+        ProjectInformationPresentation.RenameReport(legacy, "Saved legacy title");
         Assert.NotNull(legacy.LastEditedUtc);
     }
 

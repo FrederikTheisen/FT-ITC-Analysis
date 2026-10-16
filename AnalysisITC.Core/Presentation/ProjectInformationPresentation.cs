@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Analysis;
@@ -18,7 +19,7 @@ namespace AnalysisITC.Core.Presentation
         public const string ExperimentsLabel = "Experiments";
         public const string AnalysisResultsLabel = "Analysis Results";
         public const string SavedReportsLabel = "Saved reports";
-        public const string LastEditedLabel = "Last edited";
+        public const string LastEditedLabel = "Last saved";
         public const string NameLabel = "Name";
         public const string ReportNameLabel = NameLabel;
         public const string OpenLabel = "Open";
@@ -46,7 +47,7 @@ namespace AnalysisITC.Core.Presentation
         public const string NameTooltip = "Leave blank to use a content summary";
         public const string ReportNameTooltip = NameTooltip;
         public const string OpenTooltip = "Restore the selected report's saved contents";
-        public const string RenameTooltip = "Change the saved name without changing its PDF title";
+        public const string RenameTooltip = "Change the report title and saved name";
         public const string DeleteTooltip = "Remove saved report settings and text";
         public const string DetailsTooltip = "Inspect saved report metadata and text";
         public const string DetailsTextTooltip = "Select saved text to copy it";
@@ -71,6 +72,18 @@ namespace AnalysisITC.Core.Presentation
         public const string NoInterpretationSaved = "None saved";
 
         public static string ExperimentCount(int count) => count + " experiment" + (count == 1 ? "" : "s");
+
+        public static void RenameReport(AnalysisReport report, string title)
+        {
+            var draft = report.CreateDetachedCopy();
+            draft.CaptureLegacyFingerprintName(AnalysisReportPresentation.DisplayName(report,
+                id => DataManager.Results.FirstOrDefault(result => result.UniqueID == id)));
+            var settings = draft.PresentationSettings;
+            settings.Title = (title ?? "").Trim();
+            settings.AutomaticTitle = string.IsNullOrWhiteSpace(settings.Title);
+            draft.UpdatePresentationSettings(settings);
+            report.SaveContentFrom(draft);
+        }
         public static string ResultCount(int count) => count + " result" + (count == 1 ? "" : "s");
         public static string ReportCount(int count) => count + " report" + (count == 1 ? "" : "s");
         public static string ContentSummary(int experimentCount, int resultCount, int reportCount) =>

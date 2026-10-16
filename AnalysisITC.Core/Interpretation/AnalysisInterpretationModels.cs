@@ -117,6 +117,14 @@ namespace AnalysisITC.Core.Interpretation
         // Retains the name used by a legacy v1 fingerprint across report renames.
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string ReportNameForFingerprint { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ReportIdForFingerprint { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ReportDateUtcForFingerprint { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTime? ConfirmedAtUtc { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> ReviewedResultIds { get; set; }
         public string ScientificGuidanceRevision { get; set; } = "";
         public string ScientificGuidanceVariant { get; set; } = "";
         public string ScientificInstructionsFingerprint { get; set; } = "";
@@ -144,6 +152,10 @@ namespace AnalysisITC.Core.Interpretation
             PromptVersion = PromptVersion ?? "", OutputFormatVersion = OutputFormatVersion ?? "",
             EvidenceFingerprintScheme = EvidenceFingerprintScheme ?? "", ScientificGuidanceRevision = ScientificGuidanceRevision ?? "",
             ReportNameForFingerprint = ReportNameForFingerprint,
+            ReportIdForFingerprint = ReportIdForFingerprint,
+            ReportDateUtcForFingerprint = ReportDateUtcForFingerprint,
+            ConfirmedAtUtc = ConfirmedAtUtc,
+            ReviewedResultIds = ReviewedResultIds?.ToList(),
             ScientificGuidanceVariant = ScientificGuidanceVariant ?? "",
             ScientificInstructionsFingerprint = ScientificInstructionsFingerprint ?? "", OutputInstructionsFingerprint = OutputInstructionsFingerprint ?? "",
             Provider = Provider ?? "", Model = Model ?? "", ReasoningEffort = ReasoningEffort ?? "", EffectivePreset = EffectivePreset ?? "", PresetRevision = PresetRevision ?? "", ServiceRequestId = ServiceRequestId ?? "",

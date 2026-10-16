@@ -58,6 +58,9 @@ namespace AnalysisITC.Avalonia.Tools
         static readonly Uri InterpretationBaseUri = new Uri("https://app.ft-itc.org");
 
         readonly SkiaAnalysisReportRenderer renderer = new SkiaAnalysisReportRenderer();
+        readonly Button savedReportsButton = Button(AnalysisReportEditingPresentation.SavedReportsLabel, 0);
+        readonly Flyout savedReportsFlyout = new Flyout();
+        readonly StackPanel savedReportsItems = new StackPanel { Spacing = 6 };
         readonly Button selectResultsButton = Button("Select results…", 0);
         readonly Flyout resultPickerFlyout = new Flyout();
         readonly StackPanel resultPickerItems = new StackPanel { Spacing = 4 };
@@ -151,7 +154,16 @@ namespace AnalysisITC.Avalonia.Tools
         double previewMagnifyAccumulator;
         AnalysisReport? report;
         readonly Guid documentId = DocumentDirtyTracker.CurrentDocumentId;
-        bool reportWasRegistered;
+        AnalysisReportEditSession? editSession;
+        readonly Button saveReportButton = Button(AnalysisReportEditingPresentation.SaveLabel, 0);
+        readonly Button saveReportAsButton = Button(AnalysisReportEditingPresentation.SaveAsLabel, 0);
+        readonly TextBlock interpretationReviewText = new TextBlock { Text = AnalysisReportEditingPresentation.ReviewText, TextWrapping = TextWrapping.Wrap };
+        readonly Button confirmInterpretationButton = Button(AnalysisReportEditingPresentation.ConfirmLabel, 0);
+        bool allowingClose;
+        Task<bool>? pendingLeave;
+        internal Func<Task<int>>? LeavePromptOverride { get; set; }
+        internal Func<Task>? SaveProjectCommand { get; set; }
+        internal Func<Task>? SaveProjectAsCommand { get; set; }
         bool invalidated;
         bool closed;
 
@@ -176,6 +188,14 @@ namespace AnalysisITC.Avalonia.Tools
             injectionTablesCheck.IsChecked = sessionIncludeInjectionTables;
             condenseRepeatedCheck.IsChecked = sessionCondenseRepeatedExperiments;
             BuildLayout();
+            AddHandler(KeyDownEvent, async (_, e) =>
+            {
+                var primary = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+                if (e.Key != Key.S || (e.KeyModifiers & primary) == 0) return;
+                e.Handled = true;
+                var command = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? SaveProjectAsCommand : SaveProjectCommand;
+                if (command != null) await command();
+            }, RoutingStrategies.Tunnel);
             WireEvents();
             ApplyPreviewZoom();
             PopulateResults(selectedResult, savedReport);
@@ -187,7 +207,6 @@ namespace AnalysisITC.Avalonia.Tools
 
         protected override void OnClosed(EventArgs e)
         {
-            CommitInterpretationEditor();
             closed = true;
             foreach (var source in observedSources)
             {
@@ -204,7 +223,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         bool CanWriteReport() => !closed && !invalidated
             && documentId == DocumentDirtyTracker.CurrentDocumentId
-            && (!reportWasRegistered || report != null && DataManager.Reports.Contains(report))
+            && (editSession?.IsCurrent ?? true)
             && selectedResults.All(DataManager.Results.Contains);
 
         void OnProjectDataChanged(object? sender, ExperimentData e) => CheckProjectOwnership();
@@ -315,6 +334,7 @@ namespace AnalysisITC.Avalonia.Tools
             selectResultsButton.Height = 42;
             selectResultsButton.MinHeight = 42;
             BuildResultPicker();
+            BuildSavedReportsPicker();
             resultSummaryText.FontSize = 11;
             resultSummaryText.TextWrapping = TextWrapping.Wrap;
             AppTheme.Bind(resultSummaryText, TextBlock.ForegroundProperty, AppTheme.MutedText);
@@ -425,6 +445,17 @@ namespace AnalysisITC.Avalonia.Tools
             var help = new TextBlock { Text = "Choose the result and content to include in the PDF.", TextWrapping = TextWrapping.Wrap };
             AppTheme.Bind(help, TextBlock.ForegroundProperty, AppTheme.MutedText);
             inspector.Children.Add(Section(heading, help));
+            savedReportsButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            savedReportsButton.HorizontalContentAlignment = HorizontalAlignment.Left;
+            savedReportsButton.Height = 42;
+            savedReportsButton.MinHeight = 42;
+            ToolTip.SetTip(savedReportsButton, AnalysisReportEditingPresentation.SavedReportsTooltip);
+            ToolTip.SetTip(saveReportButton, AnalysisReportEditingPresentation.SaveTooltip);
+            ToolTip.SetTip(saveReportAsButton, AnalysisReportEditingPresentation.SaveAsTooltip);
+            saveReportButton.Click += (_, _) => SaveReport(false);
+            saveReportAsButton.Click += (_, _) => SaveReport(true);
+            inspector.Children.Add(Section("Report", savedReportsButton,
+                EqualWidthRow(saveReportButton, saveReportAsButton)));
             inspector.Children.Add(Section("Report contents", selectResultsButton, resultSummaryText));
             titleBox.PlaceholderText = "Report title";
             titleBox.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -465,9 +496,20 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationActions.Children.Add(editInterpretationButton);
             Grid.SetColumn(generateInterpretationButton, 1);
             interpretationActions.Children.Add(generateInterpretationButton);
-            inspector.Children.Add(Section("Interpretation", interpretationSummaryText, interpretationActions));
+            AppTheme.Bind(interpretationReviewText, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+            ToolTip.SetTip(interpretationReviewText, AnalysisReportEditingPresentation.ReviewTooltip);
+            ToolTip.SetTip(confirmInterpretationButton, AnalysisReportEditingPresentation.ConfirmTooltip);
+            confirmInterpretationButton.Click += (_, _) =>
+            {
+                if (!CommitInterpretationEditor() || editSession == null) return;
+                editSession.ConfirmInterpretation();
+                UpdateInterpretationStatus(); UpdateSaveState();
+            };
+            inspector.Children.Add(Section("Interpretation", interpretationSummaryText, interpretationActions,
+                interpretationReviewText, confirmInterpretationButton));
 
-            var cancel = Button("Cancel", 78);
+            var cancel = Button("Close", 78);
+            ToolTip.SetTip(cancel, AnalysisReportEditingPresentation.CloseTooltip);
             cancel.Click += (_, _) => Close(false);
             previewButton.Click += async (_, _) => await PreviewAsync();
             exportButton.Click += async (_, _) => await ExportAsync();
@@ -476,6 +518,7 @@ namespace AnalysisITC.Avalonia.Tools
             statusHost.Child = statusText;
             var footer = InspectorFooter(Section("PDF export", progress, statusHost, buttons));
 
+            AutomationProperties.SetName(savedReportsButton, "Open saved report");
             AutomationProperties.SetName(selectResultsButton, "Select report contents");
             AutomationProperties.SetName(resultSummaryText, "Selected report contents details");
             AutomationProperties.SetName(labelBox, "Report subtitle");
@@ -561,6 +604,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         void WireEvents()
         {
+            savedReportsButton.Click += (_, _) => OpenSavedReportsPicker();
             selectResultsButton.Click += (_, _) => OpenResultPicker();
             labelBox.PropertyChanged += (_, e) =>
             {
@@ -613,7 +657,10 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationBox.PropertyChanged += (_, e) =>
             {
                 if (e.Property == global::Avalonia.Controls.TextBox.TextProperty && !loadingInterpretation)
+                {
+                    ApplyInterpretationEditor(userEdit: true);
                     MarkStale();
+                }
             };
             interpretationBox.LostFocus += (_, _) => CommitInterpretationEditor();
             editInterpretationButton.Click += (_, _) => ShowInterpretationWorkspace(focusEditor: true);
@@ -638,6 +685,45 @@ namespace AnalysisITC.Avalonia.Tools
             var initialResults = initial == null ? Array.Empty<AnalysisResult>() : new[] { initial };
             ApplyResultSelection(initialResults, false);
         }
+
+        void BuildSavedReportsPicker()
+        {
+            savedReportsFlyout.Opened += (_, _) =>
+            {
+                savedReportsItems.Children.Clear();
+                foreach (var saved in AnalysisReportEditingPresentation.SavedReports(DataManager.Reports))
+                {
+                    var missing = AnalysisReportPresentation.MissingResultCount(saved,
+                        id => availableResults.FirstOrDefault(result => result.UniqueID == id));
+                    var open = Button("Open", 64);
+                    open.IsEnabled = missing == 0 && saved.ResultIds.Count > 0;
+                    ToolTip.SetTip(open, open.IsEnabled ? ProjectInformationPresentation.OpenTooltip
+                        : ProjectInformationPresentation.MissingResultsTooltip);
+                    var details = new TextBlock { TextWrapping = TextWrapping.Wrap,
+                        Text = AnalysisReportPresentation.DisplayName(saved, id => availableResults.FirstOrDefault(result => result.UniqueID == id))
+                            + "\n" + string.Join(" · ", saved.ResultIds.Select(id => availableResults.FirstOrDefault(result => result.UniqueID == id)?.Name ?? "Missing result"))
+                            + "\nLast saved: " + ProjectInformationPresentation.LastEditedText(saved) };
+                    var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8, MinHeight = 52 };
+                    row.Children.Add(details); Grid.SetColumn(open, 1); row.Children.Add(open);
+                    savedReportsItems.Children.Add(row);
+                    open.Click += async (_, _) =>
+                    {
+                        savedReportsFlyout.IsOpen = false;
+                        if (!await ResolveDraftBeforeLeavingAsync()) return;
+                        ApplyReportSelection(AnalysisReportPresentation.ResultsInProjectOrder(saved, availableResults), false, exactReport: saved);
+                    };
+                }
+                if (savedReportsItems.Children.Count == 0)
+                    savedReportsItems.Children.Add(Text(AnalysisReportEditingPresentation.NoSavedReportsText));
+            };
+            savedReportsFlyout.Content = new ScrollViewer
+            {
+                Content = savedReportsItems, Width = 420, MaxHeight = 390,
+                VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            };
+        }
+
+        void OpenSavedReportsPicker() => savedReportsFlyout.ShowAt(savedReportsButton);
 
         void BuildResultPicker()
         {
@@ -692,6 +778,7 @@ namespace AnalysisITC.Avalonia.Tools
             resultPickerFlyout.Opened += (_, _) =>
             {
                 resultPickerItems.Children.Clear(); resultPickerChecks.Clear();
+                resultPickerItems.Children.Add(Text("Analysis results"));
                 Action<ITCDataContainer> addPickerRow = item =>
                 {
                     var result = item as AnalysisResult;
@@ -787,29 +874,32 @@ namespace AnalysisITC.Avalonia.Tools
             IEnumerable<ExperimentData>? supportingSelection = null, AnalysisReport? exactReport = null)
         {
             if (!CanWriteReport()) return;
+            if (editSession != null && exactReport == null && !CommitInterpretationEditor()) return;
             changingResult = true;
             try
             {
                 selectedResults.Clear();
                 selectedResults.AddRange(availableResults.Where(result => selection.Contains(result)));
                 var ids = selectedResults.Select(result => result.UniqueID).ToList();
-                var sameResults = exactReport == null && report != null
-                    && AnalysisReportPresentation.MatchesResultIds(report, ids);
-                if (exactReport != null) report = exactReport;
-                else if (!sameResults)
+                var initializing = editSession == null || exactReport != null;
+                if (initializing)
                 {
-                    report = ids.Count == 0 ? null : AnalysisReportPresentation.FindMatchingReport(DataManager.Reports, ids);
-                    if (report == null && ids.Count > 0)
+                    var initial = exactReport ?? new AnalysisReport();
+                    if (exactReport == null)
                     {
-                        report = new AnalysisReport();
-                        report.SetResultIds(ids);
+                        initial.SetResultIds(ids);
                         if (AppSettings.AutoSelectReportReferenceExperiments)
-                            report.SetSupportingExperimentIds(ReferenceExperimentsFor(selectedResults).Select(experiment => experiment.UniqueID));
+                            initial.SetSupportingExperimentIds(ReferenceExperimentsFor(selectedResults).Select(experiment => experiment.UniqueID));
                     }
+                    editSession = new AnalysisReportEditSession(initial, exactReport);
+                    report = editSession.Draft;
                 }
-                else if (supportingSelection != null)
-                    report!.SetSupportingExperimentIds(availableExperiments.Where(supportingSelection.Contains).Select(experiment => experiment.UniqueID));
-                reportWasRegistered = report != null && DataManager.Reports.Contains(report);
+                else
+                {
+                    report!.SetResultIds(ids);
+                    if (supportingSelection != null)
+                        report.SetSupportingExperimentIds(availableExperiments.Where(supportingSelection.Contains).Select(experiment => experiment.UniqueID));
+                }
                 condenseRepeatedCheck.IsEnabled = !busy
                     && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
                 selectedSupportingExperiments.Clear();
@@ -824,14 +914,18 @@ namespace AnalysisITC.Avalonia.Tools
                     : ResultSummary(selectedResults) + " · " + effectiveCount
                         + " supporting experiment" + (effectiveCount == 1 ? "" : "s")
                         + (selectedResults.Count > 1 ? "\n" + string.Join(" · ", selectedResults.Select(result => result.Name)) : "");
-                if (!preserveCustomTitle || automaticTitle)
+                if (initializing || automaticTitle)
                 {
                     automaticTitle = true;
                     titleBox.Text = AnalysisReportPresentation.AutomaticTitle(selectedResults);
                 }
                 RebuildAdvancedChoices(selectedResults);
                 LoadReport();
-                if (selectedSupportingExperiments.Count > 0) EnsureReportRegistered();
+                if (initializing)
+                {
+                    editSession!.AcceptBaseline();
+                    ClearReportUndoHistory();
+                }
                 if (selectedResults.Count > 0) ShowValidation(selectedResults);
                 else
                 {
@@ -841,6 +935,16 @@ namespace AnalysisITC.Avalonia.Tools
             }
             finally { changingResult = false; }
             MarkStale();
+        }
+
+        void ClearReportUndoHistory()
+        {
+            foreach (var editor in new[] { labelBox, titleBox, reportIdBox, interpretationBox })
+            {
+                var enabled = editor.IsUndoEnabled;
+                editor.IsUndoEnabled = false;
+                editor.IsUndoEnabled = enabled;
+            }
         }
 
         void LoadReport()
@@ -916,24 +1020,101 @@ namespace AnalysisITC.Avalonia.Tools
             return AnalysisReportExperimentReferences.Candidates(selection, availableExperiments);
         }
 
-        void EnsureReportRegistered()
+        void UpdateSaveState()
         {
-            if (!CanWriteReport() || report == null) return;
-            if (!DataManager.Reports.Contains(report)) DataManager.AddReport(report);
-            reportWasRegistered = true;
+            if (editSession == null) return;
+            var rawChanged = editSession.HasInterpretationTextChanges(interpretationBox.Text ?? "");
+            var canSave = !busy && selectedResults.Count > 0 && CanWriteReport();
+            saveReportButton.IsEnabled = canSave && (editSession.NeedsSave || rawChanged);
+            saveReportAsButton.IsEnabled = canSave;
+        }
+
+        internal bool SaveReport(bool saveAs)
+        {
+            if (busy || editSession == null || !CanWriteReport() || !CommitInterpretationEditor()) return false;
+            try
+            {
+                report!.UpdatePresentationSettings(CurrentOptions());
+                editSession.Save(saveAs, id => availableResults.FirstOrDefault(result => result.UniqueID == id)!,
+                    id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!);
+                report = editSession.Draft;
+                MarkStale();
+                SetStatus("Report saved in project. Use File > Save to save the project file.");
+                return true;
+            }
+            catch (Exception ex) { SetStatus(ex.Message, true); return false; }
+        }
+
+        internal Task<bool> ResolveDraftBeforeLeavingAsync()
+        {
+            if (pendingLeave != null) return pendingLeave;
+            UpdateSaveState();
+            var rawChanged = editSession?.HasInterpretationTextChanges(interpretationBox.Text ?? "") == true;
+            if (editSession?.HasChanges != true && !rawChanged) return Task.FromResult(true);
+            return pendingLeave = PromptAsync();
+        }
+
+        async Task<bool> PromptAsync()
+        {
+            await Task.Yield();
+            try
+            {
+                var action = LeavePromptOverride != null ? await LeavePromptOverride() : await ShowLeavePromptAsync();
+                return action == 1 || action == 0 && SaveReport(false);
+            }
+            finally { pendingLeave = null; }
+        }
+
+        async Task<int> ShowLeavePromptAsync()
+        {
+            var dialog = new Window { Title = AnalysisReportEditingPresentation.LeaveTitle, Width = 440, SizeToContent = SizeToContent.Height,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false };
+            var save = Button("Save", 80); var discard = Button("Discard", 80); var cancel = Button("Cancel", 80);
+            ToolTip.SetTip(save, AnalysisReportEditingPresentation.SaveTooltip);
+            ToolTip.SetTip(discard, AnalysisReportEditingPresentation.DiscardTooltip);
+            ToolTip.SetTip(cancel, AnalysisReportEditingPresentation.CancelTooltip);
+            save.Click += (_, _) => dialog.Close(0); discard.Click += (_, _) => dialog.Close(1); cancel.Click += (_, _) => dialog.Close(2);
+            cancel.IsCancel = true;
+            dialog.Content = new StackPanel { Margin = new Thickness(20), Spacing = 18,
+                Children = { new TextBlock { Text = AnalysisReportEditingPresentation.LeaveText, TextWrapping = TextWrapping.Wrap }, Row(save, discard, cancel) } };
+            // Closing the prompt is Cancel, never an implicit Save.
+            var answer = 2;
+            return await dialog.ShowDialog<int?>(this) ?? answer;
+        }
+
+        internal async Task<bool> RequestCloseAsync()
+        {
+            if (!await ResolveDraftBeforeLeavingAsync()) return false;
+            allowingClose = true; Close(); return true;
+        }
+
+        protected override void OnClosing(WindowClosingEventArgs e)
+        {
+            if (!allowingClose && !invalidated && !closed)
+            {
+                if (editSession?.HasChanges == true || editSession?.HasInterpretationTextChanges(interpretationBox.Text ?? "") == true)
+                {
+                    e.Cancel = true;
+                    _ = RequestCloseAsync();
+                    return;
+                }
+            }
+            base.OnClosing(e);
         }
 
         bool CommitInterpretationEditor()
+            => ApplyInterpretationEditor(userEdit: false);
+
+        bool ApplyInterpretationEditor(bool userEdit)
         {
             if (loadingInterpretation || report == null || !CanWriteReport()) return true;
-            var current = report.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             var edited = interpretationBox.Text ?? "";
-            if (string.Equals(current.Trim(), edited.Trim(), StringComparison.Ordinal)) return true;
+            if (!userEdit && !editSession!.HasInterpretationTextChanges(edited)) return true;
             try
             {
-                report.UpdateApprovedInterpretationText(edited,
+                editSession!.UpdateInterpretationText(edited,
                     AnalysisInterpretationPackageBuilder.AssessmentContextFingerprintFromResults(selectedResults));
-                EnsureReportRegistered();
+                UpdateSaveState();
                 UpdateInterpretationStatus();
                 return true;
             }
@@ -953,14 +1134,14 @@ namespace AnalysisITC.Avalonia.Tools
                 id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!,
                 InterpretationHttpClient, () =>
             {
-                EnsureReportRegistered();
+                UpdateSaveState();
                 MarkStale();
                 UpdateInterpretationStatus();
             }, () => CanWriteReport() && ReferenceEquals(report, generatingReport));
             var draft = await dialog.ShowDialog<AnalysisInterpretationRecord?>(this);
             if (draft == null || !CanWriteReport() || !ReferenceEquals(report, generatingReport)) return;
             report.ApproveInterpretation(draft);
-            EnsureReportRegistered();
+            UpdateSaveState();
             loadingInterpretation = true;
             interpretationBox.Text = report.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             loadingInterpretation = false;
@@ -1306,7 +1487,7 @@ namespace AnalysisITC.Avalonia.Tools
                 && !report.PresentationSettingsEqual(CurrentOptions()))
             {
                 report.UpdatePresentationSettings(CurrentOptions());
-                EnsureReportRegistered();
+                UpdateSaveState();
             }
             previewStale = true;
             currentDocument = null;
@@ -1314,6 +1495,7 @@ namespace AnalysisITC.Avalonia.Tools
             if (previewPages.IsVisible && CurrentValidation().IsValid)
                 SetStatus("Preview is out of date. Select Update Preview to refresh.", false, true);
             UpdateInterpretationStatus();
+            UpdateSaveState();
         }
 
         void ShowValidation(IReadOnlyList<AnalysisResult> results)
@@ -1332,6 +1514,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             busy = value;
             progress.IsVisible = value;
+            savedReportsButton.IsEnabled = !value;
             selectResultsButton.IsEnabled = !value;
             labelBox.IsEnabled = !value;
             titleBox.IsEnabled = !value;
@@ -1351,6 +1534,7 @@ namespace AnalysisITC.Avalonia.Tools
             selectAllButton.IsEnabled = clearButton.IsEnabled = !value && advancedChecks.Count > 0;
             previewButton.IsEnabled = !value && CurrentValidation().IsValid;
             exportButton.IsEnabled = previewButton.IsEnabled;
+            UpdateSaveState();
             if (!string.IsNullOrWhiteSpace(message)) SetStatus(message);
         }
 
@@ -1381,6 +1565,9 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationWorkspaceStatus.Text = summary == "No interpretation"
                 ? "Write remarks or a scientific interpretation to include in the report."
                 : summary;
+            var review = AnalysisReportEditingPresentation.NeedsInterpretationReview(report!, id => availableResults.FirstOrDefault(result => result.UniqueID == id)!);
+            interpretationReviewText.IsVisible = confirmInterpretationButton.IsVisible = review;
+            confirmInterpretationButton.IsEnabled = !busy;
             interpretationBox.IsEnabled = !busy && selectedResults.Count > 0;
             editInterpretationButton.IsEnabled = !busy && selectedResults.Count > 0;
             generateInterpretationButton.IsEnabled = !busy && selectedResults.Count > 0;
@@ -1446,7 +1633,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Func<string, AnalysisResult> resultResolver;
         readonly Func<string, ExperimentData> experimentResolver;
         readonly HttpClient httpClient;
-        readonly Action ensureRegistered;
+        readonly Action draftChanged;
         readonly Func<bool> canApply;
         readonly IReadOnlyList<string> projectResultOrder = DataManager.Results.Select(result => result.UniqueID).ToList();
         readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
@@ -1492,18 +1679,18 @@ namespace AnalysisITC.Avalonia.Tools
         int packagePreviewRevision;
         bool packageSizeAllowsGeneration;
 
-        public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action ensureRegistered)
-            : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
+        public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action draftChanged)
+            : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, draftChanged) { }
 
         public AnalysisInterpretationDialog(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
-            Func<string, ExperimentData> experimentResolver, HttpClient httpClient, Action ensureRegistered,
+            Func<string, ExperimentData> experimentResolver, HttpClient httpClient, Action draftChanged,
             Func<bool>? canApply = null)
         {
             this.report = report;
             this.resultResolver = resultResolver;
             this.experimentResolver = experimentResolver;
             this.httpClient = httpClient;
-            this.ensureRegistered = ensureRegistered;
+            this.draftChanged = draftChanged;
             this.canApply = canApply ?? (() => true);
             includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
             includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
@@ -1538,18 +1725,15 @@ namespace AnalysisITC.Avalonia.Tools
             includeProcessingInformation.IsCheckedChanged += (_, _) => UpdatePackageSize();
             includeThermograms.IsCheckedChanged += (_, _) => UpdatePackageSize();
             draftBox.IsVisible = false;
+            draftBox.IsReadOnly = true;
+            ToolTip.SetTip(draftBox, AnalysisReportEditingPresentation.GeneratedTextTooltip);
             use.IsVisible = false;
             use.Click += async (_, _) =>
             {
                 if (generatedRecord == null || !this.canApply()) return;
                 try
                 {
-                    var original = generatedRecord.InterpretationMarkdown;
-                    var normalized = AnalysisInterpretationResponseParser.ParseForApproval(draftBox.Text ?? "");
                     var candidate = generatedRecord.Copy();
-                    candidate.InterpretationMarkdown = normalized;
-                    candidate.UserEdited = !string.Equals(original.Trim(), normalized.Trim(), StringComparison.Ordinal);
-                    candidate.ApprovedAtUtc = DateTime.UtcNow;
                     if (report.ApprovedInterpretation != null && !await ConfirmReplacementAsync()) return;
                     if (!this.canApply()) return;
                     Close(candidate);
@@ -1697,7 +1881,7 @@ namespace AnalysisITC.Avalonia.Tools
             var inputs = CreateDialogReport();
             report.UpdateInterpretationSettings(inputs.InterpretationSettings);
             report.UpdateStudyContext(inputs.StudyContext);
-            ensureRegistered();
+            draftChanged();
             return true;
         }
 

@@ -16,6 +16,21 @@ namespace AnalysisITC.Core.Data
     {
         public GlobalSolution Solution { get; private set; }
         public string OperatorName { get; private set; } = "";
+        public DateTime? LastContentChangedUtc { get; private set; }
+
+        public override void MarkModified()
+        {
+            if (DocumentDirtyTracker.IsRestoringDocument) return;
+            var now = DateTime.UtcNow;
+            LastContentChangedUtc = LastContentChangedUtc.HasValue && now <= LastContentChangedUtc.Value
+                ? LastContentChangedUtc.Value.AddTicks(1) : now;
+            base.MarkModified();
+        }
+
+        internal void RestoreLastContentChangedUtc(DateTime? value) => LastContentChangedUtc = value.HasValue
+            ? value.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value.Value.ToUniversalTime()
+            : (DateTime?)null;
         readonly object presentationLock = new object();
         AnalysisResultPresentationData presentationData;
         long presentationRevision = -1;

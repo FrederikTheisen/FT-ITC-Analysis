@@ -69,6 +69,13 @@ namespace AnalysisITC.Core.Data
 
         public void SetFileName(string filename) => FileName = filename;
 
+        // Publish one notification after a complete replacement has been prepared.
+        protected void RestoreTextMetadata(string restoredName, string restoredComments)
+        {
+            name = restoredName ?? "";
+            comments = restoredComments ?? "";
+        }
+
         public virtual string Name
         {
             get => string.IsNullOrEmpty(name) ? System.IO.Path.GetFileNameWithoutExtension(FileName) : name;

@@ -60,6 +60,17 @@ internal sealed class AppMenuController
         RefreshNativeMenuState();
     }
 
+    internal void InstallReportProjectMenu(Window dialog)
+    {
+        if (!window.UsesMacTitleBar) return;
+        var file = new NativeMenu();
+        file.Items.Add(new NativeMenuItem("Save") { Command = commands["save"], Gesture = commands["save"].Gesture });
+        file.Items.Add(new NativeMenuItem("Save As…") { Command = commands["saveas"], Gesture = commands["saveas"].Gesture });
+        var menu = new NativeMenu();
+        menu.Items.Add(new NativeMenuItem("File") { Menu = file });
+        NativeMenu.SetMenu(dialog, menu);
+    }
+
     void RefreshWindowMenu()
     {
         if (window.UsesMacTitleBar)
@@ -253,7 +264,8 @@ internal sealed class AppMenuController
         KeyGesture? gesture = null)
     {
         commands[id] = new AppMenuCommand(id, title, execute,
-            () => window.MainMenuCommandsEnabled() && (canExecute?.Invoke() ?? true), isChecked, gesture);
+            () => (id == "save" || id == "saveas" || id == "quit" ? window.ProjectSaveCommandsEnabled() : window.MainMenuCommandsEnabled())
+                && (canExecute?.Invoke() ?? true), isChecked, gesture);
     }
 
     MenuNode Command(string id, Func<bool>? isVisible = null) => new(commands[id], isVisible);

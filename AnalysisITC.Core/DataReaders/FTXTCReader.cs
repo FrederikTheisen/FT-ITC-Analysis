@@ -962,6 +962,8 @@ namespace AnalysisITC.Core.DataReaders
                     }
                     else if (restored.IsIndependentAssessmentCollection)
                         restored.ClearSavedIndependentMemberEvidence();
+                    // Construction and metadata restoration are not user edits.
+                    restored.RestoreLastContentChangedUtc(state.LastContentChangedUtc);
                     restored.MarkClean();
                     result.Add(restored);
                 }

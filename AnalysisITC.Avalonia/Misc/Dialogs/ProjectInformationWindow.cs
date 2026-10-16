@@ -309,7 +309,7 @@ internal sealed class ProjectInformationWindow : Window
         if (!CanOpenReport(report)) return;
         var name = prompt != null ? await prompt(report!) : await new ReportRenameWindow(report!.Name).ShowDialog<string?>(this);
         if (name == null || !CanOpenReport(report)) return;
-        report!.Name = name;
+        ProjectInformationPresentation.RenameReport(report!, name);
         RefreshContent();
     }
 

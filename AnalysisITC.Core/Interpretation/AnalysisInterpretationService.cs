@@ -294,6 +294,8 @@ namespace AnalysisITC.Core.Interpretation
             {
                 var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver,
                     resultOrderIds: resultOrderIds);
+                package.Report.ReportId = record.ReportIdForFingerprint ?? package.Report.ReportId;
+                package.Report.DateUtc = record.ReportDateUtcForFingerprint ?? package.Report.DateUtc;
                 if (record.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme)
                 {
                     package.Report.Name = record.ReportNameForFingerprint ?? report.Name;

@@ -274,6 +274,11 @@ namespace AnalysisITC
 
         public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)
         {
+            if (MainWindowController.AnalysisReportIsOpen)
+            {
+                _ = CloseReportBeforeTerminateAsync(sender);
+                return NSApplicationTerminateReply.Later;
+            }
             if (skipDirtyCheckOnNextTerminate)
             {
                 skipDirtyCheckOnNextTerminate = false;
@@ -375,9 +380,29 @@ namespace AnalysisITC
                 return false;
             }
 
-            AnalysisITC.UI.MacOS.MacDataReader.Read(url);
+            _ = OpenFileAfterReportAsync(url);
 
             return true;
+        }
+
+        internal static async Task<bool> OpenFileAfterReportAsync(NSUrl url)
+        {
+            if (!await MainWindowController.CloseAnalysisReportsAsync()) return false;
+            AnalysisITC.UI.MacOS.MacDataReader.Read(url);
+            return true;
+        }
+
+        async Task CloseReportBeforeTerminateAsync(NSApplication sender)
+        {
+            await Task.Yield();
+            if (!await MainWindowController.CloseAnalysisReportsAsync())
+            {
+                sender.ReplyToApplicationShouldTerminate(false);
+                return;
+            }
+            var reply = ApplicationShouldTerminate(sender);
+            if (reply != NSApplicationTerminateReply.Later)
+                sender.ReplyToApplicationShouldTerminate(reply == NSApplicationTerminateReply.Now);
         }
 
         partial void OpenMergeToolAction(NSObject sender)
@@ -445,10 +470,11 @@ namespace AnalysisITC
             DataManager.CopySelectedAttributesToAll();
         }
 
-        private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
+        private async void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
             if (MainWindowController.ProjectInformationIsOpen) return;
             if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
+            if (!await MainWindowController.CloseAnalysisReportsAsync()) return;
             FileDialog = NSOpenPanel.OpenPanel;
             FileDialog.CanChooseFiles = true;
             FileDialog.AllowsMultipleSelection = true;
@@ -928,6 +954,7 @@ namespace AnalysisITC
         public static async Task<bool> CloseAllDataAsync(DataClearMode clearMode = DataClearMode.RecordUndo)
         {
             if (MainWindowController.ProjectInformationIsOpen) return false;
+            if (!await MainWindowController.CloseAnalysisReportsAsync()) return false;
             if ((DataManager.SourceItems == null || DataManager.SourceItems.Count == 0) && DataManager.Reports.Count == 0
                 && !DocumentDirtyTracker.IsDirty)
             {

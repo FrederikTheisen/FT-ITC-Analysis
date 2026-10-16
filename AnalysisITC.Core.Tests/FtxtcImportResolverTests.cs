@@ -46,6 +46,7 @@ public sealed class FtxtcImportResolverTests : IDisposable
     public async Task OverlappingFilesAreResolvedAgainstPreviouslyAcceptedContent(bool together, FtxtcDuplicateAction action)
     {
         var result = Result(Prepared());
+        var lastChanged = result.LastContentChangedUtc;
         var first = await Save("first", new[] { result });
         var second = await Save("second", new[] { result });
         prompt.Action = action;
@@ -62,6 +63,7 @@ public sealed class FtxtcImportResolverTests : IDisposable
         Assert.Equal(1, summary.ResultCount);
         Assert.True(summary.SolutionCount > 0);
         Assert.Equal(action == FtxtcDuplicateAction.ImportCopies ? 2 : 1, DataManager.Results.Count);
+        Assert.All(DataManager.Results, imported => Assert.Equal(lastChanged, imported.LastContentChangedUtc));
         Assert.Equal(action == FtxtcDuplicateAction.ImportCopies ? 2 : 1, DataManager.Data.Count);
         Assert.Equal(DataManager.SourceItems.Count, DataManager.SourceItems.Select(item => item.UniqueID).Distinct().Count());
         if (action == FtxtcDuplicateAction.ImportCopies)
@@ -273,6 +275,7 @@ public sealed class FtxtcImportResolverTests : IDisposable
             .Single(attribute => attribute.Key == AttributeKey.CompetitorResult).StringValue);
         var copiedReport = DataManager.Reports[1];
         Assert.Equal(copiedTarget.UniqueID, copiedReport.ResultIds[0]);
+        Assert.Equal(copiedReport.ResultIds, copiedReport.ApprovedInterpretation.ReviewedResultIds);
         Assert.Equal(data.UniqueID, copiedReport.StudyContext.Experiments[0].ExperimentId);
         Assert.Equal("external-support", copiedReport.SupportingExperimentIds[1]);
         Assert.Equal("saved-context-fingerprint", copiedReport.ApprovedInterpretation.AssessmentContextFingerprint);

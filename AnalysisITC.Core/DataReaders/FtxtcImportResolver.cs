@@ -158,6 +158,12 @@ namespace AnalysisITC.Core.DataReaders
                 var lastEditedUtc = report.LastEditedUtc;
                 report.SetID(Replace(report.UniqueID, reportMap));
                 report.SetResultIds(report.ResultIds.Select(id => Replace(id, resultMap)));
+                var interpretation = report.ApprovedInterpretation;
+                if (interpretation?.ReviewedResultIds != null)
+                {
+                    interpretation.ReviewedResultIds = interpretation.ReviewedResultIds.Select(id => Replace(id, resultMap)).ToList();
+                    report.RestoreInterpretation(interpretation);
+                }
                 report.SetSupportingExperimentIds(report.SupportingExperimentIds.Select(id => Replace(id, experimentMap)));
                 var context = report.StudyContext;
                 foreach (var annotation in context.Experiments)

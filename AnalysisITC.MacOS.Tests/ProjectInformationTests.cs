@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Threading;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -30,6 +31,9 @@ static class ProjectInformationTests
     static int Main(string[] args)
     {
         NSApplication.Init();
+        if (SynchronizationContext.Current == null)
+            SynchronizationContext.SetSynchronizationContext((SynchronizationContext)Activator.CreateInstance(
+                typeof(NSApplication).Assembly.GetType("AppKit.AppKitSynchronizationContext", true), true));
         DocumentDirtyTracker.Initialize();
         var automatic = AppSettings.AutoSelectReportReferenceExperiments;
         try
@@ -38,8 +42,9 @@ static class ProjectInformationTests
             CheckEmptyAndMissing();
             CheckRenameDeleteAndDetails();
             CheckReportSelectionAndGuards();
+            CheckLiveInterpretationAndCloseGuards();
             CheckSaveEligibility();
-            Console.WriteLine("PASS: native Project Information counts, missing reports, rename/delete confirmation, selectable details/copy, exact report variants, supporting persistence, deletion/document guards and report-only saving");
+            Console.WriteLine("PASS: native Project Information, report variants and saving, live manual edits, read-only AI drafts, and real-sheet Save/Discard/Cancel close guards");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine("FAIL: " + error); return 1; }
@@ -236,30 +241,71 @@ static class ProjectInformationTests
         using (var ordinary = (NSViewController)Activator.CreateInstance(ReportType, new object[] { first }))
         {
             var view = ordinary.View;
-            Check(ReferenceEquals(Field(ordinary, "report"), latest), "Ordinary opening ignored the newest matching saved report");
-            Check(((List<ExperimentData>)Field(ordinary, "selectedSupportingExperiments")).Contains(support), "Opening lost saved supporting selections");
-            Apply(ordinary, new[] { first }, new ExperimentData[0]);
-            Check(ReferenceEquals(Field(ordinary, "report"), latest) && latest.SupportingExperimentIds.Count == 0,
-                "Removing supporting experiments created another report");
+            var draft = (AnalysisReport)Field(ordinary, "report");
+            Check(!DataManager.Reports.Contains(draft), "Ordinary opening restored a stored report");
+            SetText((NSTextView)Field(ordinary, "interpretationText"), "Retained draft text");
             Apply(ordinary, new[] { second }, new[] { support });
-            Check(ReferenceEquals(Field(ordinary, "report"), other) && other.SupportingExperimentIds.Count == 0,
-                "Changed result selection used same-Apply supporting edits");
-            var editor = (NSTextView)Field(ordinary, "interpretationText");
-            Check(editor.String.Contains("Second result interpretation"), "Result selection lost its own approved text");
-            Apply(ordinary, new[] { first }, new[] { support });
-            Check(((NSTextView)Field(ordinary, "interpretationText")).String == "", "Interpretation carried across result sets");
-        }
-        using (var reopened = (NSViewController)Activator.CreateInstance(ReportType, new object[] { first }))
-        {
-            var view = reopened.View;
-            Check(((List<ExperimentData>)Field(reopened, "selectedSupportingExperiments")).Count == 0,
-                "Reopening added removed automatic supporting selections");
+            Check(ReferenceEquals(Field(ordinary, "report"), draft) && draft.SupportingExperimentIds.Contains(support.UniqueID),
+                "Changed scope lost same-Apply supporting edits");
+            Check(((NSTextView)Field(ordinary, "interpretationText")).String.Contains("Retained draft text"),
+                "Changed scope lost interpretation");
+            Check(DataManager.Reports.Count == 3, "Editing implicitly registered a report");
+            Check((bool)ReportType.GetMethod("SaveReport", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ordinary, new object[] { false }), "Explicit save failed");
+            var saved = DataManager.Reports.Last();
+            Check(saved.ResultIds.SequenceEqual(new[] { second.UniqueID }) && saved.SupportingExperimentIds.Contains(support.UniqueID),
+                "Saved report lost its changed scope");
+            Check(!ReferenceEquals(saved, Field(ordinary, "report")), "Saved report remained attached to editor");
+            Check((bool)ReportType.GetMethod("SaveReport", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ordinary, new object[] { true }), "Save As failed");
+            Check(DataManager.Reports.Count == 5 && DataManager.Reports.Last().UniqueID != saved.UniqueID,
+                "Save As overwrote its original");
+            SetText((NSTextView)Field(ordinary, "interpretationText"), "Edited draft before Finder open");
+            ReportType.GetProperty("LeavePromptOverride", Instance).SetValue(ordinary,
+                new Func<Task<int>>(() => Task.FromResult(2)), null);
+            var registry = typeof(MainWindowController).GetField("activeReportControllers", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            registry.GetType().GetMethod("Add").Invoke(registry, new object[] { ordinary });
+            using (var url = NSUrl.FromFilename("/private/tmp/report-guard-must-not-open.ftxtc"))
+            {
+                var opening = (Task<bool>)typeof(AppDelegate).GetMethod("OpenFileAfterReportAsync", BindingFlags.Static | BindingFlags.NonPublic)
+                    .Invoke(null, new object[] { url });
+                while (!opening.IsCompleted) Pump();
+                Check(!opening.Result && !(bool)ReportType.GetProperty("IsClosed", Instance).GetValue(ordinary, null),
+                    "Finder opening ignored Cancel on an edited report draft");
+            }
+            registry.GetType().GetMethod("Remove").Invoke(registry, new object[] { ordinary });
+            SetText((NSTextView)Field(ordinary, "interpretationText"), ((AnalysisReport)Field(ordinary, "report")).ApprovedInterpretation.InterpretationMarkdown);
+            second.Date = DateTime.Now;
+            Invoke(ordinary, "MarkStale");
+            var output = Environment.GetEnvironmentVariable("FTITC_REPORT_EDITING_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                using (var window = new NSWindow(new CGRect(0, 0, 960, 620), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
+                {
+                    window.ContentView = ordinary.View;
+                    window.SetContentSize(new CGSize(960, 620));
+                    window.MakeKeyAndOrderFront(null); Pump(); ordinary.View.LayoutSubtreeIfNeeded();
+                    for (var attempt = 0; attempt < 250 && (bool)Field(ordinary, "busy"); attempt++) Pump();
+                    var saveButton = (NSButton)Field(ordinary, "saveReportAsButton");
+                    saveButton.ScrollRectToVisible(saveButton.Bounds); Pump();
+                    ordinary.View.LayoutSubtreeIfNeeded();
+                    SaveView(ordinary.View, "macos-report-builder-minimum");
+                    Invoke(ordinary, "OpenSavedReportsPopover"); Pump();
+                    var savedPicker = (NSPopover)Field(ordinary, "savedReportsPopover");
+                    SaveView(savedPicker.ContentViewController.View, "macos-saved-report-picker");
+                    savedPicker.Close();
+                    var selector = (NSButton)Field(ordinary, "selectResultsButton");
+                    selector.ScrollRectToVisible(selector.Bounds); Pump();
+                    Invoke(ordinary, "OpenResultPopover"); Pump();
+                    var picker = (NSPopover)Field(ordinary, "resultPopover");
+                    SaveView(picker.ContentViewController.View, "macos-report-picker");
+                    picker.Close();
+                }
+            }
         }
         var before = older.LastEditedUtc;
         using (var exact = (NSViewController)Activator.CreateInstance(ReportType, new object[] { older }))
         {
             var view = exact.View;
-            Check(ReferenceEquals(Field(exact, "report"), older) && older.LastEditedUtc == before,
+            Check(!ReferenceEquals(Field(exact, "report"), older) && ((AnalysisReport)Field(exact, "report")).UniqueID == older.UniqueID && older.LastEditedUtc == before,
                 "Exact opening redirected to newest variant or marked it edited");
             DataManager.RemoveReport(older);
             SetText((NSTextView)Field(exact, "interpretationText"), "Must not resurrect deleted report");
@@ -276,6 +322,99 @@ static class ProjectInformationTests
             Invoke(stale, "CommitInterpretationEditor");
             Invoke(stale, "MarkStale");
             Check(DataManager.Reports.Count == 0 && latest.ApprovedInterpretation == null, "Stale report wrote to replacement project");
+        }
+    }
+
+    static void CheckLiveInterpretationAndCloseGuards()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var data = Experiment("Live interpretation"); var result = Result(data);
+        DataManager.AddData(new ITCDataContainer[] { data, result });
+        var saved = Report(result, "AI report");
+        saved.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "Generated text",
+            InputFingerprint = "original fingerprint", Provider = "provider",
+            EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
+        });
+        DataManager.AddReport(saved); DocumentDirtyTracker.MarkClean();
+        using (var controller = (NSViewController)Activator.CreateInstance(ReportType, new object[] { saved }))
+        using (var owner = Owner())
+        using (var presenter = new NSViewController())
+        {
+            presenter.View = new NSView(new CGRect(0, 0, 1000, 740));
+            owner.ContentViewController = presenter;
+            presenter.PresentViewControllerAsSheet(controller);
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            do { NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.01)); }
+            while ((bool)Field(controller, "busy") && DateTime.UtcNow < deadline);
+            Check(!(bool)Field(controller, "busy"), "Initial report preview did not finish");
+            var session = (AnalysisReportEditSession)Field(controller, "editSession");
+            var editor = (NSTextView)Field(controller, "interpretationText");
+            var original = editor.String;
+            Check(!session.HasChanges && !(bool)ReportType.GetProperty("EditorHasChanges", Instance).GetValue(controller, null)
+                && session.Draft.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated,
+                "Loading AI text treated it as a user edit");
+            SetText(editor, original + " added word"); editor.DidChangeText();
+            Check(session.HasChanges && session.Draft.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual
+                && session.Draft.ApprovedInterpretation.InputFingerprint == "", "A live edit retained AI provenance");
+            SetText(editor, original); editor.DidChangeText();
+            Check(session.HasChanges && !DocumentDirtyTracker.IsDirty && saved.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated,
+                "Reverting text cleared dirty state or changed the saved report");
+            result.Name = "Renamed result";
+            Check(!((NSButton)Field(controller, "confirmInterpretationButton")).Hidden, "A result rename did not request interpretation review");
+            SetText(editor, original + " "); editor.DidChangeText();
+            Check(((NSButton)Field(controller, "confirmInterpretationButton")).Hidden, "Editing did not confirm the current results");
+            var registry = typeof(MainWindowController).GetField("activeReportControllers", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            registry.GetType().GetMethod("Add").Invoke(registry, new object[] { controller });
+            try
+            {
+                ReportType.GetProperty("LeavePromptOverride", Instance).SetValue(controller,
+                    new Func<Task<int>>(() => Task.FromResult(2)), null);
+                var close = (Task<bool>)typeof(MainWindowController).GetMethod("CloseAnalysisReportsAsync", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+                Check(!Wait(close, "Cancel did not finish resolving the report guard") && !(bool)ReportType.GetProperty("IsClosed", Instance).GetValue(controller, null),
+                    "The app close guard ignored Cancel with an active editor");
+                ReportType.GetProperty("LeavePromptOverride", Instance).SetValue(controller,
+                    new Func<Task<int>>(() => Task.FromResult(0)), null);
+                close = (Task<bool>)typeof(MainWindowController).GetMethod("CloseAnalysisReportsAsync", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+                Check(Wait(close, "Save did not finish dismissing the report sheet") && (bool)ReportType.GetProperty("IsClosed", Instance).GetValue(controller, null),
+                    "Saving before close did not finish dismissing the real report sheet");
+                Check(saved.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual
+                    && saved.ApprovedInterpretation.InterpretationMarkdown == AnalysisInterpretationResponseParser.ParseManual(original),
+                    "Closing saved earlier editor text or AI provenance");
+            }
+            finally { registry.GetType().GetMethod("Remove").Invoke(registry, new object[] { controller }); }
+        }
+        using (var controller = (NSViewController)Activator.CreateInstance(ReportType, new object[] { result }))
+        {
+            var view = controller.View;
+            var editor = (NSTextView)Field(controller, "interpretationText");
+            SetText(editor, "Discard this edit"); editor.DidChangeText();
+            ReportType.GetProperty("LeavePromptOverride", Instance).SetValue(controller,
+                new Func<Task<int>>(() => Task.FromResult(1)), null);
+            Check(Wait((Task<bool>)Invoke(controller, "RequestCloseAsync")) && DataManager.Reports.Count == 1,
+                "Discard saved a new report draft");
+        }
+        var generationType = typeof(MainWindowController).Assembly.GetType("AnalysisITC.AnalysisInterpretationViewController");
+        var empty = new AnalysisReport(); empty.SetResultIds(new[] { result.UniqueID });
+        AnalysisInterpretationRecord accepted = null;
+        using (var client = new System.Net.Http.HttpClient())
+        using (var controller = (NSViewController)Activator.CreateInstance(generationType, new object[]
+        {
+            empty, new Func<string, AnalysisResult>(_ => result), new Func<string, ExperimentData>(_ => data), client,
+            new Action(() => { }), new Action<AnalysisInterpretationRecord>(value => accepted = value),
+        }))
+        {
+            var view = controller.View;
+            var editor = (NSTextView)Field(controller, "draft");
+            Check(!editor.Editable && editor.Selectable, "The generated response is editable or cannot be selected");
+            var generated = new AnalysisInterpretationRecord { InterpretationMarkdown = "Exact AI response", InputFingerprint = "exact fingerprint" };
+            generationType.GetField("generated", Instance).SetValue(controller, generated);
+            SetText(editor, "Display replacement");
+            Invoke(controller, "UseDraft");
+            Check(accepted != null && accepted.InterpretationMarkdown == generated.InterpretationMarkdown
+                && accepted.InputFingerprint == generated.InputFingerprint && accepted.Origin == AnalysisInterpretationOrigin.AiGenerated,
+                "Use in Report changed the generated record");
         }
     }
 
@@ -323,11 +462,11 @@ static class ProjectInformationTests
     static object Field(object instance, string name) => instance.GetType().GetField(name, Instance).GetValue(instance);
     static object Invoke(object instance, string name) => instance.GetType().GetMethod(name, Instance).Invoke(instance, null);
     static void Pump() { NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.4)); }
-    static T Wait<T>(Task<T> task)
+    static T Wait<T>(Task<T> task, string timeout = "Native asynchronous operation did not complete")
     {
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (!task.IsCompleted && DateTime.UtcNow < deadline) NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.005));
-        Check(task.IsCompleted, "Native asynchronous operation did not complete");
+        Check(task.IsCompleted, timeout);
         return task.GetAwaiter().GetResult();
     }
     static void SetText(NSTextView text, string value) { using (var content = new NSAttributedString(value)) text.TextStorage.SetString(content); }

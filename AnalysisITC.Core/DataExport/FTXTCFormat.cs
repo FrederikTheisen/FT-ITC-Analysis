@@ -547,6 +547,8 @@ namespace AnalysisITC.Core.Export
         public string FileName { get; set; }
         public string Name { get; set; }
         public DateTime Date { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTime? LastContentChangedUtc { get; set; }
         public string Comments { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string OperatorName { get; set; }
@@ -1709,6 +1711,7 @@ namespace AnalysisITC.Core.Export
             return new FtxtcResultState
             {
                 Id = result.UniqueID, FileName = result.FileName, Name = result.Name, Date = result.Date, Comments = result.Comments,
+                LastContentChangedUtc = result.LastContentChangedUtc,
                 OperatorName = string.IsNullOrEmpty(result.OperatorName) ? null : result.OperatorName,
                 GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
                 Weighted = result.Solution.UseWeightedFitting,

@@ -135,6 +135,22 @@ represented in the package. Changing server guidance does not make unchanged evi
 Saved `sha256:utf8:canonical-package-json-v1` fingerprints remain verifiable with
 their original report name. Optional `reportNameForFingerprint` provenance retains
 that name when a legacy report is renamed; the original saved fingerprint is not rewritten.
+Save Report As retains optional `reportIdForFingerprint` and `reportDateUtcForFingerprint`
+in approved interpretation provenance. The latter is the exact UTC round-trip string
+from the original package. Both legacy v1 and v2 comparison packages substitute these
+source values; requests continue to use the current report identity and creation date.
+Repeated copies preserve the original source, without rewriting stored fingerprints.
+Optional `confirmedAtUtc` and `reviewedResultIds` track the builder's separate review
+confirmation for manual and AI text. They do not enter evidence packages or change
+fingerprint freshness. Confirm preserves text, approval dates, and AI provenance.
+A user edit replaces the active record with manual origin, the current writing time,
+and current reviewed result scope; previous AI fingerprints and generation metadata
+are removed. Generated text is read-only in the generation dialog and can be edited
+after Use in Report. Newly generated interpretations start with their own report context.
+The builder also reviews both origins after any result content change, using the
+optional native-project `lastContentChangedUtc` timestamp. That timestamp does not
+enter the interpretation package or alter the relay contract version.
+
 Instruction fingerprints identify text but cannot reconstruct it.
 
 ### Advanced-analysis evidence

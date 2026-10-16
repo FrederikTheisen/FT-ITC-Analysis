@@ -57,6 +57,7 @@ public partial class MainWindow : Window
     bool isRestoringDataListSelection;
     bool projectInformationOpen;
     bool analysisReportOpen;
+    AnalysisReportWindow? activeReportDialog;
     readonly SupportingFigureSelectionState supportingFigureSelection = new SupportingFigureSelectionState();
     int openingOperationCount;
     TaskCompletionSource<bool>? projectDialogClosed;
@@ -173,7 +174,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (allowDirtyClose || !DocumentDirtyTracker.IsDirty)
+        if (allowDirtyClose || activeReportDialog == null && !DocumentDirtyTracker.IsDirty)
         {
             allowDirtyClose = false;
             base.OnClosing(e);
@@ -281,6 +282,7 @@ public partial class MainWindow : Window
     internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0 || DataManager.Reports.Count > 0;
     internal bool CanSaveDocument() => HasDocumentContent() || (ProjectWriter.IsSaved && DocumentDirtyTracker.IsDirty);
     internal bool MainMenuCommandsEnabled() => !projectInformationOpen && !analysisReportOpen && openingOperationCount == 0;
+    internal bool ProjectSaveCommandsEnabled() => !projectInformationOpen && openingOperationCount == 0;
     internal bool CanOpenProjectInformation() => startupReady && MainMenuCommandsEnabled()
         && !ProcessingActivity.IsBusy && !AnalysisWorkspace.CanStopFit;
     internal bool CanOpenFiles() => startupReady;
@@ -765,12 +767,17 @@ public partial class MainWindow : Window
 
     async Task ShowAnalysisReportAsync(AnalysisReportWindow dialog)
     {
+        activeReportDialog = dialog;
+        dialog.SaveProjectCommand = SaveDocumentAsync;
+        dialog.SaveProjectAsCommand = SaveDocumentAsAsync;
+        menuController?.InstallReportProjectMenu(dialog);
         analysisReportOpen = true;
         projectDialogClosed = new TaskCompletionSource<bool>();
         RefreshMenuState();
         try { await dialog.ShowDialog(this); }
         finally
         {
+            activeReportDialog = null;
             analysisReportOpen = false;
             projectDialogClosed.TrySetResult(true);
             projectDialogClosed = null;
@@ -796,7 +803,7 @@ public partial class MainWindow : Window
 
     internal Task QuitAsync()
     {
-        if (DocumentDirtyTracker.IsDirty)
+        if (DocumentDirtyTracker.IsDirty || activeReportDialog != null)
         {
             if (!isHandlingDirtyClose)
                 _ = CloseWithDirtyPromptAsync(SavePromptReason.QuitApplication);
@@ -2012,6 +2019,8 @@ public partial class MainWindow : Window
 
         try
         {
+            if (activeReportDialog != null && !await activeReportDialog.RequestCloseAsync())
+                return;
             if (!await PromptSaveChangesIfNeededAsync(reason))
                 return;
 

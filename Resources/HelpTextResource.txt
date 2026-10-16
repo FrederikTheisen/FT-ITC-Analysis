@@ -378,9 +378,17 @@ Select **Preview**, review warnings and contents, then **Export PDF...**. Use **
 
 # Choosing and reopening contents
 
-Use **Select report contents…** to choose results and supporting experiments. Buffer references and tandem sources may be preselected; uncheck any you do not want. When changing results, choose **Apply** before adjusting supporting selections.
+Use **Select report contents…** to choose results and supporting experiments. Buffer references and tandem sources may be preselected; uncheck any you do not want. Choose results and supporting experiments together, then select **Apply**. Opening the tool starts a new draft; open a saved report through **Saved Reports…** in the inspector or Project Information. Changing results edits the current draft and retains interpretation text.
 
 Open **File > Project Information…** to find saved reports. **Open**, **Rename**, **Details**, **Copy All**, and **Delete** manage the saved entry. Deleting it keeps experiments, results, and exported PDFs. A saved report stores selections, settings, context, and interpretation text rather than an embedded PDF or copies of measurements.
+
+**Save Report** stores your draft in the project; **Save Report As…** stores a separate copy and switches to it. The report title supplies its saved name; an automatic or blank title uses a content summary. Rename in Project Information changes both the title and saved name. **Last saved** records a save that changed the report.
+
+Use **File > Save** to write the project to disk. Project save commands, including Cmd-S or Ctrl-S, do not save the report draft. Preview and PDF export use the draft without saving it. Leaving an edited draft offers Save, Discard, or Cancel.
+
+Editing interpretation text makes it user-written and current, replacing any previous AI source details and freshness status. Text edits remain unsaved until Save Report or Save Report As, including edits undone to the original wording.
+
+Changes to included results, including values, uncertainties, assessments, names, or comments, ask you to review the interpretation. This applies to both user-written and generated text. Choose **Confirm**, or edit the text, then save the report. A later result change asks for review again. Confirm preserves the text and its source; it does not clear a generated interpretation's separate AI fingerprint freshness status or printed warning.
 
 # Interpreting report values
 
@@ -393,7 +401,7 @@ Conditions show nominal initial concentrations in syringe ▸ cell order, target
 Fixed estimates have no uncertainty interval. Combined spread and approximate propagated intervals remain distinct from model-estimated uncertainty; see **Analysis results**. Exported warnings remain visible, and structurally unusable results cannot be exported.
 
 ## Online interpretation
-In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the draft against your results, then choose **Use in report** to include it. Generation requires an internet connection; local analysis and PDF export remain available without it.
+In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the read-only draft against your results, then choose **Use in report** to include it. Edit it in the report builder if needed. Generation requires an internet connection; local analysis and PDF export remain available without it.
 
 Completed structuring, electrostatics, and protonation results are included when available. Generation uses saved estimates and does not rerun analyses. Tandem source data are included only when selected. Thermograms require a fresh opt-in each time the dialog opens.
 

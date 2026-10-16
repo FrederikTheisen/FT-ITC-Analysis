@@ -23,6 +23,14 @@ Figure canvases retain automatic titles per experiment unless an explicit title 
 Report figures retain excluded injections. Traceability Mode also forces their visibility in
 Final Figure and supporting figures, regardless of the excluded-point visibility choice.
 
+In both desktop builders, the top Report inspector section has a separate Saved Reports…
+picker above equally sized Save Report and Save Report As… buttons
+in one row. The saved-report picker lists the latest saved reports first with their result
+names and last-save time. It refreshes each time it opens, including after Save As, and
+uses the existing unsaved-draft prompt before replacing a draft. With no saved reports it
+shows an empty-state message. The Report contents picker contains only results and
+supporting experiments.
+
 
 
 ## F. Front page
@@ -30,7 +38,7 @@ Final Figure and supporting figures, regardless of the excluded-point visibility
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **F01** | **Title and status badge** | |
-| | · Title: configured report title; when blank, the single result's name or "Analysis report" | saved report display names do not change PDF titles |
+| | · Title: configured report title; when blank, the single result's name or "Analysis report" | the title also supplies the saved report name; automatic or blank titles use a content-summary name |
 | | · Badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE | worst status of all results |
 | **F02** | **Subtitle** | only when a document label is set |
 | **F03** | **Sign-off** (bottom of front page) | Trace only |
@@ -61,6 +69,18 @@ Final Figure and supporting figures, regardless of the excluded-point visibility
 ## I. Interpretation
 
 Whole chapter omitted when the report has no saved interpretation.
+
+Opening another report clears the builder's text undo and redo history.
+Opening a saved report also refreshes its save buttons.
+
+User text edits immediately replace active AI provenance with manual origin and
+mark the detached draft unsaved until explicit report saving, including edits
+returned to the original wording. Generated text is read-only in the generation
+dialog and becomes editable after Use in Report. The builder-only review notice
+applies to both origins after any included result content change (including names,
+comments, assessments, and solution updates) or changed result selection. Confirm
+preserves the text and its source; editing records new user text. This notice is
+not I01 and is not printed.
 
 | Code | Content | When / omitted |
 | --- | --- | --- |
@@ -517,6 +537,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportRenderer.cs` (Avalonia).
 
 ## Revision notes
+
+- 2026-10-16: Both builders use detached report drafts with explicit Save Report and Save Report As. Project save, autosave, preview, and PDF export do not commit drafts. Saved names follow the title, and Project Information Rename changes both. Result/supporting selections apply together and edit the current draft without automatically opening another report. A builder-only review warning covers changed result scope or results updated since the text was approved/confirmed, for both manual and AI text. Confirm persists review time/scope without changing fingerprints or I01. Save As preserves original fingerprint identity/date for v1 and v2, avoiding a freshness warning from copying alone. Printed I01 and interpretation provenance rows are unchanged.
 
 - 2026-10-16: The macOS report builder's interpretation editor surround uses the system window background for a lighter appearance. Report preview and PDF content are unchanged.
 - 2026-10-12: Analysis summary uses an order list and grouped block details. A01 contains its Std. and Diag. versions; A03 is retained as a historical alias for A01 · Std. Trace. changes are marked within the affected rows. A06 now explicitly distinguishes Standard no-binding blanks from retained Diagnostic values; the earlier blanket "blank for no-binding" wording was incomplete. Report behavior is unchanged.

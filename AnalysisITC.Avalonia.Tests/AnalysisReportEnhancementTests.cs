@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -22,6 +23,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -246,6 +248,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 id.Text = "  QA-2026-α  ";
                 var options = (AnalysisReportOptions)currentOptions.Invoke(window, null)!;
                 Assert.Equal("QA-2026-α", options.ReportId);
+                Assert.Empty(DataManager.Reports);
+                Assert.True(window.SaveReport(false));
                 var savedReport = Assert.Single(DataManager.Reports);
                 Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
 
@@ -254,7 +258,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 Assert.False(idRow.IsVisible);
                 Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
 
-                var reopened = new AnalysisReportWindow(fixture.Result);
+                var reopened = new AnalysisReportWindow(savedReport: savedReport);
                 try { Assert.Equal("QA-2026-α", Field<TextBox>(reopened, "reportIdBox").Text); }
                 finally { reopened.Close(); }
             }
@@ -378,70 +382,392 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void ReportSettingsStayWithTheirResultAcrossAtoBtoASelectionChanges()
+    public void SelectionEditsTheCurrentDraftAndSavedReportsOpenExplicitly()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        ResetData();
+        var a = CreateResult("Result A"); var b = CreateResult("Result B");
+        DataManager.AddData(new ITCDataContainer[] { a.Data, a.Result, b.Data, b.Result });
+        var window = new AnalysisReportWindow(a.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        var title = Field<TextBox>(window, "titleBox");
+        title.Text = "My report";
+        Field<TextBox>(window, "labelBox").Text = "Retain study context";
+        Field<TextBox>(window, "interpretationBox").Text = "Retain interpretation";
+        SelectResult(window, b.Result);
+        Assert.Equal("My report", title.Text);
+        Assert.Equal("Retain study context", Field<TextBox>(window, "labelBox").Text);
+        Assert.Contains("Retain interpretation", Field<TextBox>(window, "interpretationBox").Text);
+        Assert.Empty(DataManager.Reports);
+        Assert.True(window.SaveReport(false));
+        var saved = Assert.Single(DataManager.Reports);
+        Assert.Equal("My report", saved.Name);
+        Assert.Equal(new[] { b.Result.UniqueID }, saved.ResultIds);
+        title.Text = "Separate copy";
+        Assert.True(window.SaveReport(true));
+        Assert.Equal("My report", saved.Name);
+        Assert.Equal(2, DataManager.Reports.Count);
+        var ordinary = new AnalysisReportWindow(b.Result);
+        Assert.Empty(Field<TextBox>(ordinary, "interpretationBox").Text!);
+        var exact = new AnalysisReportWindow(savedReport: saved);
+        Assert.NotSame(saved, Field<AnalysisReport>(exact, "report"));
+        Assert.Equal(saved.UniqueID, Field<AnalysisReport>(exact, "report").UniqueID);
+        Assert.Equal("My report", Field<TextBox>(exact, "titleBox").Text);
+        window.Close(); ordinary.Close(); exact.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task LeavingAnEditedDraftHonorsCancelDiscardAndSave()
+    {
+        ResetData();
+        var fixture = CreateResult("Draft transitions");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        DocumentDirtyTracker.MarkClean();
+        var window = new AnalysisReportWindow(fixture.Result);
+        Field<TextBox>(window, "titleBox").Text = "Edited draft";
+        window.LeavePromptOverride = () => Task.FromResult(2);
+        Assert.False(await window.ResolveDraftBeforeLeavingAsync());
+        Assert.Empty(DataManager.Reports);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        Assert.True(await window.ResolveDraftBeforeLeavingAsync());
+        Assert.Empty(DataManager.Reports);
+        window.LeavePromptOverride = () => Task.FromResult(0);
+        Assert.True(await window.ResolveDraftBeforeLeavingAsync());
+        Assert.Equal("Edited draft", Assert.Single(DataManager.Reports).Name);
+        Assert.True(DocumentDirtyTracker.IsDirty);
+        Assert.False(Field<Button>(window, "saveReportButton").IsEnabled);
+        Field<TextBox>(window, "titleBox").Text = "Failed save";
+        Field<AnalysisReport>(window, "report").SetSupportingExperimentIds(new[] { "unresolved" });
+        Assert.False(await window.ResolveDraftBeforeLeavingAsync());
+        Assert.Equal("Edited draft", Assert.Single(DataManager.Reports).Name);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        window.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LiveInterpretationEditsReplaceAiAndRemainDirtyAfterUndoWithoutLeavingEditor(bool withHeading)
+    {
+        ResetData();
+        var fixture = CreateResult("Live interpretation");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var saved = new AnalysisReport(); saved.SetResultIds(new[] { fixture.Result.UniqueID });
+        saved.UpdatePresentationSettings(new AnalysisReportOptions());
+        saved.ApproveInterpretation(new AnalysisInterpretationRecord
         {
-            ResetData();
-            var a = CreateResult("Result A");
-            var b = CreateResult("Result B");
-            DataManager.AddData(new ITCDataContainer[] { a.Data, a.Result, b.Data, b.Result });
-            var window = new AnalysisReportWindow(a.Result);
-            var label = Field<TextBox>(window, "labelBox");
-            var title = Field<TextBox>(window, "titleBox");
-            var energy = Field<ComboBox>(window, "energyCombo");
-            var temperature = Field<ComboBox>(window, "temperatureCombo");
-            var uncertainty = Field<ComboBox>(window, "uncertaintyCombo");
-            var injections = Field<CheckBox>(window, "injectionTablesCheck");
-            var condense = Field<CheckBox>(window, "condenseRepeatedCheck");
-            var advanced = Field<List<CheckBox>>(window, "advancedChecks");
-            var expectedAAdvanced = advanced.Where(check => check.IsChecked == true)
-                .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key).ToArray();
-            var appEnergyIndex = AppSettings.EnergyUnitFamily == EnergyUnitFamily.Joules ? 0 : 1;
-            var alternateEnergyIndex = appEnergyIndex == 0 ? 1 : 0;
-
-            label.Text = "A subtitle — λ-binding study";
-            title.Text = "A custom title";
-            energy.SelectedIndex = alternateEnergyIndex;
-            temperature.SelectedIndex = 1;
-            uncertainty.SelectedIndex = 2;
-            injections.IsChecked = false;
-            condense.IsChecked = false;
-            DocumentDirtyTracker.MarkClean();
-
-            SelectResult(window, b.Result);
-            Assert.Equal("", label.Text);
-            Assert.Equal("Result B", title.Text);
-            Assert.True(FieldValue<bool>(window, "automaticTitle"));
-            Assert.Equal(appEnergyIndex, energy.SelectedIndex);
-            Assert.Equal(0, temperature.SelectedIndex);
-            Assert.Equal(3, uncertainty.SelectedIndex);
-            Assert.True(injections.IsChecked);
-            Assert.True(condense.IsChecked);
-            Assert.Equal(AnalysisReportBuilder.GetAvailableAdvancedSections(b.Result).Select(item => item.Request.Key),
-                advanced.Where(check => check.IsChecked == true)
-                    .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key));
-
-            SelectResult(window, a.Result);
-            Assert.Equal("A subtitle — λ-binding study", label.Text);
-            Assert.Equal("A custom title", title.Text);
-            Assert.False(FieldValue<bool>(window, "automaticTitle"));
-            Assert.Equal(alternateEnergyIndex, energy.SelectedIndex);
-            Assert.Equal(1, temperature.SelectedIndex);
-            Assert.Equal(2, uncertainty.SelectedIndex);
-            Assert.False(injections.IsChecked);
-            Assert.False(condense.IsChecked);
-            Assert.Equal(expectedAAdvanced, advanced.Where(check => check.IsChecked == true)
-                .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key));
-
-            // Editing B cannot overwrite A's custom title or subtitle.
-            SelectResult(window, b.Result);
-            label.Text = "B subtitle";
-            title.Text = "B custom title";
-            SelectResult(window, a.Result);
-            Assert.Equal("A subtitle — λ-binding study", label.Text);
-            Assert.Equal("A custom title", title.Text);
+            InterpretationMarkdown = withHeading ? "## Overall interpretation\nGenerated text" : "Generated text",
+            InputFingerprint = "original fingerprint", Provider = "original provider",
+            EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
         });
+        DataManager.AddReport(saved); DocumentDirtyTracker.MarkClean();
+        var window = new AnalysisReportWindow(savedReport: saved);
+        var session = Field<AnalysisReportEditSession>(window, "editSession");
+        var editor = Field<TextBox>(window, "interpretationBox");
+        Assert.False(session.HasChanges);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, session.Draft.ApprovedInterpretation.Origin);
+        Assert.False(Field<Button>(window, "saveReportButton").IsEnabled);
+        var original = editor.Text;
+        editor.Text += " added word";
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, session.Draft.ApprovedInterpretation.Origin);
+        Assert.Contains("added word", session.Draft.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.Empty(session.Draft.ApprovedInterpretation.InputFingerprint);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        editor.Text = original;
+        Assert.True(session.HasChanges);
+        Assert.True(Field<Button>(window, "saveReportButton").IsEnabled);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, saved.ApprovedInterpretation.Origin);
+        window.LeavePromptOverride = () => Task.FromResult(2);
+        Assert.False(await window.RequestCloseAsync());
+        window.LeavePromptOverride = () => Task.FromResult(0);
+        Assert.True(await window.RequestCloseAsync());
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, saved.ApprovedInterpretation.Origin);
+        Assert.Equal(AnalysisInterpretationResponseParser.ParseManual(original!), saved.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.False(session.HasChanges);
+    }
+
+    [AvaloniaFact]
+    public async Task ClearingAndRetypingImmediatelyAffectsDraftAndReviewWithoutCommittingFocus()
+    {
+        ResetData();
+        var fixture = CreateResult("Named in the text");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        var session = Field<AnalysisReportEditSession>(window, "editSession");
+        var editor = Field<TextBox>(window, "interpretationBox");
+        editor.Text = "Named in the text has this result";
+        Assert.True(window.SaveReport(false));
+        fixture.Result.Name = "Renamed result";
+        Assert.True(Field<Button>(window, "confirmInterpretationButton").IsVisible);
+        editor.Text += " "; // Even a user edit normalized away confirms the current result.
+        Assert.False(Field<Button>(window, "confirmInterpretationButton").IsVisible);
+        fixture.Result.Comments = "Further change";
+        Assert.True(Field<Button>(window, "confirmInterpretationButton").IsVisible);
+        editor.Text = "";
+        Assert.Null(session.Draft.ApprovedInterpretation);
+        Assert.True(session.HasChanges);
+        editor.Text = "Retyped interpretation";
+        Assert.Contains("Retyped interpretation", session.Draft.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.False(Field<Button>(window, "confirmInterpretationButton").IsVisible);
+        await window.RequestCloseAsync();
+        Assert.DoesNotContain("Retyped", session.SavedReport!.ApprovedInterpretation.InterpretationMarkdown);
+    }
+
+    [AvaloniaFact]
+    public async Task GenerationDialogDisplaysReadOnlyTextAndAcceptsTheGeneratedRecordUnchanged()
+    {
+        ResetData();
+        var fixture = CreateResult("Generated response");
+        var report = new AnalysisReport(); report.SetResultIds(new[] { fixture.Result.UniqueID });
+        using var client = new System.Net.Http.HttpClient(new NoNetworkHandler());
+        var dialog = new AnalysisInterpretationDialog(report, fixture.Result, client, () => { });
+        var text = AnyField<TextBox>(dialog, "draftBox");
+        Assert.True(text.IsReadOnly);
+        var generated = new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nExact AI response",
+            InputFingerprint = "fingerprint", Provider = "provider", ServiceRequestId = "request",
+        };
+        typeof(AnalysisInterpretationDialog).GetField("generatedRecord", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(dialog, generated);
+        // The display is not the source of the accepted record.
+        text.Text = "A programmatic display replacement";
+        var owner = new Window(); owner.Show();
+        var accepted = dialog.ShowDialog<AnalysisInterpretationRecord?>(owner);
+        AnyField<Button>(dialog, "use").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var record = await accepted;
+        Assert.NotNull(record);
+        Assert.Equal(generated.InterpretationMarkdown, record.InterpretationMarkdown);
+        Assert.Equal(generated.InputFingerprint, record.InputFingerprint);
+        Assert.Equal(generated.ServiceRequestId, record.ServiceRequestId);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, record.Origin);
+        Assert.Equal(generated.ApprovedAtUtc, record.ApprovedAtUtc);
+        owner.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AppQuitAndMainWindowCloseHonorCancelForAnActiveEditor(bool quit)
+    {
+        ResetData();
+        var fixture = CreateResult("Quit with an active editor");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var owner = new MainWindow(); owner.SetStartupReady(); owner.Show();
+        var flow = owner.OpenAnalysisReportAsync();
+        var window = Assert.IsType<AnalysisReportWindow>(Assert.Single(owner.OwnedWindows));
+        try
+        {
+            for (var attempt = 0; attempt < 1000 && AnyField<bool>(window, "busy"); attempt++) await Task.Yield();
+            var editor = Field<TextBox>(window, "interpretationBox");
+            editor.Text = "Unsaved text at exit";
+            var prompts = 0;
+            window.LeavePromptOverride = () => { prompts++; return Task.FromResult(2); };
+            DocumentDirtyTracker.MarkClean();
+            if (quit) await owner.QuitAsync();
+            else
+            {
+                // Close() is ignored for a disabled modal owner; exercise its OS callback.
+                var closing = (WindowClosingEventArgs)Activator.CreateInstance(typeof(WindowClosingEventArgs),
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                    new object[] { WindowCloseReason.WindowClosing, false }, null)!;
+                typeof(MainWindow).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(owner, new object[] { closing });
+                Assert.True(closing.Cancel);
+            }
+            for (var attempt = 0; attempt < 1000 && AnyField<bool>(owner, "isHandlingDirtyClose"); attempt++) await Task.Yield();
+            Assert.Equal(1, prompts);
+            Assert.True(owner.IsVisible);
+            Assert.True(window.IsVisible);
+            Assert.False(flow.IsCompleted);
+            Assert.Empty(DataManager.Reports);
+            Assert.Contains("Unsaved text at exit", Field<AnalysisReport>(window, "report").ApprovedInterpretation.InterpretationMarkdown);
+        }
+        finally
+        {
+            window.LeavePromptOverride = () => Task.FromResult(1);
+            await window.RequestCloseAsync(); await flow;
+            DocumentDirtyTracker.MarkClean(); owner.Close();
+        }
+    }
+
+    sealed class NoNetworkHandler : System.Net.Http.HttpMessageHandler
+    {
+        protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable));
+    }
+
+    static T AnyField<T>(object owner, string name) => (T)owner.GetType()
+        .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;
+
+    [AvaloniaFact]
+    public async Task OpeningSavedReportHonorsCancelAndDiscardForLiveTextEdits()
+    {
+        ResetData();
+        var fixture = CreateResult("Switch reports");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var saved = new AnalysisReport(); saved.SetResultIds(new[] { fixture.Result.UniqueID });
+        saved.UpdatePresentationSettings(new AnalysisReportOptions());
+        saved.SetManualInterpretation("Stored report text"); DataManager.AddReport(saved);
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.Styles.Add(new global::Avalonia.Themes.Fluent.FluentTheme());
+        window.Show();
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (AnyField<bool>(window, "busy") && DateTime.UtcNow < deadline) await Task.Delay(1);
+            Assert.False(AnyField<bool>(window, "busy"));
+            Field<TextBox>(window, "interpretationBox").Text = "Unsaved live text";
+            var originalDraft = Field<AnalysisReport>(window, "report");
+            foreach (var choice in new[] { 2, 1 })
+            {
+                window.LeavePromptOverride = () => Task.FromResult(choice);
+                Field<Button>(window, "savedReportsButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var items = Field<StackPanel>(window, "savedReportsItems");
+                items.Children.OfType<Grid>().SelectMany(row => row.Children).OfType<Button>()
+                    .Single(button => Equals(button.Content, "Open")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                for (var attempt = 0; attempt < 1000 && AnyField<Task<bool>?>(window, "pendingLeave") != null; attempt++) await Task.Yield();
+                if (choice == 2)
+                {
+                    Assert.Same(originalDraft, Field<AnalysisReport>(window, "report"));
+                    Assert.Contains("Unsaved live text", originalDraft.ApprovedInterpretation.InterpretationMarkdown);
+                }
+            }
+            Assert.Equal(saved.UniqueID, Field<AnalysisReport>(window, "report").UniqueID);
+            Assert.Contains("Stored report text", Field<TextBox>(window, "interpretationBox").Text);
+            Assert.False(Field<AnalysisReportEditSession>(window, "editSession").HasChanges);
+            Assert.False(Field<Button>(window, "saveReportButton").IsEnabled);
+            Assert.True(Field<Button>(window, "saveReportAsButton").IsEnabled);
+        }
+        finally { window.LeavePromptOverride = () => Task.FromResult(1); await window.RequestCloseAsync(); }
+    }
+
+    [AvaloniaFact]
+    public async Task PreviewAndProjectSnapshotDoNotCommitDraft()
+    {
+        ResetData();
+        var fixture = CreateResult("Preview isolation");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        DocumentDirtyTracker.MarkClean();
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        Field<TextBox>(window, "interpretationBox").Text = "Written text";
+        var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Assert.True(await (Task<bool>)ensure.Invoke(window, null)!);
+        Assert.Empty(DataManager.Reports);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        Assert.True(window.SaveReport(false));
+        var saved = Assert.Single(DataManager.Reports);
+        Field<TextBox>(window, "titleBox").Text = "Unsaved title";
+        using var stream = new MemoryStream();
+        await AnalysisITC.Core.Export.FTXTCWriter.WriteStream(stream, DataManager.Data, DataManager.Results, reports: DataManager.Reports);
+        stream.Position = 0;
+        var reopened = await AnalysisITC.Core.DataReaders.FTXTCReader.ReadWithRecovery(stream, AnalysisITC.Core.DataReaders.FtxtcReadPolicy.Strict);
+        Assert.Equal(saved.PresentationSettings.Title, Assert.Single(reopened.Reports).PresentationSettings.Title);
+        Assert.NotEqual("Unsaved title", saved.PresentationSettings.Title);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ConfirmDismissesReviewWarningAndIsSavedOnlyWithReport()
+    {
+        ResetData();
+        var fixture = CreateResult("Updated result");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        Field<TextBox>(window, "interpretationBox").Text = "Check retained text";
+        Assert.True(window.SaveReport(false));
+        var saved = Assert.Single(DataManager.Reports);
+        fixture.Result.Date = DateTime.Now;
+        typeof(AnalysisReportWindow).GetMethod("MarkStale", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+        var confirm = Field<Button>(window, "confirmInterpretationButton");
+        Assert.True(confirm.IsVisible);
+        var approved = saved.ApprovedInterpretation.ApprovedAtUtc;
+        confirm.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(confirm.IsVisible);
+        Assert.Null(saved.ApprovedInterpretation.ConfirmedAtUtc);
+        Assert.True(window.SaveReport(false));
+        Assert.NotNull(saved.ApprovedInterpretation.ConfirmedAtUtc);
+        Assert.Equal(approved, saved.ApprovedInterpretation.ApprovedAtUtc);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SaveShortcutsTargetTheProjectWhileReportDraftStaysUnsaved()
+    {
+        ResetData();
+        var fixture = CreateResult("Project save shortcuts");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        Field<TextBox>(window, "titleBox").Text = "Unsaved report draft";
+        var saves = 0; var savesAs = 0;
+        window.SaveProjectCommand = () => { saves++; return Task.CompletedTask; };
+        window.SaveProjectAsCommand = () => { savesAs++; return Task.CompletedTask; };
+        var primary = OperatingSystem.IsMacOS() ? global::Avalonia.Input.KeyModifiers.Meta : global::Avalonia.Input.KeyModifiers.Control;
+        window.RaiseEvent(new global::Avalonia.Input.KeyEventArgs { RoutedEvent = global::Avalonia.Input.InputElement.KeyDownEvent,
+            Key = global::Avalonia.Input.Key.S, KeyModifiers = primary });
+        window.RaiseEvent(new global::Avalonia.Input.KeyEventArgs { RoutedEvent = global::Avalonia.Input.InputElement.KeyDownEvent,
+            Key = global::Avalonia.Input.Key.S, KeyModifiers = primary | global::Avalonia.Input.KeyModifiers.Shift });
+        Assert.Equal(1, saves); Assert.Equal(1, savesAs);
+        Assert.Empty(DataManager.Reports);
+        Assert.True(Field<Button>(window, "saveReportButton").IsEnabled);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task ReportBuilderControlsRemainReachableAtMinimumSize()
+    {
+        var output = Environment.GetEnvironmentVariable("FTITC_PROJECT_INFORMATION_QA_DIRECTORY");
+        if (string.IsNullOrWhiteSpace(output)) return;
+        ResetData();
+        var fixture = CreateResult("A report with a long descriptive result name λ β Æ 中文");
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var app = Application.Current!;
+        var colors = new global::Avalonia.Markup.Xaml.Styling.ResourceInclude(new Uri("avares://FT-ITC Analysis/"))
+            { Source = new Uri("avares://FT-ITC Analysis/Styling/AppTheme.axaml") };
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        app.Resources.MergedDictionaries.Add(colors); app.Styles.Add(theme);
+        var window = new AnalysisReportWindow(fixture.Result) { Width = 960, Height = 620 };
+        try
+        {
+            window.LeavePromptOverride = () => Task.FromResult(1);
+            Field<TextBox>(window, "interpretationBox").Text = "Check the interpretation after updating the result.";
+            Assert.True(window.SaveReport(false));
+            fixture.Result.Date = DateTime.Now;
+            window.Show();
+            // Opening builds the initial preview; let its continuation return before layout inspection.
+            for (var attempt = 0; attempt < 100 && (bool)typeof(AnalysisReportWindow).GetField("busy", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!; attempt++)
+                await Task.Delay(20);
+            window.UpdateLayout();
+            Directory.CreateDirectory(output);
+            using (var bitmap = new global::Avalonia.Media.Imaging.RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.ClientSize.Width, (int)window.ClientSize.Height)))
+            {
+                bitmap.Render(window); bitmap.Save(Path.Combine(output, "avalonia-report-builder-minimum-top.png"));
+            }
+            var save = Field<Button>(window, "saveReportAsButton");
+            save.BringIntoView();
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            await Task.Delay(30); window.UpdateLayout();
+            var position = save.TranslatePoint(new global::Avalonia.Point(), window)!.Value;
+            Assert.True(position.Y >= 0 && position.Y + save.Bounds.Height <= window.ClientSize.Height);
+            using (var bitmap = new global::Avalonia.Media.Imaging.RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.ClientSize.Width, (int)window.ClientSize.Height)))
+            {
+                bitmap.Render(window); bitmap.Save(Path.Combine(output, "avalonia-report-builder-minimum.png"));
+            }
+            typeof(AnalysisReportWindow).GetMethod("OpenSavedReportsPicker", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+            window.UpdateLayout();
+            var items = Field<StackPanel>(window, "savedReportsItems");
+            Assert.Contains(items.Children.OfType<Grid>().SelectMany(grid => grid.Children).OfType<Button>(), button => Equals(button.Content, "Open"));
+            Field<Flyout>(window, "savedReportsFlyout").IsOpen = false;
+            window.Close();
+        }
+        finally
+        {
+            window.LeavePromptOverride = () => Task.FromResult(1); window.Close();
+            app.Styles.Remove(theme); app.Resources.MergedDictionaries.Remove(colors);
+        }
     }
 
     [AvaloniaFact]

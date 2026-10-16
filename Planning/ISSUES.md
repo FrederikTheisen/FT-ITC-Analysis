@@ -861,3 +861,11 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Reproduced consequence: A bounded temporary probe queued a production reader ahead of orphan processing, then cleared the old project. The freshly restored same-ID member/global solutions had `IsValid = true` before orphan processing and `false` afterward. The replacement's processing revision stayed unchanged, snapshot-based `IsValidForCurrentData` stayed true, the orphan stayed detached, and admission returned to idle. This demonstrates inconsistent validity flags, without demonstrating changes to replacement measurements. `InvalidateSolutionsForExperiment` searches current saved results by experiment ID. The reader must be admitted first; ordinary processing-then-reader FIFO order runs processing first. Probe source and expected failing output are preserved under `/private/tmp/itc098-queue-review/`; the temporary probe was removed from the suite.
 - Remaining follow-up: Decide the relevance rule for other queued callers that can outlive their target. The Core `ProcessData` policy and the broader same-ID lifetime reproduction remain unchanged. Do not impose a blanket loaded-experiment requirement on Core processing: legitimate imports restore detached experiment objects before adding them to the project.
 - Required validation for a broader fix: Cover a same-ID project restored ahead of orphan work, valid detached imports, failure/cancellation handoffs, and both desktops' relevant entry points. Preserve processing mathematics, FIFO policy and indicator behavior. Native initializer regressions are now covered separately under ITC-098.
+
+## ITC-111 - Unsaved report drafts are lost on a crash
+
+- Priority: Low
+- Status: Open; accepted limitation (2026-10-16).
+- Location: Explicit report saving (detached report drafts in both desktop report builders); `AutoSaveManager` and autosave recovery.
+- Problem: With explicit report saving, edits in the report builder exist only in a detached draft until Save Report. Autosave writes registered reports only, so a crash loses unsaved draft edits, including AI-generated interpretation text. Previously, implicit registration let autosave capture them.
+- Decision: Accepted for the explicit-saving change. Revisit if draft loss causes real problems, for example by autosaving drafts separately from saved reports.

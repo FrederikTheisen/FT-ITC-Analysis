@@ -316,7 +316,8 @@ namespace AnalysisITC
             alert.BeginSheet(Window, response =>
             {
                 childSheet = null;
-                if ((int)response == (int)NSAlertButtonReturn.First && CanEdit(selected)) selected.Name = field.StringValue;
+                if ((int)response == (int)NSAlertButtonReturn.First && CanEdit(selected))
+                    ProjectInformationPresentation.RenameReport(selected, field.StringValue);
                 Refresh(); alert.Dispose(); field.Dispose();
             });
             alert.Window.MakeFirstResponder(field);

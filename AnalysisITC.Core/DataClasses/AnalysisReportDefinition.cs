@@ -48,9 +48,6 @@ namespace AnalysisITC.Core.Data
         public override void MarkModified()
         {
             if (DocumentDirtyTracker.IsRestoringDocument) return;
-            var now = DateTime.UtcNow;
-            LastEditedUtc = LastEditedUtc.HasValue && now <= LastEditedUtc.Value
-                ? LastEditedUtc.Value.AddTicks(1) : now;
             base.MarkModified();
         }
 
@@ -73,6 +70,8 @@ namespace AnalysisITC.Core.Data
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
             if (resultIds.SequenceEqual(next, StringComparer.Ordinal)) return;
+            if (approvedInterpretation != null && approvedInterpretation.ReviewedResultIds == null)
+                approvedInterpretation.ReviewedResultIds = resultIds.ToList();
             resultIds.Clear();
             resultIds.AddRange(next);
             MarkModified();
@@ -184,6 +183,7 @@ namespace AnalysisITC.Core.Data
                     ? approvedInterpretation.ReportNameForFingerprint ?? Name : Name;
             next.InterpretationMarkdown = AnalysisInterpretationResponseParser.Parse(next.InterpretationMarkdown);
             next.ApprovedAtUtc = approvedInterpretation?.ApprovedAtUtc ?? default;
+            next.ReviewedResultIds = resultIds.ToList();
             if (ValuesEqual(approvedInterpretation, next)) return;
             next.ApprovedAtUtc = DateTime.UtcNow;
             approvedInterpretation = next;
@@ -191,6 +191,9 @@ namespace AnalysisITC.Core.Data
         }
 
         public void SetManualInterpretation(string markdown, string assessmentContextFingerprint = null)
+            => SetManualInterpretation(markdown, assessmentContextFingerprint, userEdit: false);
+
+        void SetManualInterpretation(string markdown, string assessmentContextFingerprint, bool userEdit)
         {
             if (string.IsNullOrWhiteSpace(markdown))
             {
@@ -199,7 +202,7 @@ namespace AnalysisITC.Core.Data
             }
             var text = AnalysisInterpretationResponseParser.ParseManual(markdown);
             var fingerprint = assessmentContextFingerprint ?? "";
-            if (approvedInterpretation?.Origin == AnalysisInterpretationOrigin.Manual
+            if (!userEdit && approvedInterpretation?.Origin == AnalysisInterpretationOrigin.Manual
                 && approvedInterpretation.InterpretationMarkdown == text
                 && approvedInterpretation.AssessmentContextFingerprint == fingerprint) return;
             approvedInterpretation = new AnalysisInterpretationRecord
@@ -208,41 +211,13 @@ namespace AnalysisITC.Core.Data
                 InterpretationMarkdown = text,
                 ApprovedAtUtc = DateTime.UtcNow,
                 AssessmentContextFingerprint = fingerprint,
+                ReviewedResultIds = resultIds.ToList(),
             };
             MarkModified();
         }
 
         public void UpdateApprovedInterpretationText(string markdown, string assessmentContextFingerprint = null)
-        {
-            if (string.IsNullOrWhiteSpace(markdown))
-            {
-                ClearApprovedInterpretation();
-                return;
-            }
-            if (approvedInterpretation == null || approvedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
-            {
-                SetManualInterpretation(markdown, assessmentContextFingerprint);
-                return;
-            }
-            var text = ParseEditorMarkdown(markdown);
-            if (approvedInterpretation.InterpretationMarkdown == text
-                && (assessmentContextFingerprint == null
-                    || approvedInterpretation.AssessmentContextFingerprint == assessmentContextFingerprint)) return;
-            approvedInterpretation.InterpretationMarkdown = text;
-            approvedInterpretation.UserEdited = true;
-            approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
-            if (assessmentContextFingerprint != null)
-                approvedInterpretation.AssessmentContextFingerprint = assessmentContextFingerprint;
-            MarkModified();
-        }
-
-        static string ParseEditorMarkdown(string markdown)
-        {
-            var value = (markdown ?? "").Trim();
-            if (!value.StartsWith("## ", StringComparison.Ordinal))
-                value = "## Overall interpretation\n" + value;
-            return AnalysisInterpretationResponseParser.Parse(value);
-        }
+            => SetManualInterpretation(markdown, assessmentContextFingerprint, userEdit: true);
 
         public void ClearApprovedInterpretation()
         {
@@ -275,6 +250,64 @@ namespace AnalysisITC.Core.Data
         }
 
         internal void RestoreLastEditedUtc(DateTime? value) => LastEditedUtc = value;
+
+        public void ConfirmInterpretation()
+        {
+            if (approvedInterpretation == null) return;
+            approvedInterpretation.ConfirmedAtUtc = DateTime.UtcNow;
+            approvedInterpretation.ReviewedResultIds = resultIds.ToList();
+            MarkModified();
+        }
+
+        internal void RestoreInterpretation(AnalysisInterpretationRecord record) => approvedInterpretation = record?.Copy();
+
+        internal string ContentKey()
+        {
+            var presentation = PresentationSettings;
+            // Compare persisted choices, excluding the current output purpose and
+            // the resolved text of an automatic title.
+            presentation.OutputPurpose = ResultOutputPurpose.Standard;
+            if (presentation.AutomaticTitle) presentation.Title = "";
+            return JsonSerializer.Serialize(new
+            {
+                Name, Comments, ResultIds, SupportingExperimentIds, StudyContext,
+                InterpretationSettings, ApprovedInterpretation, HasPresentationSettings,
+                PresentationSettings = presentation,
+            });
+        }
+
+        internal bool SaveContentFrom(AnalysisReport source, bool newReport = false)
+        {
+            // Copy and normalize before publishing any changed state or notification.
+            var next = source.CreateDetachedCopy();
+            var settings = next.PresentationSettings;
+            next.Name = settings.AutomaticTitle ? "" : (settings.Title ?? "").Trim();
+            if (!newReport && ContentKey() == next.ContentKey()) return false;
+            var now = DateTime.UtcNow;
+            if (LastEditedUtc.HasValue && now <= LastEditedUtc.Value) now = LastEditedUtc.Value.AddTicks(1);
+            Restore(next.ResultIds, next.SupportingExperimentIds, next.StudyContext,
+                next.InterpretationSettings, next.ApprovedInterpretation,
+                next.HasPresentationSettings ? next.PresentationSettings : null, now);
+            RestoreTextMetadata(next.Name, next.Comments);
+            MarkModified();
+            return true;
+        }
+
+        internal void CaptureLegacyFingerprintName(string displayName)
+        {
+            if (approvedInterpretation != null
+                && approvedInterpretation.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme)
+                approvedInterpretation.ReportNameForFingerprint = approvedInterpretation.ReportNameForFingerprint ?? displayName;
+        }
+
+        internal void PreserveFingerprintSource(string displayName)
+        {
+            if (approvedInterpretation == null || approvedInterpretation.Origin != AnalysisInterpretationOrigin.AiGenerated) return;
+            approvedInterpretation.ReportIdForFingerprint = approvedInterpretation.ReportIdForFingerprint ?? UniqueID;
+            approvedInterpretation.ReportDateUtcForFingerprint = approvedInterpretation.ReportDateUtcForFingerprint
+                ?? AnalysisInterpretationPackageBuilder.ReportDateUtc(Date);
+            CaptureLegacyFingerprintName(displayName);
+        }
 
         static bool ValuesEqual<T>(T left, T right) =>
             JsonSerializer.Serialize(left) == JsonSerializer.Serialize(right);

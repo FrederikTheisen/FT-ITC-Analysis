@@ -613,7 +613,7 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
-    public async Task EditingApprovedAiInterpretationPreservesOriginAndMarksItEdited()
+    public async Task EditingApprovedAiInterpretationReplacesItsOriginAndProvenanceWithUserText()
     {
         var result = await LoadResult();
         var report = ReportFor(result);
@@ -624,18 +624,18 @@ public sealed class AnalysisInterpretationTests
         Assert.NotEqual(generated.Interpretation.InterpretationMarkdown, edited);
         report.UpdateApprovedInterpretationText(edited);
 
-        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
-        Assert.True(report.ApprovedInterpretation.UserEdited);
-        Assert.Equal("stub", report.ApprovedInterpretation.Provider);
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.Empty(report.ApprovedInterpretation.Provider);
+        Assert.Empty(report.ApprovedInterpretation.InputFingerprint);
+        Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, result).Status);
         var document = AnalysisReportBuilder.Build(report, _ => result,
             new AnalysisReportOptions { ExtraTraceability = true });
         var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
             .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Source and editing history");
         Assert.Equal(
-            new[] { "Source", "User edited", "Provider", "Model", "Reasoning", "Scientific guidance", "Generated", "Approved", "Request" },
+            new[] { "Source", "Saved" },
             provenance.Items.Select(item => item.Label));
-        Assert.Equal("Yes", provenance.Items[1].Value);
-        Assert.Equal("stub", provenance.Items[2].Value);
+        Assert.Equal("Written by the user", provenance.Items[0].Value);
     }
 
     [Fact]

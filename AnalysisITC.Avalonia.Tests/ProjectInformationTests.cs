@@ -144,7 +144,7 @@ public sealed class ProjectInformationTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task RenameCancellationAndClearingPreserveThePdfTitle()
+    public async Task RenameCancellationPreservesContentAndClearingRestoresAutomaticTitle()
     {
         Reset();
         var fixture = CreateResult("OneSetOfSites (3)");
@@ -165,7 +165,8 @@ public sealed class ProjectInformationTests : IDisposable
             await window.RenameSelectedAsync(_ => Task.FromResult<string?>(""));
             Assert.Equal("", report.Name);
             Assert.Equal("OneSetOfSites (3) report", ((ProjectInformationEntry)window.ReportsList.SelectedItem!).Name);
-            Assert.Equal("Printed title", report.PresentationSettings.Title);
+            Assert.Equal("", report.PresentationSettings.Title);
+            Assert.True(report.PresentationSettings.AutomaticTitle);
             Assert.True(DocumentDirtyTracker.IsDirty);
         }
         finally { window.Close(); }
@@ -281,7 +282,8 @@ public sealed class ProjectInformationTests : IDisposable
         var exact = new AnalysisReportWindow(savedReport: older);
         try
         {
-            Assert.Same(older, Field<AnalysisReport>(exact, "report"));
+            Assert.NotSame(older, Field<AnalysisReport>(exact, "report"));
+            Assert.Equal(older.UniqueID, Field<AnalysisReport>(exact, "report").UniqueID);
             Assert.Equal(new[] { second.Result, first.Result }, Field<List<AnalysisResult>>(exact, "selectedResults"));
             Assert.Equal(new[] { first.Result.UniqueID, second.Result.UniqueID }, older.ResultIds);
             Assert.Equal(new[] { supporting }, Field<List<ExperimentData>>(exact, "selectedSupportingExperiments"));
@@ -291,9 +293,10 @@ public sealed class ProjectInformationTests : IDisposable
             try
             {
                 Select(ordinary, new[] { first.Result, second.Result }, new[] { supporting });
-                Assert.Same(newer, Field<AnalysisReport>(ordinary, "report"));
-                Assert.Empty(Field<List<ExperimentData>>(ordinary, "selectedSupportingExperiments"));
-                Assert.Contains("Newer variant text.", Field<TextBox>(ordinary, "interpretationBox").Text);
+                Assert.DoesNotContain(Field<AnalysisReport>(ordinary, "report"), DataManager.Reports);
+                Assert.Equal(new[] { supporting }, Field<List<ExperimentData>>(ordinary, "selectedSupportingExperiments"));
+                Assert.Empty(Field<TextBox>(ordinary, "interpretationBox").Text!);
+                ordinary.LeavePromptOverride = () => Task.FromResult(1);
                 Assert.Equal(2, DataManager.Reports.Count);
             }
             finally { ordinary.Close(); }
@@ -313,15 +316,20 @@ public sealed class ProjectInformationTests : IDisposable
         var window = new AnalysisReportWindow(fixture.Result);
         try
         {
+            Assert.Empty(DataManager.Reports);
+            Assert.True(window.SaveReport(false));
             var report = Assert.Single(DataManager.Reports);
             Assert.Equal(new[] { source.UniqueID }, report.SupportingExperimentIds);
             Select(window, new[] { fixture.Result }, Array.Empty<ExperimentData>());
             Assert.Same(report, Assert.Single(DataManager.Reports));
+            Assert.NotEmpty(report.SupportingExperimentIds);
+            Assert.True(window.SaveReport(false));
             Assert.Empty(report.SupportingExperimentIds);
-            var reopened = new AnalysisReportWindow(fixture.Result);
+            var reopened = new AnalysisReportWindow(savedReport: report);
             try
             {
-                Assert.Same(report, Field<AnalysisReport>(reopened, "report"));
+                Assert.NotSame(report, Field<AnalysisReport>(reopened, "report"));
+                Assert.Equal(report.UniqueID, Field<AnalysisReport>(reopened, "report").UniqueID);
                 Assert.Empty(Field<List<ExperimentData>>(reopened, "selectedSupportingExperiments"));
             }
             finally { reopened.Close(); }
@@ -330,7 +338,7 @@ public sealed class ProjectInformationTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void ResultSetChangesIgnorePickerSupportingEditsAndUseAutomaticReferencesForNewReports()
+    public void ResultAndSupportingEditsApplyTogetherAndRetainInterpretation()
     {
         Reset();
         AppSettings.AutoSelectReportReferenceExperiments = true;
@@ -347,9 +355,10 @@ public sealed class ProjectInformationTests : IDisposable
             Select(window, new[] { second.Result }, Array.Empty<ExperimentData>());
             var report = Field<AnalysisReport>(window, "report");
             Assert.Equal("", report.Name);
-            Assert.Equal(new[] { source.UniqueID }, report.SupportingExperimentIds);
-            Assert.Null(report.ApprovedInterpretation);
-            Assert.Equal("", Field<TextBox>(window, "interpretationBox").Text);
+            Assert.Empty(report.SupportingExperimentIds);
+            Assert.Contains("First-result interpretation.", report.ApprovedInterpretation.InterpretationMarkdown);
+            Assert.Contains("First-result interpretation.", Field<TextBox>(window, "interpretationBox").Text);
+            window.LeavePromptOverride = () => Task.FromResult(1);
         }
         finally { window.Close(); }
     }
@@ -397,9 +406,13 @@ public sealed class ProjectInformationTests : IDisposable
             information.OpenSelectedReport();
             await Task.Yield();
             var reportWindow = Assert.IsType<AnalysisReportWindow>(Assert.Single(owner.OwnedWindows));
-            Assert.Same(older, Field<AnalysisReport>(reportWindow, "report"));
+            Assert.Equal(older.UniqueID, Field<AnalysisReport>(reportWindow, "report").UniqueID);
             Assert.False(information.IsVisible);
             Assert.False(owner.CanOpenProjectInformation());
+            var projectSaves = owner.KeyBindings.Where(binding => binding.Gesture?.Key == global::Avalonia.Input.Key.S).ToList();
+            Assert.Equal(2, projectSaves.Count);
+            Assert.All(projectSaves, binding => Assert.True(binding.Command!.CanExecute(null)));
+            Assert.True(owner.KeyBindings.Single(binding => binding.Gesture?.Key == global::Avalonia.Input.Key.Q).Command!.CanExecute(null));
             reportWindow.Close();
             await flow;
             Assert.True(owner.CanOpenProjectInformation());

@@ -1130,6 +1130,8 @@ namespace AnalysisITC.Core.Interpretation
             var value = Finite(kelvin);
             return value.HasValue ? Math.Round(value.Value - 273.15, 1, MidpointRounding.AwayFromZero) : (double?)null;
         }
+        internal static string ReportDateUtc(DateTime value) => Utc(value);
+
         static string Utc(DateTime value)
         {
             var utc = value.Kind == DateTimeKind.Utc
