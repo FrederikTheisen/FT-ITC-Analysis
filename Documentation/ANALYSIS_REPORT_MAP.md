@@ -73,6 +73,11 @@ Whole chapter omitted when the report has no saved interpretation.
 
 ## R. Result overview (per result)
 
+R01/R03 use shared input validity. Temperature edits produce "temperature changed";
+repeated property changes use the shared category/count summary. Any detected fit-input
+change makes a result with captured temperature dependence Invalid, including individually
+fitted series. Independent collections without temperature dependence retain partial invalidity.
+
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **R01** | **Result n. Name** + status badge for this result | |

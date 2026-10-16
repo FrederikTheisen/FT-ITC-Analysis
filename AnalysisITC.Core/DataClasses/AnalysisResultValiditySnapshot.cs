@@ -67,6 +67,8 @@ namespace AnalysisITC.Core.Data
         public const int CurrentSchemaVersion = 1;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? TemperatureDependenceEnabled { get; set; }
         public List<ExperimentFitInputSnapshot> Experiments { get; set; } = new();
 
         public static AnalysisResultValiditySnapshot Capture(GlobalSolution solution)
@@ -77,6 +79,7 @@ namespace AnalysisITC.Core.Data
 
             return new AnalysisResultValiditySnapshot
             {
+                TemperatureDependenceEnabled = model.TemperatureDependenceExposed,
                 Experiments = model.Models?
                     .Select(ExperimentFitInputSnapshot.Capture)
                     .Where(snapshot => snapshot != null)
@@ -167,13 +170,19 @@ namespace AnalysisITC.Core.Data
             return summary;
         }
 
-        static bool IsPartiallyInvalidResult(GlobalSolution solution, ExperimentComparisonSummary comparison)
+        bool IsPartiallyInvalidResult(GlobalSolution solution, ExperimentComparisonSummary comparison)
         {
             var parameters = solution?.Model?.Parameters;
             var hasGlobalConstraints = parameters?.Constraints?.Any(con => con.Value != VariableConstraint.None) == true;
             var requiresGlobalFitting = parameters?.RequiresGlobalFitting == true || hasGlobalConstraints;
 
+            // Preserve the captured relationship even when edited temperatures
+            // collapse its span before the project is reopened.
+            var temperatureDependenceEnabled = TemperatureDependenceEnabled
+                ?? solution.Model.TemperatureDependenceExposed;
+
             return !requiresGlobalFitting
+                && !temperatureDependenceEnabled
                 && !comparison.HasResultLevelInvalidity
                 && comparison.MemberCount > 1
                 && comparison.ModifiedMemberCount > 0
@@ -207,6 +216,8 @@ namespace AnalysisITC.Core.Data
         public double SyringeConcentration { get; set; }
         public double SyringeConcentrationSD { get; set; }
         public double CellVolume { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? MeasuredTemperature { get; set; }
         public DilutionMethod? AppliedDilutionMethod { get; set; }
         public InjectionHeatMethod HeatMethod { get; set; }
         public ExperimentProcessingSnapshot Processing { get; set; }
@@ -231,6 +242,7 @@ namespace AnalysisITC.Core.Data
                 SyringeConcentration = data.SyringeConcentration.Value,
                 SyringeConcentrationSD = data.SyringeConcentration.SD,
                 CellVolume = data.CellVolume,
+                MeasuredTemperature = data.MeasuredTemperature,
                 AppliedDilutionMethod = data.AppliedDilutionMethod,
                 HeatMethod = model.HeatMethod,
                 Processing = ExperimentProcessingSnapshot.Capture(data),
@@ -269,6 +281,8 @@ namespace AnalysisITC.Core.Data
             }
 
             AddOffenseIfDifferent(offenses, CellVolume, data.CellVolume, "cell volume changed");
+            if (MeasuredTemperature.HasValue)
+                AddOffenseIfDifferent(offenses, MeasuredTemperature.Value, data.MeasuredTemperature, "temperature changed");
             var baselineChanged = Processing?.BaselineChangedComparedTo(ExperimentProcessingSnapshot.Capture(data)) ?? false;
             CompareAttributes(Attributes, ExperimentAttributeSnapshot.Capture(data.Attributes, UsesCompetitorResult(currentModel)), offenses);
             CompareInjections(data, offenses, baselineChanged);

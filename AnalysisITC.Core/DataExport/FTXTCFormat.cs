@@ -781,6 +781,8 @@ namespace AnalysisITC.Core.Export
     internal sealed class FtxtcValidityState
     {
         public int SchemaVersion { get; set; } = AnalysisResultValiditySnapshot.CurrentSchemaVersion;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? TemperatureDependenceEnabled { get; set; }
         public List<FtxtcValidityExperimentState> Experiments { get; set; } = new List<FtxtcValidityExperimentState>();
 
         internal static FtxtcValidityState Capture(AnalysisResultValiditySnapshot snapshot)
@@ -789,6 +791,7 @@ namespace AnalysisITC.Core.Export
             return new FtxtcValidityState
             {
                 SchemaVersion = snapshot.SchemaVersion,
+                TemperatureDependenceEnabled = snapshot.TemperatureDependenceEnabled,
                 Experiments = (snapshot.Experiments ?? new List<ExperimentFitInputSnapshot>())
                     .Select(FtxtcValidityExperimentState.Capture).ToList(),
             };
@@ -797,6 +800,7 @@ namespace AnalysisITC.Core.Export
         internal AnalysisResultValiditySnapshot Restore() => new AnalysisResultValiditySnapshot
         {
             SchemaVersion = SchemaVersion,
+            TemperatureDependenceEnabled = TemperatureDependenceEnabled,
             Experiments = (Experiments ?? new List<FtxtcValidityExperimentState>())
                 .Select(value => value.Restore()).ToList(),
         };
@@ -811,6 +815,8 @@ namespace AnalysisITC.Core.Export
         public double SyringeConcentration { get; set; }
         public double SyringeConcentrationSd { get; set; }
         public double CellVolume { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? MeasuredTemperature { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string ConcentrationMethod { get; set; }
         public string HeatMethod { get; set; }
@@ -831,6 +837,7 @@ namespace AnalysisITC.Core.Export
                 SyringeConcentration = value.SyringeConcentration,
                 SyringeConcentrationSd = value.SyringeConcentrationSD,
                 CellVolume = value.CellVolume,
+                MeasuredTemperature = value.MeasuredTemperature,
                 ConcentrationMethod = FtxtcWireIds.ConcentrationMethod(value.AppliedDilutionMethod),
                 HeatMethod = FtxtcWireIds.HeatMethod(value.HeatMethod),
                 Processing = FtxtcValidityProcessingState.Capture(value.Processing),
@@ -857,6 +864,7 @@ namespace AnalysisITC.Core.Export
                 SyringeConcentration = SyringeConcentration,
                 SyringeConcentrationSD = SyringeConcentrationSd,
                 CellVolume = CellVolume,
+                MeasuredTemperature = MeasuredTemperature,
                 AppliedDilutionMethod = concentrationMethod,
                 HeatMethod = heatMethod,
                 Processing = Processing?.Restore(),

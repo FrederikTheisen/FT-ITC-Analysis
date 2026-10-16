@@ -28,6 +28,7 @@ namespace AnalysisITC.Core.Presentation
                     "cell concentration changed",
                     "syringe concentration changed",
                     "cell volume changed",
+                    "temperature changed",
                     "injection volumes changed",
                     "injection concentration state changed"
                 }),

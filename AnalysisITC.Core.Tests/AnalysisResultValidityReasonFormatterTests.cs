@@ -76,6 +76,15 @@ public sealed class AnalysisResultValidityReasonFormatterTests
     }
 
     [Fact]
+    public void GroupsTemperatureWithOtherExperimentPropertyChanges()
+    {
+        Assert.Equal(new[] { "Experiment properties were changed in 3 of 3 experiments." }, Format(
+            "one: temperature changed.",
+            "two: cell concentration changed.",
+            "three: temperature changed; cell volume changed."));
+    }
+
+    [Fact]
     public void GroupsMissingExperimentsAndPreservesResultLevelReasons()
     {
         var formatted = Format(

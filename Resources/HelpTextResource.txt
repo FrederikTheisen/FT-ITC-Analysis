@@ -227,6 +227,10 @@ Use **Export result...** to choose results, summary or individual rows, value an
 
 Distinguish **Combined SD** and **Approximate propagated interval** in local summaries from model-estimated SDs and CI95 intervals. See **Parameter uncertainty** for the refitting methods and **Binding assessment** for model comparisons and output restrictions.
 
+## Result validity
+
+Validity compares saved fit inputs with the current experiments, including temperature, concentrations, included injections and heats. Check the reasons and use **Update Result** after changing inputs. An independent collection without temperature dependence can be **Partially invalid** when only some members change. A result with shared parameters or temperature dependence becomes **Invalid** when any member's fit inputs change, even when the experiments were fitted individually.
+
 # Fit metrics
 
 RMSD describes unweighted heat differences even when the fitting objective was weighted. A saved global fit may also provide Molar RMSD. Compare AIC or AICc only for the same observations under the same weighting and likelihood assumptions.

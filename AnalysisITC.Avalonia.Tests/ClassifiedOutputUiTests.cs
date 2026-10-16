@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -92,14 +94,58 @@ public sealed class ClassifiedOutputUiTests
         });
     }
 
-    static AnalysisResult CreateResult()
+    [AvaloniaTheory]
+    [InlineData(false, "Partially invalid", "PARTIAL / STALE")]
+    [InlineData(true, "Invalid", "INVALID / STALE")]
+    public void TemperatureEditUpdatesResultStatusAndReportBadge(bool temperatureDependent, string expectedTitle, string expectedBadge)
+    {
+        var originalPreferences = PreferencesState.FromSettings();
+        AppSettings.MinimumTemperatureSpanForFitting = 3;
+        DataManager.Clear(DataClearMode.ResetSession);
+        var parts = new[] { CreateResult(25), CreateResult(temperatureDependent ? 35 : 25) };
+        var models = parts.Select(part => part.Solution.Solutions[0].Model).ToList();
+        var globalModel = new GlobalModel(models);
+        foreach (var model in models) globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+        var global = new GlobalSolution(new GlobalSolver { Model = globalModel },
+            models.Select(model => model.Solution).ToList(), models[0].Solution.Convergence, reconstructBootstrap: false);
+        globalModel.Solution = global;
+        var result = new AnalysisResult(global);
+        DataManager.AddData(models.Select(model => (ITCDataContainer)model.Data).Append(result));
+        var workspace = new AnalysisResultWorkspaceControl { Result = result };
+        var window = new Window { Content = workspace };
+        try
+        {
+            window.Show();
+            models[0].Data.MeasuredTemperature = 30;
+            workspace.SetResultViewMode(ResultAnalysisViewMode.Summary);
+            workspace.Refresh();
+            var labels = workspace.GetLogicalDescendants().OfType<TextBlock>().Select(label => label.Text).ToList();
+            Assert.Contains(expectedTitle, labels);
+            Assert.Contains(labels, text => text?.EndsWith(": temperature changed.") == true);
+            var document = AnalysisReportBuilder.Build(result);
+            Assert.True(document.IsValid);
+            Assert.Equal(expectedBadge, document.StatusBadgeText);
+            var renderer = new SkiaAnalysisReportRenderer();
+            var plan = renderer.CreatePlan(document);
+            using var bitmap = renderer.RenderPageBitmap(document, plan, 0, 600);
+            Assert.True(bitmap.Height > 0);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+            originalPreferences.ApplyToSettings();
+        }
+    }
+
+    static AnalysisResult CreateResult(double temperature = 25)
     {
         var data = new ExperimentData("Classified UI fixture")
         {
             CellConcentration = new FloatWithError(20e-6),
             SyringeConcentration = new FloatWithError(400e-6),
             CellVolume = 200e-6,
-            MeasuredTemperature = 25,
+            MeasuredTemperature = temperature,
         };
         var model = new OneSetOfSites(data);
         for (var index = 0; index < 3; index++)

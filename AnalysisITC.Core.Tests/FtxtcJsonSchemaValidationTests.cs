@@ -24,6 +24,27 @@ namespace AnalysisITC.Core.Tests
     public sealed class FtxtcJsonSchemaValidationTests
     {
         [Theory]
+        [InlineData(-5)]
+        [InlineData(0)]
+        public async Task ValidityTemperatureFieldsAreOptionalAndTyped(double temperature)
+        {
+            var result = AnalysisResultTemperatureValidityTests.Create(temperature);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, result.Model.Models.Select(model => model.Data), new[] { result });
+            AssertPackageJsonValidates(package);
+            var json = ReadJson(package, "results/000000/result.json").AsObject();
+            var validity = json["validity"].AsObject();
+            var experiment = validity["experiments"].AsArray()[0].AsObject();
+            Assert.Equal(temperature, experiment["measuredTemperature"].GetValue<double>());
+            Assert.False(validity["temperatureDependenceEnabled"].GetValue<bool>());
+            experiment["measuredTemperature"] = "warm";
+            AssertInvalid("component.schema.json", json);
+            experiment["measuredTemperature"] = null;
+            validity["temperatureDependenceEnabled"] = "true";
+            AssertInvalid("component.schema.json", json);
+        }
+
+        [Theory]
         [InlineData("one-c100-v0.01", DilutionMethod.Exponential)]
         [InlineData("sequential-4", DilutionMethod.Exponential)]
         [InlineData("one-c100-v0.01", DilutionMethod.DiscreteDisplacement)]

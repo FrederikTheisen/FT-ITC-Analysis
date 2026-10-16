@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -40,6 +41,7 @@ static class AnalysisReportReferencesTests
             CheckExperimentHeaders();
             CheckConditionsSubtitles();
             CheckSourceMetadata();
+            CheckTemperatureValidity();
             Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping, bounded footer titles and PDF rendering");
             return 0;
         }
@@ -620,6 +622,52 @@ static class AnalysisReportReferencesTests
         if (view is NSButton) yield return (NSButton)view;
         foreach (var child in view.Subviews)
             foreach (var button in Buttons(child)) yield return button;
+    }
+
+    static IEnumerable<NSView> Views(NSView view)
+    {
+        yield return view;
+        foreach (var child in view.Subviews)
+            foreach (var descendant in Views(child)) yield return descendant;
+    }
+
+    static void CheckTemperatureValidity()
+    {
+        AppSettings.MinimumTemperatureSpanForFitting = 3;
+        foreach (var enabled in new[] { false, true })
+        {
+            var first = Source("temperature-first");
+            var second = Source("temperature-second");
+            second.MeasuredTemperature = enabled ? 35 : 25;
+            var parts = new[] { Result(first), Result(second) };
+            var models = parts.Select(part => part.Solution.Solutions[0].Model).ToList();
+            var model = new GlobalModel(models);
+            foreach (var member in models) model.Parameters.AddIndivdualParameter(member.Parameters);
+            var global = new GlobalSolution(new GlobalSolver { Model = model },
+                models.Select(member => member.Solution).ToList(), models[0].Solution.Convergence, reconstructBootstrap: false);
+            model.Solution = global;
+            var result = new AnalysisResult(global);
+            first.MeasuredTemperature = 30;
+
+            var controllerType = typeof(AnalysisResultTabViewController);
+            var controller = FormatterServices.GetUninitializedObject(controllerType);
+            controllerType.GetField("analysisResult", PrivateInstance).SetValue(controller, result);
+            using (var section = (NSView)controllerType.GetMethod("BuildValiditySection", PrivateInstance).Invoke(controller, null))
+            {
+                var labels = Views(section).OfType<NSTextField>().Select(label => label.StringValue).ToList();
+                Check(labels.Contains(enabled ? "Invalid" : "Partially Invalid"), "Native temperature validity status differs");
+                Check(labels.Any(text => text.EndsWith(": temperature changed.")), "Native temperature validity reason is absent");
+            }
+            var document = AnalysisReportBuilder.Build(result);
+            Check(document.IsValid, "Temperature-stale native report is blocked");
+            Check(document.StatusBadgeText == (enabled ? "INVALID / STALE" : "PARTIAL / STALE"), "Native temperature report badge differs");
+            var rendererType = typeof(MainWindowController).Assembly.GetType("AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+            var renderer = Activator.CreateInstance(rendererType, true);
+            var plan = rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "Temperature-stale native PDF is empty");
+        }
+        Console.WriteLine("PASS: native temperature-change validity titles, reasons and rendered report badges");
     }
 
     static ExperimentData Source(string id)
