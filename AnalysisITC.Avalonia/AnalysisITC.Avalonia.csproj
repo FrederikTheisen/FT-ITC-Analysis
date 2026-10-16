@@ -17,7 +17,6 @@
   <ItemGroup>
     <EmbeddedResource Include="..\Resources\appicon.ico" LogicalName="AnalysisITC.Avalonia.Resources.appicon.ico" />
     <EmbeddedResource Include="..\Resources\HelpTextResource.txt" LogicalName="AnalysisITC.Avalonia.Resources.HelpTextResource.txt" />
-    <EmbeddedResource Include="..\Resources\ScienceHelpResource.txt" LogicalName="AnalysisITC.Avalonia.Resources.ScienceHelpResource.txt" />
     <EmbeddedResource Include="Assets\Fonts\Inter\Inter-Light.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-Light.ttf" />
     <EmbeddedResource Include="Assets\Fonts\Inter\Inter-LightItalic.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-LightItalic.ttf" />
     <EmbeddedResource Include="Assets\Fonts\Inter\Inter-Medium.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-Medium.ttf" />

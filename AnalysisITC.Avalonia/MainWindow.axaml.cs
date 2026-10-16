@@ -639,11 +639,6 @@ public partial class MainWindow : Window
         await HelpWindow.ShowAsync(this, "Help and Guide", "HelpTextResource.txt");
     }
 
-    internal async Task OpenTechnicalHelpAsync()
-    {
-        await HelpWindow.ShowAsync(this, "Technical Details", "ScienceHelpResource.txt");
-    }
-
     internal Task OpenInterpretationRegistrationAsync()
     {
         OpenExternalLink(CitationInfo.InterpretationRegistrationUrl, "automated interpretation registration page");

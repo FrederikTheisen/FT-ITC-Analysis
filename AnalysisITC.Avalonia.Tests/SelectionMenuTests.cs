@@ -87,7 +87,7 @@ public sealed class SelectionMenuTests
     }
 
     [AvaloniaFact]
-    public void HelpMenuOffersAutomatedInterpretationRegistration()
+    public void HelpMenuOffersOneGuideAndAutomatedInterpretationRegistration()
     {
         RunWithWindow(
             Array.Empty<ITCDataContainer>(),
@@ -98,6 +98,8 @@ public sealed class SelectionMenuTests
                     var menu = Assert.IsType<NativeMenu>(NativeMenu.GetMenu(window));
                     var help = Assert.Single(menu.Items.OfType<NativeMenuItem>(), item =>
                         string.Equals(item.Header?.ToString(), "Help", StringComparison.Ordinal));
+                    Assert.Single(help.Menu!.Items.OfType<NativeMenuItem>(), item => item.Header?.ToString() == "Help and Guide");
+                    Assert.DoesNotContain(help.Menu.Items.OfType<NativeMenuItem>(), item => item.Header?.ToString() == "Technical Details");
                     Assert.Contains(help.Menu!.Items.OfType<NativeMenuItem>(), item =>
                         string.Equals(item.Header?.ToString(), "Register for Automated Interpretation…", StringComparison.Ordinal)
                         && item.IsEnabled);
@@ -106,6 +108,8 @@ public sealed class SelectionMenuTests
                 {
                     var help = Assert.Single(window.MenuHost.Items.OfType<MenuItem>(), item =>
                         string.Equals(item.Header?.ToString(), "Help", StringComparison.Ordinal));
+                    Assert.Single(help.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "Help and Guide");
+                    Assert.DoesNotContain(help.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "Technical Details");
                     Assert.Contains(help.Items.OfType<MenuItem>(), item =>
                         string.Equals(item.Header?.ToString(), "Register for Automated Interpretation…", StringComparison.Ordinal)
                         && item.IsEnabled);
