@@ -9,6 +9,9 @@ using Microsoft.Extensions.Options;
 
 namespace AnalysisITC.Web;
 
+internal sealed record DailyStatusCheck(string Detail, bool HasAttention, bool InterpretationUnavailable = false);
+internal sealed record DailyStatusReport(string Text, bool HasAttention);
+
 /// <summary>A metadata-only daily report, run as a command rather than a web request.</summary>
 public sealed class DailyStatusEmail
 {
@@ -24,32 +27,34 @@ public sealed class DailyStatusEmail
     readonly InterpretationServiceAvailability availability;
     readonly string configurationPath;
     readonly TimeZoneInfo zone = TimeZoneInfo.FindSystemTimeZoneById(ZoneId);
-    readonly Func<Task<string>> serviceCheck;
-    readonly Func<string, Task<string>> endpointCheck;
+    readonly Func<Task<DailyStatusCheck>> serviceCheck;
+    readonly Func<string, Task<DailyStatusCheck>> endpointCheck;
     readonly Func<string, string, Task>? sender;
     readonly Func<DateTimeOffset> now;
-    readonly HealthCheckService? health;
+    readonly Func<Task<HealthReport>> healthCheck;
     readonly OperatorCodeRegistry? operators;
     readonly RegistrationPipelineDiagnostic? registrationDiagnostic;
     readonly RegistrationSummaryService? registrationSummary;
     readonly StorageCapacityService? storageCapacity;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
-        IOptions<InterpretationOptions> options, HealthCheckService health, OperatorCodeRegistry operators,
+        IOptions<InterpretationOptions> options, OperatorCodeRegistry operators,
         RegistrationPipelineDiagnostic registrationDiagnostic, RegistrationSummaryService registrationSummary,
         StorageCapacityService storageCapacity)
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
-            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health, operators,
-            registrationDiagnostic, registrationSummary, storageCapacity) { }
+            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, operators,
+            registrationDiagnostic, registrationSummary, storageCapacity, ServiceHealthCheck.ReadAsync) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
-        string configurationPath, Func<Task<string>> serviceCheck, Func<string, Task<string>> endpointCheck,
-        Func<string, string, Task>? sender, Func<DateTimeOffset> now, HealthCheckService? health = null,
+        string configurationPath, Func<Task<DailyStatusCheck>> serviceCheck, Func<string, Task<DailyStatusCheck>> endpointCheck,
+        Func<string, string, Task>? sender, Func<DateTimeOffset> now,
         OperatorCodeRegistry? operators = null, RegistrationPipelineDiagnostic? registrationDiagnostic = null,
-        RegistrationSummaryService? registrationSummary = null, StorageCapacityService? storageCapacity = null)
+        RegistrationSummaryService? registrationSummary = null, StorageCapacityService? storageCapacity = null,
+        Func<Task<HealthReport>>? healthCheck = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
-        this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now; this.health = health;
+        this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now;
+        this.healthCheck = healthCheck ?? (() => Task.FromException<HealthReport>(new InvalidOperationException("Service health check is unavailable.")));
         this.operators = operators; this.registrationDiagnostic = registrationDiagnostic; this.registrationSummary = registrationSummary;
         this.storageCapacity = storageCapacity;
     }
@@ -61,8 +66,11 @@ public sealed class DailyStatusEmail
         return (TimeZoneInfo.ConvertTimeToUtc(start, zone), TimeZoneInfo.ConvertTimeToUtc(start.AddDays(1), zone));
     }
 
-    public async Task<string> CreateReportAsync(DateOnly date)
+    public async Task<string> CreateReportAsync(DateOnly date) => (await CreateStatusReportAsync(date)).Text;
+
+    internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date)
     {
+        var hasAttention = false;
         var (start, end) = Bounds(date);
         var lines = new List<string>
         {
@@ -73,42 +81,63 @@ public sealed class DailyStatusEmail
         };
         try
         {
-            var report = health?.RunNonBillable();
-            if (report is not null)
+            // Always supplied by the live web process in production. Never fall back
+            // to root's filesystem access if that process cannot return its checks.
+            var report = await healthCheck();
+            hasAttention |= report.HasAttention;
+            lines.Add(""); lines.Add("Health (web service)");
+            foreach (var group in report.Groups)
             {
-                lines.Add(""); lines.Add("Health");
-                foreach (var group in report.Groups)
-                {
-                    var attention = group.Checks.Where(check => check.State is HealthCheckState.Warning or HealthCheckState.Fail).ToArray();
-                    lines.Add($"  {group.Name}: {(attention.Length == 0 ? "ok" : string.Join("; ", attention.Select(check => $"{check.Name}: {check.Reason}")))}");
-                }
+                var attention = group.Checks.Where(check => check.State is HealthCheckState.Warning or HealthCheckState.Fail).ToArray();
+                lines.Add($"  {group.Name}: {(attention.Length == 0 ? "ok" : string.Join("; ", attention.Select(check => $"{check.State.ToString().ToUpperInvariant()} — {check.Name}: {check.Reason}")))}");
             }
         }
-        catch { lines.Add("\nHealth\n  unavailable: check could not be completed"); }
-        try { lines.Add("  ftitc-web: " + await serviceCheck()); }
-        catch { lines.Add("  ftitc-web: check unavailable"); }
-        try { lines.Add("  Interpretation policy: " + availability.Read().Status); }
-        catch { lines.Add("  Interpretation policy: check unavailable"); }
+        catch { hasAttention = true; lines.Add("\nHealth (web service)\n  FAIL — service health checks unavailable"); }
+        try
+        {
+            var service = await serviceCheck();
+            hasAttention |= service.HasAttention;
+            lines.Add("  ftitc-web: " + service.Detail);
+        }
+        catch { hasAttention = true; lines.Add("  ftitc-web: check unavailable"); }
+        var intentionallyUnavailable = false;
+        try
+        {
+            var policy = availability.Read();
+            hasAttention |= !policy.PolicyValid;
+            intentionallyUnavailable = policy.PolicyValid && policy.Status is "paused" or "retired";
+            lines.Add("  Interpretation policy: " + policy.Status);
+        }
+        catch { hasAttention = true; lines.Add("  Interpretation policy: check unavailable"); }
         foreach (var (label, url) in new[] { ("Local API", LocalUrl), ("Public API", PublicUrl) })
         {
-            try { lines.Add($"  {label}: {await endpointCheck(url)}"); }
-            catch { lines.Add($"  {label}: check unavailable"); }
+            try
+            {
+                var endpoint = await endpointCheck(url);
+                hasAttention |= endpoint.HasAttention;
+                // A valid paused/retired policy is intentional; transport and
+                // protocol failures still require attention in that state.
+                hasAttention |= endpoint.InterpretationUnavailable && !intentionallyUnavailable;
+                lines.Add($"  {label}: {endpoint.Detail}");
+            }
+            catch { hasAttention = true; lines.Add($"  {label}: check unavailable"); }
         }
 
         lines.Add("");
         lines.Add("Server storage");
         if (storageCapacity is null)
         {
-            lines.Add("  Server storage: check unavailable");
+            hasAttention = true; lines.Add("  Server storage: check unavailable");
         }
         else
         {
             try
             {
                 var storage = storageCapacity.Read();
+                hasAttention |= storage.HasAttention;
                 if (storage.Status == StorageCapacityStatus.Unavailable)
                 {
-                    lines.Add("  Server storage: check unavailable");
+                    hasAttention = true; lines.Add("  Server storage: check unavailable");
                 }
                 else
                 {
@@ -120,20 +149,21 @@ public sealed class DailyStatusEmail
                     lines.Add($"  Low-space threshold: {StorageCapacityService.FormatBytes(StorageCapacityService.LowSpaceThresholdBytes)} available");
                 }
             }
-            catch { lines.Add("  Server storage: check unavailable"); }
+            catch { hasAttention = true; lines.Add("  Server storage: check unavailable"); }
         }
 
         lines.Add("");
         lines.Add("Registration pipeline");
         if (registrationDiagnostic is null)
         {
-            lines.Add("  Registration pipeline: check unavailable");
+            hasAttention = true; lines.Add("  Registration pipeline: check unavailable");
         }
         else
         {
             try
             {
                 var diagnostic = registrationDiagnostic.Run();
+                hasAttention |= diagnostic.HasFailure;
                 foreach (var step in diagnostic.Steps)
                 {
                     var state = step.State.ToString().ToUpperInvariant();
@@ -142,20 +172,21 @@ public sealed class DailyStatusEmail
                         : $"  {step.Name}: {state} — {step.Detail}");
                 }
             }
-            catch { lines.Add("  Registration pipeline: check unavailable"); }
+            catch { hasAttention = true; lines.Add("  Registration pipeline: check unavailable"); }
         }
 
         lines.Add("");
         lines.Add("Registration account overview");
         if (registrationSummary is null)
         {
-            lines.Add("  Registration account overview: check unavailable");
+            hasAttention = true; lines.Add("  Registration account overview: check unavailable");
         }
         else
         {
             try
             {
                 var summary = registrationSummary.Build(date);
+                hasAttention |= summary.HasAttention || summary.Status == RegistrationSummaryStatus.Unavailable;
                 switch (summary.Status)
                 {
                     case RegistrationSummaryStatus.Skipped:
@@ -178,7 +209,7 @@ public sealed class DailyStatusEmail
                         break;
                 }
             }
-            catch { lines.Add("  Registration account overview: check unavailable"); }
+            catch { hasAttention = true; lines.Add("  Registration account overview: check unavailable"); }
         }
 
         lines.Add(""); lines.Add("Previous-day usage");
@@ -195,6 +226,7 @@ public sealed class DailyStatusEmail
                 lines.Add($"  Provider attempts: {reader.GetInt64(1)}");
                 var known = Convert.ToDecimal(reader.GetValue(2), CultureInfo.InvariantCulture);
                 var unresolved = reader.GetInt64(3); var waived = reader.GetInt64(4);
+                hasAttention |= unresolved > 0;
                 lines.Add(unresolved + waived > 0
                     ? $"  Cost: unknown (known subtotal ${known.ToString("0.0000", CultureInfo.InvariantCulture)}; unresolved {unresolved}, waived unknown {waived})"
                     : $"  Estimated cost: ${known.ToString("0.0000", CultureInfo.InvariantCulture)}");
@@ -226,8 +258,9 @@ public sealed class DailyStatusEmail
             AddUserActivity(lines, db, start, end);
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
-        { lines.Add("  Usage database: check unavailable"); }
-        return string.Join("\n", lines) + "\n";
+        { hasAttention = true; lines.Add("  Usage database: check unavailable"); }
+        lines.Insert(2, $"Overall status: {(hasAttention ? "ATTENTION" : "OK")}");
+        return new(string.Join("\n", lines) + "\n", hasAttention);
     }
 
     void AddUserActivity(List<string> lines, SqliteConnection db, DateTime start, DateTime end)
@@ -308,16 +341,16 @@ public sealed class DailyStatusEmail
         var currentDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(reporter.now(), reporter.zone).DateTime);
         var date = currentDate.AddDays(-1);
         if (dateIndex >= 0) DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
-        var report = await reporter.CreateReportAsync(date);
-        if (args[0] == "preview") { output.Write(report); return 0; }
+        var report = await reporter.CreateStatusReportAsync(date);
+        if (args[0] == "preview") { output.Write(report.Text); return 0; }
         try
         {
-            var subject = $"[{(HasAttention(report) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
+            var subject = $"[{(report.HasAttention ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
             for (var attempt = 1; attempt <= 3; attempt++)
             {
                 try
                 {
-                    var htmlReport = RenderHtml(report);
+                    var htmlReport = RenderHtml(report.Text);
                     if (reporter.sender is not null) await reporter.sender(subject, htmlReport);
                     else await reporter.SendSmtpAsync(subject, htmlReport);
                     output.WriteLine($"Status email delivered for {date:yyyy-MM-dd}.");
@@ -385,16 +418,6 @@ public sealed class DailyStatusEmail
         return html.ToString();
     }
 
-    static bool HasAttention(string report)
-        => report.Contains("check unavailable", StringComparison.OrdinalIgnoreCase)
-            || report.Contains("unavailable:", StringComparison.OrdinalIgnoreCase)
-            || report.Contains(": access was", StringComparison.Ordinal)
-            || report.Contains(": file is unavailable", StringComparison.Ordinal)
-            || report.Contains(": database", StringComparison.Ordinal)
-            || report.Contains("Server storage: ATTENTION", StringComparison.Ordinal)
-            || report.Contains(": FAIL", StringComparison.Ordinal)
-            || report.Contains("Registration account overview: ATTENTION", StringComparison.Ordinal);
-
     sealed class StatusMailConfiguration
     {
         public string Host { get; set; } = "";
@@ -403,7 +426,7 @@ public sealed class DailyStatusEmail
         public string Password { get; set; } = "";
     }
 
-    static async Task<string> CheckServiceAsync()
+    internal static async Task<DailyStatusCheck> CheckServiceAsync()
     {
         Process? process = null;
         try
@@ -411,12 +434,12 @@ public sealed class DailyStatusEmail
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             process = Process.Start(new ProcessStartInfo("systemctl", "is-active ftitc-web")
             { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false });
-            if (process is null) return "check unavailable";
+            if (process is null) return new("check unavailable", true);
             var state = (await process.StandardOutput.ReadToEndAsync(timeout.Token)).Trim();
             await process.WaitForExitAsync(timeout.Token);
-            return process.ExitCode == 0 ? "active" : state is "inactive" or "failed" ? state : "check unavailable";
+            return new(process.ExitCode == 0 ? "active" : state is "inactive" or "failed" ? state : "check unavailable", process.ExitCode != 0);
         }
-        catch { return "check unavailable"; }
+        catch { return new("check unavailable", true); }
         finally
         {
             if (process is { HasExited: false })
@@ -425,16 +448,25 @@ public sealed class DailyStatusEmail
         }
     }
 
-    static async Task<string> CheckEndpointAsync(string url)
+    static async Task<DailyStatusCheck> CheckEndpointAsync(string url)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        return await CheckEndpointAsync(http, url);
+    }
+
+    internal static async Task<DailyStatusCheck> CheckEndpointAsync(HttpClient http, string url)
     {
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
             using var response = await http.GetAsync(url);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var available = body.RootElement.TryGetProperty("available", out var value) && value.ValueKind == JsonValueKind.True;
-            return $"HTTP {(int)response.StatusCode}; interpretation {(available ? "available" : "unavailable")}";
+            var value = body.RootElement.GetProperty("available");
+            if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                return new("check unavailable", true);
+            var available = value.GetBoolean();
+            return new($"HTTP {(int)response.StatusCode}; interpretation {(available ? "available" : "unavailable")}",
+                !response.IsSuccessStatusCode, !available);
         }
-        catch { return "check unavailable"; }
+        catch { return new("check unavailable", true); }
     }
 }

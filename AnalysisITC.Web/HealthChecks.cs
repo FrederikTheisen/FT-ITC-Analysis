@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using AnalysisITC.Core.Viewer;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 
@@ -29,20 +28,14 @@ public sealed class HealthCheckService
     readonly InterpretationOptions options;
     readonly InterpretationServiceAvailability interpretation;
     readonly RegistrationAvailability registrationAvailability;
-    readonly SelfRegistrationStore? registrations;
-    readonly ViewerDocumentReader? viewer;
 
     public HealthCheckService(IOptions<InterpretationOptions> options,
         InterpretationServiceAvailability interpretation,
-        RegistrationAvailability registrationAvailability,
-        SelfRegistrationStore? registrations = null,
-        ViewerDocumentReader? viewer = null)
+        RegistrationAvailability registrationAvailability)
     {
         this.options = options.Value;
         this.interpretation = interpretation;
         this.registrationAvailability = registrationAvailability;
-        this.registrations = registrations;
-        this.viewer = viewer;
     }
 
     public HealthReport RunNonBillable()
@@ -51,7 +44,7 @@ public sealed class HealthCheckService
         {
             Interpretation(), Registration(), Viewer(), Storage()
         };
-        return new(DateTimeOffset.UtcNow, groups.SelectMany(g => g.Checks).Any(c => c.State == HealthCheckState.Fail) ? "attention" : "healthy", groups);
+        return new(DateTimeOffset.UtcNow, groups.SelectMany(g => g.Checks).Any(c => c.State is HealthCheckState.Warning or HealthCheckState.Fail) ? "attention" : "healthy", groups);
     }
 
     HealthCheckGroup Interpretation()
@@ -99,16 +92,11 @@ public sealed class HealthCheckService
             checks.Add(CheckFile("registration.database", "Registration database", configured.DatabasePath, false));
             return new("Registration", checks);
         }
-        checks.Add(CheckFile("registration.database", "Registration database", configured.DatabasePath, false));
-        checks.Add(File.Exists(configured.DatabasePath)
-            ? CheckWritableFile("registration.database-write", "Registration database write access", configured.DatabasePath)
-            : CheckWritableDirectory("registration.database-directory-write", "Registration database directory write access", Path.GetDirectoryName(configured.DatabasePath) ?? "."));
+        checks.Add(CheckDatabase("registration.database", "Registration database", configured.DatabasePath));
         checks.Add(CheckJsonFile("registration.turnstile", "Turnstile configuration", configured.SecretConfigurationPath));
         checks.Add(CheckJsonFile("registration.mail", "Registration mail configuration", configured.MailConfigurationPath));
         checks.Add(CheckJsonFile("registration.policy", "Registration availability policy", configured.AvailabilityPolicyPath));
-        checks.Add(File.Exists(configured.OperatorRegistryPath)
-            ? CheckWritableFile("registration.operator-registry-write", "Registered-account registry write access", configured.OperatorRegistryPath)
-            : CheckWritableDirectory("registration.operator-registry-directory-write", "Registered-account registry directory write access", Path.GetDirectoryName(configured.OperatorRegistryPath) ?? "."));
+        checks.Add(CheckRegistryStorage(configured.OperatorRegistryPath));
         return new("Registration", checks);
     }
 
@@ -133,29 +121,50 @@ public sealed class HealthCheckService
     HealthCheckResult CheckUsageDatabase()
     {
         if (!options.UsageLog.Enabled) return HealthCheckResult.Skipped("interpretation.usage", "Usage database", "usage accounting is disabled");
+        return CheckDatabase("interpretation.usage", "Usage database", options.UsageLog.DatabasePath);
+    }
+
+    // Write to the main database so SQLite exercises the real locking/journal path.
+    // The private table and its row are rolled back; application records are untouched.
+    internal static HealthCheckResult CheckDatabase(string id, string name, string path)
+    {
         try
         {
-            var path = options.UsageLog.DatabasePath;
-            if (!File.Exists(path)) return HealthCheckResult.Fail("interpretation.usage", "Usage database", "usage database is unavailable");
-            using var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWrite }.ToString());
+            if (!File.Exists(path)) return HealthCheckResult.Fail(id, name, "database is unavailable");
+            using var db = new SqliteConnection(new SqliteConnectionStringBuilder
+            { DataSource = path, Mode = SqliteOpenMode.ReadWrite, DefaultTimeout = 3 }.ToString());
             db.Open();
             using var integrity = db.CreateCommand(); integrity.CommandText = "PRAGMA integrity_check";
             if (!string.Equals(integrity.ExecuteScalar()?.ToString(), "ok", StringComparison.OrdinalIgnoreCase))
-                return HealthCheckResult.Fail("interpretation.usage", "Usage database", "usage database integrity check failed");
-            using var tx = db.BeginTransaction(); tx.Rollback();
-            var writable = CheckWritableFile("interpretation.usage-write", "Usage database write access", path);
-            if (writable.State != HealthCheckState.Pass) return writable;
-            foreach (var sidecar in new[] { path + "-wal", path + "-shm" })
-            {
-                if (File.Exists(sidecar))
-                {
-                    var sidecarResult = CheckWritableFile("interpretation.usage-sidecar", "Usage database journal access", sidecar);
-                    if (sidecarResult.State != HealthCheckState.Pass) return sidecarResult;
-                }
-            }
-            return HealthCheckResult.Pass("interpretation.usage", "Usage database");
+                return HealthCheckResult.Fail(id, name, "database integrity check failed");
+            using var tx = db.BeginTransaction(deferred: false);
+            using var write = db.CreateCommand();
+            write.Transaction = tx;
+            var table = "ftitc_health_probe_" + Guid.NewGuid().ToString("N");
+            write.CommandText = $"CREATE TABLE {table} (value INTEGER NOT NULL); INSERT INTO {table} VALUES (1);";
+            write.ExecuteNonQuery();
+            tx.Rollback();
+            return HealthCheckResult.Pass(id, name);
         }
-        catch (Exception ex) { return HealthCheckResult.Fail("interpretation.usage", "Usage database", SafeReason(ex)); }
+        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
+    }
+
+    internal static HealthCheckResult CheckRegistryStorage(string path)
+    {
+        const string id = "registration.operator-registry-write";
+        const string name = "Registered-account registry storage";
+        try
+        {
+            // Registration reads the existing registry, then writes a sibling and renames it.
+            // Opening the existing registry for writing would test a different permission.
+            if (File.Exists(path))
+            {
+                using var existing = File.OpenRead(path);
+            }
+            ProbeAtomicReplacement(Path.GetDirectoryName(path) ?? ".");
+            return HealthCheckResult.Pass(id, name);
+        }
+        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
     }
 
     static HealthCheckResult CheckFile(string id, string name, string path, bool required)
@@ -177,50 +186,47 @@ public sealed class HealthCheckService
         catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
     }
 
-    static HealthCheckResult CheckDirectory(string id, string name, string path)
-    {
-        try { return Directory.Exists(path) ? HealthCheckResult.Pass(id, name) : HealthCheckResult.Warning(id, name, "directory is unavailable"); }
-        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
-    }
-
     static HealthCheckResult CheckWritableDirectory(string id, string name, string path)
     {
         try
         {
-            if (!Directory.Exists(path)) return HealthCheckResult.Warning(id, name, "directory is unavailable");
-            var probe = Path.Combine(path, ".ftitc-health-write-probe-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
-                return HealthCheckResult.Pass(id, name);
-            }
-            finally
-            {
-                try { if (File.Exists(probe)) File.Delete(probe); } catch { }
-            }
+            ProbeAtomicReplacement(path);
+            return HealthCheckResult.Pass(id, name);
         }
-        catch (UnauthorizedAccessException) { return HealthCheckResult.Fail(id, name, "directory is not writable by the service"); }
-        catch (IOException) { return HealthCheckResult.Fail(id, name, "directory could not be written"); }
         catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
     }
 
-    static HealthCheckResult CheckWritableFile(string id, string name, string path)
+    static void ProbeAtomicReplacement(string directory)
     {
+        var probe = Path.Combine(directory, ".ftitc-health-write-probe-" + Guid.NewGuid().ToString("N"));
+        var replacement = probe + ".tmp";
         try
         {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-            return HealthCheckResult.Pass(id, name);
+            WriteProbe(probe, "[]");
+            WriteProbe(replacement, "[1]");
+            File.Move(replacement, probe, true);
+            if (File.ReadAllText(probe) != "[1]") throw new IOException("Replacement probe could not be read back.");
         }
-        catch (UnauthorizedAccessException) { return HealthCheckResult.Fail(id, name, "file is not writable by the service"); }
-        catch (IOException) { return HealthCheckResult.Fail(id, name, "file could not be opened for writing"); }
-        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
+        finally
+        {
+            try { File.Delete(replacement); }
+            finally { File.Delete(probe); }
+        }
+    }
+
+    static void WriteProbe(string path, string content)
+    {
+        using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        using (var writer = new StreamWriter(stream)) writer.Write(content);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
     }
 
     static string SafeReason(Exception ex) => ex switch
     {
         UnauthorizedAccessException => "access was denied",
-        IOException => "storage could not be read",
-        SqliteException => "database could not be read",
+        IOException => "storage operation failed",
+        SqliteException => "database write or integrity check failed",
         CryptographicException => "protected data could not be read",
         _ => "check could not be completed"
     };

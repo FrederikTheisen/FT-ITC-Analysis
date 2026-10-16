@@ -83,6 +83,20 @@ The `status-email` command does not start Kestrel or require the OpenAI API key.
 prints a metadata-only report; `send` in place of `preview` sends it. Without `--date`,
 the report covers the previous Copenhagen calendar day, including days with no requests.
 It checks systemd, local and public interpretation status, and usage accounting independently.
+Storage health is read from the loopback-only `/api/internal/health` endpoint, so
+the probes run inside the web service with its service identity and filesystem
+restrictions. The root-run email process never substitutes its own storage
+access if that endpoint fails. Registry probes read the existing file and create,
+write, replace, read back, and delete disposable sibling files; they do not
+rewrite the registry or create accounts. Database probes perform a real SQLite
+write in a rolled-back transaction, exercising database locking and journal
+access without retaining probe tables or rows. These checks are non-billable.
+Warnings, failures, and unavailable checks produce an `[ATTENTION]` email from
+their structured states, independently of diagnostic wording. A deliberate
+interpretation pause or retirement is not itself a failure; transport and
+storage failures still require attention. Update both Web and standalone
+status-email binaries together when changing these checks. A preview exercises
+the same health and alert decisions as a send, without sending email.
 Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
 section lists identities that submitted requests during the reported day, with their account or
 public-client ID, available name/label, previous-day prompt count and cost, and all-time prompt

@@ -211,13 +211,7 @@ public sealed class RegistrationPipelineDiagnostic
             options.OperatorRegistryPath,
             options.OperatorRegistryPath + ".tmp",
         };
-        var values = new Dictionary<string, FileStamp?>(StringComparer.Ordinal);
         var readable = true;
-        foreach (var path in paths)
-        {
-            try { values[path] = FileStamp.Read(path); }
-            catch { readable = false; values[path] = null; }
-        }
         var counts = new Dictionary<string, long?>(StringComparer.Ordinal);
         foreach (var database in new[] { options.DatabasePath, usageDatabasePath }.Distinct(StringComparer.Ordinal))
         {
@@ -233,6 +227,15 @@ public sealed class RegistrationPipelineDiagnostic
             catch (SqliteException) { readable = false; }
             catch (IOException) { readable = false; }
             catch (UnauthorizedAccessException) { readable = false; }
+        }
+        // A first read-only SQLite connection can create empty WAL/SHM files.
+        // Capture file metadata after our own count reads have initialized them,
+        // so those storage mechanics are not attributed to the diagnostic steps.
+        var values = new Dictionary<string, FileStamp?>(StringComparer.Ordinal);
+        foreach (var path in paths)
+        {
+            try { values[path] = FileStamp.Read(path); }
+            catch { readable = false; values[path] = null; }
         }
         return new(values, counts, readable);
     }

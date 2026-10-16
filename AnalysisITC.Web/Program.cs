@@ -27,7 +27,6 @@ if (args.Length > 0 && args[0] == "status-email")
     commandConfiguration.GetSection(InterpretationOptions.SectionName).Bind(commandOptions);
     var values = Options.Create(commandOptions);
     var commandAvailability = new RegistrationAvailability(values);
-    var commandHealth = new HealthCheckService(values, new InterpretationServiceAvailability(values), commandAvailability);
     var commandOperators = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance);
     var commandInterpretationAvailability = new InterpretationServiceAvailability(values);
     var commandDiagnostic = new RegistrationPipelineDiagnostic(values.Value.Registration, values.Value.UsageLog.DatabasePath,
@@ -36,7 +35,7 @@ if (args.Length > 0 && args[0] == "status-email")
     var commandStorage = new StorageCapacityService(values);
     var reporter = new DailyStatusEmail(
         new InterpretationUsageStore(values, NullLogger<InterpretationUsageStore>.Instance),
-        commandInterpretationAvailability, values, commandHealth, commandOperators, commandDiagnostic, commandSummary, commandStorage);
+        commandInterpretationAvailability, values, commandOperators, commandDiagnostic, commandSummary, commandStorage);
     Environment.ExitCode = await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), reporter, Console.Out, Console.Error);
     return;
 }

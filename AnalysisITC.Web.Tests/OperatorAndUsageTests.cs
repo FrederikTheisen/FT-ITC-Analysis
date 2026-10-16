@@ -351,8 +351,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         });
         string? delivered = null;
         var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200; interpretation available"),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200; interpretation available", false)),
             (_, body) => { delivered = body; return Task.CompletedTask; },
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero), operators: registry);
         var output = new StringWriter(); var error = new StringWriter();
@@ -457,8 +457,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var storage = new StorageCapacityService(["application"], _ => new StorageCapacityVolume("/", 100 * gib, 9 * gib));
         string? subject = null;
         var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200; interpretation available"),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200; interpretation available", false)),
             (value, _) => { subject = value; return Task.CompletedTask; },
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
             storageCapacity: storage);
@@ -539,8 +539,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
         var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath, registration, interpretation);
         var reporter = new DailyStatusEmail(Store(configured), interpretation,
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200"), null,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200", false)), null,
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
             registrationDiagnostic: diagnostic);
 
@@ -566,8 +566,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var summary = new RegistrationSummaryService(Options.Create(configured),
             new RegistrationAvailability(Options.Create(configured)), interpretation);
         var reporter = new DailyStatusEmail(Store(configured), interpretation,
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200"), null,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200", false)), null,
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
             registrationSummary: summary);
 
@@ -605,8 +605,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration();
         var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200"), null,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200", false)), null,
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
         var output = new StringWriter();
 
@@ -639,8 +639,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         string? subject = null;
         string? html = null;
         var reporter = new DailyStatusEmail(Store(configured), interpretation,
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200"),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200", false)),
             (value, body) => { subject = value; html = body; return Task.CompletedTask; },
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
             registrationSummary: summary);
@@ -663,8 +663,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath, registration, interpretation);
         string? subject = null;
         var reporter = new DailyStatusEmail(Store(configured), interpretation,
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200"),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200", false)),
             (value, _) => { subject = value; return Task.CompletedTask; },
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
             registrationDiagnostic: diagnostic);
@@ -775,8 +775,8 @@ public sealed class OperatorAndUsageTests : IDisposable
             Outcome="provider_error", HttpStatus=503, ProviderAttempts=1
         });
         var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200; interpretation available"), null,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200; interpretation available", false)), null,
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
         var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
         Assert.Contains("Cost: unknown (known subtotal $0.0000; unresolved 1", report);
@@ -788,8 +788,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var store = Store(configured);
         var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200; interpretation available"),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200; interpretation available", false)),
             (_, _) => throw new InvalidOperationException("provider password and private message"),
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
         var output = new StringWriter(); var error = new StringWriter();
@@ -805,8 +805,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); configured.UsageLog.DatabasePath = directory;
         var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
-            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
-            _ => Task.FromResult("HTTP 200; interpretation available"), null,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult(new DailyStatusCheck("active", false)),
+            _ => Task.FromResult(new DailyStatusCheck("HTTP 200; interpretation available", false)), null,
             () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
         var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
         Assert.Contains("Usage database: check unavailable", report);
