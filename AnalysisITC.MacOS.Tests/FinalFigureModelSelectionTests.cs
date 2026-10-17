@@ -302,9 +302,9 @@ static class FinalFigureModelSelectionTests
         Check(cancelled == null && Equal(original, File.ReadAllBytes(targets[0].Path)),
             "Cancel changed the existing PDF");
 
-        var closed = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing, IntPtr.Zero));
-        Check(closed == null && Equal(original, File.ReadAllBytes(targets[0].Path)),
-            "Closing the overwrite prompt changed the existing PDF");
+        var unexpectedResponse = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing, IntPtr.Zero));
+        Check(unexpectedResponse == null && Equal(original, File.ReadAllBytes(targets[0].Path)),
+            "An unexpected modal response changed the existing PDF");
 
         var overwritten = RunConfirmedBatch(targets, existing => ShowOverwritePrompt(existing,
             (IntPtr)(long)NSAlertButtonReturn.First));

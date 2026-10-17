@@ -37,8 +37,9 @@ namespace AnalysisITC.Core.Export
                 for (var i = 0; i < paths.Count; i++)
                 {
                     currentPath = paths[i] ?? throw new ArgumentException("An export destination cannot be null.", nameof(paths));
-                    temporaryPath = fileSystem.CreateTemporarySibling(currentPath);
-                    WriteAndClose(fileSystem.OpenTemporary(temporaryPath), stream => write(i, stream));
+                    var temporary = fileSystem.CreateTemporarySibling(currentPath);
+                    temporaryPath = temporary.Path;
+                    WriteAndClose(temporary.Stream, stream => write(i, stream));
                     var didReplace = Commit(fileSystem, temporaryPath, currentPath, approved.Contains(currentPath));
                     temporaryPath = null;
                     completed++;
@@ -79,8 +80,9 @@ namespace AnalysisITC.Core.Export
                 for (var i = 0; i < paths.Count; i++)
                 {
                     currentPath = paths[i] ?? throw new ArgumentException("An export destination cannot be null.", nameof(paths));
-                    temporaryPath = fileSystem.CreateTemporarySibling(currentPath);
-                    await WriteAndCloseAsync(fileSystem.OpenTemporary(temporaryPath), stream => write(i, stream)).ConfigureAwait(false);
+                    var temporary = fileSystem.CreateTemporarySibling(currentPath);
+                    temporaryPath = temporary.Path;
+                    await WriteAndCloseAsync(temporary.Stream, stream => write(i, stream)).ConfigureAwait(false);
                     var didReplace = Commit(fileSystem, temporaryPath, currentPath, approved.Contains(currentPath));
                     temporaryPath = null;
                     completed++;
@@ -165,8 +167,7 @@ namespace AnalysisITC.Core.Export
     internal interface IExportFileSystem
     {
         bool Exists(string path);
-        string CreateTemporarySibling(string destination);
-        Stream OpenTemporary(string path);
+        (string Path, Stream Stream) CreateTemporarySibling(string destination);
         void Replace(string source, string destination);
         void MoveNoOverwrite(string source, string destination);
         void DeleteTemporary(string path);
@@ -179,24 +180,15 @@ namespace AnalysisITC.Core.Export
 
         public bool Exists(string path) => File.Exists(path);
 
-        public string CreateTemporarySibling(string destination)
+        public (string Path, Stream Stream) CreateTemporarySibling(string destination)
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(destination));
             var name = Path.GetFileName(destination);
-            for (var attempt = 0; attempt < 32; attempt++)
-            {
-                var candidate = Path.Combine(directory, "." + name + "." + Guid.NewGuid().ToString("N") + ".tmp");
-                try
-                {
-                    using (new FileStream(candidate, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
-                    return candidate;
-                }
-                catch (IOException) when (File.Exists(candidate)) { }
-            }
-            throw new IOException("Could not reserve a temporary export file beside " + destination);
+            var candidate = Path.Combine(directory, "." + name + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            var stream = new FileStream(candidate, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            return (candidate, stream);
         }
 
-        public Stream OpenTemporary(string path) => new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
         public void Replace(string source, string destination) => File.Replace(source, destination, null);
         public void MoveNoOverwrite(string source, string destination) => File.Move(source, destination);
         public void DeleteTemporary(string path) { if (File.Exists(path)) File.Delete(path); }

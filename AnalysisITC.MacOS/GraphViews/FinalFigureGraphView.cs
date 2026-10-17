@@ -691,16 +691,7 @@ namespace AnalysisITC
 
             alert.AddButton("Overwrite");
             alert.AddButton("Cancel");
-            alert.Layout();
-            IntPtr response;
-            var window = alert.Window;
-            var closeObserver = parent == null
-                ? NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
-                    _ => NSApplication.SharedApplication.AbortModal(), window)
-                : null;
-            try { response = showModal(alert, parent); }
-            finally { closeObserver?.Dispose(); }
-            return response == (IntPtr)(long)NSAlertButtonReturn.First;
+            return showModal(alert, parent) == (IntPtr)(long)NSAlertButtonReturn.First;
         }
 
         static void ReportFinalFigureBoundaryFailure(Exception error)

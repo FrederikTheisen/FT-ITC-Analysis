@@ -869,3 +869,12 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Location: Explicit report saving (detached report drafts in both desktop report builders); `AutoSaveManager` and autosave recovery.
 - Problem: With explicit report saving, edits in the report builder exist only in a detached draft until Save Report. Autosave writes registered reports only, so a crash loses unsaved draft edits, including AI-generated interpretation text. Previously, implicit registration let autosave capture them.
 - Decision: Accepted for the explicit-saving change. Revisit if draft loss causes real problems, for example by autosaving drafts separately from saved reports.
+
+## ITC-119 - Review duplicate-import prompt close handling
+
+- Priority: Low; review question.
+- Status: Open question (2026-10-17). Recorded during CR-070 simplification; no implementation change requested.
+- Location: `AnalysisITC.MacOS/Platform/MacFtxtcDuplicatePromptService.cs`, `ChooseAction` and `CreateAlert`; existing `FtxtcDuplicatePromptTests` harness.
+- Question: Does the duplicate-import prompt need its current `WillCloseNotification` → `AbortModal` observer alongside its key-event monitor and explicit observer cleanup?
+- Evidence boundary: Unlike the Final Figure overwrite alert, `CreateAlert` explicitly adds `NSWindowStyle.Closable`. Its user-close path therefore cannot be dismissed as impossible merely because it uses `NSAlert`. No redundant handling or runtime defect has been established.
+- Follow-up: Review actual close and keyboard behavior before proposing a change. Keep this prompt and its harness outside the CR-070 simplification.

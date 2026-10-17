@@ -135,6 +135,31 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal("value-1", Text(fs.Files["b"]));
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task TemporaryAcquisitionFailureDoesNotCallWriterOrCleanup(bool useAsync)
+        {
+            var fs = new MemoryExportFileSystem { FailCreate = true };
+            var writeCalled = false;
+
+            var outcome = useAsync
+                ? await ExportBatchWriter.WriteAsync(new[] { "target" }, null,
+                    (_, _) =>
+                    {
+                        writeCalled = true;
+                        return Task.CompletedTask;
+                    }, null, fs)
+                : ExportBatchWriter.Write(new[] { "target" }, null,
+                    (_, _) => writeCalled = true, null, fs);
+
+            Assert.False(outcome.IsSuccess);
+            Assert.Equal("target", outcome.FailedPath);
+            Assert.Equal(0, outcome.CompletedCount);
+            Assert.False(writeCalled);
+            Assert.Equal(0, fs.DeleteTemporaryCalls);
+        }
+
         [Fact]
         public void FigurePlannerReservesNaturalSuffixNamesAndUsesCaseInsensitiveCollisions()
         {
@@ -167,16 +192,18 @@ namespace AnalysisITC.Core.Tests
             public bool FailDelete;
             public bool FailFlush;
             public bool FailDispose;
+            public bool FailCreate;
+            public int DeleteTemporaryCalls;
             public Action<string> OnMove;
 
             public bool Exists(string path) => Files.ContainsKey(path);
-            public string CreateTemporarySibling(string destination)
+            public (string Path, Stream Stream) CreateTemporarySibling(string destination)
             {
+                if (FailCreate) throw new IOException("temporary creation failed");
                 var path = "tmp:" + (++tempId).ToString();
                 temporary[path] = Array.Empty<byte>();
-                return path;
+                return (path, new TempStream(value => temporary[path] = value, FailFlush, FailDispose));
             }
-            public Stream OpenTemporary(string path) => new TempStream(value => temporary[path] = value, FailFlush, FailDispose);
             public void Replace(string source, string destination)
             {
                 if (destination == RemoveBeforeReplaceFor) Files.Remove(destination);
@@ -194,6 +221,7 @@ namespace AnalysisITC.Core.Tests
             }
             public void DeleteTemporary(string path)
             {
+                DeleteTemporaryCalls++;
                 if (FailDelete) throw new IOException("cleanup failed");
                 temporary.Remove(path);
             }

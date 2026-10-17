@@ -501,7 +501,6 @@ namespace AnalysisITC.Avalonia.Analysis
             RefreshAnalysisSummary();
             RefreshFitSummary();
             UpdateStatus();
-            UpdateFitButtonState();
             graph.InvalidateVisual();
         }
 
@@ -1240,10 +1239,10 @@ namespace AnalysisITC.Avalonia.Analysis
         void UpdateFitButtonState()
         {
             graph.IsReadOnly = isFitting || ProcessingActivity.IsBusy;
-            var canFit = experiment != null
-                && CurrentFitInputsAreReady()
+            var canFit = !isFitting
                 && !contextRebuildDeferred
-                && !isFitting;
+                && experiment != null
+                && CurrentFitInputsAreReady();
             CalculationControlAvailability.Update(runFitButton, canFit);
             stopFitButton.IsEnabled = isFitting;
             modeSelector.IsEnabled = !isFitting;
