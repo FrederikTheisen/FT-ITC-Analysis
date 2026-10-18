@@ -1708,47 +1708,47 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
-    public void RunFitPreflightAllowsReusedOutOfRangeStartAfterCoreNormalization()
+    public async Task RunFitPreflightAllowsReusedOutOfRangeStartAfterCoreNormalization()
     {
         var previous = AppSettings.ParameterLimitSetting;
+        var previousFittingOptions = CaptureFittingOptions();
         try
         {
-            Dispatcher.UIThread.Invoke(() =>
-            {
-                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
-                DataManager.Clear(DataClearMode.ResetSession);
-                var experiment = CreateReadyExperiment();
-                var attachedModel = new OneSetOfSites(experiment);
-                attachedModel.InitializeParameters(experiment);
-                attachedModel.Parameters.Table[ParameterType.Offset].Update(50001);
-                attachedModel.Solution = SolutionInterface.FromModel(
-                    attachedModel,
-                    SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
-                experiment.Model = attachedModel;
-                DataManager.AddData(experiment);
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            DataManager.Clear(DataClearMode.ResetSession);
+            var experiment = CreateReadyExperiment();
+            var attachedModel = new OneSetOfSites(experiment);
+            attachedModel.InitializeParameters(experiment);
+            attachedModel.Parameters.Table[ParameterType.Offset].Update(50001);
+            attachedModel.Solution = SolutionInterface.FromModel(
+                attachedModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            experiment.Model = attachedModel;
+            DataManager.AddData(experiment);
 
-                var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
-                var window = new Window { Content = workspace };
-                window.Show();
-                try
-                {
-                    Assert.True(workspace.CanRunFit);
-                    Assert.False(workspace.CanStopFit);
-                    workspace.RunFit();
-                    Assert.True(workspace.CanStopFit);
-                    Assert.True(workspace.GraphForTesting.IsReadOnly);
-                    workspace.StopFit();
-                }
-                finally
-                {
-                    window.Close();
-                    DataManager.Clear(DataClearMode.ResetSession);
-                }
-            });
+            var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                Assert.True(workspace.CanRunFit);
+                Assert.False(workspace.CanStopFit);
+                workspace.RunFit();
+                Assert.True(workspace.CanStopFit);
+                Assert.True(workspace.GraphForTesting.IsReadOnly);
+            }
+            finally
+            {
+                workspace.StopFit();
+                await WaitForFitToFinish();
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
         }
         finally
         {
             AppSettings.ParameterLimitSetting = previous;
+            RestoreFittingOptions(previousFittingOptions);
         }
     }
 

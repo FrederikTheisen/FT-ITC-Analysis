@@ -516,6 +516,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-040 — An Avalonia fitting test exits before its worker and admission lease finish
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Test quality
 - Location: `AnalysisITC.Avalonia.Tests/AnalysisWorkspaceControlTests.cs:1104`; `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisWorkspaceControl.cs:833`; `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisWorkspaceControl.cs:898`
@@ -524,6 +525,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: The worker remains scheduled after teardown, while the next serialized test starts and requests calculation admission.
 - Consequence: The next test can observe busy admission or receive late callbacks from the previous fixture. Serialization does not join asynchronous work; no flaky run was reproduced.
 - Suggested direction: Await the owned fit's completion in teardown, including assertion-failure paths, before clearing data and restoring global settings.
+- Resolution: The preflight test is now asynchronous. Its `finally` block requests Stop and awaits the existing completion/admission helper before closing its window and clearing shared data. It also restores the fitting-options snapshot after completion, alongside the parameter-limit setting. Application behavior is unchanged.
+- Validation: A temporary probe reproduced busy admission immediately after the original test returned, then passed after the fix. With an assertion deliberately failed immediately after `RunFit`, the probe also confirmed completion, restored settings and successful admission for a subsequent calculation. The probes and injected failure were removed before the final Release build and full Avalonia suite: 708 passed, one existing skip, zero failures. Evidence: `/private/tmp/cr040-validation/` (`before.log`, `after.log`, `assertion-failure.log`, `final-build.log`, `avalonia-full.log` and `avalonia-full.xml`). `git diff --check` passes. Application code and manual/help are unchanged. No commits or pushes.
 
 ## CR-041 — Preferences tests depend on the live interpretation service
 
