@@ -308,24 +308,50 @@ public sealed class PublicationFontRenderingTests
         }
     }
 
-    [AvaloniaFact]
-    public void SupportingCanvasCreatesRenderablePagePlansWhenGridOverflows()
+    [AvaloniaTheory]
+    [InlineData(10, 12)]
+    [InlineData(10, 8)]
+    [InlineData(5, 12)]
+    [InlineData(5, 8)]
+    [InlineData(6, 10)]
+    public void SupportingCanvasCreatesRenderablePagePlansWhenGridOverflows(double plotWidth, double plotHeight)
     {
         var experiments = Enumerable.Range(0, 5)
             .Select(index => new ExperimentData($"pagination-{index}.itc"))
             .ToList();
         var options = new PublicationFigureOptions
         {
+            PlotWidthCentimeters = 6,
+            PlotHeightCentimeters = 10,
             ShowThermogram = false,
             ShowResiduals = false,
             ShowFitParameters = false
         };
         var document = PublicationFigureCanvasBuilder.Build(experiments, options,
-            new PublicationFigureCanvasOptions { Columns = 2, Rows = 2 });
+            new PublicationFigureCanvasOptions
+            {
+                Columns = 2, Rows = 2,
+                PlotWidthCentimeters = plotWidth, PlotHeightCentimeters = plotHeight
+            });
         var renderer = new SkiaFigureCanvasRenderer();
         var plan = renderer.CreatePlan(document);
 
         Assert.True(plan.IsValid, plan.ValidationError);
+        Assert.Equal(plotWidth, plan.LayoutResult.PlotWidthCentimeters);
+        Assert.Equal(plotHeight, plan.LayoutResult.PlotHeightCentimeters);
+        foreach (var page in plan.Pages)
+        {
+            Assert.Equal(plotWidth, page.LayoutResult.PlotWidthCentimeters);
+            Assert.Equal(plotHeight, page.LayoutResult.PlotHeightCentimeters);
+            foreach (var cell in page.Cells)
+            {
+                const double pointsPerCentimeter = 72.0 / 2.54;
+                Assert.Equal(plotWidth * pointsPerCentimeter,
+                    cell.Layout.PageWidth - cell.Layout.LeftMargin - cell.Layout.RightMargin, 3);
+                Assert.Equal(plotHeight * pointsPerCentimeter,
+                    cell.Layout.PageHeight - cell.Layout.TopMargin - cell.Layout.BottomMargin, 3);
+            }
+        }
         Assert.Equal(2, plan.PageCount);
         Assert.Equal(new[] { 4, 1 }, plan.Pages.Select(page => page.Cells.Count));
         Assert.Equal(new[] { "A", "B", "C", "D", "E" }, plan.Cells.Select(cell => cell.Cell.PanelLabel));

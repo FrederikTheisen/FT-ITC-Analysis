@@ -124,8 +124,8 @@ public sealed class SupportingFigureCanvasWindowTests
                 var window = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), first, state);
                 window.Show();
                 window.SetCompositionForTesting(new[] { second, first });
-                window.PlotWidthBoxForTesting.Text = "6";
-                window.PlotHeightBoxForTesting.Text = "8";
+                window.PlotWidthBoxForTesting.Text = "10";
+                window.PlotHeightBoxForTesting.Text = "12";
                 window.ColumnsStepperForTesting.Value = 2;
                 window.RowsStepperForTesting.Value = 4;
                 window.FontSizeStepperForTesting.Value = 9.5m;
@@ -143,8 +143,10 @@ public sealed class SupportingFigureCanvasWindowTests
                 Assert.Equal(new[] { second, first }, reopened.CurrentPlanForTesting!.Document.Cells
                     .Select(cell => cell.Source.Experiment));
                 var options = reopened.CanvasOptionsForTesting;
-                Assert.Equal(6, options.PlotWidthCentimeters);
-                Assert.Equal(8, options.PlotHeightCentimeters);
+                Assert.Equal(10, options.PlotWidthCentimeters);
+                Assert.Equal(12, options.PlotHeightCentimeters);
+                Assert.Equal(10, reopened.CurrentPlanForTesting.LayoutResult.PlotWidthCentimeters);
+                Assert.Equal(12, reopened.CurrentPlanForTesting.LayoutResult.PlotHeightCentimeters);
                 Assert.Equal(2, options.Columns);
                 Assert.Equal(4, options.Rows);
                 Assert.Equal(9.5, options.FontSize);
@@ -160,7 +162,7 @@ public sealed class SupportingFigureCanvasWindowTests
 
                 var empty = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), first, state);
                 Assert.False(empty.CurrentPlanForTesting!.IsValid);
-                Assert.Equal(6, empty.CanvasOptionsForTesting.PlotWidthCentimeters);
+                Assert.Equal(10, empty.CanvasOptionsForTesting.PlotWidthCentimeters);
                 Assert.Equal(4, empty.CanvasOptionsForTesting.Rows);
                 empty.Close();
             }

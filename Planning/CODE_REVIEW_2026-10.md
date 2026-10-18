@@ -417,6 +417,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-032 — Supporting Figure size controls are capped by captured Final Figure dimensions
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.Avalonia/Drawing/SkiaFigureCanvasRenderer.cs:80`; `AnalysisITC.Avalonia/Misc/Tools/SupportingFigureCanvasWindow.cs:499`; `AnalysisITC.MacOS/Drawing/CoreGraphicsFigureCanvasRenderer.cs:122`
@@ -425,6 +426,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Open Supporting Figure with a 6 × 10 cm appearance snapshot and request a valid 10 × 12 cm plot.
 - Consequence: Preview and export use 6 × 10 cm; increasing the controls cannot produce the requested size. The actual-size readout shows the capped value, so it is not itself misleading.
 - Suggested direction: Use the validated explicit canvas dimensions, as the native renderer does.
+- Resolution: Avalonia's canvas renderer now takes plot width and height directly from the validated Supporting Figure options, matching macOS. Captured Final Figure dimensions no longer cap preview or PDF output. Report overview dimensions remain controlled by the report builder, which supplies matching canvas and figure dimensions. The manual already states that Supporting Figure size controls take precedence.
+- Validation: Before the fix, four of six focused regression cases failed: larger width, larger height, both larger, and restored window dimensions. All 69 focused Avalonia canvas, window, font, and report-rendering checks now pass, including per-cell geometry, multipage bitmap rendering, and exported PDF page sizes. Evidence: `/private/tmp/cr032-before.xml` and `/private/tmp/cr032-focused.xml`. No Core or native macOS implementation changes.
 
 ## CR-033 — Corrected-view spline handles use raw baseline coordinates
 

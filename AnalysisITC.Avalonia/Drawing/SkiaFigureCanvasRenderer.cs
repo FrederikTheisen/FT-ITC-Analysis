@@ -78,8 +78,8 @@ sealed class SkiaFigureCanvasRenderer
         var fonts = figureRenderer.ResolveFontSet(document.FigureOptions);
         var activeColumns = Math.Min(document.Options.Columns, document.Cells.Count);
         var activeRows = (document.Cells.Count + document.Options.Columns - 1) / document.Options.Columns;
-        var plotWidthCentimeters = Math.Min(document.Options.PlotWidthCentimeters, document.FigureOptions.PlotWidthCentimeters);
-        var plotHeightCentimeters = Math.Min(document.Options.PlotHeightCentimeters, document.FigureOptions.PlotHeightCentimeters);
+        var plotWidthCentimeters = document.Options.PlotWidthCentimeters;
+        var plotHeightCentimeters = document.Options.PlotHeightCentimeters;
         var plotWidth = (float)plotWidthCentimeters * PdfPointsPerCentimeter;
         var plotHeight = (float)plotHeightCentimeters * PdfPointsPerCentimeter;
         var fontSize = (float)document.Options.FontSize;
