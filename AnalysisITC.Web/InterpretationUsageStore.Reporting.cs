@@ -52,11 +52,13 @@ public sealed partial class InterpretationUsageStore
             ["started_utc"] = "coalesce(h.verified_started_utc,e.started_utc)", ["completed_utc"] = "e.completed_utc",
             ["trace_id"] = "coalesce(e.trace_id,r.trace_id)",
             ["provider_attempts"] = "a.attempt_count",
+            ["access_tier"] = "e.access_tier",
+            ["request_count_eligible"] = "e.request_count_eligible",
         };
         var selected = columns.Select(column =>
             $"{(identity.TryGetValue(column, out var expression) ? expression : "r." + QuoteIdentifier(column))} AS {QuoteIdentifier(column)}");
         using var view = Cmd(db, tx, "CREATE VIEW execution_usage AS SELECT " + string.Join(",", selected)
-            + ",a.known_cost,a.unresolved_cost_count,a.unresolved_cost_count AS unresolved_count,a.waived_unknown_count"
+            + ",e.request_count_eligible,a.known_cost,a.unresolved_cost_count,a.unresolved_cost_count AS unresolved_count,a.waived_unknown_count"
             + " FROM executions e LEFT JOIN requests r ON r.request_id=e.execution_id"
             + " LEFT JOIN legacy_settlements h ON h.execution_id=e.execution_id"
             + " JOIN execution_accounting a ON a.execution_id=e.execution_id");

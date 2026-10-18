@@ -1327,8 +1327,20 @@ public sealed class OperatorAndUsageTests : IDisposable
         {
             OpenAI = new OpenAIInterpretationOptions { Model="gpt-5.6-terra", ReasoningEffort="medium" },
             OperatorAccess = new InterpretationOperatorOptions { Enabled=true, RegistryPath=Path.Combine(directory,"operators.json"), PresetRegistryPath=Path.Combine(directory,"presets.json"), DefaultLifetimeDays=30 },
+            PublicAccessRegistryPath = Path.Combine(directory, "public-access.json"),
+            TombstonePath = Path.Combine(directory, "tombstones.json"),
             UsageLog = new InterpretationUsageOptions { Enabled=true, DatabasePath=Path.Combine(directory,"usage.db") },
             AvailabilityPolicyPath = Path.Combine(directory,"interpretation-service.json"),
+            StatusEmailConfigurationPath = Path.Combine(directory, "status-email.json"),
+            Registration = new RegistrationOptions
+            {
+                DatabasePath = Path.Combine(directory, "registration.db"),
+                DataProtectionKeysPath = Path.Combine(directory, "registration-keys"),
+                SecretConfigurationPath = Path.Combine(directory, "registration-secret.json"),
+                MailConfigurationPath = Path.Combine(directory, "registration-mail.json"),
+                OperatorRegistryPath = Path.Combine(directory, "registered-operators.json"),
+                AvailabilityPolicyPath = Path.Combine(directory, "registration-policy.json"),
+            },
             AllowedModels = new Dictionary<string, InterpretationModelOptions>(StringComparer.Ordinal)
             {
                 ["gpt-5.6-luna"] = new() { ReasoningEfforts=["none","low","medium","high","xhigh","max"] },

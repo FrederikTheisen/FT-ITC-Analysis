@@ -188,12 +188,25 @@ public sealed class ViewerUploadAdmissionEndpointTests
         return await client.SendAsync(request);
     }
 
-    sealed class UploadFactory(Dictionary<string, string?>? settings = null) : WebApplicationFactory<Program>
+    sealed class UploadFactory : WebApplicationFactory<Program>
     {
+        readonly Dictionary<string, string?>? settings;
+        readonly string directory = Path.Combine(Path.GetTempPath(), "ftitc-upload-admission-" + Guid.NewGuid().ToString("N"));
+
+        public UploadFactory(Dictionary<string, string?>? settings = null) => this.settings = settings;
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            Directory.CreateDirectory(directory);
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
             if (settings is not null)
                 builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(settings));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
         }
     }
 }

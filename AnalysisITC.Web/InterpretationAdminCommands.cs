@@ -103,6 +103,13 @@ public static class InterpretationAdminCommands
                 output.WriteLine($"legacy_key={issue.LegacyKey} kind={issue.Kind} blocking={issue.Blocking} details={issue.Details}");
             foreach (var settlement in store.ReadLegacySettlements())
                 output.WriteLine($"legacy_key={settlement.LegacyKey} execution={settlement.ServerExecutionId} account={settlement.OperatorCodeId ?? "unassigned"} settlement={settlement.BillingState} verified_total={settlement.VerifiedTotalCost?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} evidence={settlement.Evidence}");
+            using (var liabilities = store.OpenForCommand())
+            using (var publicRows = liabilities.CreateCommand())
+            {
+                publicRows.CommandText = "SELECT operator_code_id,count(*) FROM execution_usage WHERE access_tier='public' AND operator_code_id IS NOT NULL AND unresolved_cost_count>0 GROUP BY operator_code_id ORDER BY operator_code_id";
+                using var rows = publicRows.ExecuteReader();
+                while (rows.Read()) output.WriteLine($"public_installation_unresolved={rows.GetString(0)} executions={rows.GetInt64(1)} lifetime=true");
+            }
             return 0;
         }
         if (args[0] == "migration" && args.Length >= 3 && args[1] == "reconcile")

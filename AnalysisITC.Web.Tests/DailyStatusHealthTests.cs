@@ -129,12 +129,23 @@ public sealed class DailyStatusHealthTests : IDisposable
         var configured = new InterpretationOptions
         {
             AvailabilityPolicyPath = Path.Combine(directory, "availability.json"),
+            StatusEmailConfigurationPath = Path.Combine(directory, "status-email.json"),
+            PublicAccessRegistryPath = Path.Combine(directory, "public-access.json"),
+            TombstonePath = Path.Combine(directory, "tombstones.json"),
+            OperatorAccess = new()
+            {
+                RegistryPath = Path.Combine(directory, "operators.json"),
+                PresetRegistryPath = Path.Combine(directory, "presets.json"),
+            },
             UsageLog = new() { Enabled = true, DatabasePath = Path.Combine(directory, "usage.db") },
             Registration = new()
             {
                 Enabled = false, AvailabilityPolicyPath = Path.Combine(directory, "registration.json"),
                 DatabasePath = Path.Combine(directory, "registration.db"),
-                OperatorRegistryPath = Path.Combine(directory, "registered.json")
+                DataProtectionKeysPath = Path.Combine(directory, "registration-keys"),
+                OperatorRegistryPath = Path.Combine(directory, "registered.json"),
+                SecretConfigurationPath = Path.Combine(directory, "registration-secret.json"),
+                MailConfigurationPath = Path.Combine(directory, "registration-mail.json"),
             }
         };
         var options = Options.Create(configured);
@@ -223,7 +234,18 @@ public sealed class DailyStatusHealthTests : IDisposable
 
         var report = await ServiceHealthCheck.ReadAsync(http);
         Assert.Contains(report.Groups.SelectMany(group => group.Checks), check => check.Id == "interpretation.usage");
+        var registries = report.Groups.SelectMany(group => group.Checks).Where(check => check.Id.StartsWith("interpretation.", StringComparison.Ordinal)).ToArray();
+        Assert.Contains(registries, check => check.Id == "interpretation.presets" && check.State == HealthCheckState.Pass);
+        Assert.Contains(registries, check => check.Id == "interpretation.public-access" && check.State == HealthCheckState.Pass);
+        Assert.Contains(registries, check => check.Id == "interpretation.operator-codes" && check.State == HealthCheckState.Pass);
+        Assert.Contains(registries, check => check.Id == "interpretation.registered-operators" && check.State == HealthCheckState.Pass);
         Assert.Contains(report.Groups, group => group.Name == "Registration");
+
+        var presetPath = factory.Services.GetRequiredService<IOptions<InterpretationOptions>>().Value.OperatorAccess.PresetRegistryPath;
+        await File.WriteAllTextAsync(presetPath, "not-json");
+        var malformed = await ServiceHealthCheck.ReadAsync(http);
+        Assert.Contains(malformed.Groups.SelectMany(group => group.Checks),
+            check => check.Id == "interpretation.presets" && check.State == HealthCheckState.Fail);
 
         using var forwarded = new HttpRequestMessage(HttpMethod.Get, ServiceHealthCheck.Url);
         forwarded.Headers.Add("X-Forwarded-For", "203.0.113.1");
@@ -290,12 +312,23 @@ public sealed class DailyStatusHealthTests : IDisposable
         var configured = new InterpretationOptions
         {
             AvailabilityPolicyPath = Path.Combine(directory, "availability.json"),
+            StatusEmailConfigurationPath = Path.Combine(directory, "status-email.json"),
+            PublicAccessRegistryPath = Path.Combine(directory, "public-access.json"),
+            TombstonePath = Path.Combine(directory, "tombstones.json"),
+            OperatorAccess = new()
+            {
+                RegistryPath = Path.Combine(directory, "operators.json"),
+                PresetRegistryPath = Path.Combine(directory, "presets.json"),
+            },
             UsageLog = new() { Enabled = true, DatabasePath = Path.Combine(directory, "usage.db") },
             Registration = new()
             {
                 Enabled = false, AvailabilityPolicyPath = Path.Combine(directory, "registration.json"),
                 DatabasePath = Path.Combine(directory, "registration.db"),
-                OperatorRegistryPath = Path.Combine(directory, "registered.json")
+                DataProtectionKeysPath = Path.Combine(directory, "registration-keys"),
+                OperatorRegistryPath = Path.Combine(directory, "registered.json"),
+                SecretConfigurationPath = Path.Combine(directory, "registration-secret.json"),
+                MailConfigurationPath = Path.Combine(directory, "registration-mail.json"),
             }
         };
         var options = Options.Create(configured);

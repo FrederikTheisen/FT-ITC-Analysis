@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using Xunit;
 
 namespace AnalysisITC.Web.Tests;
@@ -290,6 +292,167 @@ public sealed class InterpretationUsageStoreMigrationTests
             Assert.Equal(1, Store(settings).ReadMigrationIssues().Count(issue => issue.Kind == "historical_loss"));
         }
         finally { DeleteDatabase(path); }
+    }
+
+    [Fact]
+    public void MigrationBackfillClassifiesVerifiedPublicIdentityAndCountsRequest()
+    {
+        var path = TemporaryPath(); var registryPath = path + ".public.json";
+        try
+        {
+            const string publicId = "0123456789abcdef0123456789abcdef";
+            var settings = Settings(path); settings.PublicAccessRegistryPath = registryPath;
+            var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            ResetMigrationMarker(initial, "DELETE FROM migration_execution_map; DELETE FROM migration_issues; DELETE FROM migration_state; DELETE FROM executions; DELETE FROM submission_claims;");
+            InsertRequest(initial, "legacy-public", publicId, null, "success", 0.25m);
+            File.WriteAllText(registryPath, JsonSerializer.Serialize(new[] { new PublicAccessRecord { Id = publicId, CodeHash = new string('a',64), CreatedAtUtc = DateTime.UtcNow } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+            var registry = new PublicAccessRegistry(Options.Create(settings));
+            var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance, registry);
+            _ = store.ReadMigrationStatus();
+            var usage = store.GetPublicUsage(publicId, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddMonths(-1));
+            using var db = store.OpenForCommand(); using var row = db.CreateCommand();
+            row.CommandText = "SELECT e.access_tier,e.request_count_eligible FROM executions e JOIN migration_execution_map m ON m.execution_id=e.execution_id WHERE m.legacy_key='request:legacy-public'";
+            using var reader = row.ExecuteReader(); Assert.True(reader.Read()); Assert.Equal("public", reader.GetString(0)); Assert.Equal(1, reader.GetInt32(1));
+            Assert.Equal(1, usage.RequestCount);
+            Assert.Equal(0.25m, usage.MonthlyCost);
+        }
+        finally { DeleteDatabase(path); if (File.Exists(registryPath)) File.Delete(registryPath); }
+    }
+
+    [Fact]
+    public void StoredHistoricalTierRemainsAuthoritativeOverVerifiedRegistryIdentity()
+    {
+        var path = TemporaryPath(); var registryPath = path + ".public.json";
+        try
+        {
+            const string identity = "0123456789abcdef0123456789abcdef";
+            var settings = Settings(path); settings.PublicAccessRegistryPath = registryPath;
+            var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            ResetMigrationMarker(initial, "DELETE FROM migration_execution_map; DELETE FROM migration_issues; DELETE FROM migration_state; DELETE FROM executions; DELETE FROM submission_claims;");
+            InsertRequest(initial, "stored-operator-tier", identity, null, "success", 0.25m);
+            using (var db = initial.OpenForCommand()) using (var update = db.CreateCommand())
+            { update.CommandText = "UPDATE requests SET access_tier='standard' WHERE request_id='stored-operator-tier'"; update.ExecuteNonQuery(); }
+            File.WriteAllText(registryPath, JsonSerializer.Serialize(new[] { new PublicAccessRecord { Id = identity, CodeHash = new string('a',64), CreatedAtUtc = DateTime.UtcNow } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+            var registry = new PublicAccessRegistry(Options.Create(settings));
+            var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance, registry);
+            _ = store.ReadMigrationStatus();
+            using var verify = store.OpenForCommand(); using var query = verify.CreateCommand();
+            query.CommandText = "SELECT access_tier,request_count_eligible FROM executions WHERE execution_id=(SELECT execution_id FROM migration_execution_map WHERE legacy_key='request:stored-operator-tier')";
+            using var row = query.ExecuteReader(); Assert.True(row.Read()); Assert.Equal("standard", row.GetString(0)); Assert.Equal(1, row.GetInt32(1));
+            Assert.Equal(0, store.GetPublicUsage(identity, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddMonths(-1)).RequestCount);
+        }
+        finally { DeleteDatabase(path); if (File.Exists(registryPath)) File.Delete(registryPath); }
+    }
+
+    [Fact]
+    public async Task MigrationPreflightListsVerifiedPublicUnknownCostLiability()
+    {
+        var path = TemporaryPath(); var registryPath = path + ".public.json";
+        try
+        {
+            const string publicId = "abcdef0123456789abcdef0123456789";
+            var settings = Settings(path); settings.PublicAccessRegistryPath = registryPath;
+            var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            ResetMigrationMarker(initial, "DELETE FROM migration_execution_map; DELETE FROM migration_issues; DELETE FROM migration_state; DELETE FROM executions; DELETE FROM submission_claims;");
+            InsertRequest(initial, "legacy-public-unknown", publicId, null, "success", null);
+            File.WriteAllText(registryPath, JsonSerializer.Serialize(new[] { new PublicAccessRecord { Id = publicId, CodeHash = new string('c',64), CreatedAtUtc = DateTime.UtcNow } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+            var registry = new PublicAccessRegistry(Options.Create(settings));
+            var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance, registry);
+            var status = store.ReadMigrationStatus();
+            Assert.False(status.IsBlocked);
+            Assert.Equal(1, store.GetPublicUsage(publicId, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddMonths(-1)).UnresolvedCount);
+
+            var now = DateTime.UtcNow;
+            var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var policy = new InterpretationAdmissionPolicy(false, null, now.AddDays(-1), true,
+                new PublicAdmissionLimits(10, now.AddDays(-1), 10m, 100, now.AddDays(-1), 100m, monthStart));
+            Assert.Equal(InterpretationAdmissionStatus.Unresolved, store.TryAdmit(new InterpretationUsageRequest
+            { ServerExecutionId = "same-install", ClientRequestId = "same-install", OperatorCodeId = publicId, AccessTier = "public", StartedUtc = now }, policy).Status);
+            Assert.Equal(InterpretationAdmissionStatus.Admitted, store.TryAdmit(new InterpretationUsageRequest
+            { ServerExecutionId = "other-install", ClientRequestId = "other-install", OperatorCodeId = "other-public", AccessTier = "public", StartedUtc = now }, policy).Status);
+
+            using var services = new ServiceCollection().AddSingleton(store).BuildServiceProvider();
+            using var output = new StringWriter(); using var error = new StringWriter();
+            Assert.Equal(0, await InterpretationAdminCommands.RunAsync(["usage-log", "migration", "status"], services, output, error));
+            Assert.Contains($"public_installation_unresolved={publicId} executions=1 lifetime=true", output.ToString());
+        }
+        finally { DeleteDatabase(path); if (File.Exists(registryPath)) File.Delete(registryPath); }
+    }
+
+    [Fact]
+    public void UnverifiedHistoricalClassificationIsReportedNonPublicWithoutBlockingActivation()
+    {
+        var path = TemporaryPath();
+        try
+        {
+            var settings = Settings(path); var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            ResetMigrationMarker(initial, "DELETE FROM migration_execution_map; DELETE FROM migration_issues; DELETE FROM migration_state; DELETE FROM executions; DELETE FROM submission_claims;");
+            InsertRequest(initial,"unclassified-rejection",null,null,"rejected",null);
+            var store = Store(settings); var status = store.ReadMigrationStatus();
+            Assert.False(status.IsBlocked);
+            Assert.Contains(store.ReadMigrationIssues(),issue => issue.Kind=="migration_blocked" && !issue.Blocking);
+            using var db=store.OpenForCommand(); using var query=db.CreateCommand(); query.CommandText="SELECT access_tier,request_count_eligible FROM executions WHERE client_request_id='unclassified-rejection'";
+            using var row=query.ExecuteReader(); Assert.True(row.Read()); Assert.Equal("migration_blocked",row.GetString(0)); Assert.Equal(0,row.GetInt32(1));
+        }
+        finally { DeleteDatabase(path); }
+    }
+
+    [Fact]
+    public void UnreadablePublicRegistryLeavesHistoricalIdentityExplicitlyUnclassified()
+    {
+        var path = TemporaryPath(); var registryPath = path + ".public-registry-directory";
+        try
+        {
+            var settings = Settings(path); settings.PublicAccessRegistryPath = registryPath;
+            var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            ResetMigrationMarker(initial, "DELETE FROM migration_execution_map; DELETE FROM migration_issues; DELETE FROM migration_state; DELETE FROM executions; DELETE FROM submission_claims;");
+            InsertRequest(initial, "possibly-public", "0123456789abcdef0123456789abcdef", null, "success", 0.25m);
+            Directory.CreateDirectory(registryPath);
+
+            var registry = new PublicAccessRegistry(Options.Create(settings));
+            var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance, registry);
+            var status = store.ReadMigrationStatus();
+            Assert.False(status.IsBlocked);
+            Assert.Contains(store.ReadMigrationIssues(), issue => issue.Kind == "migration_blocked" && !issue.Blocking);
+            using var db = store.OpenForCommand(); using var query = db.CreateCommand();
+            query.CommandText = "SELECT access_tier,request_count_eligible FROM executions WHERE client_request_id='possibly-public'";
+            using var row = query.ExecuteReader(); Assert.True(row.Read()); Assert.Equal("migration_blocked", row.GetString(0)); Assert.Equal(0, row.GetInt32(1));
+        }
+        finally
+        {
+            DeleteDatabase(path);
+            if (Directory.Exists(registryPath)) Directory.Delete(registryPath, true);
+        }
+    }
+
+    [Fact]
+    public void StartupBackfillCountsSummarylessRecoveredButNotRejectedPriorExecutableRows()
+    {
+        var path = TemporaryPath(); var registryPath = path + ".public.json";
+        try
+        {
+            const string publicId = "fedcba9876543210fedcba9876543210";
+            var settings = Settings(path); settings.PublicAccessRegistryPath = registryPath;
+            var initial = Store(settings); _ = initial.ReadMigrationStatus();
+            File.WriteAllText(registryPath, JsonSerializer.Serialize(new[] { new PublicAccessRecord { Id = publicId, CodeHash = new string('b',64), CreatedAtUtc = DateTime.UtcNow } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+            using (var db = initial.OpenForCommand()) using (var insert = db.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO executions(execution_id,client_request_id,operator_code_id,task_type,effective_preset,started_utc,lifecycle,completed_utc) VALUES('old-recovered','old-client',$id,'interpretation','standard',$start,'recovered',$end),('old-rejected','rejected-client',$id,'interpretation','standard',$start,'rejected',$end)";
+                insert.Parameters.AddWithValue("$id",publicId); insert.Parameters.AddWithValue("$start",DateTime.UtcNow.ToString("O")); insert.Parameters.AddWithValue("$end",DateTime.UtcNow.ToString("O")); insert.ExecuteNonQuery();
+            }
+
+            var registry = new PublicAccessRegistry(Options.Create(settings));
+            var restarted = new InterpretationUsageStore(Options.Create(settings),NullLogger<InterpretationUsageStore>.Instance,registry);
+            var now = DateTime.UtcNow; var usage = restarted.GetPublicUsage(publicId,now.AddDays(-1),new DateTime(now.Year,now.Month,1,0,0,0,DateTimeKind.Utc));
+            Assert.Equal(1,usage.RequestCount);
+            using var verify = restarted.OpenForCommand(); using var query = verify.CreateCommand();
+            query.CommandText = "SELECT access_tier,request_count_eligible FROM executions WHERE execution_id='old-rejected'";
+            using var row=query.ExecuteReader(); Assert.True(row.Read()); Assert.Equal("public",row.GetString(0)); Assert.Equal(0,row.GetInt32(1));
+        }
+        finally { DeleteDatabase(path); if (File.Exists(registryPath)) File.Delete(registryPath); }
     }
 
     static string ExecutionFor(InterpretationUsageStore store, string legacyKey)

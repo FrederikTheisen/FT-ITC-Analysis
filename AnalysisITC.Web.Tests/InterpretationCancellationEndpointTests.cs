@@ -58,13 +58,27 @@ public sealed class InterpretationCancellationEndpointTests
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Interpretation:Enabled"] = "true",
                     ["Interpretation:UsageLog:Enabled"] = "true",
                     ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
+                    ["Interpretation:AvailabilityPolicyPath"] = Path.Combine(directory, "availability.json"),
+                    ["Interpretation:StatusEmailConfigurationPath"] = Path.Combine(directory, "status-email.json"),
+                    ["Interpretation:OperatorAccess:Enabled"] = "true",
+                    ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(directory, "operators.json"),
+                    ["Interpretation:OperatorAccess:PresetRegistryPath"] = Path.Combine(directory, "presets.json"),
                     ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
+                    ["Interpretation:TombstonePath"] = Path.Combine(directory, "tombstones.json"),
+                    ["Interpretation:Registration:Enabled"] = "false",
+                    ["Interpretation:Registration:DatabasePath"] = Path.Combine(directory, "registration.db"),
+                    ["Interpretation:Registration:DataProtectionKeysPath"] = Path.Combine(directory, "registration-keys"),
+                    ["Interpretation:Registration:SecretConfigurationPath"] = Path.Combine(directory, "registration-secret.json"),
+                    ["Interpretation:Registration:MailConfigurationPath"] = Path.Combine(directory, "registration-mail.json"),
+                    ["Interpretation:Registration:AvailabilityPolicyPath"] = Path.Combine(directory, "registration-availability.json"),
+                    ["Interpretation:Registration:OperatorRegistryPath"] = Path.Combine(directory, "registered-operators.json"),
                     ["Interpretation:OpenAI:ApiKey"] = "",
                 }));
             builder.ConfigureServices(services =>

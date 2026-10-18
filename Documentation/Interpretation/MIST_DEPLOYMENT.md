@@ -35,6 +35,81 @@ the complete current ledger, then repeat health checks.
 
 ## Accounting migration and availability
 
+### Scoped release activation and recovery
+
+`scripts/publish-web-app.sh [source-directory]` accepts an isolated source tree;
+omitting the argument retains the usual project path. Use a HEAD-based worktree
+containing only the approved changes. List committed differences from the live
+release before activation, as HEAD can include previously undeployed changes.
+Do not copy unrelated working-tree changes into the candidate.
+
+Set `FTITC_STAGE_ONLY=1` to test, publish and upload without activation. Preserve
+the active application configuration in the candidate. Prepare the status-email
+companion with the same runtime binaries while retaining its own configuration.
+Keep the activation scripts outside the directories they rename.
+
+The host-side `prepare-web-release.py prepare STATE --specification SPEC` saves
+the previous availability policy and accounting maintenance state before pausing.
+The protected specification names absolute active, candidate, backup and failed
+directories for both Web and status-email, the availability and ledger paths,
+a new data-backup directory, a compatibility-report path, and `backup_files`.
+Include the accounting and registration databases, public and both operator
+registries, generation presets, availability policies, tombstones, Data Protection
+keys and current executable/configuration directories. Run `backup STATE` after
+checking the recorded paths; it pauses admission, requires drained executions,
+stops the service, uses SQLite backup semantics, copies the remaining stores, and
+restarts the old service paused. A backup is evidence only: recovery never restores
+it over a newer production ledger.
+
+Rehearse on copies in a protected directory with a `.ftitc-rehearsal` marker.
+`scripts/DeploymentProbe` loads the chosen published executable in a separate
+process and redirects every store into that directory. Run its `initialize` mode
+with the candidate, `admit` with the previous executable, then `verify` with the
+candidate. The probe admits two invented public requests without calling a provider;
+one has a final summary and one does not. The copied public registry must contain
+the probe's installation ID. Verification requires both requests to be classified
+as public, eligible, and counted after candidate migration runs again. Review the
+preflight report for ambiguous classifications and lifetime-unresolved public
+installations. Such unresolved liabilities remain local to their installations
+across month boundaries.
+
+Only a successful rehearsal authorizes a compatibility report with
+`round_trip_passed=true`, `candidate_sha256`, `previous_sha256`, and
+`recovery_sha256`, plus `candidate_files` and `recovery_files` dependency hashes.
+If the previous executable fails, prepare and rehearse a compatible recovery
+build; configure its `recovery` and `incompatible` directories in the saved state.
+Without a compatible recovery executable, activation remains blocked.
+
+Run `prepare-web-release.py companion STATE` to stage the status-email runtime.
+Set `FTITC_ACTIVATE_ONLY=1`, the same `FTITC_RELEASE_ID`, and
+`FTITC_DEPLOYMENT_STATE` to the protected state path when activating through
+the publish script. This preserves the rehearsed binaries and host settings
+without publishing or uploading again. Alternatively, launch the host runner directly in a transient systemd
+unit. Activation must run with `Restart=on-abnormal` independently of SSH:
+
+```bash
+sudo systemd-run --unit=ftitc-web-activate-RELEASE --no-block \
+  --property=Type=exec --property=Restart=on-abnormal --property=RestartSec=5 \
+  --property=TimeoutStartSec=infinity \
+  /usr/bin/python3 /usr/local/sbin/ftitc-activate-web-release activate STATE
+```
+
+The runner records each phase before and after execution. Stop, rename, start,
+health and companion-update failures share the same recovery path. A rerun after
+an interrupted activation enters recovery. Manual recovery uses
+`python3 /usr/local/sbin/ftitc-activate-web-release recover STATE` and is idempotent.
+Recovery retains the complete ledger, checks executable compatibility and service
+health, then restores the previous availability and maintenance states. A failed
+recovery retains the generation pause and records its precise failing phase.
+
+Provision the public registry's persistent sibling `.lock` file with owner/group
+permissions allowing both `ftitc-web` and the administrative CLI to acquire it.
+Do not remove or replace that lock file. Test permissions on temporary paths using
+both identities before activation. Confirm internal structured health, public
+status, public exclusion of `/api/internal/health`, and accounted interpretation
+and Summary requests after activation; send the requested daily-status email
+through its actual standalone service configuration.
+
 Accounting is a generation prerequisite for every preset and task. Keep
 `Interpretation:UsageLog:Enabled` enabled and ensure every service instance uses the
 same writable SQLite database. Disabling or losing access to the database returns
@@ -358,8 +433,12 @@ delivery outbox. Unknown, expired, and consumed tokens share the same safe `410`
 Successful activation atomically consumes the activation token and queues a separate
 access-code email. The delivery worker provisions the Registered operator record before
 sending that email and reuses the same encrypted bearer code on retry. Transient delivery
-failures are retried at ten-minute intervals, up to five attempts, before the registration
-is marked failed for administrative follow-up. Pausing public
+failures are retried at ten-minute intervals, up to five attempts. A credential
+that was successfully provisioned remains active when email delivery fails; the
+failed delivery is reported separately. Resubmitting the registration after the
+configured cooldown requeues the same code to the original verified address with
+a new five-attempt delivery cycle. Sent, cancelled, scrubbed, revoked, mismatched,
+and never-provisioned access-code deliveries are not requeued. Pausing public
 registration stops new submissions but does not prevent activation or pending delivery;
 retiring hosted interpretation disables activation. Scrubbing cancels either message type
 and invalidates any pending activation token.

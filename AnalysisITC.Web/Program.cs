@@ -225,7 +225,7 @@ if (args.Length > 0 && InterpretationAdminCommands.IsCommandMode(args[0]))
 // Reconcile registrations created by older delivery flows without replacing their credentials.
 // Keep disabled registration completely inert so normal viewer/test hosts do not need its storage paths.
 if (registrationConfiguration.Enabled)
-    app.Services.GetRequiredService<SelfRegistrationStore>()
+    app.Services.GetRequiredService<RegistrationDeliveryOutbox>()
         .ReconcileActiveAccounts(app.Services.GetRequiredService<OperatorCodeRegistry>().List());
 
 // Caddy connects from loopback, which ForwardedHeadersMiddleware trusts by default.
@@ -405,12 +405,20 @@ app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<I
 
 app.MapPost("/api/interpretation/public-access", (HttpResponse response, PublicAccessRegistry publicAccess) =>
 {
-    var created = publicAccess.Create();
-    response.Headers.CacheControl = "no-store";
-    response.Headers.Pragma = "no-cache";
-    return Results.Json(new { publicAccessCode = created.Code, publicClientId = created.Record.Id },
-        contentType: "application/json", statusCode: StatusCodes.Status201Created,
-        options: new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+    try
+    {
+        var created = publicAccess.Create();
+        response.Headers.CacheControl = "no-store";
+        response.Headers.Pragma = "no-cache";
+        return Results.Json(new { publicAccessCode = created.Code, publicClientId = created.Record.Id },
+            contentType: "application/json", statusCode: StatusCodes.Status201Created,
+            options: new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+    }
+    catch (PublicAccessRegistryUnavailableException)
+    {
+        return Problem(StatusCodes.Status503ServiceUnavailable, "public_access_temporarily_unavailable",
+            "Public access is temporarily unavailable.", "Public access unavailable");
+    }
 }).DisableAntiforgery().RequireRateLimiting(InterpretationRateLimitPolicy);
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
@@ -666,16 +674,40 @@ app.MapPost("/api/interpretation/generate", async (
             ? Problem(403, accessCode, "The supplied public installation access code is invalid or revoked.", "Public access denied")
             : Problem(403, accessCode, "The supplied access code is invalid, expired, or revoked.", "Access denied");
     }
-    if (requestAuthentication.IsPublicClient)
-        app.Services.GetRequiredService<PublicAccessRegistry>().TryTouch(requestAuthentication.OperatorCodeId!);
-    if (!InterpretationGenerationSelector.TrySelect(request, result.Request!, options.Value, operatorRegistry, presetRegistry, out var selection, out var selectionError))
+    if (requestAuthentication.IsPublicClient && !app.Services.GetRequiredService<PublicAccessRegistry>().TryTouch(requestAuthentication.OperatorCodeId!))
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
+            "rejected", StatusCodes.Status403Forbidden, "public_client_access_denied");
+        return Problem(StatusCodes.Status403Forbidden, "public_client_access_denied", "The supplied public installation access code is invalid or revoked.", "Public access denied");
+    }
+    (int Status, string Code, string Detail) selectionError;
+    InterpretationGenerationSelection selection;
+    bool selected;
+    try { selected = InterpretationGenerationSelector.TrySelect(request, result.Request!, options.Value, operatorRegistry, presetRegistry, out selection, out selectionError); }
+    catch (Exception exception) when (exception is InvalidDataException || exception is IOException || exception is UnauthorizedAccessException || exception is System.Text.Json.JsonException)
+    {
+        var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
+            "rejected", StatusCodes.Status503ServiceUnavailable, unavailableCode);
+        return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
+            "Interpretation generation is temporarily unavailable because its configuration could not be read.", "Interpretation configuration unavailable");
+    }
+    if (!selected)
     {
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
         return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
     }
 
-    var tierMaximumBytes = presetRegistry.MaximumRequestBytes(selection.AccessTier);
+    long tierMaximumBytes;
+    try { tierMaximumBytes = presetRegistry.MaximumRequestBytes(selection.AccessTier); }
+    catch (Exception exception) when (exception is InvalidDataException || exception is IOException || exception is UnauthorizedAccessException || exception is System.Text.Json.JsonException)
+    {
+        var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
+        RecordRejectedAdmission(unavailableCode, StatusCodes.Status503ServiceUnavailable);
+        return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
+            "Interpretation generation is temporarily unavailable because its configuration could not be read.", "Interpretation configuration unavailable");
+    }
     if (result.BytesRead > tierMaximumBytes)
     {
         RecordRejectedAdmission("interpretation_tier_size_exceeded", StatusCodes.Status413PayloadTooLarge);
@@ -687,20 +719,6 @@ app.MapPost("/api/interpretation/generate", async (
                 ["requestBytes"] = result.BytesRead,
                 ["accessTier"] = InterpretationAccessTiers.DisplayName(selection.AccessTier),
             });
-    }
-
-    if (requestAuthentication.IsPublicClient)
-    {
-        PublicQuotaDecision publicQuota;
-        try { publicQuota = publicQuotaService.Check(requestAuthentication.OperatorCodeId); }
-        catch (Exception exception) when (exception is AccountingUnavailableException || exception is Microsoft.Data.Sqlite.SqliteException || exception is IOException)
-        { return Problem(503, "interpretation_public_accounting_unavailable", "Public interpretation accounting is temporarily unavailable.", "Public accounting unavailable"); }
-        if (!publicQuota.Allowed)
-        {
-            RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
-                "rejected", StatusCodes.Status429TooManyRequests, publicQuota.Code!);
-            return Problem(429, publicQuota.Code!, "The public interpretation allowance has been reached. Try again later.", "Public interpretation allowance reached");
-        }
     }
 
     var serviceAvailability = availability.Read();
@@ -725,23 +743,31 @@ app.MapPost("/api/interpretation/generate", async (
     // absent, but a generation must not proceed with an untracked charge.
     if (!usageStore.IsEnabled)
     {
+        var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId,
             result.Request?.ClientRequestId, "rejected", StatusCodes.Status503ServiceUnavailable,
-            "interpretation_accounting_unavailable");
-        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            unavailableCode);
+        return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
             "Interpretation generation is temporarily unavailable because usage accounting is disabled.",
             "Interpretation accounting unavailable");
     }
 
     InterpretationAdmissionResult admission;
-    InterpretationQuotaAdmissionPolicy admissionPolicy;
+    InterpretationAdmissionPolicy admissionPolicy;
     try
     {
-        admissionPolicy = quotaService.GetAdmissionPolicy(selection);
+        if (requestAuthentication.IsPublicClient)
+            admissionPolicy = publicQuotaService.GetAdmissionPolicy(requestAuthentication.OperatorCodeId!);
+        else
+        {
+            var operatorPolicy = quotaService.GetAdmissionPolicy(selection);
+            admissionPolicy = new(operatorPolicy.IsLimited, operatorPolicy.LimitUsd, operatorPolicy.SinceUtc, operatorPolicy.IsAvailable);
+        }
         if (!admissionPolicy.IsAvailable)
         {
-            RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
-            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
+            RecordRejectedAdmission(unavailableCode, StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
                 "Interpretation generation is temporarily unavailable because the authenticated account could not be read.",
                 "Interpretation accounting unavailable");
         }
@@ -768,14 +794,15 @@ app.MapPost("/api/interpretation/generate", async (
         Outcome = "admitted",
         RequestVersion = result.Request.RequestSchemaVersion,
             ResponseVersion = selection.ResponseSchemaVersion,
-        }, admissionPolicy.LimitUsd, admissionPolicy.SinceUtc);
+        }, admissionPolicy);
     }
     catch (Exception exception)
     {
         AnalysisInterpretationLog.Write("usage-admission-failed", serverExecutionId,
             $"type={exception.GetType().Name}");
-        RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
-        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+        var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
+        RecordRejectedAdmission(unavailableCode, StatusCodes.Status503ServiceUnavailable);
+        return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
             "Interpretation generation is temporarily unavailable because usage accounting is unavailable.",
             "Interpretation accounting unavailable");
     }
@@ -792,23 +819,37 @@ app.MapPost("/api/interpretation/generate", async (
                 "Interpretation generation is temporarily paused for accounting maintenance.",
                 "Interpretation accounting unavailable");
         case InterpretationAdmissionStatus.Busy:
+            if (string.Equals(admission.Reason, "public_concurrent", StringComparison.Ordinal))
+            {
+                RecordRejectedAdmission("interpretation_public_concurrent", StatusCodes.Status429TooManyRequests);
+                return Problem(StatusCodes.Status429TooManyRequests, "interpretation_public_concurrent",
+                    "Another interpretation is already running for this installation. Try again when it has completed.", "Interpretation already running");
+            }
             RecordRejectedAdmission("interpretation_quota_busy", StatusCodes.Status429TooManyRequests);
             return Problem(StatusCodes.Status429TooManyRequests, "interpretation_quota_busy",
                 "Another quota-limited interpretation is already running for this access code. Try again when it has completed.",
                 "Interpretation already running");
         case InterpretationAdmissionStatus.Exhausted:
+            if (admission.Reason is string publicLimitCode)
+            {
+                RecordRejectedAdmission(publicLimitCode, StatusCodes.Status429TooManyRequests);
+                return Problem(StatusCodes.Status429TooManyRequests, publicLimitCode, "The public interpretation allowance has been reached. Try again later.", "Public interpretation allowance reached");
+            }
             RecordRejectedAdmission("interpretation_quota_exhausted", StatusCodes.Status429TooManyRequests);
             return Problem(StatusCodes.Status429TooManyRequests, "interpretation_quota_exhausted",
                 "The monthly allowance for this interpretation depth has been used.",
                 "Monthly interpretation allowance used");
         case InterpretationAdmissionStatus.Unresolved:
-            RecordRejectedAdmission("interpretation_accounting_unresolved", StatusCodes.Status503ServiceUnavailable);
-            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unresolved",
+            var unresolvedCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unresolved" : "interpretation_accounting_unresolved";
+            var unresolvedStatus = requestAuthentication.IsPublicClient ? StatusCodes.Status429TooManyRequests : StatusCodes.Status503ServiceUnavailable;
+            RecordRejectedAdmission(unresolvedCode, unresolvedStatus);
+            return Problem(unresolvedStatus, unresolvedCode,
                 "Interpretation generation is temporarily unavailable because usage accounting needs reconciliation.",
                 "Interpretation accounting unresolved");
         case InterpretationAdmissionStatus.Unavailable:
-            RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
-            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            var unavailableCode = requestAuthentication.IsPublicClient ? "interpretation_public_accounting_unavailable" : "interpretation_accounting_unavailable";
+            RecordRejectedAdmission(unavailableCode, StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, unavailableCode,
                 "Interpretation generation is temporarily unavailable because usage accounting is unavailable.",
                 "Interpretation accounting unavailable");
         case InterpretationAdmissionStatus.Admitted:

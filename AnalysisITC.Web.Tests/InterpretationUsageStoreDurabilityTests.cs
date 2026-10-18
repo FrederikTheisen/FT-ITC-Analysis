@@ -116,6 +116,106 @@ public sealed class InterpretationUsageStoreDurabilityTests : IDisposable
         Assert.Equal(1, restarted.GetOperatorUsage("account", newMonth).UnresolvedCount);
     }
 
+    [Fact]
+    public void PublicUnresolvedLiabilityBlocksOnlyItsInstallationAcrossMonthBoundary()
+    {
+        Directory.CreateDirectory(directory);
+        var store = Store();
+        var oldMonth = new DateTime(2026, 8, 31, 23, 55, 0, DateTimeKind.Utc);
+        var first = new InterpretationUsageRequest { ServerExecutionId = "public-old", ClientRequestId = "old", OperatorCodeId = "install-a", AccessTier = "public", StartedUtc = oldMonth };
+        var limits = new PublicAdmissionLimits(10, oldMonth.AddDays(-1), 10m, 100, oldMonth.AddDays(-1), 100m, new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+        Assert.Equal(InterpretationAdmissionStatus.Admitted, store.TryAdmit(first, new(false, null, oldMonth, true, limits)).Status);
+        store.BeginAttempt("public-old", 1);
+        store.RecordAttempt(new InterpretationUsageAttempt { ServerExecutionId = "public-old", AttemptNumber = 1, BillingState = "unresolved", TimestampUtc = oldMonth, Outcome = "timeout" });
+        first.Outcome = "provider_error"; first.CompletedUtc = oldMonth; first.HttpStatus = 502; first.ProviderAttempts = 1;
+        store.FinalizeRequest(first);
+
+        var nextMonth = new DateTime(2026, 9, 1, 0, 5, 0, DateTimeKind.Utc);
+        var nextLimits = limits with { InstallationWindowStartUtc = nextMonth.AddDays(-1), GlobalWindowStartUtc = nextMonth.AddDays(-1), MonthStartUtc = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc) };
+        Assert.Equal(InterpretationAdmissionStatus.Unresolved, store.TryAdmit(new InterpretationUsageRequest { ServerExecutionId = "a-next", ClientRequestId = "a-next", OperatorCodeId = "install-a", AccessTier = "public", StartedUtc = nextMonth }, new(false, null, nextMonth, true, nextLimits)).Status);
+        var otherInstallation = new InterpretationUsageRequest { ServerExecutionId = "b-next", ClientRequestId = "b-next", OperatorCodeId = "install-b", AccessTier = "public", StartedUtc = nextMonth };
+        Assert.Equal(InterpretationAdmissionStatus.Admitted, store.TryAdmit(otherInstallation, new(false, null, nextMonth, true, nextLimits)).Status);
+        Assert.Equal(1, store.GetPublicUsage("install-a", nextMonth.AddDays(-1), nextLimits.MonthStartUtc).UnresolvedCount);
+        Assert.Equal(1, store.GetPublicUsage(null, nextMonth.AddDays(-1), nextLimits.MonthStartUtc).UnresolvedCount);
+        otherInstallation.Outcome="success"; otherInstallation.CompletedUtc=nextMonth; otherInstallation.HttpStatus=200; store.FinalizeRequest(otherInstallation);
+        store.BeginMaintenance("settle public liability"); store.Reconcile("public-old",1,.05m,false,"provider record confirms charge"); store.EndMaintenance();
+        var afterSettlement = new InterpretationUsageRequest { ServerExecutionId="a-after-settlement",ClientRequestId="a-after-settlement",OperatorCodeId="install-a",AccessTier="public",StartedUtc=nextMonth };
+        Assert.Equal(InterpretationAdmissionStatus.Admitted,store.TryAdmit(afterSettlement,new(false,null,nextMonth,true,nextLimits)).Status);
+        afterSettlement.Outcome="success"; afterSettlement.CompletedUtc=nextMonth; afterSettlement.HttpStatus=200; store.FinalizeRequest(afterSettlement);
+
+        var waived = new InterpretationUsageRequest { ServerExecutionId="public-waived",ClientRequestId="waived",OperatorCodeId="install-c",AccessTier="public",StartedUtc=nextMonth };
+        Assert.Equal(InterpretationAdmissionStatus.Admitted,store.TryAdmit(waived,new(false,null,nextMonth,true,nextLimits)).Status);
+        store.BeginAttempt("public-waived",1);
+        store.RecordAttempt(new InterpretationUsageAttempt { ServerExecutionId="public-waived",AttemptNumber=1,BillingState="unresolved",TimestampUtc=nextMonth,Outcome="timeout" });
+        waived.Outcome="provider_error"; waived.CompletedUtc=nextMonth; waived.HttpStatus=502; waived.ProviderAttempts=1;
+        store.FinalizeRequest(waived);
+        store.BeginMaintenance("waive unavailable public provider charge");
+        store.Reconcile("public-waived",1,null,false,"provider billing record unavailable","provider records are no longer available");
+        store.EndMaintenance();
+        var waivedUsage=store.GetPublicUsage("install-c",nextMonth.AddDays(-1),nextLimits.MonthStartUtc);
+        Assert.Equal(0,waivedUsage.UnresolvedCount);
+        Assert.Equal(0,store.GetPublicUsage(null,nextMonth.AddDays(-1),nextLimits.MonthStartUtc).UnresolvedCount);
+        Assert.Equal(InterpretationAdmissionStatus.Admitted,store.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="c-after-waiver",ClientRequestId="c-after-waiver",OperatorCodeId="install-c",AccessTier="public",StartedUtc=nextMonth },new(false,null,nextMonth,true,nextLimits)).Status);
+        using var waivedDb=store.OpenForCommand(); using var waivedQuery=waivedDb.CreateCommand();
+        waivedQuery.CommandText="SELECT waived_unknown_count FROM execution_usage WHERE request_id='public-waived'";
+        Assert.Equal(1L,(long)waivedQuery.ExecuteScalar()!);
+    }
+
+    [Fact]
+    public async Task CompetingStoresAdmitOnlyOnePublicRequestAtGlobalLimit()
+    {
+        Directory.CreateDirectory(directory);
+        var firstStore = Store(); var secondStore = Store();
+        var now = DateTime.UtcNow;
+        var limits = new PublicAdmissionLimits(20, now.AddDays(-1), 100m, 1, now.AddDays(-1), 100m, new DateTime(now.Year,now.Month,1,0,0,0,DateTimeKind.Utc));
+        var first = Task.Run(() => firstStore.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="public-one",ClientRequestId="one",OperatorCodeId="install-one",AccessTier="public",StartedUtc=now }, new(false,null,now,true,limits)));
+        var second = Task.Run(() => secondStore.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="public-two",ClientRequestId="two",OperatorCodeId="install-two",AccessTier="public",StartedUtc=now }, new(false,null,now,true,limits)));
+        var results = await Task.WhenAll(first,second);
+        Assert.Single(results, result => result.Status == InterpretationAdmissionStatus.Admitted);
+        Assert.Single(results, result => result.Status == InterpretationAdmissionStatus.Exhausted && result.Reason == "interpretation_public_global_request_limit");
+        Assert.Equal(1, firstStore.GetPublicUsage(null,now.AddDays(-1),limits.MonthStartUtc).RequestCount);
+    }
+
+    [Fact]
+    public async Task CompetingStoresAdmitOnlyOneActivePublicRequestPerInstallation()
+    {
+        Directory.CreateDirectory(directory);
+        var firstStore=Store(); var secondStore=Store(); var now=DateTime.UtcNow;
+        var limits=new PublicAdmissionLimits(10,now.AddDays(-1),100m,10,now.AddDays(-1),100m,new DateTime(now.Year,now.Month,1,0,0,0,DateTimeKind.Utc));
+        var first=Task.Run(()=>firstStore.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="install-one-a",ClientRequestId="a",OperatorCodeId="same-install",AccessTier="public",StartedUtc=now },new(false,null,now,true,limits)));
+        var second=Task.Run(()=>secondStore.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="install-one-b",ClientRequestId="b",OperatorCodeId="same-install",AccessTier="public",StartedUtc=now },new(false,null,now,true,limits)));
+        var results=await Task.WhenAll(first,second);
+        Assert.Single(results,result=>result.Status==InterpretationAdmissionStatus.Admitted);
+        Assert.Single(results,result=>result.Status==InterpretationAdmissionStatus.Busy && result.Reason=="public_concurrent");
+    }
+
+    [Fact]
+    public void PublicRequestCountLimitAndDuplicatePrecedenceAreDurable()
+    {
+        Directory.CreateDirectory(directory);
+        var store = Store(); var now = DateTime.UtcNow;
+        var limits = new PublicAdmissionLimits(1,now.AddDays(-1),100m,10,now.AddDays(-1),100m,new DateTime(now.Year,now.Month,1,0,0,0,DateTimeKind.Utc));
+        var first = new InterpretationUsageRequest { ServerExecutionId="public-first",ClientRequestId="same",OperatorCodeId="install",AccessTier="public",StartedUtc=now,Outcome="success",CompletedUtc=now,HttpStatus=200 };
+        Assert.Equal(InterpretationAdmissionStatus.Admitted,store.TryAdmit(first,new(false,null,now,true,limits)).Status);
+        store.FinalizeRequest(first);
+        Assert.Equal(InterpretationAdmissionStatus.Exhausted,store.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="public-next",ClientRequestId="next",OperatorCodeId="install",AccessTier="public",StartedUtc=now },new(false,null,now,true,limits)).Status);
+        store.BeginMaintenance("duplicate precedence test");
+        var duplicate = store.TryAdmit(new InterpretationUsageRequest { ServerExecutionId="public-duplicate",ClientRequestId="same",OperatorCodeId="install",AccessTier="public",StartedUtc=now },new(false,null,now,true,limits));
+        Assert.Equal(InterpretationAdmissionStatus.Duplicate,duplicate.Status);
+    }
+
+    [Fact]
+    public void RejectedPublicExecutionNeverConsumesRequestEligibility()
+    {
+        Directory.CreateDirectory(directory);
+        var store = Store(); var now = DateTime.UtcNow;
+        store.RecordRejectedRequest(new InterpretationUsageRequest { ServerExecutionId="public-rejected",ClientRequestId="bad",OperatorCodeId="install",AccessTier="public",StartedUtc=now,CompletedUtc=now,Outcome="rejected",HttpStatus=400 });
+        var usage = store.GetPublicUsage("install",now.AddDays(-1),new DateTime(now.Year,now.Month,1,0,0,0,DateTimeKind.Utc));
+        Assert.Equal(0,usage.RequestCount);
+        using var db = store.OpenForCommand(); using var query=db.CreateCommand(); query.CommandText="SELECT access_tier,request_count_eligible FROM executions WHERE execution_id='public-rejected'";
+        using var row=query.ExecuteReader(); Assert.True(row.Read()); Assert.Equal("public",row.GetString(0)); Assert.Equal(0,row.GetInt32(1));
+    }
+
     [Theory]
     [InlineData("instant", "interpretation")]
     [InlineData("standard", "summary")]

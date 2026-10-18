@@ -26,7 +26,10 @@ public sealed class RegistrationMailSender
         try
         {
             if (pending.Kind == RegistrationMessageKinds.AccessCode)
+            {
                 registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
+                outbox.MarkProvisioned(pending);
+            }
             var config = await ReadConfigAsync(cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
@@ -44,11 +47,11 @@ public sealed class RegistrationMailSender
                 return true;
             }
             if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return true; }
-            outbox.MarkSent(pending.RegistrationId, pending.Kind, DateTime.UtcNow); return true;
+                outbox.MarkSent(pending, DateTime.UtcNow); return true;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { RetryOrFail(pending, "delivery_timeout"); return true; }
         catch (HttpRequestException) { RetryOrFail(pending, "provider_unavailable"); return true; }
-        catch (InvalidDataException) { outbox.MarkFailed(pending.RegistrationId, "account_conflict"); return true; }
+        catch (InvalidDataException) { outbox.MarkFailed(pending, "account_conflict"); return true; }
     }
 
     internal static object RenderDiagnosticMessage(RegistrationOptions options, RegistrationMailConfiguration config, string kind)
@@ -141,8 +144,8 @@ public sealed class RegistrationMailSender
     {
         const int maximumAttempts = 5;
         var attempts = pending.Attempts + 1;
-        if (attempts >= maximumAttempts) outbox.MarkFailed(pending.RegistrationId, safeFailureCode);
-        else outbox.MarkRetry(pending.RegistrationId, attempts, DateTime.UtcNow.AddMinutes(10), safeFailureCode);
+        if (attempts >= maximumAttempts) outbox.MarkFailed(pending, safeFailureCode);
+        else outbox.MarkRetry(pending, attempts, DateTime.UtcNow.AddMinutes(10), safeFailureCode);
     }
 
     async Task<RegistrationMailConfiguration> ReadConfigAsync(CancellationToken cancellationToken)

@@ -121,6 +121,20 @@ public sealed class OperatorCodeRegistry
         return null;
     }
 
+    public bool HasMatchingActiveRegisteredCredential(string id, string code)
+    {
+        if (tombstones.Contains(id)) return false;
+        var record = ReadRegistrationStrict().SingleOrDefault(value => string.Equals(value.Id, id, StringComparison.Ordinal));
+        if (record is null || record.RevokedAtUtc is not null || (record.ExpiresAtUtc is not null && record.ExpiresAtUtc <= DateTime.UtcNow)) return false;
+        var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
+        try
+        {
+            var stored = Convert.FromHexString(record.CodeHash);
+            return stored.Length == supplied.Length && CryptographicOperations.FixedTimeEquals(stored, supplied);
+        }
+        catch (FormatException) { return false; }
+    }
+
     public IReadOnlyList<OperatorCodeRecord> List() => ReadCombinedStrict();
 
     public bool Revoke(string id)
@@ -206,18 +220,54 @@ public sealed class OperatorCodeRegistry
 
     List<OperatorCodeRecord> ReadCombinedStrict() => ReadStrict().Concat(ReadRegistrationStrict()).ToList();
 
+    public int ValidateConfiguredRegistryForHealth(bool registered)
+    {
+        var records = registered ? ReadRegistrationStrict() : ReadStrict();
+        ValidateRecords(records);
+        return records.Count;
+    }
+
+    public IReadOnlySet<string> ReadVerifiedOperatorCodeIds()
+    {
+        return ReadVerifiedOperatorCodeTiers().Keys.ToHashSet(StringComparer.Ordinal);
+    }
+
+    public IReadOnlyDictionary<string, string> ReadVerifiedOperatorCodeTiers()
+    {
+        var records = ReadCombinedStrict();
+        ValidateRecords(records);
+        return records.ToDictionary(record => record.Id, record => record.EffectiveAccessTier, StringComparer.Ordinal);
+    }
+
+    static void ValidateRecords(List<OperatorCodeRecord> records)
+    {
+        if (records.Any(record => record is null || string.IsNullOrWhiteSpace(record.Id) || record.Id.Length != 32
+                || !record.Id.All(Uri.IsHexDigit) || string.IsNullOrWhiteSpace(record.CodeHash) || record.CodeHash.Length != 64 || !record.CodeHash.All(Uri.IsHexDigit)
+                || (record.AccessTier is not null && !InterpretationAccessTiers.IsAssignable(record.AccessTier)))
+            || records.Select(record => record.Id).Distinct(StringComparer.Ordinal).Count() != records.Count)
+            throw new InvalidDataException("The operator-code registry contains invalid records.");
+    }
+
     List<OperatorCodeRecord> ReadRegistrationStrict()
     {
-        if (!File.Exists(registrationRegistryPath)) return new();
-        var value = JsonSerializer.Deserialize<List<OperatorCodeRecord>>(File.ReadAllText(registrationRegistryPath), JsonOptions);
-        return value ?? throw new InvalidDataException("The registration operator-code registry is invalid.");
+        return ReadRegistry(registrationRegistryPath, "The registration operator-code registry is invalid.");
     }
 
     List<OperatorCodeRecord> ReadStrict()
     {
-        if (!File.Exists(options.RegistryPath)) return new();
-        var value = JsonSerializer.Deserialize<List<OperatorCodeRecord>>(File.ReadAllText(options.RegistryPath), JsonOptions);
-        return value ?? throw new InvalidDataException("The operator-code registry is invalid.");
+        return ReadRegistry(options.RegistryPath, "The operator-code registry is invalid.");
+    }
+
+    static List<OperatorCodeRecord> ReadRegistry(string path, string invalidMessage)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return JsonSerializer.Deserialize<List<OperatorCodeRecord>>(stream, JsonOptions)
+                ?? throw new InvalidDataException(invalidMessage);
+        }
+        catch (FileNotFoundException) { return new(); }
+        catch (DirectoryNotFoundException) { return new(); }
     }
 
     void Write(List<OperatorCodeRecord> records)

@@ -50,6 +50,10 @@ public sealed class HealthCheckService
     HealthCheckGroup Interpretation()
     {
         var checks = new List<HealthCheckResult>();
+        checks.Add(CheckGenerationPresetRegistry());
+        checks.Add(CheckPublicAccessRegistry());
+        checks.Add(CheckOperatorRegistry(false));
+        checks.Add(CheckOperatorRegistry(true));
         var policy = interpretation.Read();
         if (!options.Enabled || policy.Status is "paused" or "retired" || !policy.IsAvailable)
         {
@@ -60,12 +64,42 @@ public sealed class HealthCheckService
 
         checks.Add(CheckConfiguration());
         checks.Add(CheckUsageDatabase());
+        return new("Interpretation", checks);
+    }
+
+    HealthCheckResult CheckGenerationPresetRegistry()
+    {
+        try { _ = new GenerationPresetRegistry(Microsoft.Extensions.Options.Options.Create(options)).Read(); return HealthCheckResult.Pass("interpretation.presets", "Generation presets"); }
+        catch (Exception ex) { return HealthCheckResult.Fail("interpretation.presets", "Generation presets", SafeReason(ex)); }
+    }
+
+    HealthCheckResult CheckPublicAccessRegistry()
+    {
         try
         {
-            checks.Add(HealthCheckResult.Pass("interpretation.registry", "Interpretation registries", "configuration registries are readable"));
+            var registry = new PublicAccessRegistry(Microsoft.Extensions.Options.Options.Create(options));
+            _ = registry.List();
+            return registry.TouchLockTimeoutCount > 0
+                ? HealthCheckResult.Warning("interpretation.public-access", "Public access registry", "one or more last-use updates timed out")
+                : HealthCheckResult.Pass("interpretation.public-access", "Public access registry");
         }
-        catch (Exception ex) { checks.Add(HealthCheckResult.Fail("interpretation.registry", "Interpretation registries", SafeReason(ex))); }
-        return new("Interpretation", checks);
+        catch (Exception ex) { return HealthCheckResult.Fail("interpretation.public-access", "Public access registry", SafeReason(ex)); }
+    }
+
+    HealthCheckResult CheckOperatorRegistry(bool registered)
+    {
+        var id = registered ? "interpretation.registered-operators" : "interpretation.operator-codes";
+        var name = registered ? "Registered operator codes" : "Operator codes";
+        try
+        {
+            var registry = new OperatorCodeRegistry(Microsoft.Extensions.Options.Options.Create(options),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<OperatorCodeRegistry>.Instance,
+                new OperatorTombstoneRegistry(Microsoft.Extensions.Options.Options.Create(options)),
+                new PublicAccessRegistry(Microsoft.Extensions.Options.Options.Create(options)));
+            _ = registry.ValidateConfiguredRegistryForHealth(registered);
+            return HealthCheckResult.Pass(id, name);
+        }
+        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
     }
 
     HealthCheckResult CheckConfiguration()

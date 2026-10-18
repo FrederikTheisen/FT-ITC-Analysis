@@ -233,14 +233,24 @@ public sealed class ViewerUploadTransferEndpointTests
 
     sealed class TransferFactory(TimeProvider time) : WebApplicationFactory<Program>
     {
+        readonly string directory = Path.Combine(Path.GetTempPath(), "ftitc-upload-transfer-" + Guid.NewGuid().ToString("N"));
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            Directory.CreateDirectory(directory);
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ViewerUpload:QueueLimit"] = "0",
                 ["ViewerUpload:TransferTimeoutSeconds"] = "1",
             }));
             builder.ConfigureTestServices(services => services.AddSingleton(time));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
         }
     }
 

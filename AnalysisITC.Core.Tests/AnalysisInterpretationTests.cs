@@ -816,6 +816,61 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task IssuedPublicAccessCodeIsPersistedWhenTheOptionsRequestIsCancelled()
+    {
+        var originalPublic = AppSettings.InterpretationPublicClientCode;
+        var originalOperator = AppSettings.InterpretationOperatorCode;
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            AppSettings.InterpretationPublicClientCode = "";
+            AppSettings.InterpretationOperatorCode = "";
+            var client = Client(new CancelAfterPublicCodeIssuedHandler(cancellation));
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => client.GetInterpretationOptionsAsync("", cancellation.Token));
+
+            Assert.Equal("ftitc_pub_persisted_after_close", AppSettings.InterpretationPublicClientCode);
+        }
+        finally
+        {
+            AppSettings.InterpretationPublicClientCode = originalPublic;
+            AppSettings.InterpretationOperatorCode = originalOperator;
+        }
+    }
+
+    [Fact]
+    public async Task PublicCodeIsPersistedWhenEnrollmentResponseArrivesAfterCallerCancellation()
+    {
+        const string issuedCode = "ftitc_pub_persisted_after_inflight_cancel";
+        var originalPublic = AppSettings.InterpretationPublicClientCode;
+        var originalOperator = AppSettings.InterpretationOperatorCode;
+        using var cancellation = new CancellationTokenSource();
+        var handler = new DelayedPublicEnrollmentHandler(issuedCode);
+        try
+        {
+            AppSettings.InterpretationPublicClientCode = "";
+            AppSettings.InterpretationOperatorCode = "";
+            var client = Client(handler);
+
+            var optionsRequest = client.GetInterpretationOptionsAsync("", cancellation.Token);
+            await handler.EnrollmentStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+            handler.ReleaseEnrollmentResponse();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => optionsRequest);
+            Assert.Equal(issuedCode, AppSettings.InterpretationPublicClientCode);
+            Assert.Equal(1, handler.IssuanceCalls);
+        }
+        finally
+        {
+            handler.ReleaseEnrollmentResponse();
+            AppSettings.InterpretationPublicClientCode = originalPublic;
+            AppSettings.InterpretationOperatorCode = originalOperator;
+        }
+    }
+
+    [Fact]
     public async Task RemovingVerifiedCodeReturnsToStoredPublicIdentity()
     {
         var originalPublic = AppSettings.InterpretationPublicClientCode;
@@ -1351,6 +1406,49 @@ public sealed class AnalysisInterpretationTests
             {
                 Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-6.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
+        }
+    }
+
+    sealed class CancelAfterPublicCodeIssuedHandler : HttpMessageHandler
+    {
+        readonly CancellationTokenSource cancellation;
+        public CancelAfterPublicCodeIssuedHandler(CancellationTokenSource cancellation) => this.cancellation = cancellation;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/public-access")
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+                { Content = new StringContent("{\"publicAccessCode\":\"ftitc_pub_persisted_after_close\",\"publicClientId\":\"public-1\"}", Encoding.UTF8, "application/json") });
+            cancellation.Cancel();
+            throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+    sealed class DelayedPublicEnrollmentHandler : HttpMessageHandler
+    {
+        readonly string issuedCode;
+        readonly TaskCompletionSource<HttpResponseMessage> enrollmentResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource EnrollmentStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int IssuanceCalls { get; private set; }
+
+        public DelayedPublicEnrollmentHandler(string issuedCode) => this.issuedCode = issuedCode;
+
+        public void ReleaseEnrollmentResponse() => enrollmentResponse.TrySetResult(new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent("{\"publicAccessCode\":\"" + issuedCode + "\",\"publicClientId\":\"public-1\"}", Encoding.UTF8, "application/json"),
+        });
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/public-access")
+            {
+                IssuanceCalls++;
+                EnrollmentStarted.TrySetResult();
+                // Deliberately do not observe the caller token: after dispatch the server may
+                // have issued a credential and the response must be persisted before returning.
+                return await enrollmentResponse.Task.ConfigureAwait(false);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return OptionsResponse();
         }
     }
 

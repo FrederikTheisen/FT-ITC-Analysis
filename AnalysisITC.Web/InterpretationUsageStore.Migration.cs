@@ -6,6 +6,7 @@ namespace AnalysisITC.Web;
 public sealed partial class InterpretationUsageStore
 {
     const string LegacyMigrationName = "legacy-usage-v1-v4-to-v6";
+    const string ActivationBlockerPredicate = "i.blocking=1 AND NOT (i.kind IN ('unknown_attempt_cost','aggregate_mismatch','unknown_request_cost') AND EXISTS(SELECT 1 FROM migration_execution_map m JOIN executions e ON e.execution_id=m.execution_id WHERE m.legacy_key=i.legacy_key AND e.access_tier='public'))";
     const string HistoricalLossReport = "Historical usage rows surviving migration are preserved; any history already lost through legacy INSERT OR REPLACE cannot be reconstructed from this database and requires an external backup or provider record.";
 
     void MigrateLegacyTransactional(SqliteConnection db, SqliteTransaction tx)
@@ -24,6 +25,8 @@ public sealed partial class InterpretationUsageStore
             var execution = GetOrCreateExecution(db, tx, "request:" + request.LegacyRequestId,
                 request.ClientRequestId ?? request.LegacyRequestId, request.OperatorCodeId, request.TaskType,
                 request.EffectivePreset, request.StartedUtc, request.CompletedUtc, "migrated");
+            using (var classification = Cmd(db, tx, "UPDATE executions SET access_tier=(SELECT access_tier FROM requests WHERE request_id=$legacy),request_count_eligible=CASE WHEN (SELECT access_tier FROM requests WHERE request_id=$legacy) IS NOT NULL AND (SELECT access_tier FROM requests WHERE request_id=$legacy)<>'' THEN 1 ELSE 0 END WHERE execution_id=$execution AND (access_tier IS NULL OR request_count_eligible IS NULL)"))
+            { Add(classification, "$legacy", request.LegacyRequestId); Add(classification, "$execution", execution); classification.ExecuteNonQuery(); }
             MigrateRequest(db, tx, request, execution, attempts.Where(item => item.LegacyRequestId == request.LegacyRequestId).ToList());
         }
 
@@ -41,9 +44,38 @@ public sealed partial class InterpretationUsageStore
         }
 
         RecordIssue(db, tx, "migration", "historical_loss", HistoricalLossReport, blocking: false);
-        using (var version = Cmd(db, tx, "UPDATE schema_info SET version=6")) version.ExecuteNonQuery();
+        using (var version = Cmd(db, tx, "UPDATE schema_info SET version=7")) version.ExecuteNonQuery();
         using var state = Cmd(db, tx, "INSERT INTO migration_state(name,completed_utc,limitation_report) VALUES($name,$time,$report)");
         Add(state, "$name", LegacyMigrationName); Add(state, "$time", Iso(DateTime.UtcNow)); Add(state, "$report", HistoricalLossReport); state.ExecuteNonQuery();
+    }
+
+    static void BackfillClassification(SqliteConnection db, SqliteTransaction tx, IReadOnlySet<string> verifiedPublicIds, IReadOnlyDictionary<string,string> verifiedOperatorTiers)
+    {
+        // Lifecycle is authoritative for rows created by the current writer.
+        using (var lifecycle = Cmd(db, tx, "UPDATE executions SET request_count_eligible=CASE WHEN lifecycle IN ('admitted','finalized','recovered') THEN 1 ELSE 0 END WHERE request_count_eligible IS NULL")) lifecycle.ExecuteNonQuery();
+        // Surviving summaries are evidence for older admitted executions. Never
+        // infer Public from an identifier shape or from request outcome alone.
+        using (var summary = Cmd(db, tx, "UPDATE executions SET access_tier=(SELECT access_tier FROM requests WHERE requests.execution_id=executions.execution_id) WHERE access_tier IS NULL AND EXISTS(SELECT 1 FROM requests WHERE requests.execution_id=executions.execution_id AND access_tier IS NOT NULL AND access_tier<>'')")) summary.ExecuteNonQuery();
+        foreach (var id in verifiedPublicIds)
+        {
+            using (var publicIdentity = Cmd(db, tx, "UPDATE executions SET access_tier='public',request_count_eligible=CASE WHEN lifecycle IN ('admitted','finalized','recovered','migrated') THEN 1 ELSE 0 END WHERE operator_code_id=$id AND (access_tier IS NULL OR access_tier='migration_blocked')"))
+            { Add(publicIdentity, "$id", id); publicIdentity.ExecuteNonQuery(); }
+            using (var requestTier = Cmd(db, tx, "UPDATE requests SET access_tier='public' WHERE execution_id IN (SELECT execution_id FROM executions WHERE operator_code_id=$id AND access_tier='public') AND (access_tier IS NULL OR access_tier='')"))
+            { Add(requestTier, "$id", id); requestTier.ExecuteNonQuery(); }
+            using (var resolved = Cmd(db, tx, "DELETE FROM migration_issues WHERE legacy_key IN (SELECT 'execution:'||execution_id FROM executions WHERE operator_code_id=$id AND access_tier='public') AND kind='migration_blocked'"))
+            { Add(resolved, "$id", id); resolved.ExecuteNonQuery(); }
+        }
+        foreach (var (id, tier) in verifiedOperatorTiers.Where(pair => !verifiedPublicIds.Contains(pair.Key)))
+        {
+            using var operatorIdentity = Cmd(db, tx, "UPDATE executions SET access_tier=$tier,request_count_eligible=CASE WHEN lifecycle IN ('admitted','finalized','recovered','migrated') THEN 1 ELSE 0 END WHERE operator_code_id=$id AND (access_tier IS NULL OR access_tier='migration_blocked')");
+            Add(operatorIdentity, "$id", id); Add(operatorIdentity, "$tier", tier); operatorIdentity.ExecuteNonQuery();
+            using var resolved = Cmd(db, tx, "DELETE FROM migration_issues WHERE legacy_key IN (SELECT 'execution:'||execution_id FROM executions WHERE operator_code_id=$id AND access_tier=$tier) AND kind='migration_blocked'");
+            Add(resolved, "$id", id); Add(resolved, "$tier", tier); resolved.ExecuteNonQuery();
+        }
+        using (var migrated = Cmd(db, tx, "UPDATE executions SET request_count_eligible=CASE WHEN access_tier IS NOT NULL AND access_tier NOT IN ('','migration_blocked') THEN 1 ELSE 0 END WHERE lifecycle='migrated'")) migrated.ExecuteNonQuery();
+        using (var unknown = Cmd(db, tx, "UPDATE executions SET access_tier='migration_blocked',request_count_eligible=0 WHERE access_tier IS NULL OR access_tier=''")) unknown.ExecuteNonQuery();
+        using (var issue = Cmd(db, tx, "INSERT OR IGNORE INTO migration_issues(legacy_key,kind,details,blocking,recorded_utc) SELECT 'execution:'||execution_id,'migration_blocked','Historical execution has no verified access classification; retained as non-public and excluded from public quotas.',0,$time FROM executions WHERE access_tier='migration_blocked'"))
+        { Add(issue, "$time", Iso(DateTime.UtcNow)); issue.ExecuteNonQuery(); }
     }
 
     void MigrateRequest(SqliteConnection db, SqliteTransaction tx, LegacyRequest request, string execution, IReadOnlyList<LegacyAttempt> attempts)
@@ -172,7 +204,7 @@ public sealed partial class InterpretationUsageStore
     public InterpretationMigrationStatus ReadMigrationStatus()
     {
         EnsureEnabled(); EnsureInitialized(); using var db = Open();
-        using var query = db.CreateCommand(); query.CommandText = "SELECT count(*) FROM migration_issues WHERE blocking=1";
+        using var query = db.CreateCommand(); query.CommandText = "SELECT count(*) FROM migration_issues i WHERE " + ActivationBlockerPredicate;
         var blockers = Convert.ToInt32(query.ExecuteScalar(), CultureInfo.InvariantCulture);
         using var state = db.CreateCommand(); state.CommandText = "SELECT completed_utc,limitation_report FROM migration_state WHERE name=$name"; Add(state, "$name", LegacyMigrationName);
         using var reader = state.ExecuteReader(); return reader.Read() ? new(true, blockers, ParseUtc(reader.GetString(0)), reader.GetString(1)) : new(false, blockers, null, null);
@@ -187,13 +219,13 @@ public sealed partial class InterpretationUsageStore
 
     static bool MigrationActivationBlocked(SqliteConnection db, SqliteTransaction tx)
     {
-        using var query = Cmd(db, tx, "SELECT count(*) FROM migration_issues WHERE blocking=1");
+        using var query = Cmd(db, tx, "SELECT count(*) FROM migration_issues i WHERE " + ActivationBlockerPredicate);
         return Convert.ToInt32(query.ExecuteScalar(), CultureInfo.InvariantCulture) > 0;
     }
 
     bool MigrationActivationBlocked()
     {
-        EnsureInitialized(); using var db = Open(); using var query = db.CreateCommand(); query.CommandText = "SELECT count(*) FROM migration_issues WHERE blocking=1";
+        EnsureInitialized(); using var db = Open(); using var query = db.CreateCommand(); query.CommandText = "SELECT count(*) FROM migration_issues i WHERE " + ActivationBlockerPredicate;
         return Convert.ToInt32(query.ExecuteScalar(), CultureInfo.InvariantCulture) > 0;
     }
 

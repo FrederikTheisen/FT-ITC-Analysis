@@ -43,9 +43,8 @@ public sealed class GenerationPresetRegistry
     public GenerationPresetConfiguration Read()
     {
         var path = options.OperatorAccess.PresetRegistryPath;
-        var value = File.Exists(path)
-            ? JsonSerializer.Deserialize<GenerationPresetConfiguration>(File.ReadAllText(path), JsonOptions)
-            : Defaults();
+        var text = ReadConfiguredText(path);
+        var value = text is null ? Defaults() : JsonSerializer.Deserialize<GenerationPresetConfiguration>(text, JsonOptions);
         value = Upgrade(value ?? throw new InvalidDataException("The generation-preset registry is invalid."));
         Validate(value);
         return value;
@@ -146,10 +145,18 @@ public sealed class GenerationPresetRegistry
     public void EnsureFile()
     {
         var path = options.OperatorAccess.PresetRegistryPath;
-        if (!File.Exists(path)) { Write(Defaults()); return; }
-        var stored = JsonSerializer.Deserialize<GenerationPresetConfiguration>(File.ReadAllText(path), JsonOptions)
+        var text = ReadConfiguredText(path);
+        if (text is null) { Write(Defaults()); return; }
+        var stored = JsonSerializer.Deserialize<GenerationPresetConfiguration>(text, JsonOptions)
             ?? throw new InvalidDataException("The generation-preset registry is invalid.");
         if (stored.SchemaVersion < CurrentSchemaVersion) Write(Upgrade(stored));
+    }
+
+    static string? ReadConfiguredText(string path)
+    {
+        try { return File.ReadAllText(path); }
+        catch (FileNotFoundException) { return null; }
+        catch (DirectoryNotFoundException) { return null; }
     }
 
     void Validate(GenerationPresetConfiguration value)

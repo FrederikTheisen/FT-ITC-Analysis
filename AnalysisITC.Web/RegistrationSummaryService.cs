@@ -15,7 +15,9 @@ public sealed record RegistrationSummaryReport(
     RegistrationSummaryStatus Status,
     IReadOnlyDictionary<string, long> AllTimeByState,
     IReadOnlyDictionary<string, long> PreviousDayByState,
-    string? Detail = null)
+    string? Detail = null,
+    long PendingAccessCodeDeliveries = 0,
+    long FailedAccessCodeDeliveries = 0)
 {
     internal static readonly HashSet<string> KnownStates = new(StringComparer.Ordinal)
     {
@@ -26,13 +28,14 @@ public sealed record RegistrationSummaryReport(
     public long ActiveAccounts => Count("active");
     public long EmailVerified => Count("activating") + Count("active");
     public long AwaitingEmailVerification => Count("pending") + Count("activation-sent");
-    public long AccessCodeDeliveryPending => Count("activating");
+    public long AccessCodeDeliveryPending => PendingAccessCodeDeliveries;
+    public long AccessCodeDeliveryFailed => FailedAccessCodeDeliveries;
     public long Failed => Count("failed");
     public long Scrubbed => Count("scrubbed");
     public long Unknown => AllTimeByState.Where(pair => !KnownStates.Contains(pair.Key)).Sum(pair => pair.Value);
     public long PreviousDayCreated => PreviousDayByState.Values.Sum();
     public bool HasAttention => Status == RegistrationSummaryStatus.Unavailable
-        || Unknown > 0 || AccessCodeDeliveryPending > 0;
+        || Unknown > 0 || AccessCodeDeliveryPending > 0 || AccessCodeDeliveryFailed > 0;
 
     long Count(string state) => AllTimeByState.TryGetValue(state, out var count) ? count : 0;
 }
@@ -77,12 +80,28 @@ public sealed class RegistrationSummaryService
             connection.Open();
             var allTime = ReadCounts(connection, null, null);
             var previousDay = ReadCounts(connection, start, end);
-            return new(RegistrationSummaryStatus.Available, allTime, previousDay);
+            var deliveries = ReadAccessCodeDeliveryCounts(connection);
+            return new(RegistrationSummaryStatus.Available, allTime, previousDay, null,
+                deliveries.HasTable ? deliveries.Pending : (allTime.TryGetValue("activating", out var activating) ? activating : 0), deliveries.Failed);
         }
         catch (SqliteException) { return Unavailable(); }
         catch (IOException) { return Unavailable(); }
         catch (UnauthorizedAccessException) { return Unavailable(); }
         catch (InvalidOperationException) { return Unavailable(); }
+    }
+
+    static (long Pending, long Failed, bool HasTable) ReadAccessCodeDeliveryCounts(SqliteConnection connection)
+    {
+        using (var exists = connection.CreateCommand())
+        {
+            exists.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name='registration_delivery'";
+            if (exists.ExecuteScalar() is null) return (0, 0, false);
+        }
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT SUM(CASE WHEN state='pending' THEN 1 ELSE 0 END),SUM(CASE WHEN state='failed' THEN 1 ELSE 0 END) FROM registration_delivery WHERE kind='access-code'";
+        using var reader = command.ExecuteReader();
+        reader.Read();
+        return (reader.IsDBNull(0) ? 0 : reader.GetInt64(0), reader.IsDBNull(1) ? 0 : reader.GetInt64(1), true);
     }
 
     static IReadOnlyDictionary<string, long> ReadCounts(SqliteConnection connection, DateTime? start, DateTime? end)

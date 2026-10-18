@@ -146,6 +146,7 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string,string?>
             {
                 ["Interpretation:Enabled"] = "true",
@@ -156,6 +157,15 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
                 ["Interpretation:OperatorAccess:PresetRegistryPath"] = Path.Combine(directory, "presets.json"),
                 ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
                 ["Interpretation:AvailabilityPolicyPath"] = Path.Combine(directory, "availability.json"),
+                ["Interpretation:StatusEmailConfigurationPath"] = Path.Combine(directory, "status-email.json"),
+                ["Interpretation:TombstonePath"] = Path.Combine(directory, "tombstones.json"),
+                ["Interpretation:Registration:Enabled"] = "false",
+                ["Interpretation:Registration:DatabasePath"] = Path.Combine(directory, "registration.db"),
+                ["Interpretation:Registration:DataProtectionKeysPath"] = Path.Combine(directory, "registration-keys"),
+                ["Interpretation:Registration:SecretConfigurationPath"] = Path.Combine(directory, "registration-secret.json"),
+                ["Interpretation:Registration:MailConfigurationPath"] = Path.Combine(directory, "registration-mail.json"),
+                ["Interpretation:Registration:AvailabilityPolicyPath"] = Path.Combine(directory, "registration-availability.json"),
+                ["Interpretation:Registration:OperatorRegistryPath"] = Path.Combine(directory, "registered-operators.json"),
                 ["Interpretation:RateLimit:PermitLimit"] = "100",
             }));
             builder.ConfigureServices(services =>

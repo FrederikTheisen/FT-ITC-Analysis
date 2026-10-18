@@ -407,7 +407,7 @@ Completed structuring, electrostatics, and protonation results are included when
 
 # Access and request size
 
-Without a verified account code, generation uses **Fast**. Verify a code in Interpretation Preferences to access any additional presets, view quota, and choose **Interpretation depth**. Request extended access at https://ft-itc.org/register and complete email verification. Keep the access code confidential; contact support@ft-itc.org if it is exposed or does not arrive.
+Without a verified account code, generation uses **Fast**. Verify a code in Interpretation Preferences to access any additional presets, view quota, and choose **Interpretation depth**. Request extended access at https://ft-itc.org/register and complete email verification. If access-code delivery fails, resubmit the form with the same email address to retry delivery of the same code; a resend cooldown applies. Keep the code confidential; contact support@ft-itc.org if it is exposed or still does not arrive.
 
 The dialog shows package size against your request limit and blocks oversized requests. Selected thermograms are not silently dropped. On failure, note the error and use **Copy Support Report** when contacting support.
 

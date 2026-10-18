@@ -202,6 +202,7 @@ public sealed class DailyStatusEmail
                         lines.Add($"  Active accounts: {summary.ActiveAccounts}");
                         lines.Add($"  Awaiting confirmation: {summary.AwaitingEmailVerification}");
                         lines.Add($"  Access-code delivery pending: {summary.AccessCodeDeliveryPending}");
+                        lines.Add($"  Access-code delivery failed: {summary.AccessCodeDeliveryFailed}");
                         lines.Add($"  Failed registrations: {summary.Failed}");
                         lines.Add($"  Scrubbed records: {summary.Scrubbed}");
                         lines.Add($"  Unknown states: {summary.Unknown}");

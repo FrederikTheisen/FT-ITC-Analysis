@@ -1,7 +1,13 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Reflection;
 
 using Avalonia;
 using Avalonia.Automation;
@@ -27,6 +33,9 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class PreferencesTests
 {
+    public PreferencesTests() => PreferencesWindow.InterpretationHttpClientFactory =
+        () => new HttpClient(new PreferencesHttpHandler());
+
     [AvaloniaFact]
     public void RegistrationButtonShowsUntilAccessIsVerified()
     {
@@ -40,6 +49,142 @@ public sealed class PreferencesTests
         window.LoadState(state);
         Assert.True(window.RegisterInterpretationButton.IsVisible);
     }
+
+    [AvaloniaFact]
+    public async Task PublicOptionsResponseAfterWindowClosureDoesNotUpdateWindowButIssuedCodeIsSaved()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var originalFactory = PreferencesWindow.InterpretationHttpClientFactory;
+        PreferencesWindow? window = null;
+        var handler = new ClosingOptionsHandler();
+        try
+        {
+            PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+            PreferencesState.Defaults().ApplyToSettings();
+            AppSettings.InterpretationPublicClientCode = "";
+            PreferencesWindow.InterpretationHttpClientFactory = () => new HttpClient(handler);
+            window = new PreferencesWindow();
+            await window.WaitForInterpretationOperationsAsync();
+            AppSettings.InterpretationPublicClientCode = "";
+            var optionsBeforeClose = typeof(PreferencesWindow).GetField("interpretationOptions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window);
+
+            var refresh = window.RefreshPublicInterpretationOptionsAsync();
+            await handler.DelayedOptionsRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            window.Close();
+            handler.ReleaseDelayedOptions();
+            await refresh;
+            await window.WaitForInterpretationOperationsAsync();
+
+            Assert.Equal("ftitc_pub_issued_for_closed_window", AppSettings.InterpretationPublicClientCode);
+            Assert.Same(optionsBeforeClose, typeof(PreferencesWindow).GetField("interpretationOptions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window));
+        }
+        finally
+        {
+            handler.ReleaseDelayedOptions();
+            window?.Close();
+            await (window?.WaitForInterpretationOperationsAsync() ?? Task.CompletedTask);
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+            PreferencesWindow.InterpretationHttpClientFactory = originalFactory;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LateVerificationDenialCannotClearCredentialsAfterPreferencesReload()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var originalFactory = PreferencesWindow.InterpretationHttpClientFactory;
+        PreferencesWindow? window = null;
+        var handler = new LateDenialHandler();
+        try
+        {
+            PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+            PreferencesState.Defaults().ApplyToSettings();
+            AppSettings.InterpretationOperatorCode = "pending-code";
+            AppSettings.PersistInterpretationAccessVerification("pending-code", CachedOptions());
+            PreferencesWindow.InterpretationHttpClientFactory = () => new HttpClient(handler);
+            window = new PreferencesWindow();
+            await window.WaitForInterpretationOperationsAsync();
+
+            var verify = window.VerifyInterpretationAccessAsync();
+            await handler.DenialRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            window.LoadState(PreferencesState.FromSettings());
+            await window.WaitForInterpretationOperationsAsync();
+            handler.ReleaseDenial();
+            await verify;
+
+            Assert.True(AppSettings.InterpretationAccessVerified);
+            Assert.False(window.RegisterInterpretationButton.IsVisible);
+            var verifyButton = (Button)typeof(PreferencesWindow).GetField("verifyInterpretationAccessButton",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            Assert.True(verifyButton.IsEnabled);
+            var status = (TextBlock)typeof(PreferencesWindow).GetField("interpretationAccessStatus",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            Assert.StartsWith("Access: Verified (cached", status.Text);
+        }
+        finally
+        {
+            handler.ReleaseDenial();
+            window?.Close();
+            if (window != null) await window.WaitForInterpretationOperationsAsync();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+            PreferencesWindow.InterpretationHttpClientFactory = originalFactory;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task SupersededPublicOptionsResponseCannotReplaceNewerOptions()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var originalFactory = PreferencesWindow.InterpretationHttpClientFactory;
+        PreferencesWindow? window = null;
+        var handler = new SupersededOptionsHandler();
+        try
+        {
+            PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+            PreferencesState.Defaults().ApplyToSettings();
+            AppSettings.InterpretationPublicClientCode = "ftitc_pub_saved_for_test";
+            PreferencesWindow.InterpretationHttpClientFactory = () => new HttpClient(handler);
+            window = new PreferencesWindow();
+            await window.WaitForInterpretationOperationsAsync();
+            handler.DelayNextOptions();
+
+            var stale = window.RefreshPublicInterpretationOptionsAsync();
+            await handler.DelayedOptionsRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var current = window.RefreshPublicInterpretationOptionsAsync();
+            await current;
+            handler.ReleaseDelayedOptions();
+            await stale;
+
+            var options = (InterpretationOperatorOptionsResponse)typeof(PreferencesWindow).GetField("interpretationOptions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            Assert.Equal("newer", options.Presets.Single().Id);
+        }
+        finally
+        {
+            handler.ReleaseDelayedOptions();
+            window?.Close();
+            if (window != null) await window.WaitForInterpretationOperationsAsync();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+            PreferencesWindow.InterpretationHttpClientFactory = originalFactory;
+        }
+    }
+
+    static InterpretationOperatorOptionsResponse CachedOptions() => new()
+    {
+        AccessTier = "standard", Mode = "presets", AccessDetails = new() { Name = "Test" },
+        Presets = new() { new() { Id = "instant", Name = "Instant" } }, Models = new(), GuidanceVariants = new()
+    };
 
     [AvaloniaFact]
     public void TraceabilityControlsLoadAndStageWithoutDiscardingTheImportPromptChoice()
@@ -450,7 +595,7 @@ public sealed class PreferencesTests
     [InlineData("standard", "presets")]
     [InlineData("advanced", "presets")]
     [InlineData("administrator", "custom")]
-    public void SavedAccessSurvivesOpeningApplyingAndReopeningPreferences(string tier, string mode)
+    public async Task SavedAccessSurvivesOpeningApplyingAndReopeningPreferences(string tier, string mode)
     {
         var original = PreferencesState.FromSettings();
         var originalStore = PlatformServices.SettingsStore;
@@ -489,6 +634,7 @@ public sealed class PreferencesTests
                 window = new PreferencesWindow();
                 window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 4;
                 window.Show();
+                await window.WaitForInterpretationOperationsAsync();
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(window.RegisterInterpretationButton.IsVisible);
 
@@ -518,7 +664,7 @@ public sealed class PreferencesTests
                 Assert.Equal("3.7.0", restored.InterpretationEvaluationGuidanceVariant);
                 Assert.Equal("high", restored.InterpretationEvaluationReasoningEffort);
                 restored.Apply();
-                if (opening == 0) { window.Close(); window = null; }
+                if (opening == 0) { window.Close(); await window.WaitForInterpretationOperationsAsync(); window = null; }
             }
 
             var codeBox = window!.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "synthetic-code");
@@ -535,12 +681,98 @@ public sealed class PreferencesTests
         finally
         {
             window?.Close();
+            if (window != null) await window.WaitForInterpretationOperationsAsync();
             Dispatcher.UIThread.RunJobs();
             original.ApplyToSettings();
             AppSettings.ApplySettings();
             PlatformServices.RegisterSettingsStore(originalStore);
             if (Directory.Exists(directory)) Directory.Delete(directory, true);
         }
+    }
+
+    sealed class PreferencesHttpHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.RequestUri.AbsolutePath switch
+            {
+                "/api/interpretation/public-access" => "{\"publicAccessCode\":\"ftitc_pub_test\",\"publicClientId\":\"test\"}",
+                "/api/interpretation/account" => "{\"code\":\"temporary_failure\"}",
+                _ => "{\"mode\":\"presets\",\"presets\":[{\"id\":\"instant\",\"name\":\"Instant\"}],\"models\":[],\"guidanceVariants\":[]}"
+            };
+            return Task.FromResult(new HttpResponseMessage(request.RequestUri.AbsolutePath == "/api/interpretation/public-access"
+                ? HttpStatusCode.Created : request.RequestUri.AbsolutePath == "/api/interpretation/account" ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK)
+            { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+        }
+    }
+
+    sealed class ClosingOptionsHandler : HttpMessageHandler
+    {
+        int optionsCalls;
+        readonly TaskCompletionSource<HttpResponseMessage> delayedResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource DelayedOptionsRequested { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void ReleaseDelayedOptions() => delayedResponse.TrySetResult(OptionsResponse());
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/public-access")
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                { Content = new StringContent("{\"publicAccessCode\":\"ftitc_pub_issued_for_closed_window\",\"publicClientId\":\"test\"}", Encoding.UTF8, "application/json") };
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options" && Interlocked.Increment(ref optionsCalls) == 1)
+                return OptionsResponse();
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options")
+            {
+                DelayedOptionsRequested.TrySetResult();
+                return await delayedResponse.Task;
+            }
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        }
+
+        static HttpResponseMessage OptionsResponse() => new(HttpStatusCode.OK)
+        { Content = new StringContent("{\"mode\":\"presets\",\"presets\":[{\"id\":\"instant\",\"name\":\"Instant\"}],\"models\":[],\"guidanceVariants\":[]}", Encoding.UTF8, "application/json") };
+    }
+
+    sealed class LateDenialHandler : HttpMessageHandler
+    {
+        readonly TaskCompletionSource<HttpResponseMessage> delayedResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource DenialRequested { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void ReleaseDenial() => delayedResponse.TrySetResult(new HttpResponseMessage(HttpStatusCode.Forbidden));
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options")
+            {
+                DenialRequested.TrySetResult();
+                return await delayedResponse.Task;
+            }
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        }
+    }
+
+    sealed class SupersededOptionsHandler : HttpMessageHandler
+    {
+        readonly TaskCompletionSource<HttpResponseMessage> delayedResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool delayNext;
+        public TaskCompletionSource DelayedOptionsRequested { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void DelayNextOptions() => delayNext = true;
+        public void ReleaseDelayedOptions() => delayedResponse.TrySetResult(OptionsResponse("stale"));
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options")
+            {
+                if (delayNext)
+                {
+                    delayNext = false;
+                    DelayedOptionsRequested.TrySetResult();
+                    return await delayedResponse.Task;
+                }
+                return OptionsResponse("newer");
+            }
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        }
+
+        static HttpResponseMessage OptionsResponse(string id) => new(HttpStatusCode.OK)
+        { Content = new StringContent("{\"mode\":\"presets\",\"presets\":[{\"id\":\"" + id + "\",\"name\":\"Test\"}],\"models\":[],\"guidanceVariants\":[]}", Encoding.UTF8, "application/json") };
     }
 
     static void AssertSlider(Slider slider, int maximum)

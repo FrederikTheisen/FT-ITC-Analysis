@@ -255,6 +255,30 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
     }
 
     [Fact]
+    public async Task MalformedPresetRegistryReturnsUnavailableInsteadOfServerError()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-malformed-preset-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var presetPath = Path.Combine(directory, "presets.json"); File.WriteAllText(presetPath, "{");
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true,
+                usageDatabasePath: Path.Combine(directory,"usage.db"), presetRegistryPath: presetPath);
+            using var providerClient = providerFactory.CreateClient();
+            using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), "198.51.100.213");
+            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_public_accounting_unavailable");
+            Assert.Equal(0, providerFactory.Provider.CallCount);
+
+            File.Delete(presetPath);
+            Directory.CreateDirectory(presetPath);
+            using var unreadable = await PostJsonWithClient(providerClient, ValidRequestJson(), "198.51.100.214");
+            await AssertProblem(unreadable, HttpStatusCode.ServiceUnavailable, "interpretation_public_accounting_unavailable");
+            Assert.Equal(0, providerFactory.Provider.CallCount);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public async Task SummaryRejectsRawGenerationOverrides()
     {
         var request = ValidRequestNode();
@@ -1724,16 +1748,18 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
         readonly bool usageLoggingEnabled;
         readonly string usageDatabasePath;
         readonly string? temporaryDirectory;
+        readonly string? presetRegistryPath;
 
         readonly bool incompleteProvider;
 
         public ProviderWebApplicationFactory(bool enabled, bool invalidResponse = false, bool usageLoggingEnabled = true,
-            string? usageDatabasePath = null, bool incompleteProvider = false, bool providerFailure = false)
+            string? usageDatabasePath = null, bool incompleteProvider = false, bool providerFailure = false, string? presetRegistryPath = null)
         {
             this.enabled = enabled;
             this.usageLoggingEnabled = usageLoggingEnabled;
             temporaryDirectory = usageDatabasePath is null ? Path.Combine(Path.GetTempPath(), "ftitc-endpoint-" + Guid.NewGuid().ToString("N")) : null;
             this.usageDatabasePath = usageDatabasePath ?? Path.Combine(temporaryDirectory!, "usage.db");
+            this.presetRegistryPath = presetRegistryPath;
             this.incompleteProvider = incompleteProvider;
             Provider = new FakeInterpretationProvider(invalidResponse, providerFailure);
         }
@@ -1742,6 +1768,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            var storageDirectory = temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!;
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, storageDirectory);
             builder.ConfigureAppConfiguration((_, configuration) =>
             {
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -1749,9 +1777,20 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
                     ["Interpretation:Enabled"] = enabled.ToString(),
                     ["Interpretation:UsageLog:Enabled"] = usageLoggingEnabled.ToString(),
                     ["Interpretation:UsageLog:DatabasePath"] = usageDatabasePath,
+                    ["Interpretation:AvailabilityPolicyPath"] = Path.Combine(storageDirectory, "interpretation-availability.json"),
+                    ["Interpretation:StatusEmailConfigurationPath"] = Path.Combine(storageDirectory, "status-email.json"),
                     ["Interpretation:OperatorAccess:Enabled"] = "true",
-                    ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!, "codes.json"),
-                    ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!, "public-access.json"),
+                    ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(storageDirectory, "codes.json"),
+                    ["Interpretation:OperatorAccess:PresetRegistryPath"] = presetRegistryPath ?? Path.Combine(storageDirectory, "presets.json"),
+                    ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(storageDirectory, "public-access.json"),
+                    ["Interpretation:TombstonePath"] = Path.Combine(storageDirectory, "tombstones.json"),
+                    ["Interpretation:Registration:Enabled"] = "false",
+                    ["Interpretation:Registration:DatabasePath"] = Path.Combine(storageDirectory, "registration.db"),
+                    ["Interpretation:Registration:DataProtectionKeysPath"] = Path.Combine(storageDirectory, "registration-keys"),
+                    ["Interpretation:Registration:SecretConfigurationPath"] = Path.Combine(storageDirectory, "registration-secret.json"),
+                    ["Interpretation:Registration:MailConfigurationPath"] = Path.Combine(storageDirectory, "registration-mail.json"),
+                    ["Interpretation:Registration:AvailabilityPolicyPath"] = Path.Combine(storageDirectory, "registration-availability.json"),
+                    ["Interpretation:Registration:OperatorRegistryPath"] = Path.Combine(storageDirectory, "registered-codes.json"),
                     ["Interpretation:Pricing:fake-model:Revision"] = "test",
                     ["Interpretation:Pricing:fake-model:InputPerMillion"] = "2",
                     ["Interpretation:Pricing:fake-model:OutputPerMillion"] = "12",
@@ -1849,11 +1888,23 @@ public sealed class InterpretationTestFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(directory);
+        WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
                 ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
                 ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(directory, "codes.json"),
+                ["Interpretation:OperatorAccess:PresetRegistryPath"] = Path.Combine(directory, "presets.json"),
+                ["Interpretation:AvailabilityPolicyPath"] = Path.Combine(directory, "availability.json"),
+                ["Interpretation:StatusEmailConfigurationPath"] = Path.Combine(directory, "status-email.json"),
+                ["Interpretation:TombstonePath"] = Path.Combine(directory, "tombstones.json"),
+                ["Interpretation:Registration:Enabled"] = "false",
+                ["Interpretation:Registration:DatabasePath"] = Path.Combine(directory, "registration.db"),
+                ["Interpretation:Registration:DataProtectionKeysPath"] = Path.Combine(directory, "registration-keys"),
+                ["Interpretation:Registration:SecretConfigurationPath"] = Path.Combine(directory, "registration-secret.json"),
+                ["Interpretation:Registration:MailConfigurationPath"] = Path.Combine(directory, "registration-mail.json"),
+                ["Interpretation:Registration:AvailabilityPolicyPath"] = Path.Combine(directory, "registration-availability.json"),
+                ["Interpretation:Registration:OperatorRegistryPath"] = Path.Combine(directory, "registered-codes.json"),
                 ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
             }));
     }

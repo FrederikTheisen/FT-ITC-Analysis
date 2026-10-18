@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Automation;
@@ -34,6 +35,8 @@ namespace AnalysisITC.Avalonia.Preferences;
 
 internal sealed class PreferencesWindow : Window
 {
+    internal static Func<System.Net.Http.HttpClient> InterpretationHttpClientFactory =
+        () => new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
     const double FormLabelWidth = 220;
     const double FormControlWidth = 280;
     const double SliderValueWidth = 82;
@@ -253,7 +256,7 @@ internal sealed class PreferencesWindow : Window
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
         AutomationProperties.SetName(registerInterpretationButton, "Register for Automated Interpretation…");
-        Closed += (_, _) => accountRefreshCancellation?.Cancel();
+        Closed += (_, _) => { interpretationWindowActive = false; CancelInterpretationOperations(); };
         // TextChanged is deferred until after LoadState clears its guard.
         interpretationOperatorCodeBox.TextChanging += (_, _) =>
         {
@@ -261,7 +264,7 @@ internal sealed class PreferencesWindow : Window
             if (!interpretationAccessVerified) InvalidateInterpretationAccess();
             else UpdateInterpretationControlVisibility();
         };
-        verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
+        verifyInterpretationAccessButton.Click += (_, _) => TrackInterpretationOperation(VerifyInterpretationAccessAsync());
         registerInterpretationButton.Click += (_, _) => OpenInterpretationRegistration();
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
@@ -514,6 +517,10 @@ internal sealed class PreferencesWindow : Window
 
     internal void LoadState(PreferencesState state)
     {
+        CancelInterpretationOperations();
+        verifyInterpretationAccessButton.IsEnabled = true;
+        if (interpretationLifetime.IsCancellationRequested) interpretationLifetime = new CancellationTokenSource();
+        interpretationWindowActive = true;
         restoreDefaults = false;
         SetCombo(energyUnitCombo, state.EnergyUnitFamily);
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
@@ -570,8 +577,8 @@ internal sealed class PreferencesWindow : Window
         UpdateInterpretationControlVisibility();
         loadingInterpretationState = false;
         if (interpretationOptions != null && !string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text))
-            _ = RefreshInterpretationAccountAsync(interpretationOperatorCodeBox.Text);
-        else if (string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text)) _ = RefreshPublicInterpretationOptionsAsync();
+            TrackInterpretationOperation(RefreshInterpretationAccountAsync(interpretationOperatorCodeBox.Text));
+        else if (string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text)) TrackInterpretationOperation(RefreshPublicInterpretationOptionsAsync());
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(bufferSubtractionMethodCombo, state.BufferSubtractionDefaultMethod);
@@ -828,7 +835,11 @@ internal sealed class PreferencesWindow : Window
     InterpretationOperatorOptionsResponse? interpretationOptions;
     InterpretationAccountResponse? interpretationAccount;
     DateTime? interpretationAccountFetchedAtUtc;
-    CancellationTokenSource? accountRefreshCancellation;
+    CancellationTokenSource interpretationLifetime = new CancellationTokenSource();
+    readonly Dictionary<string, CancellationTokenSource> interpretationRequestCancellations = new();
+    readonly HashSet<Task> interpretationTasks = new();
+    readonly object interpretationTasksLock = new();
+    bool interpretationWindowActive = true;
     bool loadingInterpretationState;
     bool interpretationAccessVerified;
     string verifiedInterpretationAccessCode = "";
@@ -836,8 +847,10 @@ internal sealed class PreferencesWindow : Window
     bool HasVerifiedInterpretationAccess => interpretationAccessVerified
         && string.Equals(verifiedInterpretationAccessCode, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal);
 
-    async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
+    internal async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
     {
+        var operation = BeginInterpretationOperation("verify");
+        var token = operation.Token;
         var code = interpretationOperatorCodeBox.Text ?? "";
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -849,10 +862,10 @@ internal sealed class PreferencesWindow : Window
         interpretationAccessStatus.Text = "Verifying…";
         try
         {
-            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var client = InterpretationHttpClientFactory();
             var relay = new FtItcInterpretationClient(client, new Uri("https://app.ft-itc.org"));
-            var options = await relay.GetInterpretationOptionsAsync(code);
-            if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+            var options = await relay.GetInterpretationOptionsAsync(code, token);
+            if (!IsCurrentInterpretationOperation("verify", operation) || !string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationOptions = options;
             interpretationAccessVerified = true;
             verifiedInterpretationAccessCode = code;
@@ -863,8 +876,8 @@ internal sealed class PreferencesWindow : Window
             UpdateInterpretationControlVisibility();
             try
             {
-                var account = await relay.GetInterpretationAccountAsync(code);
-                if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+                var account = await relay.GetInterpretationAccountAsync(code, token);
+                if (!IsCurrentInterpretationOperation("verify", operation) || !string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
                 interpretationAccount = account;
                 interpretationAccountFetchedAtUtc = DateTime.UtcNow;
                 AppSettings.PersistInterpretationAccount(code, account);
@@ -881,7 +894,7 @@ internal sealed class PreferencesWindow : Window
         }
         catch (Exception ex)
         {
-            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+            if (IsCurrentInterpretationOperation("verify", operation) && string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
             {
                 if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                     InvalidateInterpretationAccess(clearPersisted: true);
@@ -892,12 +905,17 @@ internal sealed class PreferencesWindow : Window
                 }
             }
         }
-        finally { verifyInterpretationAccessButton.IsEnabled = true; }
+        finally
+        {
+            if (IsCurrentInterpretationOperation("verify", operation)) verifyInterpretationAccessButton.IsEnabled = true;
+            CompleteInterpretationOperation("verify", operation);
+        }
     }
 
     void InvalidateInterpretationAccess(bool clearPersisted = false)
     {
-        accountRefreshCancellation?.Cancel();
+        CancelInterpretationOperations();
+        verifyInterpretationAccessButton.IsEnabled = true;
         interpretationOptions = null;
         interpretationAccount = null;
         interpretationAccountFetchedAtUtc = null;
@@ -915,17 +933,15 @@ internal sealed class PreferencesWindow : Window
         UpdateInterpretationControlVisibility();
     }
 
-    async System.Threading.Tasks.Task RefreshInterpretationAccountAsync(string code)
+    internal async System.Threading.Tasks.Task RefreshInterpretationAccountAsync(string code)
     {
-        accountRefreshCancellation?.Cancel();
-        accountRefreshCancellation?.Dispose();
-        var cancellation = accountRefreshCancellation = new CancellationTokenSource();
+        var cancellation = BeginInterpretationOperation("account");
         try
         {
-            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var client = InterpretationHttpClientFactory();
             var relay = new FtItcInterpretationClient(client, new Uri("https://app.ft-itc.org"));
             var account = await relay.GetInterpretationAccountAsync(code, cancellation.Token);
-            if (cancellation.IsCancellationRequested || !string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+            if (!IsCurrentInterpretationOperation("account", cancellation) || !string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationAccount = account;
             interpretationAccountFetchedAtUtc = DateTime.UtcNow;
             AppSettings.PersistInterpretationAccount(code, account);
@@ -935,31 +951,81 @@ internal sealed class PreferencesWindow : Window
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
         {
-            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+            if (IsCurrentInterpretationOperation("account", cancellation) && string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
                 InvalidateInterpretationAccess(clearPersisted: true);
         }
         catch
         {
-            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+            if (IsCurrentInterpretationOperation("account", cancellation) && string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
                 UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
         }
         finally
         {
-            if (ReferenceEquals(accountRefreshCancellation, cancellation)) accountRefreshCancellation = null;
-            cancellation.Dispose();
+            CompleteInterpretationOperation("account", cancellation);
         }
     }
 
-    async System.Threading.Tasks.Task RefreshPublicInterpretationOptionsAsync()
+    internal async System.Threading.Tasks.Task RefreshPublicInterpretationOptionsAsync()
     {
+        var cancellation = BeginInterpretationOperation("public-options");
         try
         {
-            using var client=new System.Net.Http.HttpClient { Timeout=TimeSpan.FromSeconds(20) };
-            var current=await new FtItcInterpretationClient(client,new Uri("https://app.ft-itc.org")).GetInterpretationOptionsAsync("");
-            if(!string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text))return;
+            using var client=InterpretationHttpClientFactory();
+            var current=await new FtItcInterpretationClient(client,new Uri("https://app.ft-itc.org")).GetInterpretationOptionsAsync("", cancellation.Token);
+            if(!IsCurrentInterpretationOperation("public-options", cancellation) || !string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text))return;
             interpretationOptions=current; UpdateInterpretationAccountSummary(cached:false);
         }
         catch { }
+        finally { CompleteInterpretationOperation("public-options", cancellation); }
+    }
+
+    CancellationTokenSource BeginInterpretationOperation(string key)
+    {
+        if (interpretationRequestCancellations.Remove(key, out var previous)) { previous.Cancel(); previous.Dispose(); }
+        var current = CancellationTokenSource.CreateLinkedTokenSource(interpretationLifetime.Token);
+        if (!interpretationWindowActive) current.Cancel();
+        interpretationRequestCancellations[key] = current;
+        return current;
+    }
+
+    bool IsCurrentInterpretationOperation(string key, CancellationTokenSource cancellation) =>
+        interpretationWindowActive && !cancellation.IsCancellationRequested
+        && interpretationRequestCancellations.TryGetValue(key, out var current) && ReferenceEquals(current, cancellation);
+
+    void CompleteInterpretationOperation(string key, CancellationTokenSource cancellation)
+    {
+        if (interpretationRequestCancellations.TryGetValue(key, out var current) && ReferenceEquals(current, cancellation))
+            interpretationRequestCancellations.Remove(key);
+        cancellation.Dispose();
+    }
+
+    void TrackInterpretationOperation(Task task)
+    {
+        lock (interpretationTasksLock) interpretationTasks.Add(task);
+        _ = task.ContinueWith(completed => { lock (interpretationTasksLock) interpretationTasks.Remove(completed); }, TaskScheduler.Default);
+    }
+
+    internal async Task WaitForInterpretationOperationsAsync()
+    {
+        while (true)
+        {
+            Task[] tasks;
+            lock (interpretationTasksLock) tasks = interpretationTasks.ToArray();
+            if (tasks.Length == 0) return;
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    void CancelInterpretationOperations()
+    {
+        foreach (var operation in interpretationRequestCancellations.Values) { operation.Cancel(); operation.Dispose(); }
+        interpretationRequestCancellations.Clear();
+        interpretationLifetime.Cancel();
+        if (interpretationWindowActive)
+        {
+            interpretationLifetime.Dispose();
+            interpretationLifetime = new CancellationTokenSource();
+        }
     }
 
     void PopulateInterpretationChoices(string preset,string model,string reasoning,string guidance)

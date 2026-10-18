@@ -870,6 +870,18 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: With explicit report saving, edits in the report builder exist only in a detached draft until Save Report. Autosave writes registered reports only, so a crash loses unsaved draft edits, including AI-generated interpretation text. Previously, implicit registration let autosave capture them.
 - Decision: Accepted for the explicit-saving change. Revisit if draft loss causes real problems, for example by autosaving drafts separately from saved reports.
 
+## ITC-113 - Exhausted access-code delivery leaves a provisioned registration without its code
+
+- Priority: Medium
+- Status: Resolved (2026-10-17) in the approved web reliability work; deployed to MIST.
+- Location: `RegistrationMailSender.ProcessOneAsync`/`RetryOrFail`; `RegistrationDeliveryOutbox.MarkFailed` and `Submit`; `SelfRegistrationStore.ReconcileActiveAccounts`.
+- Problem: The sender provisions the registry credential (`CreateRegisteredWithCode`) before each access-code send attempt. After five failed attempts (about 40 minutes of provider unavailability), `MarkFailed` marks the delivery and account `failed`, although the credential already exists. `Submit` returns `Active` for any registration whose delivery is an access code, so the user cannot request the code again. The next service restart sets the account back to `active` through reconciliation, but the failed delivery is never retried.
+- Consequence: The account looks active and the credential is valid, but the user never received it and has no way to obtain it. A self-service path does not exist; operator recovery was not checked.
+- Previous open decisions: Whether exhausted access-code deliveries should stay retryable with longer backoff, be requeued by a resubmission or an operator command, or revoke the provisioned credential so the user can register again. Also decide what account state a failed delivery of an already provisioned credential should show.
+- Adjacent defect addressed: When `MarkSent`'s account update matches no row, it rolls back and leaves the delivery pending with an unchanged `next_attempt_utc`, which reproduces the CR-009 queue stall. After the CR-009 fix, the remaining known trigger is a legacy pending access-code row for an active account that the startup migration reissues as an activation. Consider marking a successfully sent message as sent, or advancing its retry time and logging, whenever the account state does not match.
+- Resolution: Provisioning success is persisted on the delivery row. A valid provisioned credential remains active after delivery exhaustion; failed delivery remains visible. Registration resubmission requeues the same encrypted code to the original verified address after the configured cooldown, with one new idempotency key and a fresh five-attempt cycle. Concurrent resubmissions cannot create multiple cycles. Never-provisioned, revoked, scrubbed, cancelled, sent and credential-mismatched deliveries are excluded. Startup reconciliation preserves failed delivery state. Matching sent messages advance independently of an unnecessary account-state update.
+- Validation: Controlled five-failure/resubmission/success, cooldown, concurrency, restart, provisioning-conflict and queue-advancement tests passed within the final 442-test Linux Web suite. Pending and failed access-code deliveries are reported separately. Live verification used diagnostics and invented interpretation/Summary evidence; it did not create synthetic registrations. The separate mail-configuration retry-budget defect is recorded as ITC-120.
+
 ## ITC-119 - Review duplicate-import prompt close handling
 
 - Priority: Low; review question.
@@ -878,3 +890,12 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Question: Does the duplicate-import prompt need its current `WillCloseNotification` → `AbortModal` observer alongside its key-event monitor and explicit observer cleanup?
 - Evidence boundary: Unlike the Final Figure overwrite alert, `CreateAlert` explicitly adds `NSWindowStyle.Closable`. Its user-close path therefore cannot be dismissed as impossible merely because it uses `NSAlert`. No redundant handling or runtime defect has been established.
 - Follow-up: Review actual close and keyboard behavior before proposing a change. Keep this prompt and its harness outside the CR-070 simplification.
+
+## ITC-120 - Registration mail configuration failures bypass the retry budget
+
+- Priority: Medium.
+- Status: Open; recorded during the approved web reliability work (2026-10-17). Implementation is outside that work.
+- Location: `AnalysisITC.Web/RegistrationMailSender.cs`, `ProcessOneAsync` and `ReadConfigAsync`.
+- Problem: Reading a missing or malformed mail configuration can throw `IOException` or `JsonException`. `ProcessOneAsync` does not catch either, so the worker retries without recording an attempt or advancing the delivery's next-attempt time. The five-attempt retry cycle therefore never exhausts for these configuration failures.
+- Consequence: A pending delivery can remain at the front of the queue indefinitely while its retry count and delivery failure summary do not describe the configuration failure.
+- Boundary: Preserve the ITC-113 distinction between a provisioned credential and failed email delivery. Decide and test how configuration failures should affect retry scheduling and administrative diagnostics before changing the sender.

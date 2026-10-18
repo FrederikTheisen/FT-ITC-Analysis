@@ -382,26 +382,37 @@ reuse a client ID; anonymous client IDs remain correlation data only. Clients do
 automatically substitute IDs or retry ambiguous failures.
 
 Quota accounting uses durable attempt charges and labelled historical balances,
-not mutable request summaries. A transaction checks duplicates and quota and claims
-a durable hold allowing one active quota-limited execution per account across service
-instances. Provider attempts are recorded before dispatch; their receipts distinguish
-known cost, confirmed zero cost and unresolved cost. A partial known total is not a
-complete balance. Identical repeated receipts are harmless; conflicting receipts
-cannot replace existing charges. Network calls never run inside the admission
-transaction. Existing pricing, exemptions and admission below the recorded allowance
-remain unchanged; this is not predicted-cost reservation.
+not mutable request summaries. One immediate SQLite admission transaction checks
+duplicates, migration activation blockers, the maintenance gate, installation
+activity, lifetime unresolved installation liabilities, installation limits and
+global recorded limits, in that order. Public quota checks therefore follow the
+retired, availability and accounting-enabled endpoint checks. Provider attempts are
+recorded before dispatch; their receipts distinguish known cost, confirmed zero cost
+and unresolved cost. A partial known total is not a complete balance. Identical
+repeated receipts are harmless; conflicting receipts cannot replace existing charges.
+Network calls never run inside the admission transaction. Admission uses recorded
+charges without predicted-cost reservation; concurrent work can finish above a
+monetary ceiling.
 
 Disabled or unavailable accounting returns HTTP 503
 `interpretation_accounting_unavailable`. Unresolved prior accounting that blocks
-admission returns HTTP 503 `interpretation_accounting_unresolved`; known quota
-exhaustion and active quota-limited work retain their HTTP 429 responses. Admission
-or attempt-start persistence failures make no provider call. A fallback remains within
+registered-account admission returns HTTP 503 `interpretation_accounting_unresolved`;
+unresolved public installation liabilities retain HTTP 429
+`interpretation_public_accounting_unresolved`. Known quota exhaustion and active
+quota-limited work retain their HTTP 429 responses. Admission or attempt-start
+persistence failures make no provider call. A fallback remains within
 the same execution and requires the preceding attempt's durable, resolved accounting.
 An HTTP error alone does not demonstrate that a provider attempt was free.
 
-Usage database schema 6 retains immutable execution identity and original provider
-receipts. Surviving historical totals are migrated without double counting;
-inconsistent ownership or charges block activation pending administrative review.
+Usage database schema 7 retains immutable execution identity, the access
+classification and public request-count eligibility captured before provider
+dispatch, and original provider receipts. Admitted, finalized and recovered
+executions count once; rejected executions do not. Migrated rows use their stored
+access tier. Unclassifiable historical rows remain non-public and appear in migration
+preflight. Public unresolved liabilities remain tied to their installation across
+month boundaries, including migrated unknown-cost issues; another installation can
+continue against recorded global spending. Surviving historical totals are migrated without double counting.
+Other migration issues marked as activation blockers still require administrative review.
 Audited historical settlements can establish an execution total without inventing
 a per-attempt breakdown. Waived totals remain unknown in administrative reporting.
 Account history counts admitted executions even when final reporting metadata could

@@ -57,17 +57,34 @@ public sealed class SelfRegistrationStore
     internal static string NormalizeEmail(string email) => new MailAddress(email.Trim()).Address.Trim().ToLowerInvariant();
 
     public void ReconcileActiveAccounts(IEnumerable<OperatorCodeRecord> records)
+        => ReconcileActiveAccounts(records, new HashSet<string>(StringComparer.Ordinal));
+
+    internal void ReconcileActiveAccounts(IEnumerable<OperatorCodeRecord> records, IReadOnlySet<string> verifiedProvisionedIds)
     {
-        var ids = records.Select(record => record.Id).ToHashSet(StringComparer.Ordinal);
-        if (ids.Count == 0) return;
+        var byId = records.ToDictionary(record => record.Id, StringComparer.Ordinal);
+        if (byId.Count == 0) return;
         using var db = Open(); using var tx = db.BeginTransaction();
-        foreach (var id in ids)
+        var hasDeliveryTable = HasDeliveryTable(db, tx);
+        foreach (var (id, _) in byId)
         {
+            if (hasDeliveryTable && !verifiedProvisionedIds.Contains(id))
+            {
+                using var check = db.CreateCommand(); check.Transaction = tx;
+                check.CommandText = "SELECT 1 FROM registration_delivery WHERE registration_id=$id AND kind='access-code' LIMIT 1";
+                check.Parameters.AddWithValue("$id", id);
+                if (check.ExecuteScalar() is not null) continue;
+            }
             using var command = db.CreateCommand(); command.Transaction = tx;
             command.CommandText = "UPDATE registration_accounts SET state='active',activated_at_utc=COALESCE(activated_at_utc,$time),failure_code=NULL WHERE id=$id AND state<>'scrubbed'";
             command.Parameters.AddWithValue("$id", id);
             command.Parameters.AddWithValue("$time", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
             command.ExecuteNonQuery();
+            if (hasDeliveryTable && verifiedProvisionedIds.Contains(id))
+            {
+                using var delivery = db.CreateCommand(); delivery.Transaction = tx;
+                delivery.CommandText = "UPDATE registration_delivery SET provisioning_succeeded=1 WHERE registration_id=$id AND kind='access-code'";
+                delivery.Parameters.AddWithValue("$id", id); delivery.ExecuteNonQuery();
+            }
         }
         tx.Commit();
     }

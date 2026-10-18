@@ -129,7 +129,12 @@ namespace AnalysisITC.Core.Interpretation
                     accessCode = AppSettings.InterpretationPublicClientCode;
                     if (string.IsNullOrWhiteSpace(accessCode))
                     {
-                        using var issue = await httpClient.PostAsync(publicAccessEndpoint, content: null, cancellationToken).ConfigureAwait(false);
+                        // Cancellation may prevent an enrollment that has not started, but once
+                        // dispatched its response must be consumed and persisted: the server has
+                        // created a credential that this installation needs even if its caller
+                        // has since closed or superseded the request.
+                        cancellationToken.ThrowIfCancellationRequested();
+                        using var issue = await httpClient.PostAsync(publicAccessEndpoint, content: null, CancellationToken.None).ConfigureAwait(false);
                         if (!issue.IsSuccessStatusCode)
                             throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure, "The interpretation service could not issue a public installation access code.");
                         var issued = JsonSerializer.Deserialize<PublicAccessCodeResponse>(await issue.Content.ReadAsStringAsync().ConfigureAwait(false), JsonOptions);

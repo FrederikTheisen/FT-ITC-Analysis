@@ -8,6 +8,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -15,12 +16,12 @@ namespace AnalysisITC.Web.Tests;
 
 using Buffer = AnalysisITC.Core.Data.Buffer;
 
-public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ViewerUploadTests : IClassFixture<ViewerUploadApplicationFactory>
 {
-    readonly WebApplicationFactory<Program> factory;
+    readonly ViewerUploadApplicationFactory factory;
     readonly HttpClient client;
 
-    public ViewerUploadTests(WebApplicationFactory<Program> factory)
+    public ViewerUploadTests(ViewerUploadApplicationFactory factory)
     {
         this.factory = factory;
         client = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -655,5 +656,22 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
 
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+}
+
+public sealed class ViewerUploadApplicationFactory : WebApplicationFactory<Program>
+{
+    readonly string directory = Path.Combine(Path.GetTempPath(), "ftitc-viewer-upload-tests-" + Guid.NewGuid().ToString("N"));
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        Directory.CreateDirectory(directory);
+        WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing && Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
     }
 }

@@ -25,12 +25,14 @@ public sealed class RegistrationDeliveryOutbox
     readonly SelfRegistrationStore store;
     readonly IDataProtector protector;
     readonly RegistrationOptions options;
+    readonly OperatorCodeRegistry? operatorRegistry;
 
     public RegistrationDeliveryOutbox(SelfRegistrationStore store, IDataProtectionProvider protection,
-        IOptions<InterpretationOptions> configured)
+        IOptions<InterpretationOptions> configured, OperatorCodeRegistry? operatorRegistry = null)
     {
         this.store = store;
         options = configured.Value.Registration;
+        this.operatorRegistry = operatorRegistry;
         // Retain the original purpose so already-encrypted registration messages remain readable.
         protector = protection.CreateProtector("FT-ITC.PublicRegistration.BearerCode.v1");
         using var db = store.Open();
@@ -47,7 +49,9 @@ public sealed class RegistrationDeliveryOutbox
                 last_failure_code TEXT NULL,
                 kind TEXT NOT NULL DEFAULT 'activation',
                 token_hash TEXT NULL,
-                queued_at_utc TEXT NULL
+                queued_at_utc TEXT NULL,
+                provisioning_succeeded INTEGER NOT NULL DEFAULT 0,
+                failed_at_utc TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_registration_delivery_state ON registration_delivery(state, next_attempt_utc);
             """;
@@ -56,6 +60,8 @@ public sealed class RegistrationDeliveryOutbox
         SelfRegistrationStore.EnsureColumn(db, "registration_delivery", "kind", "TEXT NOT NULL DEFAULT 'activation'");
         SelfRegistrationStore.EnsureColumn(db, "registration_delivery", "token_hash", "TEXT NULL");
         SelfRegistrationStore.EnsureColumn(db, "registration_delivery", "queued_at_utc", "TEXT NULL");
+        SelfRegistrationStore.EnsureColumn(db, "registration_delivery", "provisioning_succeeded", "INTEGER NOT NULL DEFAULT 0");
+        SelfRegistrationStore.EnsureColumn(db, "registration_delivery", "failed_at_utc", "TEXT NULL");
         using (var index = db.CreateCommand())
         {
             index.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS ix_registration_activation_hash ON registration_delivery(token_hash) WHERE token_hash IS NOT NULL";
@@ -103,17 +109,12 @@ public sealed class RegistrationDeliveryOutbox
             return new(id, RegistrationSubmissionOutcome.Created);
         }
 
-        if (existingState is "active" or "activating" or "scrubbed")
-        {
-            tx.Commit();
-            return new(existingId, RegistrationSubmissionOutcome.Active);
-        }
-
-        string? kind = null; string? expiresText = null; string? queuedText = null;
+        string? kind = null; string? expiresText = null; string? queuedText = null; string? deliveryState = null;
+        bool provisioned = false; string? failedText = null; string? protectedCode = null;
         using (var delivery = db.CreateCommand())
         {
             delivery.Transaction = tx;
-            delivery.CommandText = "SELECT kind,expires_at_utc,queued_at_utc FROM registration_delivery WHERE registration_id=$id";
+            delivery.CommandText = "SELECT kind,expires_at_utc,queued_at_utc,state,provisioning_succeeded,failed_at_utc,protected_code FROM registration_delivery WHERE registration_id=$id";
             delivery.Parameters.AddWithValue("$id", existingId);
             using var reader = delivery.ExecuteReader();
             if (reader.Read())
@@ -121,8 +122,37 @@ public sealed class RegistrationDeliveryOutbox
                 kind = reader.GetString(0);
                 expiresText = reader.IsDBNull(1) ? null : reader.GetString(1);
                 queuedText = reader.IsDBNull(2) ? null : reader.GetString(2);
+                deliveryState = reader.GetString(3); provisioned = reader.GetInt64(4) == 1;
+                failedText = reader.IsDBNull(5) ? null : reader.GetString(5); protectedCode = reader.GetString(6);
             }
         }
+
+        if (existingState == "scrubbed") { tx.Commit(); return new(existingId, RegistrationSubmissionOutcome.Active); }
+
+        var eligibleFailedAccessDelivery = kind == RegistrationMessageKinds.AccessCode && deliveryState == "failed" && provisioned
+            && (existingState is "active" or "activating" or "failed");
+        var credentialStillActive = eligibleFailedAccessDelivery && protectedCode is not null
+            && operatorRegistry?.HasMatchingActiveRegisteredCredential(existingId, protector.Unprotect(protectedCode)) == true;
+        if (eligibleFailedAccessDelivery && credentialStillActive)
+        {
+            var failedAt = ParseUtc(failedText) ?? ParseUtc(queuedText);
+            if (failedAt is not null && failedAt > utcNow.AddMinutes(-options.ResendCooldownMinutes))
+            { tx.Commit(); return new(existingId, RegistrationSubmissionOutcome.PendingCooldown); }
+            using var retry = db.CreateCommand(); retry.Transaction = tx;
+            retry.CommandText = "UPDATE registration_delivery SET state='pending',attempts=0,next_attempt_utc=$now,queued_at_utc=$now,failed_at_utc=NULL,last_failure_code=NULL,idempotency_key=$key WHERE registration_id=$id AND kind='access-code' AND state='failed' AND provisioning_succeeded=1";
+            retry.Parameters.AddWithValue("$now", utcNow.ToString("O", CultureInfo.InvariantCulture));
+            retry.Parameters.AddWithValue("$key", "ftitc-access-" + existingId + "-" + Guid.NewGuid().ToString("N"));
+            retry.Parameters.AddWithValue("$id", existingId);
+            if (retry.ExecuteNonQuery() == 1)
+            {
+                using var activate = db.CreateCommand(); activate.Transaction = tx;
+                activate.CommandText = "UPDATE registration_accounts SET state='active',failure_code=NULL,failed_at_utc=NULL WHERE id=$id AND state IN ('active','activating','failed')";
+                activate.Parameters.AddWithValue("$id", existingId); activate.ExecuteNonQuery();
+                tx.Commit(); return new(existingId, RegistrationSubmissionOutcome.PendingResendQueued);
+            }
+        }
+
+        if (existingState is "active" or "activating") { tx.Commit(); return new(existingId, RegistrationSubmissionOutcome.Active); }
 
         if (kind == RegistrationMessageKinds.AccessCode)
         {
@@ -229,14 +259,20 @@ public sealed class RegistrationDeliveryOutbox
         return activation with { Kind = RegistrationMessageKinds.AccessCode, Secret = bearer, IdempotencyKey = "ftitc-access-" + activation.RegistrationId, Attempts = 0 };
     }
 
-    public void MarkSent(string registrationId, string kind, DateTime sentAtUtc)
+    public void MarkSent(string registrationId, string kind, DateTime sentAtUtc) => MarkSent(registrationId, kind, sentAtUtc, null);
+
+    public void MarkSent(PendingRegistrationDelivery pending, DateTime sentAtUtc) =>
+        MarkSent(pending.RegistrationId, pending.Kind, sentAtUtc, pending.IdempotencyKey);
+
+    void MarkSent(string registrationId, string kind, DateTime sentAtUtc, string? expectedIdempotencyKey)
     {
         using var db = store.Open(); using var tx = db.BeginTransaction();
         using (var delivery = db.CreateCommand())
         {
             delivery.Transaction = tx;
-            delivery.CommandText = "UPDATE registration_delivery SET state='sent',last_failure_code=NULL WHERE registration_id=$id AND kind=$kind AND state='pending'";
+            delivery.CommandText = "UPDATE registration_delivery SET state='sent',last_failure_code=NULL WHERE registration_id=$id AND kind=$kind AND state='pending'" + (expectedIdempotencyKey is null ? "" : " AND idempotency_key=$key");
             delivery.Parameters.AddWithValue("$id", registrationId); delivery.Parameters.AddWithValue("$kind", kind);
+            if (expectedIdempotencyKey is not null) delivery.Parameters.AddWithValue("$key", expectedIdempotencyKey);
             if (delivery.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
         }
         using (var account = db.CreateCommand())
@@ -248,7 +284,10 @@ public sealed class RegistrationDeliveryOutbox
                 ? "UPDATE registration_accounts SET state='active',activated_at_utc=COALESCE(activated_at_utc,$time),failure_code=NULL WHERE id=$id AND state IN ('activating','active')"
                 : "UPDATE registration_accounts SET state='activation-sent',delivered_at_utc=$time,failure_code=NULL WHERE id=$id AND state IN ('pending','failed','activation-sent')";
             account.Parameters.AddWithValue("$time", sentAtUtc.ToString("O", CultureInfo.InvariantCulture)); account.Parameters.AddWithValue("$id", registrationId);
-            if (account.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
+            // The matching delivery has succeeded. Account state may already have moved
+            // independently (for example during startup reconciliation), so do not leave
+            // the sent email queued solely because this secondary state update was a no-op.
+            account.ExecuteNonQuery();
         }
         tx.Commit();
     }
@@ -256,21 +295,83 @@ public sealed class RegistrationDeliveryOutbox
     public void MarkRetry(string registrationId, int attempts, DateTime nextAttemptUtc, string safeFailureCode)
         => Update(registrationId, "pending", attempts, nextAttemptUtc, safeFailureCode);
 
-    public void MarkFailed(string registrationId, string safeFailureCode)
+    public void MarkRetry(PendingRegistrationDelivery pending, int attempts, DateTime nextAttemptUtc, string safeFailureCode)
+        => Update(pending.RegistrationId, "pending", attempts, nextAttemptUtc, safeFailureCode, pending.IdempotencyKey);
+
+    public void MarkProvisioned(string registrationId) => MarkProvisioned(registrationId, null);
+
+    public void MarkProvisioned(PendingRegistrationDelivery pending) => MarkProvisioned(pending.RegistrationId, pending.IdempotencyKey);
+
+    void MarkProvisioned(string registrationId, string? expectedIdempotencyKey)
+    {
+        using var db = store.Open(); using var tx = db.BeginTransaction(deferred: false);
+        using (var command = db.CreateCommand())
+        {
+            command.Transaction = tx;
+            command.CommandText = "UPDATE registration_delivery SET provisioning_succeeded=1 WHERE registration_id=$id AND kind='access-code' AND state='pending'" + (expectedIdempotencyKey is null ? "" : " AND idempotency_key=$key");
+            command.Parameters.AddWithValue("$id", registrationId);
+            if (expectedIdempotencyKey is not null) command.Parameters.AddWithValue("$key", expectedIdempotencyKey);
+            if (command.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
+        }
+        using (var account = db.CreateCommand())
+        {
+            account.Transaction = tx;
+            account.CommandText = "UPDATE registration_accounts SET state='active',activated_at_utc=COALESCE(activated_at_utc,$time),failure_code=NULL WHERE id=$id AND state IN ('activating','active')";
+            account.Parameters.AddWithValue("$time", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            account.Parameters.AddWithValue("$id", registrationId);
+            if (account.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
+        }
+        tx.Commit();
+    }
+
+    public void MarkFailed(string registrationId, string safeFailureCode) => MarkFailed(registrationId, safeFailureCode, null);
+
+    public void MarkFailed(PendingRegistrationDelivery pending, string safeFailureCode) =>
+        MarkFailed(pending.RegistrationId, safeFailureCode, pending.IdempotencyKey);
+
+    /// <summary>Reconciles registrations only when the protected outbox credential matches the live operator record.</summary>
+    public void ReconcileActiveAccounts(IEnumerable<OperatorCodeRecord> records)
+    {
+        var operatorRecords = records.ToDictionary(record => record.Id, StringComparer.Ordinal);
+        var verified = new HashSet<string>(StringComparer.Ordinal);
+        using (var db = store.Open())
+        using (var command = db.CreateCommand())
+        {
+            command.CommandText = "SELECT registration_id,protected_code FROM registration_delivery WHERE kind='access-code' AND protected_code IS NOT NULL";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var id = reader.GetString(0);
+                if (!operatorRecords.TryGetValue(id, out var record)) continue;
+                try
+                {
+                    var secret = protector.Unprotect(reader.GetString(1));
+                    var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret))).ToLowerInvariant();
+                    if (FixedEquals(hash, record.CodeHash)) verified.Add(id);
+                }
+                catch (Exception ex) when (ex is CryptographicException or FormatException or InvalidDataException) { }
+            }
+        }
+        store.ReconcileActiveAccounts(operatorRecords.Values, verified);
+    }
+
+    void MarkFailed(string registrationId, string safeFailureCode, string? expectedIdempotencyKey)
     {
         var now = DateTime.UtcNow;
         using var db = store.Open(); using var tx = db.BeginTransaction();
         using (var delivery = db.CreateCommand())
         {
             delivery.Transaction = tx;
-            delivery.CommandText = "UPDATE registration_delivery SET state='failed',last_failure_code=$failure WHERE registration_id=$id";
+            delivery.CommandText = "UPDATE registration_delivery SET state='failed',last_failure_code=$failure,failed_at_utc=$time WHERE registration_id=$id" + (expectedIdempotencyKey is null ? "" : " AND idempotency_key=$key AND state='pending'");
             delivery.Parameters.AddWithValue("$failure", safeFailureCode); delivery.Parameters.AddWithValue("$id", registrationId);
-            delivery.ExecuteNonQuery();
+            delivery.Parameters.AddWithValue("$time", now.ToString("O", CultureInfo.InvariantCulture));
+            if (expectedIdempotencyKey is not null) delivery.Parameters.AddWithValue("$key", expectedIdempotencyKey);
+            if (delivery.ExecuteNonQuery() != 1) { tx.Rollback(); return; }
         }
         using (var account = db.CreateCommand())
         {
             account.Transaction = tx;
-            account.CommandText = "UPDATE registration_accounts SET state='failed',failed_at_utc=$time,failure_code=$failure WHERE id=$id AND state<>'scrubbed'";
+            account.CommandText = "UPDATE registration_accounts SET state='failed',failed_at_utc=$time,failure_code=$failure WHERE id=$id AND state<>'scrubbed' AND NOT EXISTS (SELECT 1 FROM registration_delivery WHERE registration_id=$id AND kind='access-code' AND provisioning_succeeded=1)";
             account.Parameters.AddWithValue("$time", now.ToString("O", CultureInfo.InvariantCulture));
             account.Parameters.AddWithValue("$failure", safeFailureCode); account.Parameters.AddWithValue("$id", registrationId);
             account.ExecuteNonQuery();
@@ -371,13 +472,15 @@ public sealed class RegistrationDeliveryOutbox
         }
     }
 
-    void Update(string id, string state, int? attempts, DateTime? nextAttempt, string? failureCode)
+    void Update(string id, string state, int? attempts, DateTime? nextAttempt, string? failureCode, string? expectedIdempotencyKey = null)
     {
         using var db = store.Open(); using var command = db.CreateCommand();
-        command.CommandText = "UPDATE registration_delivery SET state=$state,attempts=COALESCE($attempts,attempts),next_attempt_utc=COALESCE($next,next_attempt_utc),last_failure_code=$failure WHERE registration_id=$id";
+        command.CommandText = "UPDATE registration_delivery SET state=$state,attempts=COALESCE($attempts,attempts),next_attempt_utc=COALESCE($next,next_attempt_utc),last_failure_code=$failure WHERE registration_id=$id" + (expectedIdempotencyKey is null ? "" : " AND idempotency_key=$key AND state='pending'");
         command.Parameters.AddWithValue("$state", state); command.Parameters.AddWithValue("$attempts", (object?)attempts ?? DBNull.Value);
         command.Parameters.AddWithValue("$next", nextAttempt is null ? DBNull.Value : nextAttempt.Value.ToString("O", CultureInfo.InvariantCulture));
-        command.Parameters.AddWithValue("$failure", (object?)failureCode ?? DBNull.Value); command.Parameters.AddWithValue("$id", id); command.ExecuteNonQuery();
+        command.Parameters.AddWithValue("$failure", (object?)failureCode ?? DBNull.Value); command.Parameters.AddWithValue("$id", id);
+        if (expectedIdempotencyKey is not null) command.Parameters.AddWithValue("$key", expectedIdempotencyKey);
+        command.ExecuteNonQuery();
     }
 
     PendingRegistrationDelivery ReadDelivery(SqliteDataReader reader) => new(

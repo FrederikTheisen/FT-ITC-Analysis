@@ -528,6 +528,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-041 — Preferences tests depend on the live interpretation service
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Test quality
 - Location: `AnalysisITC.Avalonia.Tests/PreferencesTests.cs:466`; `AnalysisITC.Avalonia/Misc/Preferences/PreferencesWindow.cs:925`; `AnalysisITC.Avalonia/Misc/Preferences/PreferencesWindow.cs:953`; `AnalysisITC.Core/Interpretation/FtItcInterpretationClient.cs:124`
@@ -536,6 +537,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: A test opens Preferences with synthetic cached credentials and expects Verified (cached). A timely live response changes that state; blank-code windows can instead enroll a public installation.
 - Consequence: Tests depend on service response timing and can update shared settings after their initiating fixture ends. Some account-refresh cancellation guards exist, but public refresh lacks equivalent lifetime control. No request was made during review.
 - Suggested direction: Inject controlled transport/client behavior and cancel or join every refresh during cleanup.
+- Resolution: Preferences uses controlled test transports and owns verification, account refresh and public enrollment tasks. Closing or reloading suppresses stale UI/settings updates on both desktops; an enrollment already dispatched completes and Core saves its issued code. Controlled cancellation/race tests and the full Core suite cover the persistence exception.
+- Validation: Final Linux deployment candidate: 442/442 Web tests; Core: 3,751 passed, one existing skip; Avalonia Preferences: 27/27. Native harness/layout checks passed; native Preferences response races were reviewed and compiled but not exercised in an interactive AppKit window. Operational evidence is in `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md`.
 
 ## CR-042 — Native Copy Processing buttons have no connected actions
 
@@ -748,6 +751,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-059 — Public quota checks race with durable request admission
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Web
 - Location: `AnalysisITC.Web/Program.cs:692`; `AnalysisITC.Web/PublicQuotaService.cs:16`; `AnalysisITC.Web/InterpretationQuotaService.cs:45`; `AnalysisITC.Web/InterpretationUsageStore.cs:32`
@@ -756,10 +760,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: With four of five installation requests used, two requests with distinct correlation IDs both pass the public check before either admission commits. Both are then admitted and dispatch provider work.
 - Consequence: Public request and concurrency limits can be exceeded; global quota decisions also lack atomic revalidation. This differs from intentionally allowing one admitted request to finish above a recorded cost limit.
 - Suggested direction: Include public installation/global quota evaluation and installation ownership in durable admission, preserving duplicate claims and the policy against predicted-cost reservation.
+- Resolution: Typed public admission policy runs in the immediate SQLite admission transaction, checking duplicates, migration blockers, maintenance, installation activity, lifetime unresolved costs, installation limits and global recorded limits. Existing response codes are retained; no predicted-cost reservation was introduced.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-060 — Public accounting omits durable attempts without a final request summary
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Web
 - Location: `AnalysisITC.Web/InterpretationUsageStore.cs:174`; `AnalysisITC.Web/InterpretationUsageStore.Reporting.cs:45`; `AnalysisITC.Web/Program.cs:866`; `AnalysisITC.Web/InterpretationUsageStore.Administration.cs:56`
@@ -768,10 +775,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: A public attempt records a provider receipt, then the process crashes or summary finalization fails. Other installations' global checks omit it immediately; stopped-execution recovery later removes the originating installation's active guard without restoring classification.
 - Consequence: Public counts, recorded spend and unresolved liabilities undercount durable provider activity. The authoritative receipt and operator/account-history queries retain the charge.
 - Suggested direction: Persist quota classification with durable admission identity and calculate public usage independently of final-summary availability.
+- Resolution: Schema 7 records access classification and request-count eligibility with durable execution identity before provider dispatch. Final summaries do not establish or overwrite them. Repeatable startup backfill handles old-writer rows; public counts include admitted/finalized/recovered executions and exclude rejections. Unknown historical classifications are reported as non-public.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-061 — Concurrent public-registry writes can undo a successful revocation
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Web
 - Location: `AnalysisITC.Web/PublicAccessRegistry.cs:49`; `AnalysisITC.Web/PublicAccessRegistry.cs:61`; `AnalysisITC.Web/InterpretationAdminCommands.cs:31`; `AnalysisITC.Web/Program.cs:657`
@@ -780,10 +790,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: The server reads the registry while touching identity A; the CLI revokes B and writes; the server then replaces the file with its earlier snapshot.
 - Consequence: A successfully revoked credential can become accepted again, even when the concurrent request belongs to another installation. The required interleaving is narrow and its deployment frequency is unknown.
 - Suggested direction: Serialize mutations across processes or use transactional storage, covering the real service/CLI writer arrangement.
+- Resolution: Public create/touch/revoke mutations use a checked Unix flock on a persistent sibling inode with a five-second bound. Create/revoke fail without writes on timeout; touch logs and proceeds without writing only on timeout, while a discovered revocation denies access. Linux separate-process service/admin tests passed, including termination and lock permissions.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. Separate-process Linux service/admin lock rehearsal also passed. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-062 — Month rollover stops unresolved public costs from blocking new work
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Web
 - Location: `AnalysisITC.Web/InterpretationUsageStore.cs:174`; `AnalysisITC.Web/PublicQuotaService.cs:13`; `AnalysisITC.Web/InterpretationQuotaService.cs:48`
@@ -792,10 +805,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: A public request finalizes late on 31 October with unknown provider cost. On 1 November its unknown count disappears from the public snapshot and a fresh request can pass if its rolling allowance permits.
 - Consequence: New work is allowed without settlement or waiver of the previous liability, contrary to the documented cross-month rule. This occurs even when the public summary was successfully stored.
 - Suggested direction: Limit the date filter to periodic spending totals and query unresolved liabilities over their full lifetime.
+- Resolution: Unresolved public liabilities are queried over the installation lifetime independently of monthly spending and rolling request counts. Settlement/waiver releases the affected installation; another installation can continue against recorded global spending. Month-boundary, missing-summary, migrated-liability and waiver tests cover the rule.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-063 — Registry health reports success without reading the registry
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Web
 - Location: `AnalysisITC.Web/HealthChecks.cs:50`; `AnalysisITC.Web/GenerationPresetRegistry.cs:43`; `AnalysisITC.Web/DailyStatusEmail.cs:82`
@@ -804,10 +820,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: An existing generation-preset registry becomes malformed or inaccessible while interpretation/provider configuration is otherwise healthy. Options and generation requests fail when reading it.
 - Consequence: Health output and the daily email can report the Interpretation group healthy and omit the outage cause. Other storage probes inspect different files; no actual deployment failure was observed.
 - Suggested direction: Validate registries through the request-handling read policy and report safe structured failures, retaining intentional defaults for an absent preset file.
+- Resolution: Health reads and validates presets, public access, static operator codes and registered operator codes through their actual read paths even while generation is paused. Missing-file defaults are retained. Structured health/daily-email checks and the 20-case registry matrix cover valid, absent, malformed, invalid and unreadable files.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-064 — Registration tests read and may write the service-default registry
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Test quality
 - Location: `AnalysisITC.Web.Tests/RegistrationSecurityTests.cs:674`; `AnalysisITC.Web/InterpretationOptions.cs:40`; `AnalysisITC.Web/Program.cs:225`; `AnalysisITC.Web/RegistrationMailSender.cs:28`
@@ -816,10 +835,13 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Enabled startup reads the ambient registered-account registry. A malformed/unreadable file can fail the test; if the activation fixture lasts until a worker tick and the default directory is writable, credential provisioning writes there before missing mail configuration is detected.
 - Consequence: Tests depend on external machine state and can conditionally leave persistent synthetic credentials outside fixture cleanup. No ambient registry was inspected or modified during review.
 - Suggested direction: Redirect the distinct registration registry into the fixture and explicitly control the worker and transport in endpoint tests.
+- Resolution: Every Web endpoint fixture redirects interpretation/registration persistence into temporary storage and removes the RegistrationDeliveryWorker, whose retention pass otherwise runs even when registration is disabled. Delivery tests explicitly drive controlled transports. The final full Linux candidate suite verifies behavior without ambient service-store access.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-065 — Deployment activation failures bypass the existing rollback branch
 
 - Priority: Medium
+- Status: Resolved (2026-10-17); implemented and deployed to MIST.
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `scripts/publish-web-app.sh:42`; `scripts/publish-web-app.sh:50`; `scripts/publish-web-app.sh:106`; `Documentation/Interpretation/MIST_DEPLOYMENT.md:31`
@@ -828,6 +850,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: The old release is moved aside and the next rename fails, or systemctl start returns failure. Bash exits before the health-check recovery branch.
 - Consequence: The service remains stopped with no active release directory or a failed replacement, requiring manual recovery. No deployment was executed.
 - Suggested direction: Handle activation-stage failures explicitly and recover only to an executable compatible with the complete current accounting ledger; keep generation paused until compatibility and health are verified, without restoring an old database.
+- Resolution: The publish script accepts an isolated source tree and separate staging/activation. A detached host runner records activation phases and has one idempotent recovery entry point, preserving the complete live ledger. Consistent backups, executable/dependency hashes, an actual candidate/previous/candidate ledger round trip, fault-injected phase tests and live preflight recovery verified restoration of prior availability.
+- Validation: Final exact Linux deployment candidate passed 442/442 Web tests. Seven deployment-runner test methods cover injected activation/recovery phase failures; the ledger-copy round trip and live preflight recovery passed. See `Documentation/Interpretation/ROLLOUT_2026-10-17_RELIABILITY.md` for operational evidence.
 
 ## CR-066 — Precision reports attach current source hashes to potentially older executions
 

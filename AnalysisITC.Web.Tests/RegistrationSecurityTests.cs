@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using AnalysisITC.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace AnalysisITC.Web.Tests;
@@ -125,7 +127,7 @@ public sealed class RegistrationSecurityTests : IDisposable
 
         // Reopen the persisted stores and run the same reconciliation as service startup.
         (store, outbox, _) = CreateServices();
-        store.ReconcileActiveAccounts(registry.List());
+        outbox.ReconcileActiveAccounts(registry.List());
         using var db = store.Open();
         Assert.Equal("active", Scalar<string>(db, "SELECT state FROM registration_accounts WHERE email='user@example.org'"));
         var activatedAt = Scalar<string>(db, "SELECT activated_at_utc FROM registration_accounts WHERE email='user@example.org'");
@@ -489,7 +491,7 @@ public sealed class RegistrationSecurityTests : IDisposable
     [Fact]
     public async Task MailFlowSendsActivationBeforeStableProvisionedAccessCode()
     {
-        var (_, outbox, configured) = CreateServices();
+        var (store, outbox, configured) = CreateServices();
         configured.Registration.MailConfigurationPath = Path.Combine(directory, "mail.json");
         await File.WriteAllTextAsync(configured.Registration.MailConfigurationPath,
             "{\"apiKey\":\"secret\",\"from\":\"FT-ITC <mist@ft-itc.org>\",\"replyTo\":\"support@ft-itc.org\"}");
@@ -516,6 +518,182 @@ public sealed class RegistrationSecurityTests : IDisposable
         var accessMessage = handler.Messages.Last();
         Assert.Equal("Your FT-ITC interpretation access is ready", accessMessage.GetProperty("subject").GetString());
         Assert.Contains(access.Secret, accessMessage.GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task ExhaustedProvisionedAccessDeliveryCanBeResubmittedWithoutChangingCredential()
+    {
+        var (store, outbox, configured) = CreateServices();
+        var registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(Options.Create(configured)), new PublicAccessRegistry(Options.Create(configured)));
+        var now = DateTime.UtcNow;
+        var submitted = outbox.Submit("Test User", "user@example.org", null, "terms", "privacy", now);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddSeconds(1)));
+        outbox.MarkSent(submitted.RegistrationId, RegistrationMessageKinds.Activation, now);
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, now.AddMinutes(1)));
+        registry.CreateRegisteredWithCode(access.RegistrationId, access.Name, access.Email, access.Organization, access.Secret);
+        outbox.MarkProvisioned(access.RegistrationId);
+        outbox.MarkFailed(access.RegistrationId, "provider_unavailable");
+
+        Assert.True(registry.Authenticate("Bearer " + access.Secret).IsAuthorized);
+        using (var db = OpenDatabase())
+        {
+            Assert.Equal("active", Scalar<string>(db, "SELECT state FROM registration_accounts WHERE id='" + access.RegistrationId + "'"));
+            Assert.Equal(1L, Scalar<long>(db, "SELECT provisioning_succeeded FROM registration_delivery WHERE registration_id='" + access.RegistrationId + "'"));
+        }
+        File.WriteAllText(configured.Registration.AvailabilityPolicyPath, "{\"Enabled\":true}");
+        var availability = new RegistrationAvailability(Options.Create(configured));
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var summary = new RegistrationSummaryService(Options.Create(configured), availability, interpretation)
+            .Build(DateOnly.FromDateTime(DateTime.UtcNow));
+        Assert.Equal(1, summary.AccessCodeDeliveryFailed);
+        DateTime failedAt;
+        using (var db = OpenDatabase())
+            failedAt = DateTime.Parse(Scalar<string>(db, "SELECT failed_at_utc FROM registration_delivery"), null,
+                System.Globalization.DateTimeStyles.RoundtripKind).ToUniversalTime();
+        Assert.Equal(RegistrationSubmissionOutcome.PendingCooldown,
+            outbox.Submit("Changed", "USER@example.org", null, "terms", "privacy", failedAt.AddMinutes(15).AddTicks(-1)).Outcome);
+        var resubmissions = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+            outbox.Submit("Changed", "user@example.org", null, "terms", "privacy", failedAt.AddMinutes(15)))));
+        Assert.Single(resubmissions, result => result.Outcome == RegistrationSubmissionOutcome.PendingResendQueued);
+        var retry = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(failedAt.AddMinutes(15)));
+        Assert.Equal(access.Secret, retry.Secret);
+        Assert.NotEqual(access.IdempotencyKey, retry.IdempotencyKey);
+        Assert.Equal(0, retry.Attempts);
+        Assert.True(registry.Authenticate("Bearer " + access.Secret).IsAuthorized);
+
+        Assert.True(registry.Revoke(access.RegistrationId));
+        outbox.MarkFailed(retry.RegistrationId, "provider_unavailable");
+        using (var db = OpenDatabase())
+        {
+            using var update = db.CreateCommand(); update.CommandText = "UPDATE registration_accounts SET state='activating'";
+            update.ExecuteNonQuery();
+        }
+        Assert.Equal(RegistrationSubmissionOutcome.Active,
+            outbox.Submit("Changed", "user@example.org", null, "terms", "privacy", now.AddMinutes(32)).Outcome);
+        Assert.Null(outbox.GetPending(now.AddDays(1)));
+    }
+
+    [Fact]
+    public void AccessCodeDeliveryThatNeverProvisionedCannotBeRequeued()
+    {
+        var (store, outbox, configured) = CreateServices();
+        var registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(Options.Create(configured)));
+        var now = DateTime.UtcNow;
+        var submitted = outbox.Submit("Test User", "user@example.org", null, "terms", "privacy", now);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddSeconds(1)));
+        outbox.MarkSent(submitted.RegistrationId, RegistrationMessageKinds.Activation, now);
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, now.AddMinutes(1)));
+        outbox.MarkFailed(access.RegistrationId, "account_conflict");
+        registry.CreateRegisteredWithCode(access.RegistrationId, access.Name, access.Email, access.Organization,
+            "ftitc_op_" + Base64Url(RandomNumberGenerator.GetBytes(32)));
+
+        // A registry ID collision with a different credential must not be mistaken for successful provisioning.
+        (store, outbox, _) = CreateServices();
+        outbox.ReconcileActiveAccounts(registry.List());
+
+        Assert.Equal(RegistrationSubmissionOutcome.Active,
+            outbox.Submit("Test User", "user@example.org", null, "terms", "privacy", now.AddMinutes(20)).Outcome);
+        Assert.Null(outbox.GetPending(now.AddDays(1)));
+        using var db = OpenDatabase();
+        Assert.Equal("failed", Scalar<string>(db, "SELECT state FROM registration_accounts"));
+        Assert.Equal(0L, Scalar<long>(db, "SELECT provisioning_succeeded FROM registration_delivery"));
+    }
+
+    [Fact]
+    public void FailedProvisionedAccessDeliveryCanBeResubmittedWhileAccountIsActivating()
+    {
+        var (_, outbox, configured) = CreateServices();
+        var registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(Options.Create(configured)), new PublicAccessRegistry(Options.Create(configured)));
+        var createdAt = DateTime.UtcNow;
+        var submitted = outbox.Submit("Test User", "user@example.org", null, "terms", "privacy", createdAt);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(createdAt.AddSeconds(1)));
+        outbox.MarkSent(submitted.RegistrationId, RegistrationMessageKinds.Activation, createdAt);
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, createdAt.AddMinutes(1)));
+        registry.CreateRegisteredWithCode(access.RegistrationId, access.Name, access.Email, access.Organization, access.Secret);
+        outbox.MarkProvisioned(access);
+        outbox.MarkFailed(access, "provider_unavailable");
+        using (var db = OpenDatabase())
+        {
+            using var update = db.CreateCommand();
+            update.CommandText = "UPDATE registration_accounts SET state='activating' WHERE id=$id";
+            update.Parameters.AddWithValue("$id", access.RegistrationId);
+            Assert.Equal(1, update.ExecuteNonQuery());
+        }
+
+        var result = outbox.Submit("Changed", "user@example.org", null, "terms", "privacy", DateTime.UtcNow.AddMinutes(16));
+
+        Assert.Equal(RegistrationSubmissionOutcome.PendingResendQueued, result.Outcome);
+        var retry = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow.AddMinutes(17)));
+        Assert.Equal(access.Secret, retry.Secret);
+        Assert.NotEqual(access.IdempotencyKey, retry.IdempotencyKey);
+        Assert.True(registry.Authenticate("Bearer " + access.Secret).IsAuthorized);
+    }
+
+    [Fact]
+    public void SuccessfulDeliveryAcknowledgesMatchingRowAndAdvancesQueueWhenAccountStateIsMissing()
+    {
+        var (_, outbox, _) = CreateServices();
+        var now = DateTime.UtcNow;
+        var first = outbox.Submit("First", "first@example.org", null, "terms", "privacy", now);
+        var pending = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddSeconds(1)));
+        outbox.Submit("Second", "second@example.org", null, "terms", "privacy", now.AddSeconds(1));
+        using (var db = OpenDatabase())
+        {
+            using var delete = db.CreateCommand();
+            delete.CommandText = "DELETE FROM registration_accounts WHERE id=$id";
+            delete.Parameters.AddWithValue("$id", first.RegistrationId); delete.ExecuteNonQuery();
+        }
+
+        outbox.MarkSent(pending, now.AddMinutes(1));
+
+        using var verify = OpenDatabase();
+        Assert.Equal("sent", Scalar<string>(verify, "SELECT state FROM registration_delivery WHERE registration_id='" + first.RegistrationId + "'"));
+        Assert.Equal("Second", Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddMinutes(1))).Name);
+    }
+
+    [Fact]
+    public async Task PublicRegistryUsesPersistentCrossProcessLockAndHonorsTimeoutSemantics()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "public-access.json");
+        var registry = new PublicAccessRegistry(Options.Create(new InterpretationOptions { PublicAccessRegistryPath = path }));
+        var created = registry.Create();
+        var original = await File.ReadAllTextAsync(path);
+        var lockPath = path + ".lock";
+        using var process = new Process { StartInfo = new ProcessStartInfo("/usr/bin/perl")
+        {
+            RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+        } };
+        process.StartInfo.ArgumentList.Add("-e");
+        process.StartInfo.ArgumentList.Add("use Fcntl qw(:flock); open(my $fh, '+>>', $ARGV[0]) or die $!; flock($fh, LOCK_EX) or die $!; $|=1; print \"READY\\n\"; sleep 60;");
+        process.StartInfo.ArgumentList.Add(lockPath);
+        Assert.True(process.Start());
+        Assert.Equal("READY", await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+        try
+        {
+            Assert.Throws<PublicAccessRegistryUnavailableException>(() => registry.Create());
+            Assert.Throws<PublicAccessRegistryUnavailableException>(() => registry.Revoke(created.Record.Id));
+            Assert.True(registry.TryTouch(created.Record.Id));
+            Assert.Null(Assert.Single(registry.List()).LastUseAtUtc);
+            Assert.Equal(original, await File.ReadAllTextAsync(path));
+            Assert.Equal(1, registry.TouchLockTimeoutCount);
+            var unrelatedRegistry = new PublicAccessRegistry(Options.Create(new InterpretationOptions
+            { PublicAccessRegistryPath = Path.Combine(directory, "other-public-access.json") }));
+            Assert.Equal(0, unrelatedRegistry.TouchLockTimeoutCount);
+            Assert.True(File.Exists(lockPath));
+            Assert.True(File.GetUnixFileMode(lockPath).HasFlag(UnixFileMode.GroupWrite));
+        }
+        finally
+        {
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            PublicAccessRegistry.ResetTouchLockTimeouts();
+        }
+        Assert.True(registry.Revoke(created.Record.Id));
     }
 
     [Fact]
@@ -584,7 +762,7 @@ public sealed class RegistrationSecurityTests : IDisposable
     [Fact]
     public async Task RejectedAccessCodeEmailRemainsRetryableWithItsProvisionedCredential()
     {
-        var (_, outbox, configured) = CreateServices();
+        var (store, outbox, configured) = CreateServices();
         configured.Registration.MailConfigurationPath = Path.Combine(directory, "mail.json");
         await File.WriteAllTextAsync(configured.Registration.MailConfigurationPath,
             "{\"apiKey\":\"secret\",\"from\":\"FT-ITC <mist@ft-itc.org>\",\"replyTo\":\"support@ft-itc.org\"}");
@@ -601,15 +779,39 @@ public sealed class RegistrationSecurityTests : IDisposable
 
         Assert.True(await sender.ProcessOneAsync());
         Assert.True(registry.Authenticate("Bearer " + access.Secret).IsAuthorized);
-        var retry = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow.AddMinutes(11)));
-        Assert.Equal(access.Secret, retry.Secret);
-        Assert.Equal(1, retry.Attempts);
+        var cycleKey = access.IdempotencyKey;
+        Assert.Equal(access.Secret, Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow.AddMinutes(11))).Secret);
 
-        outbox.MarkRetry(access.RegistrationId, 4, DateTime.UtcNow.AddSeconds(-1), "provider_unavailable");
-        Assert.True(await sender.ProcessOneAsync());
+        // Advance due time between attempts and reconstruct the stores/sender as a service restart would.
+        for (var attempt = 2; attempt <= 5; attempt++)
+        {
+            using (var db = OpenDatabase())
+            {
+                using var due = db.CreateCommand();
+                due.CommandText = "UPDATE registration_delivery SET next_attempt_utc=$now WHERE registration_id=$id";
+                due.Parameters.AddWithValue("$now", DateTime.UtcNow.AddSeconds(-1).ToString("O"));
+                due.Parameters.AddWithValue("$id", access.RegistrationId);
+                Assert.Equal(1, due.ExecuteNonQuery());
+            }
+            (store, outbox, _) = CreateServices();
+            registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+                new OperatorTombstoneRegistry(Options.Create(configured)));
+            sender = new RegistrationMailSender(Options.Create(configured), outbox, registry,
+                new SingleClientFactory(new HttpClient(handler)), new OperatorTombstoneRegistry(Options.Create(configured)));
+            Assert.True(await sender.ProcessOneAsync());
+            if (attempt < 5)
+            {
+                var next = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow.AddMinutes(11)));
+                Assert.Equal(attempt, next.Attempts);
+                Assert.Equal(access.Secret, next.Secret);
+                Assert.Equal(cycleKey, next.IdempotencyKey);
+            }
+        }
         Assert.Null(outbox.GetPending(DateTime.UtcNow.AddDays(1)));
-        using var db = OpenDatabase();
-        Assert.Equal("failed", Scalar<string>(db, "SELECT state FROM registration_accounts"));
+        using var resultDb = OpenDatabase();
+        Assert.Equal("active", Scalar<string>(resultDb, "SELECT state FROM registration_accounts"));
+        Assert.Equal("failed", Scalar<string>(resultDb, "SELECT state FROM registration_delivery"));
+        Assert.Equal(5, handler.Messages.Count);
     }
 
     (SelfRegistrationStore Store, RegistrationDeliveryOutbox Outbox, InterpretationOptions Options) CreateServices()
@@ -620,7 +822,10 @@ public sealed class RegistrationSecurityTests : IDisposable
         var store = new SelfRegistrationStore(values);
         var protection = DataProtectionProvider.Create(new DirectoryInfo(configured.Registration.DataProtectionKeysPath),
             builder => builder.SetApplicationName("FT-ITC.PublicRegistration"));
-        return (store, new RegistrationDeliveryOutbox(store, protection, values), configured);
+        var publicAccess = new PublicAccessRegistry(values);
+        var operatorRegistry = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(values), publicAccess);
+        return (store, new RegistrationDeliveryOutbox(store, protection, values, operatorRegistry), configured);
     }
 
     InterpretationOptions Configuration(string databasePath) => new()
@@ -630,6 +835,9 @@ public sealed class RegistrationSecurityTests : IDisposable
             Enabled = true, DatabasePath = databasePath,
             DataProtectionKeysPath = Path.Combine(directory, "keys"),
             OperatorRegistryPath = Path.Combine(directory, "registered-codes.json"),
+            MailConfigurationPath = Path.Combine(directory, "mail.json"),
+            SecretConfigurationPath = Path.Combine(directory, "secret.json"),
+            AvailabilityPolicyPath = Path.Combine(directory, "registration-policy.json"),
             ActivationLifetimeHours = 24, ResendCooldownMinutes = 15,
         },
         OperatorAccess = new InterpretationOperatorOptions
@@ -637,6 +845,7 @@ public sealed class RegistrationSecurityTests : IDisposable
             Enabled = true, RegistryPath = Path.Combine(directory, "operator-codes.json"),
             PresetRegistryPath = Path.Combine(directory, "presets.json"),
         },
+        PublicAccessRegistryPath = Path.Combine(directory, "public-access.json"),
         TombstonePath = Path.Combine(directory, "tombstones.json"),
     };
 
@@ -726,6 +935,7 @@ public sealed class RegistrationSecurityTests : IDisposable
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            WebTestHostIsolation.ConfigureIsolatedHost(builder, directory);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Interpretation:Registration:Enabled"] = "true",
@@ -734,14 +944,19 @@ public sealed class RegistrationSecurityTests : IDisposable
                 ["Interpretation:Registration:SecretConfigurationPath"] = Path.Combine(directory, "turnstile.json"),
                 ["Interpretation:Registration:MailConfigurationPath"] = Path.Combine(directory, "missing-mail.json"),
                 ["Interpretation:Registration:AvailabilityPolicyPath"] = Path.Combine(directory, "registration-service.json"),
+                ["Interpretation:Registration:OperatorRegistryPath"] = Path.Combine(directory, "registered-codes.json"),
                 ["Interpretation:Registration:TermsVersion"] = "terms",
                 ["Interpretation:Registration:PrivacyVersion"] = "privacy",
                 ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(directory, "operator-codes.json"),
                 ["Interpretation:OperatorAccess:PresetRegistryPath"] = Path.Combine(directory, "presets.json"),
+                ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
                 ["Interpretation:TombstonePath"] = Path.Combine(directory, "tombstones.json"),
                 ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
             }));
-            builder.ConfigureServices(services => services.AddSingleton<TurnstileVerifier, AcceptingTurnstileVerifier>());
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<TurnstileVerifier, AcceptingTurnstileVerifier>();
+            });
         }
     }
 
