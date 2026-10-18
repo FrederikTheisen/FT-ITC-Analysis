@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -12,10 +13,11 @@ using AnalysisITC;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.UI.MacOS.CustomViews;
 
-// Drives the real designer controller with code-created outlets; no storyboard or app bundle.
+// Drives the real designer controller with code-created outlets and its compiled storyboard.
 static class ExperimentDesignerTests
 {
     const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -30,11 +32,20 @@ static class ExperimentDesignerTests
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         try
         {
+            AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 10, true, 34.3);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 10, false, 31.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 2, true, 309.5);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsITCStandard, 10, true, 27.7);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsITCLowVolume, 10, false, 25.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalITC200, 2, true, 39.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.MalvernITC200, 2, false, 19.5);
+            ManualVolumeHasNoUpperCeiling();
+            ArchivedVolumeControlsMatchSchedule(args[1]);
             SetupAndModelChangesKeepEnteredValues(autoRun: true);
             SetupAndModelChangesKeepEnteredValues(autoRun: false);
             FitLocksControlsAndRestoresTheirStates();
             BusyOperationBlocksDesignerFit();
-            Console.WriteLine("PASS: native designer keeps entered values, rebinds controls and restores control states after fitting");
+            Console.WriteLine("PASS: native designer volumes match the schedule, retain entered values and restore control states after fitting");
             return 0;
         }
         catch (Exception error)
@@ -43,6 +54,124 @@ static class ExperimentDesignerTests
             return 1;
         }
     }
+
+    static void AutomaticVolumeMatchesSchedule(ITCInstrument instrument, int count, bool smallFirst, double expectedMicroliters)
+    {
+        using (var controller = CreateController())
+        {
+            var instruments = Outlet<NSPopUpButton>(controller, "InstrumentControl");
+            instruments.SelectItemWithTag((int)instrument);
+            Invoke(controller, "InstrumentControlAction", instruments);
+            Outlet<NSButton>(controller, "SmallInitialInjCheckmark").State = smallFirst ? NSCellStateValue.On : NSCellStateValue.Off;
+            SetInjectionCount(controller, count);
+
+            var field = Outlet<NSTextField>(controller, "InjectionVolumeField");
+            var stepper = Outlet<NSStepper>(controller, "InjectionVolumeStepper");
+            var context = instrument + ", count=" + count + ", small first=" + smallFirst;
+            CheckSchedule(controller, count, smallFirst, expectedMicroliters);
+            Check(Math.Abs(field.DoubleValue - expectedMicroliters) < 1e-10,
+                "automatic field matches the simulated volume: " + context + ", displayed=" + field.DoubleValue);
+            Check(Math.Abs(stepper.DoubleValue - expectedMicroliters) < 1e-10,
+                "automatic stepper matches the simulated volume: " + context);
+            Check(!field.Enabled && !stepper.Enabled, "automatic controls stay disabled");
+            Check(Outlet<NSTextField>(controller, "InjectionInfoField").StringValue.Contains(expectedMicroliters.ToString("F1")),
+                "schedule summary shows the effective volume");
+
+            var auto = Outlet<NSButton>(controller, "AutoVolume");
+            auto.State = NSCellStateValue.Off;
+            Invoke(controller, "InjectionInputChanged", auto);
+            Check(field.Enabled && stepper.Enabled, "manual controls become enabled");
+            CheckSchedule(controller, count, smallFirst, expectedMicroliters);
+            Check(Math.Abs(field.DoubleValue - expectedMicroliters) < 1e-10,
+                "turning Auto off keeps the effective volume: " + context);
+        }
+    }
+
+    static void ManualVolumeHasNoUpperCeiling()
+    {
+        using (var controller = CreateController())
+        {
+            var instruments = Outlet<NSPopUpButton>(controller, "InstrumentControl");
+            instruments.SelectItemWithTag((int)ITCInstrument.MicroCalVPITC);
+            Invoke(controller, "InstrumentControlAction", instruments);
+            var auto = Outlet<NSButton>(controller, "AutoVolume");
+            auto.State = NSCellStateValue.Off;
+            Invoke(controller, "InjectionInputChanged", auto);
+            SetInjectionCount(controller, 10);
+            var field = Outlet<NSTextField>(controller, "InjectionVolumeField");
+            var stepper = Outlet<NSStepper>(controller, "InjectionVolumeStepper");
+            field.DoubleValue = 34.3;
+            Invoke(controller, "InjectionVolumeField_Changed", field, EventArgs.Empty);
+            CheckSchedule(controller, 10, true, 34.3);
+            Check(Math.Abs(stepper.DoubleValue - 34.3) < 1e-10, "manual field synchronizes the stepper above 20 µL");
+
+            stepper.DoubleValue = 500;
+            Invoke(controller, "InjectionVolumeStepper_Activated", stepper, EventArgs.Empty);
+            CheckSchedule(controller, 10, true, 500);
+            Check(field.DoubleValue == 500, "stepper permits values above every instrument's syringe capacity");
+
+            field.DoubleValue = 0.05;
+            Invoke(controller, "InjectionVolumeField_Changed", field, EventArgs.Empty);
+            CheckSchedule(controller, 10, true, 0.1);
+            Check(field.DoubleValue == 0.1 && stepper.DoubleValue == 0.1, "manual minimum remains 0.1 µL");
+        }
+    }
+
+    static void CheckSchedule(ExperimentDesignerViewController2 controller, int count, bool smallFirst, double expectedMicroliters)
+    {
+        var injections = Factory(controller).Model.Data.Injections;
+        Check(injections.Count == count, "schedule has the requested injection count");
+        for (int i = 0; i < count; i++)
+        {
+            var expected = (i == 0 && smallFirst ? 0.5 : expectedMicroliters) / 1e6;
+            Check(Math.Abs(injections[i].Volume - expected) < 1e-16, "simulated volume matches the expected schedule, injection=" + i);
+        }
+    }
+
+    static void ArchivedVolumeControlsMatchSchedule(string storyboardPath)
+    {
+        using (var resources = NSBundle.FromPath(Path.GetDirectoryName(storyboardPath)))
+        using (var storyboard = NSStoryboard.FromName("Main", resources))
+        using (var window = (NSWindowController)storyboard.InstantiateControllerWithIdentifier("NSWindowController-z8n-GP-VNe"))
+        {
+            var controller = (ExperimentDesignerViewController2)window.ContentViewController;
+            Check(controller.View != null, "archived designer view loads");
+            try
+            {
+                var instruments = Outlet<NSPopUpButton>(controller, "InstrumentControl");
+                instruments.SelectItemWithTag((int)ITCInstrument.MicroCalVPITC);
+                Dispatch(instruments);
+                SetInjectionCount(controller, 10);
+                var field = Outlet<NSTextField>(controller, "InjectionVolumeField");
+                var stepper = Outlet<NSStepper>(controller, "InjectionVolumeStepper");
+                Check(Math.Abs(field.DoubleValue - 34.3) < 1e-10, "archived primary field shows 34.3 µL");
+                CheckSchedule(controller, 10, true, 34.3);
+
+                Outlet<NSButton>(controller, "AutoVolume").PerformClick(controller);
+                Check(field.Enabled && stepper.Enabled, "archived Auto action enables manual volume");
+                CheckSchedule(controller, 10, true, 34.3);
+
+                stepper.DoubleValue = 34.55;
+                Dispatch(stepper);
+                Check(Math.Abs(field.DoubleValue - 34.55) < 1e-10, "archived stepper action updates the primary field above 20 µL");
+                CheckSchedule(controller, 10, true, 34.55);
+
+                field.DoubleValue = 500;
+                Dispatch(field);
+                Invoke(controller, "InjectionVolumeField_Changed", field, EventArgs.Empty);
+                Check(stepper.DoubleValue == 500, "archived field action retains a manual value above syringe capacity");
+                CheckSchedule(controller, 10, true, 500);
+            }
+            finally
+            {
+                Invoke(controller, "ReleaseSubscriptions");
+                controller.Dispose();
+            }
+        }
+    }
+
+    static void Dispatch(NSControl control) =>
+        Check(NSApplication.SharedApplication.SendAction(control.Action, control.Target, control), "archived control action dispatches");
 
     static void BusyOperationBlocksDesignerFit()
     {

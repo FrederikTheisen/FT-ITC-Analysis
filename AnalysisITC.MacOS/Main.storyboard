@@ -1294,7 +1294,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     </textField>
                                                                     <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="MjD-rC-hkL">
                                                                         <rect key="frame" x="345" y="-4" width="19" height="30"/>
-                                                                        <stepperCell key="cell" continuous="YES" alignment="left" increment="0.25" minValue="0.10000000000000001" maxValue="20" doubleValue="2" id="Tq2-pX-T6x"/>
+                                                                        <stepperCell key="cell" continuous="YES" alignment="left" increment="0.25" minValue="0.10000000000000001" maxValue="1.7976931348623157e+308" doubleValue="2" id="Tq2-pX-T6x"/>
                                                                         <connections>
                                                                             <action selector="takeFloatValueFrom:" target="WCC-El-oWC" id="Cbz-LJ-pAM"/>
                                                                         </connections>

@@ -30,6 +30,16 @@ else
     native_tests=(AnalysisNullGraphTests DissociationGraphTests InjectionEditingTests ProjectInformationTests AnalysisParameterDraftTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests ExperimentDesignerTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests UpdateResultStatusTests TandemCreationTests)
 fi
 for native_test in "${native_tests[@]}"; do
+    if [[ "$native_test" == ExperimentDesignerTests ]]; then
+        xcrun ibtool --compile "$check_dir/Main.storyboardc" AnalysisITC.MacOS/Main.storyboard \
+            --errors --warnings > "$check_dir/storyboard-diagnostics.plist" 2> "$check_dir/storyboard-compiler.log" || {
+                cat "$check_dir/storyboard-diagnostics.plist" "$check_dir/storyboard-compiler.log"
+                exit 1
+            }
+        break
+    fi
+done
+for native_test in "${native_tests[@]}"; do
 "$mono_root/Commands/mcs" \
     -r:AnalysisITC.MacOS/obj/Debug/FT-ITC.exe \
     -r:AnalysisITC.Core/bin/Debug/netstandard2.0/AnalysisITC.Core.dll \
@@ -43,5 +53,5 @@ done
 export DYLD_FALLBACK_LIBRARY_PATH="$xamarin_root/SDKs/Xamarin.macOS.sdk/lib:${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}"
 export MONO_PATH="$repo_root/AnalysisITC.Core/bin/Debug/netstandard2.0:$repo_root/AnalysisITC.MacOS/obj/Debug:$xamarin_root/lib/64bits/full:$mono_root/lib/mono/4.5:$mono_root/lib/mono/4.5/Facades:$xamarin_root/lib/mono/4.5/Facades:$repo_root/AnalysisITC.MacOS/bin/Debug:${MONO_PATH:-}"
 for native_test in "${native_tests[@]}"; do
-    "$mono_root/Commands/mono" "$check_dir/$native_test.exe" "$repo_root"
+    "$mono_root/Commands/mono" "$check_dir/$native_test.exe" "$repo_root" "$check_dir/Main.storyboardc"
 done

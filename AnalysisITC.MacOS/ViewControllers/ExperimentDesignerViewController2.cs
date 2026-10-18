@@ -133,7 +133,10 @@ namespace AnalysisITC
             if (InjectionVolumeField != null)
                 InjectionVolumeField.Changed += InjectionVolumeField_Changed;
             if (InjectionVolumeStepper != null)
+            {
+                InjectionVolumeStepper.MaxValue = double.MaxValue;
                 InjectionVolumeStepper.Activated += InjectionVolumeStepper_Activated;
+            }
 
             UpdateInjectionVolumeControls(InjectionCount);
         }
@@ -425,7 +428,7 @@ namespace AnalysisITC
         {
             if (InjectionVolumeField == null) return;
 
-            SetInjectionVolumeControlValues(InjectionVolumeField.DoubleValue);
+            SetInjectionVolumeControlValues(ValidateInjectionVolumeMicroliters(InjectionVolumeField.DoubleValue));
         }
 
         private double GetManualInjectionVolumeMicroliters()
@@ -435,21 +438,18 @@ namespace AnalysisITC
 
         private void SetInjectionVolumeControlValues(double volumeMicroliters)
         {
-            var value = ValidateInjectionVolumeMicroliters(volumeMicroliters);
-
             if (InjectionVolumeField != null)
-                InjectionVolumeField.DoubleValue = value;
+                InjectionVolumeField.DoubleValue = volumeMicroliters;
             if (InjectionVolumeStepper != null)
-                InjectionVolumeStepper.DoubleValue = value;
+                InjectionVolumeStepper.DoubleValue = volumeMicroliters;
         }
 
         private double ValidateInjectionVolumeMicroliters(double volumeMicroliters)
         {
             var min = InjectionVolumeStepper?.MinValue ?? 0.1;
-            var max = InjectionVolumeStepper?.MaxValue ?? 20.0;
             var value = volumeMicroliters > 0 ? volumeMicroliters : DefaultManualInjectionVolumeMicroliters;
 
-            return Math.Min(Math.Max(value, min), max);
+            return Math.Max(value, min);
         }
 
         private TandemConcatenation.BackMixingSettings CreateDesignerTandemBackMixingSettings()

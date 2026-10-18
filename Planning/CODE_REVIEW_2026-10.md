@@ -558,6 +558,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-043 — Native automatic injection volume is capped at 20 µL only in its primary field
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.MacOS/ViewControllers/ExperimentDesignerViewController2.cs:400`; `AnalysisITC.MacOS/ViewControllers/ExperimentDesignerViewController2.cs:409`; `AnalysisITC.MacOS/Main.storyboard:1297`
@@ -566,6 +567,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Select VP-ITC, ten injections, a small first injection and automatic volume. The 310 µL syringe gives 34.3 µL regular injections, but the disabled primary field displays 20 µL.
 - Consequence: The primary volume field conflicts substantially with the simulated schedule; turning Auto off also changes the volume to 20 µL. The schedule summary correctly shows 34.3 µL, so the effective value is not completely hidden.
 - Suggested direction: Display the effective automatic volume without the manual ceiling and align permitted manual ranges with supported instruments and protocols.
+- Resolution: The automatic value is assigned directly to the native field without manual-range validation. Manual input retains the 0.1 µL minimum and has no upper ceiling, matching Avalonia as requested. The native stepper's archived and runtime maxima no longer impose the former 20 µL ceiling. Turning Auto off retains the displayed automatic volume. Simulation calculations are unchanged.
+- Validation: The new regression first reproduced VP-ITC's 34.3 µL schedule with a primary display of 20 µL. The complete native `ExperimentDesignerTests` harness now passes, including seven independently expected automatic schedules across all five supported instruments, small-first on/off, two-injection schedules, Auto-to-manual retention, manual field/stepper values above 20 µL and syringe capacity, and the 0.1 µL manual minimum. The harness also compiles and loads the actual Designer storyboard and dispatches its instrument, Auto, stepper and field actions. Existing parameter retention, energy-edit, control rebinding and fit-locking regressions pass. Native managed compilation, storyboard compilation, shell syntax and `git diff --check` pass. No shared scientific calculations changed; no interactive application verification, packaging or signing was performed. Logs: `/private/tmp/cr043-before-native.log` and `/private/tmp/cr043-final-native.log`.
 
 ## CR-044 — Native graph construction fails when every injection is excluded
 
