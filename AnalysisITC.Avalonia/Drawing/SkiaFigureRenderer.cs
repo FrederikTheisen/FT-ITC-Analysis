@@ -64,6 +64,16 @@ public sealed class SkiaFigureRenderer
         return new SKSize(layout.PageWidth, layout.PageHeight);
     }
 
+    internal SKSize GetPdfPageSize(PublicationFigureDocument document)
+    {
+        var size = GetPageSize(document);
+        var scale = PdfScale(document);
+        return new SKSize(size.Width * scale, size.Height * scale);
+    }
+
+    static float PdfScale(PublicationFigureDocument document)
+        => (float)((72.0 / 2.54) / document.Options.PointsPerCentimeter);
+
     public SKBitmap RenderBitmap(PublicationFigureDocument document, int maxPixelWidth, int maxPixelHeight = 0)
     {
         var fonts = ResolveFontSet(document);
@@ -116,7 +126,9 @@ public sealed class SkiaFigureRenderer
 
         using var pdf = SKDocument.CreatePdf(stream, metadata)
             ?? throw new InvalidOperationException("The final figure PDF renderer could not be created.");
-        var canvas = pdf.BeginPage(layout.PageWidth, layout.PageHeight);
+        var scale = PdfScale(document);
+        var canvas = pdf.BeginPage(layout.PageWidth * scale, layout.PageHeight * scale);
+        canvas.Scale(scale);
         DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default, fonts);
         pdf.EndPage();
         pdf.Close();

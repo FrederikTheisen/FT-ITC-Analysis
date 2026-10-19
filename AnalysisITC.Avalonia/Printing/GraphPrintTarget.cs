@@ -120,16 +120,18 @@ internal sealed class GraphPrintTarget
         const int maximumDimension = 6000;
         var document = documentFactory();
         var pageSize = renderer.GetPageSize(document);
+        // Preserve the existing bitmap resolution based on preview layout units.
         var pixelWidth = Math.Min(maximumDimension, Math.Max(1200, (int)Math.Ceiling(pageSize.Width / 72f * 300f)));
         var bitmap = renderer.RenderBitmap(document, pixelWidth);
         using var pdfStream = new MemoryStream();
         renderer.WritePdf(document, pdfStream);
+        var pdfPageSize = renderer.GetPdfPageSize(document);
         return Task.FromResult(new GraphPrintPayload(
             jobName,
             bitmap,
             pdfStream.ToArray(),
             preservePdf: true,
-            pdfPageSize: new PrintSize(pageSize.Width, pageSize.Height)));
+            pdfPageSize: new PrintSize(pdfPageSize.Width, pdfPageSize.Height)));
     }
 }
 

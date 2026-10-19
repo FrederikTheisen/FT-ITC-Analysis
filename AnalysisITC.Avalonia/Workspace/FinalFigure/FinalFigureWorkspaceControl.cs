@@ -336,8 +336,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Width cm", widthStepper),
                 Labeled("Height cm", heightStepper),
-                Labeled("Base font pt", fontSizeStepper),
-                Text("Ticks use the base size; axis titles use base + 1 pt; parameter boxes use 12 pt."),
+                Labeled("Base font", fontSizeStepper),
+                Text("Ticks use the base size; axis titles use base + 1; parameter boxes use 12."),
                 Labeled("Energy", energyUnitSelector),
                 Labeled("Time", timeUnitCombo)
             }));

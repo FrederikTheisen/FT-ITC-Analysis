@@ -19,7 +19,7 @@ namespace AnalysisITC.Core.Presentation
     {
         public const string SelectorTooltip = "Choose Binding, Null, or observations only.";
         public const string AssessmentTooltip = "Saved assessment; model selection does not change it.";
-        public const string LineWidthTooltip = "Model curve thickness in points.";
+        public const string LineWidthTooltip = "Adjusts model curve thickness.";
         public const string SmoothnessTooltip = "Interpolation between model predictions.";
         public const string ConfidenceTooltip = "Show bootstrap uncertainty around the binding prediction.";
         public const string OffsetCorrectionTooltip = "Subtract the fitted binding offset from heats.";
