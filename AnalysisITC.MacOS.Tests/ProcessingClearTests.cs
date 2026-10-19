@@ -111,7 +111,6 @@ static class ProcessingClearTests
             if (value is NSSegmentedControl) ((NSSegmentedControl)value).SegmentCount = 6;
             outlet.SetValue(controller, value);
         }
-        typeof(DataProcessingViewControllet).GetProperty("DiscardIntegratedPoints", Instance).SetValue(controller, data.Processor.DiscardIntegratedPoints);
         Outlet<DataProcessingGraphView>(controller, "BaselineGraphView").Initialize(data);
         return controller;
     }

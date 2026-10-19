@@ -195,11 +195,24 @@ public sealed class ProcessingWorkspaceControlTests : IAsyncLifetime
         try
         {
             Dispatcher.UIThread.RunJobs();
+            var copyButtons = workspace.GetLogicalDescendants().OfType<Button>()
+                .Where(button => Equals(button.Content, "Active") || Equals(button.Content, "New")).ToArray();
+            Assert.Equal(2, copyButtons.Length);
+            Assert.Equal(ProcessingCopyPresentation.ActiveTooltip,
+                ToolTip.GetTip(copyButtons.Single(button => Equals(button.Content, "Active"))));
+            Assert.Equal(ProcessingCopyPresentation.NewTooltip,
+                ToolTip.GetTip(copyButtons.Single(button => Equals(button.Content, "New"))));
+            var copyTooltips = copyButtons.Select(ToolTip.GetTip).ToArray();
             using (var lease = ProcessingActivity.TryBegin()!)
             {
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(workspace.DegreeStepper.IsEffectivelyEnabled);
                 Assert.Equal(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(workspace.DegreeStepper));
+                Assert.All(copyButtons, button =>
+                {
+                    Assert.False(button.IsEffectivelyEnabled);
+                    Assert.Equal(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(button));
+                });
                 workspace.DegreeStepper.Value = 7;
                 Assert.Equal(12, ((PolynomialLeastSquaresInterpolator)experiment.Processor.Interpolator).Degree);
             }
@@ -207,6 +220,8 @@ public sealed class ProcessingWorkspaceControlTests : IAsyncLifetime
             Assert.True(workspace.DegreeStepper.IsEffectivelyEnabled);
             Assert.Equal(12m, workspace.DegreeStepper.Value);
             Assert.NotEqual(FittingStatusPresentation.BusyTooltip, ToolTip.GetTip(workspace.DegreeStepper));
+            Assert.All(copyButtons, button => Assert.True(button.IsEffectivelyEnabled));
+            Assert.Equal(copyTooltips, copyButtons.Select(ToolTip.GetTip).ToArray());
         }
         finally { window.Close(); }
     }

@@ -337,6 +337,8 @@ namespace AnalysisITC.Core.Data
 
             if (settingsChanged)
             {
+                BufferSubtractionPolicy.ValidateTarget(this);
+
                 // Clear previous setting
                 Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
 
@@ -445,6 +447,7 @@ namespace AnalysisITC.Core.Data
 
         bool UseStoredBufferReference(ExperimentAttribute attribute, bool notify)
         {
+            ValidateBufferSubtractionChange(attribute);
             // Reference experiment is not loaded, but its stored values still define the correction.
             var existing = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
             var changed = existing == null
@@ -521,6 +524,11 @@ namespace AnalysisITC.Core.Data
         {
             if (attributes == null) return false;
 
+            var incomingAttributes = attributes.Where(att => att != null).ToList();
+            if (clear || overwriteExisting || BufferSubtractionSettings == null)
+                foreach (var bufferAttribute in incomingAttributes.Where(att => att.Key == AttributeKey.BufferSubtraction))
+                    ValidateBufferSubtractionChange(bufferAttribute);
+
             bool didChange = false;
 
             if (clear && Attributes.Count > 0)
@@ -530,7 +538,6 @@ namespace AnalysisITC.Core.Data
                 didChange = true;
             }
 
-            var incomingAttributes = attributes.Where(att => att != null).ToList();
             var skippedKeys = new HashSet<AttributeKey>();
 
             foreach (var key in incomingAttributes.Select(att => att.Key).Distinct())
@@ -582,6 +589,29 @@ namespace AnalysisITC.Core.Data
             }
 
             return true;
+        }
+
+        void ValidateBufferSubtractionChange(ExperimentAttribute incoming)
+        {
+            if (!IsTandemExperiment) return;
+
+            // Saved corrections remain readable and removable. Retaining the same evidence
+            // during restoration or an unrelated metadata edit does not apply a new correction.
+            var existing = Attributes.Find(attribute => attribute.Key == AttributeKey.BufferSubtraction);
+            if (existing != null && ExperimentAttributeSnapshot.Capture(existing)
+                .EquivalentTo(ExperimentAttributeSnapshot.Capture(incoming))
+                && SameStoredBufferReference(existing.BufferReferenceSnapshot, incoming.BufferReferenceSnapshot)) return;
+
+            BufferSubtractionPolicy.ValidateTarget(this);
+        }
+
+        static bool SameStoredBufferReference(BufferSubtractionReferenceSnapshot first, BufferSubtractionReferenceSnapshot second)
+        {
+            if (ReferenceEquals(first, second)) return true;
+            return first != null && second != null && first.ReferenceName == second.ReferenceName
+                && first.Points.Count == second.Points.Count
+                && first.Points.Zip(second.Points, (left, right) => left.InjectionNumber == right.InjectionNumber
+                    && left.Heat.Value.Equals(right.Heat.Value) && left.Heat.SD.Equals(right.Heat.SD)).All(equal => equal);
         }
 
         List<InjectionData> GetBootstrappedResiduals(ExperimentData clone, Random random)

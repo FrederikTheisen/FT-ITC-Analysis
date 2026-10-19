@@ -27,10 +27,10 @@ dotnet build AnalysisITC.Core/AnalysisITC.Core.csproj --configuration Debug \
 if (( $# > 0 )); then
     native_tests=("$@")
 else
-    native_tests=(AnalysisNullGraphTests AnalysisNullEvidenceTests AllExcludedFitGraphTests DissociationGraphTests UnifiedPowerAxisTests ConstantAxisTests SaltDependenceGraphTests LinearDependenceEnvelopeTests SaltAnalysisPresentationTests InjectionEditingTests ProjectInformationTests ProjectOpenReportOnlyTests AnalysisParameterDraftTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests TandemImportPromptTests ExperimentDesignerTests CompetitiveResultModelOptionPresentationTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests UpdateResultStatusTests TandemCreationTests DetailsValuePreservationTests)
+    native_tests=(AnalysisNullGraphTests AnalysisNullEvidenceTests AllExcludedFitGraphTests DissociationGraphTests UnifiedPowerAxisTests ConstantAxisTests SaltDependenceGraphTests LinearDependenceEnvelopeTests SaltAnalysisPresentationTests InjectionEditingTests ProjectInformationTests ProjectOpenReportOnlyTests AnalysisParameterDraftTests EnergyEditorUnitTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests DataValidationPromptTests TandemImportPromptTests ExperimentDesignerTests SyringeCorrectionPresentationTests CompetitiveResultModelOptionPresentationTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests ProcessingCopyButtonsTests UpdateResultStatusTests HelpDocumentTests TandemCreationTests TandemBufferSubtractionTests DetailsDraftPreservationTests DetailsValuePreservationTests SettingsUpdateTests ExportSheetTests)
 fi
 for native_test in "${native_tests[@]}"; do
-    if [[ "$native_test" == ExperimentDesignerTests ]]; then
+    if [[ "$native_test" == ProcessingCopyButtonsTests || "$native_test" == ExperimentDesignerTests ]]; then
         xcrun ibtool --compile "$check_dir/Main.storyboardc" AnalysisITC.MacOS/Main.storyboard \
             --errors --warnings > "$check_dir/storyboard-diagnostics.plist" 2> "$check_dir/storyboard-compiler.log" || {
                 cat "$check_dir/storyboard-diagnostics.plist" "$check_dir/storyboard-compiler.log"

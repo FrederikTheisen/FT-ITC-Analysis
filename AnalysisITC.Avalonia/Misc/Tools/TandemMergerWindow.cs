@@ -245,6 +245,7 @@ namespace AnalysisITC.Avalonia.Tools
         void RefreshControls()
         {
             var selected = SelectedItems();
+            var hasCorrectedSource = BufferSubtractionPolicy.HasCorrectedSource(selected.Select(item => item.Data));
             var mode = SelectedMode();
             var autoAllowed = !IsAutomatic(mode) || selected.Count <= 5;
             var backMixing = mode != MergeMode.Simple;
@@ -273,10 +274,18 @@ namespace AnalysisITC.Avalonia.Tools
             moveDownButton.IsEnabled = !isBusy && selected.Count > 0;
             experimentList.IsEnabled = !isBusy;
             modeCombo.IsEnabled = !isBusy;
-            CalculationControlAvailability.Update(createButton, !isBusy && selected.Count >= 2 && autoAllowed && TryReadSettings(out _));
+            CalculationControlAvailability.Update(createButton, !isBusy && !hasCorrectedSource
+                && selected.Count >= 2 && autoAllowed && TryReadSettings(out _));
+            if (!ProcessingActivity.IsBusy)
+            {
+                ToolTip.SetTip(createButton, hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason : null);
+                ToolTip.SetShowOnDisabled(createButton, hasCorrectedSource);
+            }
             cancelButton.IsEnabled = !isBusy;
 
-            if (selected.Count < 2)
+            if (hasCorrectedSource)
+                SetStatus(BufferSubtractionPolicy.CorrectedSourceReason);
+            else if (selected.Count < 2)
                 SetStatus("Select at least two experiments.");
             else if (!autoAllowed)
                 SetStatus("Auto back-mixing is available for up to five experiments.");
@@ -350,7 +359,7 @@ namespace AnalysisITC.Avalonia.Tools
             }
             catch (Exception ex)
             {
-                SetStatus(ex.Message);
+                AppEventHandler.DisplayHandledException(ex);
             }
             finally
             {

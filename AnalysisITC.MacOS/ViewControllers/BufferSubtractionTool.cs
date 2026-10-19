@@ -65,6 +65,7 @@ namespace AnalysisITC
             SelectListView.DataSource = mergeSource;
             SelectListView.Delegate = mergeDelegate;
             SelectListView.ReloadData();
+            SelectListView.ToolTip = BufferSubtractionPolicy.TandemTargetReason;
 
             PopulateReferencePopup();
             UpdateGraph();
@@ -150,7 +151,9 @@ namespace AnalysisITC
             var reference = GetSelectedReference();
             var targets = CaptureSelectedIDs(SelectListView, mergeSource);
 
-            ApplyButton.Enabled = (reference != null && targets.Where(t => t != reference).Count() > 0);
+            targets = targets.Where(target => target != reference).ToList();
+            ApplyButton.Enabled = reference != null && targets.Count > 0
+                && targets.All(BufferSubtractionPolicy.CanApplyTo);
         }
 
         void UpdateGraph()
@@ -190,7 +193,9 @@ namespace AnalysisITC
             try
             {
                 var reference = GetSelectedReference();
-                var targets = CaptureSelectedIDs(SelectListView, mergeSource);
+                var targets = CaptureSelectedIDs(SelectListView, mergeSource).Where(target => target != reference).ToList();
+                if (reference == null || targets.Count == 0) return;
+                foreach (var target in targets) BufferSubtractionPolicy.ValidateTarget(target);
 
                 foreach (var target in targets)
                 {

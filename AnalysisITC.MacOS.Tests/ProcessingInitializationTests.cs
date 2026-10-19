@@ -395,8 +395,6 @@ static class ProcessingInitializationTests
             if (value is NSSegmentedControl) ((NSSegmentedControl)value).SegmentCount = 6;
             outlet.SetValue(controller, value);
         }
-        typeof(DataProcessingViewControllet).GetProperty("DiscardIntegratedPoints", Instance)
-            .SetValue(controller, experiment.Processor.DiscardIntegratedPoints);
         Outlet<DataProcessingGraphView>(controller, "BaselineGraphView").Initialize(experiment);
         Outlet<NSSlider>(controller, "IntegrationLengthControl").MaxValue = 160;
         Outlet<NSSlider>(controller, "IntegrationDelayControl").MinValue = -10;

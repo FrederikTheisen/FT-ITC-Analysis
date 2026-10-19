@@ -64,6 +64,7 @@ namespace AnalysisITC.Avalonia.Tools
             inspector.Children.Add(Section("Targets", targetList));
 
             targetList.ItemTemplate = new FuncDataTemplate<ExperimentData>((data, _) => ExperimentCell(data));
+            ToolTip.SetTip(targetList, BufferSubtractionPolicy.TandemTargetReason);
 
             Content = WorkspaceControlBuilder.Workspace(
                 ContentBorder(graph),
@@ -107,7 +108,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var reference = SelectedReference();
             var targets = experiments
-                .Where(experiment => !ReferenceEquals(experiment, reference))
+                .Where(experiment => !ReferenceEquals(experiment, reference) && BufferSubtractionPolicy.CanApplyTo(experiment))
                 .ToList();
 
             targetList.ItemsSource = targets;
@@ -132,7 +133,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         void Validate()
         {
-            applyButton.IsEnabled = SelectedReference() != null && SelectedTargets().Count > 0;
+            var targets = SelectedTargets();
+            applyButton.IsEnabled = SelectedReference() != null && targets.Count > 0
+                && targets.All(BufferSubtractionPolicy.CanApplyTo);
         }
 
         ExperimentData? SelectedReference()
@@ -170,6 +173,7 @@ namespace AnalysisITC.Avalonia.Tools
                     return;
                 }
 
+                foreach (var target in targets) BufferSubtractionPolicy.ValidateTarget(target);
                 foreach (var target in targets)
                     target.SetBufferSubtraction(reference, SelectedMethod(), notify: false);
 

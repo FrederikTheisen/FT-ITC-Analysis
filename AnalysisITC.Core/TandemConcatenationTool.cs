@@ -182,6 +182,7 @@ namespace AnalysisITC.Core.Processing
             if (experiments.Any(experiment => experiment == null)) throw new ArgumentException("ConcatTandem cannot use null experiments.");
             if (experiments.Any(experiment => experiment.IsTandemExperiment))
                 throw new ArgumentException("Concatenated tandem experiments cannot be used as inputs for another tandem concatenation.");
+            BufferSubtractionPolicy.ValidateTandemSources(experiments);
 
             AppEventHandler.PrintAndLog("Creating tandem experiment...");
 

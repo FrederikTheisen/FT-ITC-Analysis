@@ -91,6 +91,8 @@ namespace AnalysisITC.Avalonia.Processing
             ToolTip.SetTip(
                 lockProcessorButton,
                 "Freeze processing results and disable integration-region and spline-point editing.");
+            ToolTip.SetTip(copyActiveButton, ProcessingCopyPresentation.ActiveTooltip);
+            ToolTip.SetTip(copyNewButton, ProcessingCopyPresentation.NewTooltip);
             BuildLayout();
             WireEvents();
             ApplyViewOptions();

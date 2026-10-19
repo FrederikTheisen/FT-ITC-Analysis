@@ -883,7 +883,7 @@ namespace AnalysisITC.Core.Application
             var opt = Current.Attributes;
             var target = Data.Where(d => d != Current && d.Include).ToList();
 
-            var copied = CopyAttributesTo(opt, target, clear);
+            if (!TryCopyAttributesTo(opt, target, out var copied, clear)) return;
             StatusBarManager.SetStatus(
                 copied > 0
                     ? $"Copied attributes to {copied} active experiment{(copied == 1 ? "" : "s")}"
@@ -900,7 +900,7 @@ namespace AnalysisITC.Core.Application
             var opt = Current.Attributes;
             var target = Data.Where(d => d != Current).ToList();
 
-            var copied = CopyAttributesTo(opt, target, clear);
+            if (!TryCopyAttributesTo(opt, target, out var copied, clear)) return;
             StatusBarManager.SetStatus(
                 copied > 0
                     ? $"Copied attributes to {copied} experiment{(copied == 1 ? "" : "s")}"
@@ -915,7 +915,7 @@ namespace AnalysisITC.Core.Application
             if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
 
             var target = Data.Where(d => d != Current).ToList();
-            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            if (!TryCopyAttributesTo(new List<ExperimentAttribute> { attribute }, target, out var copied)) return;
             var attributeName = attribute.GetDisplayName();
 
             StatusBarManager.SetStatus(
@@ -930,7 +930,7 @@ namespace AnalysisITC.Core.Application
             if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
 
             var target = Data.Where(d => d != Current && d.Include).ToList();
-            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            if (!TryCopyAttributesTo(new List<ExperimentAttribute> { attribute }, target, out var copied)) return;
             var attributeName = attribute.GetDisplayName();
 
             StatusBarManager.SetStatus(
@@ -945,7 +945,7 @@ namespace AnalysisITC.Core.Application
             if (Current == null || experiment == null || experiment == Current) return;
 
             var opt = Current.Attributes;
-            var copied = CopyAttributesTo(opt, new List<ExperimentData> { experiment }, clear);
+            if (!TryCopyAttributesTo(opt, new List<ExperimentData> { experiment }, out var copied, clear)) return;
             StatusBarManager.SetStatus(
                 copied > 0
                     ? $"Copied attributes to {experiment.Name}"
@@ -958,7 +958,7 @@ namespace AnalysisITC.Core.Application
             if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
             if (experiment == null || experiment == Current) return;
 
-            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, new List<ExperimentData> { experiment });
+            if (!TryCopyAttributesTo(new List<ExperimentAttribute> { attribute }, new List<ExperimentData> { experiment }, out var copied)) return;
             var attributeName = attribute.GetDisplayName();
 
             StatusBarManager.SetStatus(
@@ -980,7 +980,7 @@ namespace AnalysisITC.Core.Application
                 .Where(d => d != Current && (d.Name ?? "").IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
 
-            var copied = CopyAttributesTo(opt, target, clear);
+            if (!TryCopyAttributesTo(opt, target, out var copied, clear)) return;
             StatusBarManager.SetStatus(
                 copied > 0
                     ? $"Copied attributes to {copied} experiment{(copied == 1 ? "" : "s")} matching \"{token}\""
@@ -998,7 +998,7 @@ namespace AnalysisITC.Core.Application
             var target = Data
                 .Where(d => d != Current && (d.Name ?? "").IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
-            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            if (!TryCopyAttributesTo(new List<ExperimentAttribute> { attribute }, target, out var copied)) return;
             var attributeName = attribute.GetDisplayName();
 
             StatusBarManager.SetStatus(
@@ -1008,13 +1008,22 @@ namespace AnalysisITC.Core.Application
                 4000);
         }
 
-        static int CopyAttributesTo(List<ExperimentAttribute> attributes, List<ExperimentData> target, bool clear = false)
+        static bool TryCopyAttributesTo(List<ExperimentAttribute> attributes, List<ExperimentData> target, out int copiedExperiments, bool clear = false)
         {
+            copiedExperiments = 0;
+            // Reject the complete batch before prompting or changing any target.
+            if (attributes.Any(attribute => attribute.Key == AttributeKey.BufferSubtraction)
+                && target.Any(experiment => !BufferSubtractionPolicy.CanApplyTo(experiment)))
+            {
+                AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Warning,
+                    "Buffer Subtraction Error", BufferSubtractionPolicy.TandemTargetReason));
+                return false;
+            }
+
             AppEventHandler.PrintAndLog($"Copying Attributes ({attributes.Count}) To Target ({target.Count})...");
             AppEventHandler.PrintAndLog($"Clear Existing: {clear}", 1);
 
             bool overwrite = false;
-            int copiedExperiments = 0;
 
             if (target.Any(exp => exp.Attributes.Any(att => attributes.Exists(att2 => att2.Key == att.Key))))
             {
@@ -1040,115 +1049,142 @@ namespace AnalysisITC.Core.Application
                 InvokeDataDidChange();
             }
 
-            return copiedExperiments;
+            return true;
         }
 
         public static void CopySelectedProcessToAll()
         {
-            var current = Current;
-            var target = Data.ToList();
-
-            if (current == null) return;
-            if (current.Processor == null) return;
-            if (current.Processor.Interpolator == null) return;
-
-            StatusBarManager.SetStatus("Copying to all...", 0);
-
-            CopySelectedProcessToSelection(current, target);
+            CopySelectedProcessToScope(Data.ToList(), "Copying to all...");
         }
 
         public static void CopySelectedProcessToActive()
         {
-            var current = Current;
-            var target = IncludedData.ToList();
-
-            if (current == null) return;
-            if (current.Processor == null) return;
-            if (current.Processor.Interpolator == null) return;
-
-            StatusBarManager.SetStatus("Copying to active...", 0);
-
-            CopySelectedProcessToSelection(current, target);
+            CopySelectedProcessToScope(IncludedData.ToList(), "Copying to active...");
         }
 
         public static void CopySelectedProcessToNonProcessed()
         {
-            var current = Current;
-            var target = Data.Where(d => d.Processor == null || d.Processor.Interpolator == null).ToList();
-
-            if (current == null) return;
-            if (current.Processor == null) return;
-            if (current.Processor.Interpolator == null) return;
-
-            StatusBarManager.SetStatus("Copying to non-processed...", 0);
-
-            CopySelectedProcessToSelection(current, target);
+            var target = Data.Where(d => d.Processor?.Interpolator == null).ToList();
+            CopySelectedProcessToScope(target, "Copying to non-processed...");
         }
 
-        public static async void CopySelectedProcessToSelection(ExperimentData current, List<ExperimentData> target)
+        static void CopySelectedProcessToScope(List<ExperimentData> candidates, string status)
         {
-            using var activity = await ProcessingActivity.BeginAsync();
-            using var ownership = activity.Enter();
-            StopProcessCopying = false;
+            var current = Current;
+            if (current?.Processor?.Interpolator == null) return;
 
-            var int_delay = current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
-            var int_length = current.Injections.Select(inj => inj.IntegrationEndOffset).ToArray();
-            var int_factor = current.Processor.IntegrationLengthFactor;
-            var int_mode = current.Processor.IntegrationLengthMode;
+            var skipped = candidates.Count(data => data != current && !data.HasThermogram);
+            var target = candidates.Where(data => data.HasThermogram).ToList();
+            StatusBarManager.SetStatus(status, 0);
+            CopySelectedProcessToSelection(current, target, skipped);
+        }
 
-            StatusBarManager.SetProgress(0);
+        public static void CopySelectedProcessToSelection(ExperimentData current, List<ExperimentData> target)
+        {
+            CopySelectedProcessToSelection(current, target, skipped: 0);
+        }
 
-            //Prepare the baseline interpolator
-            foreach (var data in target)
+        static async void CopySelectedProcessToSelection(ExperimentData current, List<ExperimentData> target, int skipped)
+        {
+            ProcessingActivity.ProcessingLease activity = null;
+            IDisposable ownership = null;
+            try
             {
-                if (data == current) continue;
+                activity = await ProcessingActivity.BeginAsync();
+                ownership = activity.Enter();
+                StopProcessCopying = false;
 
-                if (data.Processor.Interpolator == null || !data.Processor.IsLocked && !data.Processor.Interpolator.IsLocked)
-                    data.SetProcessor(new DataProcessor(data, current.Processor));
-            }
+                // Recheck after admission, including callers that supplied their own targets.
+                skipped += target.Count(data => data != current && !data.HasThermogram);
+                target = target.Where(data => data != current && data.HasThermogram).ToList();
 
-            float i = 0;
+                var lockDestinations = current.Processor.IsLocked;
+                var int_delay = current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
+                var int_length = current.Injections.Select(inj => inj.IntegrationEndOffset).ToArray();
+                var int_factor = current.Processor.IntegrationLengthFactor;
+                var int_mode = current.Processor.IntegrationLengthMode;
 
-            foreach (var data in target)
-            {
-                if (data == current || StopProcessCopying) continue;
+                StatusBarManager.SetProgress(0);
 
-                i++;
-
-                if (!data.Processor.IsLocked)
+                //Prepare the baseline interpolator
+                foreach (var data in target)
                 {
-                    // Make an initial baseline because we need something
-                    data.Processor.WillProcessData();
-                    if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
+                    if (data.Processor?.IsLocked == true) continue;
 
-                    data.SetIntegrationStartTimes(int_delay);
-
-                    data.Processor.IntegrationLengthMode = int_mode;
-                    var peakFitHandledProcessing = false;
-                    if (int_mode == InjectionData.IntegrationLengthMode.Factor) data.SetIntegrationLengthByFactor(int_factor);
-                    else if (int_mode == InjectionData.IntegrationLengthMode.Fit)
-                    {
-                        await data.Processor.FitIntegrationPeaksAsync(showProgress: false);
-                        peakFitHandledProcessing = true;
-                    }
-                    else data.SetIntegrationLengthByTimes(int_length);
-
-                    if (!peakFitHandledProcessing)
-                    {
-                        // Reprocesses baseline with new integration regions
-                        data.Processor.WillProcessData();
-                        if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
-                        data.Processor.IntegratePeaks();
-                        data.Processor.DidProcessData();
-                    }
+                    var processor = new DataProcessor(data, current.Processor);
+                    // A copied source lock must not suppress destination recalculation.
+                    processor.Unlock();
+                    data.SetProcessor(processor);
                 }
 
-                StatusBarManager.SetProgress(i / (Count - 1));
-            }
+                float i = 0;
 
-            StatusBarManager.SetProgress(1);
-            StatusBarManager.ClearAppStatus();
-            StatusBarManager.SetStatus("Data processed", 3000);
+                foreach (var data in target)
+                {
+                    if (StopProcessCopying) continue;
+
+                    i++;
+
+                    if (!data.Processor.IsLocked)
+                    {
+                        // Make an initial baseline because we need something
+                        data.Processor.WillProcessData();
+                        if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
+                        var processingSucceeded = data.Processor.BaselineCompleted;
+
+                        data.SetIntegrationStartTimes(int_delay);
+
+                        data.Processor.IntegrationLengthMode = int_mode;
+                        var peakFitHandledProcessing = false;
+                        if (int_mode == InjectionData.IntegrationLengthMode.Factor) data.SetIntegrationLengthByFactor(int_factor);
+                        else if (int_mode == InjectionData.IntegrationLengthMode.Fit)
+                        {
+                            var result = await data.Processor.FitIntegrationPeaksAsync(showProgress: false);
+                            processingSucceeded &= result.Succeeded;
+                            peakFitHandledProcessing = true;
+                        }
+                        else data.SetIntegrationLengthByTimes(int_length);
+
+                        if (!peakFitHandledProcessing)
+                        {
+                            // Reprocesses baseline with new integration regions
+                            data.Processor.WillProcessData();
+                            if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
+                            data.Processor.IntegratePeaks();
+                            data.Processor.DidProcessData();
+                        }
+
+                        if (lockDestinations && processingSucceeded && !StopProcessCopying
+                            && data.Processor.BaselineCompleted && data.Processor.IntegrationCompleted)
+                            data.Processor.Lock();
+                    }
+
+                    StatusBarManager.SetProgress(i / target.Count);
+                }
+
+                StatusBarManager.ClearAppStatus();
+                var message = StopProcessCopying ? "Processing copy stopped"
+                    : target.Count == 0 ? "No experiments available for processing copy" : "Data processed";
+                StatusBarManager.SetStatus(ProcessingCopyStatus(message, skipped), 3000);
+            }
+            catch (Exception ex)
+            {
+                // Retain ownership through modal error presentation on both desktops.
+                AppEventHandler.DisplayHandledException(ex);
+                StatusBarManager.SetStatus(ProcessingCopyStatus("Copy processing failed", skipped), 5000);
+            }
+            finally
+            {
+                StatusBarManager.SetProgress(1);
+                ownership?.Dispose();
+                activity?.Dispose();
+            }
+        }
+
+        static string ProcessingCopyStatus(string message, int skipped)
+        {
+            return skipped == 0 ? message
+                : $"{message}; skipped {skipped} experiment{(skipped == 1 ? "" : "s")} without a thermogram";
         }
 
         public static void IntegrateAllValidData()

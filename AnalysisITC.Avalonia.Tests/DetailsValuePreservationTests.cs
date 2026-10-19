@@ -35,6 +35,102 @@ public sealed class DetailsValuePreservationTests : IDisposable
         CultureInfo.CurrentCulture = culture;
     }
 
+    [AvaloniaTheory]
+    [InlineData(AttributeKey.Buffer, false)]
+    [InlineData(AttributeKey.Buffer, true)]
+    [InlineData(AttributeKey.Salt, false)]
+    [InlineData(AttributeKey.Salt, true)]
+    [InlineData(AttributeKey.IonicStrength, false)]
+    [InlineData(AttributeKey.IonicStrength, true)]
+    [InlineData(AttributeKey.PreboundLigandConc, false)]
+    [InlineData(AttributeKey.PreboundLigandConc, true)]
+    [InlineData(AttributeKey.Percentage, false)]
+    [InlineData(AttributeKey.Percentage, true)]
+    public void ApplyPreservesUntouchedScientificValuesAndIntervals(AttributeKey key, bool editComment)
+    {
+        var data = Data();
+        var attribute = Attribute(key);
+        data.Attributes.Add(attribute.Copy());
+        var cell = data.CellConcentration;
+        var syringe = data.SyringeConcentration;
+        var revision = data.ProcessingRevision;
+        var heats = data.Injections.Select(i => i.PeakArea).ToArray();
+        var window = new ExperimentDetailsWindow(data);
+        if (editComment) Field<TextBox>(window, "commentsBox").Text = "Changed comment";
+
+        Apply(window);
+
+        Assert.True(window.Applied);
+        var after = Assert.Single(data.Attributes);
+        Assert.Equal(attribute.DoubleValue, after.DoubleValue);
+        Same(attribute.ParameterValue, after.ParameterValue);
+        Same(cell, data.CellConcentration);
+        Same(syringe, data.SyringeConcentration);
+        Assert.Equal(25.123456789, data.MeasuredTemperature);
+        Assert.Equal(200.123456789e-6, data.CellVolume);
+        Assert.Equal(revision, data.ProcessingRevision);
+        Assert.Equal(heats, data.Injections.Select(i => i.PeakArea));
+        Assert.Equal(editComment ? "Changed comment" : "", data.Comments ?? "");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(AttributeKey.PreboundLigandConc)]
+    [InlineData(AttributeKey.Percentage)]
+    public void UntouchedExactDisplayPreservesAsymmetricUncertainty(AttributeKey key)
+    {
+        var attribute = Attribute(key);
+        attribute.ParameterValue = new FloatWithError(12.5e-6, 1.25e-6, 8e-6, 22e-6);
+        var before = attribute.ParameterValue;
+        var row = new ExperimentAttributeEditorControl(attribute, (_, _) => true);
+        Assert.True(row.TryApply(Data(), out var error), error);
+        Same(before, attribute.ParameterValue);
+    }
+
+    [AvaloniaFact]
+    public void CommentOnlyApplyPreservesMainConcentrationUncertainty()
+    {
+        var data = Data();
+        var cell = data.CellConcentration;
+        var syringe = data.SyringeConcentration;
+        var window = new ExperimentDetailsWindow(data);
+        Field<TextBox>(window, "commentsBox").Text = "Metadata only";
+        Apply(window);
+        Assert.True(window.Applied);
+        Same(cell, data.CellConcentration);
+        Same(syringe, data.SyringeConcentration);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("valueBox", "-1")]
+    [InlineData("errorBox", "-1")]
+    [InlineData("valueBox", "invalid")]
+    [InlineData("errorBox", "invalid")]
+    public void InvalidCompetitorEditsAreStillRejected(string field, string text)
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var before = attribute.ParameterValue;
+        var row = new ExperimentAttributeEditorControl(attribute, (_, _) => true);
+        Field<TextBox>(row, field).Text = text;
+        Assert.False(row.TryApply(Data(), out var error));
+        Assert.NotEmpty(error);
+        Same(before, attribute.ParameterValue);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingOneCompetitorComponentPreservesTheOtherExactly(bool editSd)
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var before = attribute.ParameterValue;
+        var row = new ExperimentAttributeEditorControl(attribute, (_, _) => true);
+        Field<TextBox>(row, editSd ? "errorBox" : "valueBox").Text = "31.25";
+
+        Assert.True(row.TryApply(Data(), out var error), error);
+
+        Assert.Equal(editSd ? before.Value : 31.25e-6, attribute.ParameterValue.Value);
+        Assert.Equal(editSd ? 31.25e-6 : before.SD, attribute.ParameterValue.SD);
+    }
 
     [AvaloniaTheory]
     [InlineData(false)]
@@ -150,6 +246,80 @@ public sealed class DetailsValuePreservationTests : IDisposable
         Assert.Equal(revision, data.ProcessingRevision);
     }
 
+    [AvaloniaFact]
+    public void RevertingTextAfterAnApplyAttemptRestoresTheOriginalValueAndUncertainty()
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var before = attribute.ParameterValue;
+        var row = new ExperimentAttributeEditorControl(attribute, (_, _) => true);
+        var field = Field<TextBox>(row, "valueBox");
+        var originalText = field.Text;
+        field.Text = "31.25";
+        Assert.True(row.TryApply(Data(), out var firstError), firstError);
+        field.Text = originalText;
+
+        Assert.True(row.TryApply(Data(), out var error), error);
+        Same(before, attribute.ParameterValue);
+    }
+
+    [AvaloniaFact]
+    public void UntouchedMissingParameterIsNotConvertedToANumericZero()
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        attribute.ParameterValue = FloatWithError.NaN;
+        var row = new ExperimentAttributeEditorControl(attribute, (_, _) => true);
+        Assert.True(row.TryApply(Data(), out var error), error);
+        Assert.True(FloatWithError.IsNaN(attribute.ParameterValue));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ExperimentDateSource.Unknown, DateTimeKind.Unspecified, "en-GB")]
+    [InlineData(ExperimentDateSource.Unknown, DateTimeKind.Utc, "da-DK")]
+    [InlineData(ExperimentDateSource.FileSystem, DateTimeKind.Local, "en-GB")]
+    [InlineData(ExperimentDateSource.FileSystem, DateTimeKind.Utc, "da-DK")]
+    [InlineData(ExperimentDateSource.UserModified, DateTimeKind.Unspecified, "en-GB")]
+    [InlineData(ExperimentDateSource.UserModified, DateTimeKind.Local, "da-DK")]
+    [InlineData(ExperimentDateSource.DataFile, DateTimeKind.Utc, "en-GB")]
+    public void CommentOnlyApplyPreservesAllDateTicksKindAndProvenance(ExperimentDateSource source, DateTimeKind kind, string locale)
+    {
+        AppSettings.Locale = locale;
+        var data = Data();
+        data.Date = new DateTime(2026, 10, 16, 13, 24, 56, kind).AddTicks(1234567);
+        data.DateSource = source;
+        var original = data.Date;
+        var window = new ExperimentDetailsWindow(data);
+        Field<TextBox>(window, "commentsBox").Text = "Date untouched";
+
+        Apply(window);
+
+        Assert.True(window.Applied);
+        Assert.Equal(original.Ticks, data.Date.Ticks);
+        Assert.Equal(kind, data.Date.Kind);
+        Assert.Equal(source, data.DateSource);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ExperimentDateSource.Unknown)]
+    [InlineData(ExperimentDateSource.FileSystem)]
+    [InlineData(ExperimentDateSource.UserModified)]
+    [InlineData(ExperimentDateSource.DataFile)]
+    public void ExplicitDateEditsUpdateOnlyEditableDates(ExperimentDateSource source)
+    {
+        AppSettings.Locale = "en-GB";
+        var data = Data();
+        data.Date = new DateTime(2026, 10, 16, 13, 24, 56, DateTimeKind.Utc).AddTicks(1234567);
+        data.DateSource = source;
+        var original = data.Date;
+        var window = new ExperimentDetailsWindow(data);
+        Field<TextBox>(window, "dateBox").Text = "23/11/2026 17:42:13";
+
+        Apply(window);
+
+        Assert.True(window.Applied);
+        Assert.Equal(source == ExperimentDateSource.DataFile ? original : new DateTime(2026, 11, 23, 17, 42, 13), data.Date);
+        Assert.Equal(source == ExperimentDateSource.DataFile ? source : ExperimentDateSource.UserModified, data.DateSource);
+    }
+
     static ExperimentAttribute Attribute(AttributeKey key)
     {
         var attribute = ExperimentAttribute.Parameter(key, key.ToString(),
@@ -190,12 +360,10 @@ public sealed class DetailsValuePreservationTests : IDisposable
     }
 
     static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
-
     static void Select<T>(ExperimentAttributeEditorControl row, string name, T value)
     {
         var combo = Field<ComboBox>(row, name);
         combo.SelectedItem = combo.Items.Single(item => Equals(item!.GetType().GetProperty("Value")!.GetValue(item), value));
     }
-
     static void Apply(ExperimentDetailsWindow window) => typeof(ExperimentDetailsWindow).GetMethod("Apply", Private)!.Invoke(window, null);
 }

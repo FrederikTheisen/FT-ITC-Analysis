@@ -31,6 +31,13 @@ static class DetailsValuePreservationTests
         NSApplication.Init();
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         BufferAttribute.Init();
+        foreach (var key in new[] { AttributeKey.Buffer, AttributeKey.Salt, AttributeKey.IonicStrength, AttributeKey.PreboundLigandConc })
+        {
+            Run("untouched " + key, () => UntouchedAttribute(key));
+            Run("comment-only " + key, () => CommentOnlyApply(key));
+        }
+        Run("edit competitor value", () => CompetitorEdit(false));
+        Run("edit competitor SD", () => CompetitorEdit(true));
         Run("edit buffer pH", () => BufferEdit(true));
         Run("edit buffer concentration", () => BufferEdit(false));
         foreach (var text in new[] { "74", "-1", "14.000001", "invalid", "NaN", "Infinity", "-Infinity", "", "   " })
@@ -42,7 +49,20 @@ static class DetailsValuePreservationTests
         Run("invalid buffer concentration preserves pH", InvalidBufferConcentration);
         Run("direct buffer apply remembers pH", DirectBufferApply);
         Run("new buffer pH default", NewBufferDefault);
-        Console.WriteLine("Native Details pH: " + (cases - failures) + " passed, " + failures + " failed");
+        Run("reverted text", RevertedText);
+        Run("missing parameter", MissingParameter);
+        Run("asymmetric interval with exact display", ExactDisplayUncertainty);
+        Run("main concentration uncertainty", MainConcentrationUncertainty);
+        foreach (var field in new[] { "parameterValueField", "parameterErrorField" })
+            foreach (var text in new[] { "-1", "invalid" })
+                Run("invalid " + field + " " + text, () => InvalidCompetitorEdit(field, text));
+        foreach (ExperimentDateSource source in Enum.GetValues(typeof(ExperimentDateSource)))
+        {
+            foreach (DateTimeKind kind in Enum.GetValues(typeof(DateTimeKind)))
+                Run("untouched date " + source + " " + kind, () => DateApply(source, kind, false));
+            Run("edited date " + source, () => DateApply(source, DateTimeKind.Local, true));
+        }
+        Console.WriteLine("Native Details preservation: " + (cases - failures) + " passed, " + failures + " failed");
         return failures == 0 ? 0 : 1;
     }
 
@@ -59,6 +79,53 @@ static class DetailsValuePreservationTests
             ExperimentAttributeView.LastValue_PH = pH;
             ExperimentAttributeView.LastValue_HighConcentration = concentration;
             DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    static void UntouchedAttribute(AttributeKey key)
+    {
+        var original = Attribute(key);
+        ExperimentDetailsPopoverController.Data = Data();
+        using (var row = Row(original.Copy()))
+            Same(original.ParameterValue, ApplyRow(row).ParameterValue);
+    }
+
+    static void CommentOnlyApply(AttributeKey key)
+    {
+        var data = Data();
+        var attribute = Attribute(key);
+        data.Attributes.Add(attribute.Copy());
+        var cell = data.CellConcentration;
+        var syringe = data.SyringeConcentration;
+        var revision = Revision(data);
+        var heats = data.Injections.Select(i => i.PeakArea.Value).ToArray();
+        using (var controller = Controller(data))
+        {
+            SetComment(controller, "Changed comment");
+            Apply(controller);
+        }
+        Check(data.Comments == "Changed comment", "comment was not applied");
+        var after = data.Attributes.Single();
+        Check(after.DoubleValue == attribute.DoubleValue, "untouched pH changed");
+        Same(attribute.ParameterValue, after.ParameterValue);
+        Same(cell, data.CellConcentration);
+        Same(syringe, data.SyringeConcentration);
+        Check(data.MeasuredTemperature == 25.123456789 && data.CellVolume == 200.123456789e-6,
+            "untouched temperature or volume changed");
+        Check(revision == Revision(data), "metadata-only edit invalidated processing");
+        Check(heats.SequenceEqual(data.Injections.Select(i => i.PeakArea.Value)), "measured heats changed");
+    }
+
+    static void CompetitorEdit(bool editSd)
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var original = attribute.ParameterValue;
+        using (var row = Row(attribute))
+        {
+            Field<NSTextField>(row, editSd ? "parameterErrorField" : "parameterValueField").StringValue = "31.25";
+            var after = ApplyRow(row).ParameterValue;
+            Check(after.Value == (editSd ? original.Value : 31.25e-6), "value was not preserved/applied exactly");
+            Check(after.SD == (editSd ? 31.25e-6 : original.SD), "SD was not preserved/applied exactly");
         }
     }
 
@@ -80,6 +147,21 @@ static class DetailsValuePreservationTests
                 Check(after.ParameterValue.Value == 0.03125, "buffer concentration edit was lost");
                 Check(after.ParameterValue.SD == original.SD, "hidden SD was lost");
             }
+        }
+    }
+
+    static void RevertedText()
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var original = attribute.ParameterValue;
+        using (var row = Row(attribute))
+        {
+            var field = Field<NSTextField>(row, "parameterValueField");
+            var originalText = field.StringValue;
+            field.StringValue = "31.25";
+            ApplyRow(row);
+            field.StringValue = originalText;
+            Same(original, ApplyRow(row).ParameterValue);
         }
     }
 
@@ -239,6 +321,73 @@ static class DetailsValuePreservationTests
         }
     }
 
+    static void MissingParameter()
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        attribute.ParameterValue = FloatWithError.NaN;
+        using (var row = Row(attribute))
+            Check(FloatWithError.IsNaN(ApplyRow(row).ParameterValue), "missing parameter became numeric zero");
+    }
+
+    static void ExactDisplayUncertainty()
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        attribute.ParameterValue = new FloatWithError(12.5e-6, 1.25e-6, 8e-6, 22e-6);
+        var original = attribute.ParameterValue;
+        using (var row = Row(attribute)) Same(original, ApplyRow(row).ParameterValue);
+    }
+
+    static void MainConcentrationUncertainty()
+    {
+        var data = Data();
+        var cell = data.CellConcentration;
+        var syringe = data.SyringeConcentration;
+        using (var controller = Controller(data))
+        {
+            SetComment(controller, "Metadata only");
+            Apply(controller);
+        }
+        Same(cell, data.CellConcentration);
+        Same(syringe, data.SyringeConcentration);
+    }
+
+    static void InvalidCompetitorEdit(string field, string text)
+    {
+        var attribute = Attribute(AttributeKey.PreboundLigandConc);
+        var original = attribute.ParameterValue;
+        using (var row = Row(attribute))
+        {
+            Field<NSTextField>(row, field).StringValue = text;
+            var rejected = false;
+            try { ApplyRow(row); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "invalid edit was accepted");
+            Same(original, attribute.ParameterValue);
+        }
+    }
+
+    static void DateApply(ExperimentDateSource source, DateTimeKind kind, bool editDate)
+    {
+        var data = Data();
+        data.Date = new DateTime(2026, 10, 16, 13, 24, 56, kind).AddTicks(1234567);
+        data.DateSource = source;
+        var original = data.Date;
+        using (var controller = Controller(data))
+        {
+            SetComment(controller, "Date test");
+            if (editDate)
+            {
+                Field<NSDatePicker>(controller, "datePicker").DateValue = (NSDate)new DateTime(2026, 11, 23, 17, 42, 13, DateTimeKind.Utc);
+                Field<NSDatePicker>(controller, "timePicker").DateValue = (NSDate)new DateTime(2026, 11, 23, 17, 42, 13, DateTimeKind.Utc);
+            }
+            Apply(controller);
+        }
+        var editable = editDate && source != ExperimentDateSource.DataFile;
+        var expected = editable ? new DateTime(2026, 11, 23, 17, 42, 13, kind) : original;
+        Check(data.Date.Ticks == expected.Ticks && data.Date.Kind == kind, "date precision or kind changed unexpectedly");
+        Check(data.DateSource == (editable ? ExperimentDateSource.UserModified : source), "date provenance changed unexpectedly");
+    }
+
     static ExperimentDetailsPopoverController Controller(ExperimentData data)
     {
         ExperimentDetailsPopoverController.Data = data;
@@ -299,26 +448,20 @@ static class DetailsValuePreservationTests
     }
 
     static int Revision(ExperimentData data) => (int)typeof(ExperimentData).GetProperty("ProcessingRevision", Private).GetValue(data, null);
-
     static void SetComment(ExperimentDetailsPopoverController controller, string text)
     {
         using (var attributed = new NSAttributedString(text))
             Field<NSTextView>(controller, "CommentTextField").TextStorage.SetString(attributed);
     }
-
     static T Field<T>(object target, string name) => (T)(target is ExperimentDetailsPopoverController
         ? typeof(ExperimentDetailsPopoverController) : target.GetType()).GetField(name, Private).GetValue(target);
-
     static List<ExperimentAttributeView> Rows(ExperimentDetailsPopoverController controller) => Field<List<ExperimentAttributeView>>(controller, "attributeViews");
-
     static NSTextField PhField(ExperimentAttributeView row) => (NSTextField)typeof(ExperimentAttributeView).GetProperty("DoubleField", Private).GetValue(row, null);
-
     static void Select(ExperimentAttributeView row, string name, int tag)
     {
         var popup = (NSPopUpButton)typeof(ExperimentAttributeView).GetProperty(name, Private).GetValue(row, null);
         Check(popup.SelectItemWithTag(tag), "missing popup choice " + tag);
     }
-
     static void RejectApply(ExperimentDetailsPopoverController controller, string message)
     {
         var previous = AppEventHandler.ShowAppMessage;
@@ -332,12 +475,10 @@ static class DetailsValuePreservationTests
         finally { AppEventHandler.ShowAppMessage = previous; }
         Check(!((DetailsController)controller).Dismissed && messages == 1, "invalid form was dismissed or did not show validation");
     }
-
     static void Apply(ExperimentDetailsPopoverController controller)
     {
         typeof(ExperimentDetailsPopoverController).GetMethod("Apply", Private).Invoke(controller, new object[] { null });
         Check(((DetailsController)controller).Dismissed, "Apply did not complete");
     }
-
     static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 }

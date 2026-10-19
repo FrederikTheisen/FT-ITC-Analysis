@@ -39,6 +39,7 @@ namespace AnalysisITC.Avalonia.Details
         readonly TextBox temperatureBox;
         readonly TextBox cellVolumeBox;
         readonly TextBox dateBox;
+        readonly string originalDateText;
         readonly TextBox commentsBox;
         readonly ComboBox bookkeepingCombo;
         readonly TextBlock bookkeepingDescription;
@@ -70,6 +71,7 @@ namespace AnalysisITC.Avalonia.Details
             temperatureBox = Box(data.MeasuredTemperature.ToString("G6", CultureInfo.CurrentCulture), 110);
             cellVolumeBox = Box((data.CellVolume * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 110);
             dateBox = WideBox(data.UIShortDateWithTime);
+            originalDateText = dateBox.Text ?? "";
             dateBox.IsEnabled = data.DateSource != ExperimentDateSource.DataFile;
             bookkeepingCombo = new ComboBox
             {
@@ -108,7 +110,7 @@ namespace AnalysisITC.Avalonia.Details
             }
 
             BuildLayout();
-            RebuildAttributes();
+            SynchronizeAttributes();
         }
 
         void BuildLayout()
@@ -205,7 +207,7 @@ namespace AnalysisITC.Avalonia.Details
             addAttribute.Click += (_, _) =>
             {
                 attributes.Add(new ExperimentAttribute());
-                RebuildAttributes();
+                SynchronizeAttributes();
             };
 
             var attributeHeader = new DockPanel { LastChildFill = true };
@@ -253,9 +255,14 @@ namespace AnalysisITC.Avalonia.Details
             bookkeepingDescription.Text = InjectionBookkeeping.Description(method);
         }
 
-        void RebuildAttributes()
+        void SynchronizeAttributes()
         {
-            attributePanel.Children.Clear();
+            // Surviving editors own drafts, including text that is not yet valid.
+            // Keep them attached rather than applying or reconstructing their values.
+            foreach (var control in attributePanel.Children.ToList())
+                if (control is not ExperimentAttributeEditorControl editor
+                    || !attributes.Any(attribute => ReferenceEquals(attribute, editor.Attribute)))
+                    attributePanel.Children.Remove(control);
 
             if (attributes.Count == 0)
             {
@@ -263,21 +270,32 @@ namespace AnalysisITC.Avalonia.Details
                 return;
             }
 
-            foreach (var attribute in attributes.ToList())
+            for (var index = 0; index < attributes.Count; index++)
             {
-                var row = new ExperimentAttributeEditorControl(attribute, CanUseKey, data);
-                row.RemoveRequested += (_, _) =>
+                var attribute = attributes[index];
+                var row = attributePanel.Children.OfType<ExperimentAttributeEditorControl>()
+                    .FirstOrDefault(editor => ReferenceEquals(editor.Attribute, attribute));
+                if (row == null)
                 {
-                    attributes.Remove(attribute);
-                    RebuildAttributes();
-                };
-                row.KeyChanged += (_, _) => RebuildAttributes();
-                row.SpecialBufferSelected += (_, buffer) =>
+                    row = new ExperimentAttributeEditorControl(attribute, CanUseKey, data);
+                    row.RemoveRequested += (_, _) =>
+                    {
+                        attributes.Remove(attribute);
+                        SynchronizeAttributes();
+                    };
+                    row.KeyChanged += (_, _) => SynchronizeAttributes();
+                    row.SpecialBufferSelected += (_, buffer) =>
+                    {
+                        BufferAttribute.SetupSpecialBuffer(attributes, buffer);
+                        SynchronizeAttributes();
+                    };
+                    attributePanel.Children.Insert(index, row);
+                }
+                else if (attributePanel.Children.IndexOf(row) != index)
                 {
-                    BufferAttribute.SetupSpecialBuffer(attributes, buffer);
-                    RebuildAttributes();
-                };
-                attributePanel.Children.Add(row);
+                    attributePanel.Children.Move(attributePanel.Children.IndexOf(row), index);
+                }
+                row.RefreshKeyChoices();
             }
         }
 
@@ -294,7 +312,8 @@ namespace AnalysisITC.Avalonia.Details
         {
             if (!TryRead(nameBox, "name", allowEmpty: false, out var name)) return;
             var date = data.Date;
-            if (data.DateSource != ExperimentDateSource.DataFile && !TryReadDate(dateBox, out date)) return;
+            if (data.DateSource != ExperimentDateSource.DataFile && dateBox.Text != originalDateText
+                && !TryReadDate(dateBox, out date)) return;
             if (!TryReadDouble(temperatureBox, "temperature", out var temperature)) return;
 
             var cell = data.CellConcentration.Value;
@@ -383,8 +402,10 @@ namespace AnalysisITC.Avalonia.Details
                     data.DateSource = ExperimentDateSource.UserModified;
                 }
                 data.MeasuredTemperature = temperature;
-                data.CellConcentration = new FloatWithError(cell, cellSd);
-                data.SyringeConcentration = new FloatWithError(syringe, syringeSd);
+                if (Changed(cellBox) || Changed(cellErrorBox))
+                    data.CellConcentration = new FloatWithError(cell, cellSd);
+                if (Changed(syringeBox) || Changed(syringeErrorBox))
+                    data.SyringeConcentration = new FloatWithError(syringe, syringeSd);
                 data.CellVolume = cellVolume;
                 data.Comments = commentsBox.Text ?? "";
 

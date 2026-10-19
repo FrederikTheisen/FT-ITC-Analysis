@@ -513,7 +513,7 @@ namespace AnalysisITC
             dateSourceLabel.StringValue = ExperimentDateSourceText(Data.DateSource);
             datePicker.Enabled = Data.DateSource != ExperimentDateSource.DataFile;
             timePicker.Enabled = Data.DateSource != ExperimentDateSource.DataFile;
-            RebuildAttributes();
+            SynchronizeAttributes();
             var t = Data.IsTandemExperiment;
             CellVolumeField.Enabled = !t;
             CellConcentrationField.Enabled = !t;
@@ -540,7 +540,7 @@ namespace AnalysisITC
 
         void AddAttribute(ExperimentAttribute o)
         {
-            var v = new ExperimentAttributeView(new CGRect(0, 0, Width - 40, 22), o, true)
+            var v = new ExperimentAttributeView(new CGRect(0, 0, Width - 40, 22), o, true, Data)
             {TranslatesAutoresizingMaskIntoConstraints = false};
             v.Remove += Remove;
             v.KeyChanged += Keys;
@@ -576,16 +576,23 @@ namespace AnalysisITC
         {
             if (e.Item1 == AttributeKey.Buffer)
                 BufferAttribute.SetupSpecialBuffer(tmpoptions, (Buffer)e.Item2);
-            RebuildAttributes();
+            SynchronizeAttributes();
         }
 
-        void RebuildAttributes()
+        void SynchronizeAttributes()
         {
-            attributeViews.Clear();
-            foreach (var v in AttributeStackView.Views.ToArray())
-                v.RemoveFromSuperview();
+            // Presets replace buffer/salt attributes, but unrelated views still
+            // own pending input and must retain their controls and original values.
+            foreach (var view in attributeViews.ToArray())
+            {
+                if (tmpoptions.Any(option => ReferenceEquals(option, view.Option))) continue;
+                view.Superview?.RemoveFromSuperview();
+                attributeViews.Remove(view);
+            }
             foreach (var o in tmpoptions)
-                AddAttribute(o);
+                if (!attributeViews.Any(view => ReferenceEquals(view.Option, o)))
+                    AddAttribute(o);
+            Keys(null, null);
             AttributeStackView.Hidden = tmpoptions.Count == 0;
             SetEmptyAttributesVisibility();
             QueueSize();
@@ -679,8 +686,10 @@ namespace AnalysisITC
                     Data.DateSource = ExperimentDateSource.UserModified;
                 }
 
-                Data.SyringeConcentration = new(syringe, syringeSd);
-                Data.CellConcentration = new(cell, cellSd);
+                if (Changed(SyringeConcentrationField) || Changed(SyringeConcentrationErrorField))
+                    Data.SyringeConcentration = new(syringe, syringeSd);
+                if (Changed(CellConcentrationField) || Changed(CellConcentrationErrorField))
+                    Data.CellConcentration = new(cell, cellSd);
                 Data.MeasuredTemperature = EditedValue(TemperatureField, Data.MeasuredTemperature);
                 if (!string.IsNullOrEmpty(ExperimentNameField.StringValue))
                     Data.Name = ExperimentNameField.StringValue;

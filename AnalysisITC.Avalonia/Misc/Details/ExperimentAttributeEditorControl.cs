@@ -30,6 +30,7 @@ namespace AnalysisITC.Avalonia.Details
         readonly Dictionary<TextBox, string?> originalNumericText = new();
         FloatWithError originalParameterValue;
         double originalDoubleValue;
+        bool refreshingKeyChoices;
         readonly ComboBox keyCombo = new ComboBox
         {
             Width = 210,
@@ -141,13 +142,11 @@ namespace AnalysisITC.Avalonia.Details
             };
             removeButton.Click += (_, _) => RemoveRequested?.Invoke(this, EventArgs.Empty);
 
-            keyCombo.ItemsSource = BuildKeyChoices();
-            keyCombo.SelectedItem = ((IEnumerable<Choice<AttributeKey>>)keyCombo.ItemsSource)
-                .FirstOrDefault(choice => choice.Value == attribute.Key);
-            UpdateKeyToolTip();
+            RefreshKeyChoices();
             keyCombo.SelectionChanged += (_, _) =>
             {
-                if (keyCombo.SelectedItem is not Choice<AttributeKey> choice) return;
+                if (refreshingKeyChoices || keyCombo.SelectedItem is not Choice<AttributeKey> choice
+                    || choice.Value == attribute.Key) return;
                 attribute.UpdateOptionKey(choice.Value, dd: 7.4);
                 UpdateKeyToolTip();
                 BuildEditor();
@@ -181,11 +180,30 @@ namespace AnalysisITC.Avalonia.Details
             BuildEditor();
         }
 
+        internal void RefreshKeyChoices()
+        {
+            // Replacing the menu items can raise SelectionChanged. This refresh
+            // must not treat the restored selection as a deliberate type change.
+            refreshingKeyChoices = true;
+            try
+            {
+                var choices = BuildKeyChoices();
+                keyCombo.ItemsSource = choices;
+                keyCombo.SelectedItem = choices.FirstOrDefault(choice => choice.Value == attribute.Key);
+                UpdateKeyToolTip();
+            }
+            finally
+            {
+                refreshingKeyChoices = false;
+            }
+        }
+
         List<Choice<AttributeKey>> BuildKeyChoices()
         {
             var keys = new[] { AttributeKey.Null }
                 .Concat(ExperimentAttribute.AvailableExperimentAttributes)
-                .Where(key => key == attribute.Key || canUseKey(attribute, key))
+                .Where(key => key == attribute.Key || (canUseKey(attribute, key)
+                    && (key != AttributeKey.BufferSubtraction || experiment?.IsTandemExperiment != true)))
                 .Distinct()
                 .ToList();
 
@@ -313,6 +331,14 @@ namespace AnalysisITC.Avalonia.Details
             }.Select(method => new Choice<BufferSubtractionMethod>(method, method.GetDisplayName())).ToList();
             methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88, 180);
             editorPanel.Children.Add(methodCombo);
+            if (experiment?.IsTandemExperiment == true)
+            {
+                referenceCombo.IsEnabled = methodCombo.IsEnabled = false;
+                ToolTip.SetTip(referenceCombo, BufferSubtractionPolicy.TandemTargetReason);
+                ToolTip.SetTip(methodCombo, BufferSubtractionPolicy.TandemTargetReason);
+                ToolTip.SetShowOnDisabled(referenceCombo, true);
+                ToolTip.SetShowOnDisabled(methodCombo, true);
+            }
         }
 
         void AddCompetitorResultEditor()
@@ -460,33 +486,31 @@ namespace AnalysisITC.Avalonia.Details
                 return false;
             }
 
-            if (!TryReadDouble(valueBox, "salt concentration", out var concentration, out error)) return false;
+            if (!TryReadParameter("salt concentration", "SD", 1000, out var concentration, out error)) return false;
             attribute.IntValue = (int)saltChoice.Value;
-            attribute.ParameterValue = new FloatWithError(concentration / 1000);
+            attribute.ParameterValue = concentration;
             return true;
         }
 
         bool ApplyConcentration(out string error)
         {
-            if (!TryReadDouble(valueBox, "concentration", out var concentration, out error)) return false;
-            attribute.ParameterValue = new FloatWithError(concentration / 1000);
+            if (!TryReadParameter("concentration", "SD", 1000, out var concentration, out error)) return false;
+            attribute.ParameterValue = concentration;
             return true;
         }
 
         bool ApplyPreboundLigandConcentration(out string error)
         {
             var unit = AppSettings.DefaultConcentrationUnit;
-            if (!TryReadDouble(valueBox, "total competitor concentration", out var concentration, out error)) return false;
-            if (!TryReadDouble(errorBox, "total competitor concentration error", out var concentrationError, out error)) return false;
-            if (concentration < 0 || concentrationError < 0)
+            if (!TryReadParameter("total competitor concentration", "total competitor concentration error",
+                unit.GetMod(), out var concentration, out error)) return false;
+            if (concentration.Value < 0 || concentration.SD < 0)
             {
                 error = "Total competitor concentration and its error cannot be negative.";
                 return false;
             }
 
-            attribute.ParameterValue = new FloatWithError(
-                concentration / unit.GetMod(),
-                concentrationError / unit.GetMod());
+            attribute.ParameterValue = concentration;
             return true;
         }
 
@@ -552,17 +576,16 @@ namespace AnalysisITC.Avalonia.Details
                     attribute.IntValue = (int)Math.Round(intValue);
                     return true;
                 case ExperimentAttribute.AttributeType.Double:
-                    if (!TryReadDouble(doubleBox, "value", out var doubleValue, out error)) return false;
+                    var doubleValue = originalDoubleValue;
+                    if (Changed(doubleBox) && !TryReadDouble(doubleBox, "value", out doubleValue, out error)) return false;
                     attribute.DoubleValue = doubleValue;
                     return true;
                 case ExperimentAttribute.AttributeType.String:
                     attribute.StringValue = stringBox?.Text ?? "";
                     return true;
                 default:
-                    if (!TryReadDouble(valueBox, "value", out var value, out error)) return false;
-                    var sd = 0.0;
-                    if (errorBox != null && !TryReadDouble(errorBox, "SD", out sd, out error)) return false;
-                    attribute.ParameterValue = new FloatWithError(value, sd);
+                    if (!TryReadParameter("value", "SD", 1, out var value, out error)) return false;
+                    attribute.ParameterValue = value;
                     return true;
             }
         }
@@ -585,6 +608,12 @@ namespace AnalysisITC.Avalonia.Details
             if (Changed(errorBox))
             {
                 if (!TryReadDouble(errorBox, errorLabel, out var entered, out error)) return false;
+                // Validate before FloatWithError normalizes the SD's sign.
+                if (entered < 0 && attribute.Key == AttributeKey.PreboundLigandConc)
+                {
+                    error = "Total competitor concentration and its error cannot be negative.";
+                    return false;
+                }
                 sd = entered / scale;
             }
             parameter = new FloatWithError(value, sd);

@@ -33,6 +33,7 @@ namespace AnalysisITC
         Dictionary<NSControl, bool> ToolControlEnabledStates;
         bool IsCreatingMergedExperiment;
         MacCalculationControls calculationControls;
+        string mergeButtonTooltip;
 
         const int ConcatMethodSegment = 0;
         const int AutoBackMixingMethodSegment = 2;
@@ -68,11 +69,13 @@ namespace AnalysisITC
             base.ViewWillAppear();
 
             StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.MergeTool), -1);
+            if (mergeDelegate != null) ValidateMergeButton();
         }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
+            mergeButtonTooltip = MergeButtonControl.ToolTip;
 
             MergeSettings = new BackMixingSettings();
 
@@ -169,13 +172,22 @@ namespace AnalysisITC
 
         void ValidateMergeButton()
         {
-            var n = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
+            var selected = mergeDelegate.GetSelectedExperiments(MergeTableView);
+            var n = selected.Count;
+            var hasCorrectedSource = BufferSubtractionPolicy.HasCorrectedSource(selected);
 
             MergeButtonControl.Enabled = !IsCreatingMergedExperiment
                 && !ProcessingActivity.IsBusy
+                && !hasCorrectedSource
                 && n > 1
                 && (!IsAutoBackMixingEnabled || n <= 5);
             calculationControls?.Refresh();
+            if (!ProcessingActivity.IsBusy && !IsCreatingMergedExperiment)
+            {
+                MergeButtonControl.ToolTip = hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason : mergeButtonTooltip;
+                StatusBarManager.SetStatus(hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason
+                    : StateManager.ProgramSubStateString(ProgramSubState.MergeTool), -1);
+            }
         }
 
         void SetToolInteractionEnabled(bool enabled)

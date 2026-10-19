@@ -306,6 +306,7 @@ namespace AnalysisITC.Core.Processing
             if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));
             if (sources.Any(source => source.IsTandemExperiment))
                 throw new ArgumentException("Concatenated tandem experiments cannot be used as tandem mixing scan sources.", nameof(sources));
+            BufferSubtractionPolicy.ValidateTandemSources(sources);
             if (sources.Any(source => source.Injections == null || source.Injections.Count == 0))
                 throw new ArgumentException("Every tandem mixing scan source must contain injections.", nameof(sources));
             if (sources.Any(source => source.Injections.Where(injection => injection.Include).Any(injection => !injection.IsIntegrated)))
@@ -567,6 +568,7 @@ namespace AnalysisITC.Core.Processing
             if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));
             if (sources.Any(source => source.IsTandemExperiment))
                 throw new ArgumentException("Concatenated tandem experiments cannot be used as tandem mixing scan sources.", nameof(sources));
+            BufferSubtractionPolicy.ValidateTandemSources(sources);
             if (sources.Any(source => source.Injections == null || source.Injections.Count == 0))
                 throw new ArgumentException("Every tandem mixing scan source must contain injections.", nameof(sources));
             if (sources.Any(source => source.Injections.Where(injection => injection.Include).Any(injection => !injection.IsIntegrated)))
@@ -718,6 +720,7 @@ namespace AnalysisITC.Core.Processing
         internal static (ExperimentData experiment, List<TandemConcatenation.TandemInjectionSegment> segments) BuildScanExperiment(
             IReadOnlyList<ExperimentData> sources)
         {
+            BufferSubtractionPolicy.ValidateTandemSources(sources);
             var first = sources[0];
             var experiment = new ExperimentData("TandemMixingScan")
             {

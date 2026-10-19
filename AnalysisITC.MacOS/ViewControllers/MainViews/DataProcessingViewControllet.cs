@@ -28,7 +28,6 @@ namespace AnalysisITC
         bool ShowIntegrationRange => IntegrationScopeButton.State == NSCellStateValue.On;
         bool Corrected => CorrectedScopeButton.State == NSCellStateValue.On;
         bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
-        bool DiscardIntegratedPoints { get; set; } = true;
 
         IntegrationRangeSlider trackingIntegrationSlider;
         ExperimentData integrationSliderOwner;
@@ -59,6 +58,7 @@ namespace AnalysisITC
 
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             DataManager.SelectionDidChange += OnSelectionChanged;
+            DataManager.AnalysisResultSelected += OnAnalysisResultSelected;
             DataManager.DataDidChange += OnProcessingDataChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
             DataProcessor.ProcessingCompleted += OnProcessingCompleted;
@@ -74,11 +74,15 @@ namespace AnalysisITC
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
-            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
-            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            PolynomialDiscardIntegrationRange.State = Processor?.DiscardIntegratedPoints == true ? NSCellStateValue.On : NSCellStateValue.Off;
+            SplineDiscardIntegrationRange.State = PolynomialDiscardIntegrationRange.State;
 
+            CopyProcessingToAllButton.ToolTip = ProcessingCopyPresentation.AllTooltip;
+            CopyProcessingToActiveButton.ToolTip = ProcessingCopyPresentation.ActiveTooltip;
+            CopyProcessingToNewButton.ToolTip = ProcessingCopyPresentation.NewTooltip;
             ConfigureProcessingOptionsMenu();
             RefreshProcessingSummary();
+            UpdateProcessingCopyUI();
             calculationControls = new MacCalculationControls(() => new NSControl[]
             {
                 ProcessingLockButton, InterpolatorTypeControl, SplineAlgoControl,
@@ -86,8 +90,8 @@ namespace AnalysisITC
                 PolynomialDiscardIntegrationRange, SplineDiscardIntegrationRange, FitPeaksButton,
                 IntegrationDelayControl, IntegrationLengthControl, CopyToNextButton,
                 ConvertToLinearSplineButton, ConvertToSmoothSplineButton,
-            }.Concat(MacCalculationControls.ForActions(View, "CopySettingsToAllClicked:"))
-                .Where(control => control is not IntegrationRangeSlider { IsTrackingRange: true }), UpdateUI);
+                CopyProcessingToAllButton, CopyProcessingToActiveButton, CopyProcessingToNewButton,
+            }.Where(control => control is not IntegrationRangeSlider { IsTrackingRange: true }), UpdateUI);
         }
 
         private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)
@@ -176,6 +180,12 @@ namespace AnalysisITC
         void UpdateUI()
         {
             RefreshProcessingSummary();
+
+            if (Processor != null)
+            {
+                PolynomialDiscardIntegrationRange.State = Processor.DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+                SplineDiscardIntegrationRange.State = PolynomialDiscardIntegrationRange.State;
+            }
 
             if (Data == null || Processor.BaselineType == BaselineInterpolatorTypes.None)
             {
@@ -442,6 +452,7 @@ namespace AnalysisITC
 
         void UpdateProcessingLockUI()
         {
+            UpdateProcessingCopyUI();
             var hasProcessor = ContextIsValid && Processor?.Interpolator != null;
             var isLocked = hasProcessor && Processor.IsLocked;
             var hasInjections = hasProcessor && Data.Injections.Count > 0;
@@ -488,6 +499,13 @@ namespace AnalysisITC
                 BaselineGraphView.SelectedPeak >= 0 &&
                 BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1;
             calculationControls?.Refresh();
+        }
+
+        void UpdateProcessingCopyUI()
+        {
+            var canCopy = ContextIsValid && Processor?.Interpolator != null && !ProcessingActivity.IsBusy;
+            foreach (var button in new[] { CopyProcessingToAllButton, CopyProcessingToActiveButton, CopyProcessingToNewButton })
+                if (button != null) button.Enabled = canCopy;
         }
 
         void ToggleProcessingLock()
@@ -539,10 +557,10 @@ namespace AnalysisITC
                     ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
                     break;
                 case CopyToActiveMenuIdentifier:
-                    CopyProcessing(false);
+                    CopyProcessing(DataManager.CopySelectedProcessToActive);
                     break;
                 case CopyToNonProcessedMenuIdentifier:
-                    CopyProcessing(true);
+                    CopyProcessing(DataManager.CopySelectedProcessToNonProcessed);
                     break;
             }
         }
@@ -660,14 +678,10 @@ namespace AnalysisITC
             using var activity = ProcessingActivity.TryBegin();
             if (activity == null) return;
             using var ownership = activity.Enter();
-            DiscardIntegratedPoints = !DiscardIntegratedPoints;
+            if (Processor == null) return;
+            Processor.DiscardIntegratedPoints = !Processor.DiscardIntegratedPoints;
 
-            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
-            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
-
-            if (Data != null)
-                Processor.DiscardIntegratedPoints = DiscardIntegratedPoints;
-
+            UpdateUI();
             UpdateProcessing();
         }
 
@@ -965,7 +979,7 @@ namespace AnalysisITC
             integrationSliderChanged = false;
             if (!publish || !ContextIsValid || Processor.IsLocked) return;
 
-            if (DiscardIntegratedPoints) UpdateProcessing();
+            if (Processor.DiscardIntegratedPoints) UpdateProcessing();
             else Processor.IntegratePeaks();
         }
 
@@ -1016,7 +1030,7 @@ namespace AnalysisITC
                 // Initialization supplies the endpoint before its single awaited processing pass.
                 if (!process) return;
 
-                if (refreshBaseline && DiscardIntegratedPoints)
+                if (refreshBaseline && Processor.DiscardIntegratedPoints)
                     UpdateProcessing();
                 else
                     Data.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
@@ -1046,7 +1060,7 @@ namespace AnalysisITC
 
             BaselineGraphView.Invalidate();
 
-            if (refreshBaseline && DiscardIntegratedPoints)
+            if (refreshBaseline && Processor.DiscardIntegratedPoints)
                 UpdateProcessing();
             else
                 Data.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
@@ -1138,7 +1152,7 @@ namespace AnalysisITC
 
             int selected = BaselineGraphView?.SelectedPeak ?? -1;
 
-            if (selected != -1 && BaselineGraphView.IsInjectionZoomed)
+            if (selected >= 0 && selected < Data.InjectionCount - 1)
             {
                 Console.WriteLine("Copying integration length...");
                 var startDelay = Data.Injections[selected].IntegrationStartDelay;
@@ -1204,18 +1218,19 @@ namespace AnalysisITC
         partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
         partial void DrawFeatureControlClicked(NSSegmentedControl sender) => BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
 
-        partial void CopySettingsToAllClicked(NSObject sender)
-        {
-            CopyProcessing(false);
-        }
+        partial void CopySettingsToAllClicked(NSObject sender) => CopyProcessing(DataManager.CopySelectedProcessToAll);
 
-        void CopyProcessing(bool nonProcessed)
+        partial void CopySettingsToActiveClicked(NSObject sender) => CopyProcessing(DataManager.CopySelectedProcessToActive);
+
+        partial void CopySettingsToNewClicked(NSObject sender) => CopyProcessing(DataManager.CopySelectedProcessToNonProcessed);
+
+        void CopyProcessing(Action copyToScope)
         {
+            if (!ContextIsValid || Processor?.Interpolator == null) return;
             using var activity = ProcessingActivity.TryBegin();
             if (activity == null) return;
             using var ownership = activity.Enter();
-            if (nonProcessed) DataManager.CopySelectedProcessToNonProcessed();
-            else DataManager.CopySelectedProcessToActive();
+            copyToScope();
         }
 
         void UpdateProcessing(bool replace = true)
@@ -1230,6 +1245,7 @@ namespace AnalysisITC
             if (disposing)
             {
                 DataManager.DataDidChange -= OnProcessingDataChanged;
+                DataManager.AnalysisResultSelected -= OnAnalysisResultSelected;
                 calculationControls?.Dispose();
                 integrationSliderActivity?.Dispose();
             }
@@ -1239,15 +1255,15 @@ namespace AnalysisITC
         private void OnProcessingDataChanged(object sender, ExperimentData e)
         {
             if (Data == null) return;
-            DiscardIntegratedPoints = Data.Processor.DiscardIntegratedPoints;
-            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
-            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
             OnSelectionChanged(sender, Data);
         }
+
+        private void OnAnalysisResultSelected(object sender, AnalysisResult e) => OnSelectionChanged(sender, null);
 
         private void OnSelectionChanged(object sender, ExperimentData e)
         {
             RefreshProcessingSummary();
+            UpdateProcessingCopyUI();
             if (!ContextIsValid) return;
 
             var current = DataManager.Current;

@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 
 using Avalonia.Threading;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Application;
@@ -20,6 +24,84 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class TandemMergerWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task AutomaticScanFailureRemainsVisibleAfterCleanupAndCanBeRetried(int criterionIndex)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var sources = new[] { CreateExperiment(1), CreateExperiment(2) };
+        DataManager.AddData(sources);
+        // Keep the raw fixture unprocessed when MainWindow binds its processing workspace.
+        MainWindow main;
+        using (DocumentDirtyTracker.RestoreDocument())
+            main = new MainWindow();
+        main.SetStartupReady();
+        var merger = new TandemMergerWindow();
+        Task<bool?>? mergerCompletion = null;
+        try
+        {
+            main.Show();
+            mergerCompletion = merger.ShowDialog<bool?>(main);
+            merger.ModeComboForTesting.SelectedIndex = 2;
+            merger.AutoCriterionComboForTesting.SelectedIndex = criterionIndex;
+            Assert.True(merger.CreateButtonForTesting.IsEnabled);
+
+            const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+            var createMethod = typeof(TandemMergerWindow).GetMethod("CreateMergedExperimentAsync", privateInstance)!;
+            var cancel = (Button)typeof(TandemMergerWindow).GetField("cancelButton", privateInstance)!.GetValue(merger)!;
+            Window? previousAlert = null;
+
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                await Assert.IsAssignableFrom<Task>(createMethod.Invoke(merger, null));
+                Dispatcher.UIThread.RunJobs();
+
+                var alert = Assert.Single(main.OwnedWindows, window => !ReferenceEquals(window, merger));
+                Assert.NotSame(previousAlert, alert);
+                Assert.Contains(alert.GetLogicalDescendants().OfType<TextBlock>(), block =>
+                    block.Text?.Contains("All included injections must be integrated before running a tandem mixing scan.") == true);
+
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(alert.IsVisible);
+                Assert.Same(alert, Assert.Single(main.OwnedWindows, window => !ReferenceEquals(window, merger)));
+                Assert.True(merger.IsVisible);
+                Assert.False(mergerCompletion.IsCompleted);
+                Assert.False(merger.Created);
+                Assert.True(merger.CreateButtonForTesting.IsEnabled);
+                Assert.True(cancel.IsEnabled);
+                Assert.True(merger.ExperimentListForTesting.IsEnabled);
+                Assert.False(ProcessingActivity.IsBusy);
+                Assert.Collection(DataManager.Data,
+                    source => Assert.Same(sources[0], source),
+                    source => Assert.Same(sources[1], source));
+                Assert.DoesNotContain(DataManager.Data, source => source.IsTandemExperiment);
+                Assert.All(sources, source => Assert.All(source.Injections, injection =>
+                {
+                    Assert.True(injection.Include);
+                    Assert.False(injection.IsIntegrated);
+                }));
+
+                alert.GetLogicalDescendants().OfType<Button>().Single(button => Equals(button.Content, "OK"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(alert.IsVisible);
+                Assert.Same(merger, Assert.Single(main.OwnedWindows));
+                previousAlert = alert;
+            }
+        }
+        finally
+        {
+            foreach (var alert in main.OwnedWindows.Where(window => !ReferenceEquals(window, merger)).ToArray())
+                alert.Close();
+            merger.Close();
+            if (mergerCompletion != null) await mergerCompletion;
+            DocumentDirtyTracker.MarkClean();
+            main.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
     [AvaloniaFact]
     public void AnotherCalculationDisablesTandemCreation()
     {

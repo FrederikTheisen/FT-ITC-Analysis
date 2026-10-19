@@ -43,6 +43,15 @@ namespace AnalysisITC
 		AppKit.NSButton CopyToNextButton { get; set; }
 
 		[Outlet]
+		AppKit.NSButton CopyProcessingToAllButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton CopyProcessingToActiveButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton CopyProcessingToNewButton { get; set; }
+
+		[Outlet]
 		AppKit.NSButton CorrectedScopeButton { get; set; }
 
 		[Outlet]
@@ -176,6 +185,12 @@ namespace AnalysisITC
 
 		[Action ("CopySettingsToAllClicked:")]
 		partial void CopySettingsToAllClicked (Foundation.NSObject sender);
+
+		[Action ("CopySettingsToActiveClicked:")]
+		partial void CopySettingsToActiveClicked (Foundation.NSObject sender);
+
+		[Action ("CopySettingsToNewClicked:")]
+		partial void CopySettingsToNewClicked (Foundation.NSObject sender);
 
 		[Action ("CopyToNextButtonAction:")]
 		partial void CopyToNextButtonAction (Foundation.NSObject sender);
@@ -324,6 +339,21 @@ namespace AnalysisITC
 			if (CopyToNextButton != null) {
 				CopyToNextButton.Dispose ();
 				CopyToNextButton = null;
+			}
+
+			if (CopyProcessingToAllButton != null) {
+				CopyProcessingToAllButton.Dispose ();
+				CopyProcessingToAllButton = null;
+			}
+
+			if (CopyProcessingToActiveButton != null) {
+				CopyProcessingToActiveButton.Dispose ();
+				CopyProcessingToActiveButton = null;
+			}
+
+			if (CopyProcessingToNewButton != null) {
+				CopyProcessingToNewButton.Dispose ();
+				CopyProcessingToNewButton = null;
 			}
 
 			if (CorrectedScopeButton != null) {

@@ -47,6 +47,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         NSPopUpButton EnumPopUpControl { get; set; }
         NSPopUpButton BufferSubtractionMethodControl { get; set; }
         const int StoredBufferReferenceTag = -2;
+        readonly ExperimentData experiment;
         NSSegmentedControl EnumSegControl { get; set; }
         NSTextField StringField { get; set; }
 
@@ -65,11 +66,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 			Initialize();
 		}
 
-        public ExperimentAttributeView(CGRect frameRect, ExperimentAttribute option, bool spacious = false) : base(frameRect)
+        public ExperimentAttributeView(CGRect frameRect, ExperimentAttribute option, bool spacious = false, ExperimentData experiment = null) : base(frameRect)
 		{
 			Frame = frameRect;
 			Option = option;
             this.spacious = spacious;
+            this.experiment = experiment;
 
             Initialize(spacious);
 		}
@@ -137,6 +139,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             foreach (var att in ExperimentAttribute.AvailableExperimentAttributes)
             {
+                if (att == AttributeKey.BufferSubtraction && Option.Key != att
+                    && experiment?.IsTandemExperiment == true) continue;
                 if (!att.GetProperties().AllowMultiple && ExperimentDetailsPopoverController.AvailableAttributes.Contains(att) && Option.Key != att) continue;
                 KeySelectionControl.Menu.AddItem(new NSMenuItem("")
                 {
@@ -538,6 +542,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             BufferSubtractionMethodControl.Title = BufferSubtractionMethodControl.TitleOfSelectedItem;
 
             AddArrangedSubview(BufferSubtractionMethodControl);
+            if (experiment?.IsTandemExperiment == true)
+            {
+                EnumPopUpControl.Enabled = BufferSubtractionMethodControl.Enabled = false;
+                EnumPopUpControl.ToolTip = BufferSubtractionMethodControl.ToolTip = BufferSubtractionPolicy.TandemTargetReason;
+            }
         }
 
         void SetupCompetitorResult()
@@ -739,15 +748,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 case AttributeKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
                 case AttributeKey.PreboundLigandConc:
                     {
-                        if (!TryReadNumeric(parameterValueField, out double val) || !TryReadNumeric(parameterErrorField, out double err) || val < 0 || err < 0)
-                            throw new InvalidOperationException("Total competitor concentration and its SD must be finite and non-negative.");
-
-                        val /= 1000000;
-                        err /= 1000000;
-
-                        var value = new FloatWithError(val, err);
-
-                        Option.ParameterValue = value;
+                        Option.ParameterValue = ReadParameter(1000000,
+                            "Total competitor concentration and its SD must be finite and non-negative.");
                         break;
                     }
                 case AttributeKey.CompetitorResult:
@@ -759,11 +761,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (Option.IntValue == -1) return;
 
-                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
-                            throw new InvalidOperationException("Salt concentration must be finite and non-negative.");
-
-                        Option.ParameterValue = new(val / 1000);
-                        LastValue_HighConcentration = val / 1000;
+                        Option.ParameterValue = ReadParameter(1000, "Salt concentration must be finite and non-negative.");
+                        LastValue_HighConcentration = Option.ParameterValue.Value;
 
                         break;
                     }
@@ -787,10 +786,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     }
                 case AttributeKey.IonicStrength:
                     {
-                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
-                            throw new InvalidOperationException("Ionic strength must be finite and non-negative.");
-
-                        Option.ParameterValue = new(val / 1000);
+                        Option.ParameterValue = ReadParameter(1000, "Ionic strength must be finite and non-negative.");
                         break;
                     }
                 case AttributeKey.BufferSubtraction:

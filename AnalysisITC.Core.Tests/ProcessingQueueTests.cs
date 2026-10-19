@@ -262,6 +262,167 @@ public sealed class ProcessingQueueTests : IDisposable
     }
 
     [Theory]
+    [InlineData(true, true, InjectionData.IntegrationLengthMode.Time)]
+    [InlineData(true, false, InjectionData.IntegrationLengthMode.Time)]
+    [InlineData(false, true, InjectionData.IntegrationLengthMode.Time)]
+    [InlineData(false, false, InjectionData.IntegrationLengthMode.Time)]
+    [InlineData(true, true, InjectionData.IntegrationLengthMode.Fit)]
+    [InlineData(true, false, InjectionData.IntegrationLengthMode.Fit)]
+    public async Task CopyProcessingRecalculatesDestinationBeforeApplyingSourceLock(
+        bool lockSource, bool processDestination, InjectionData.IntegrationLengthMode mode)
+    {
+        var source = Experiment("source");
+        await source.Processor.ProcessData(showProgress: false);
+        source.Processor.IntegrationLengthMode = mode;
+        source.Processor.IntegrationLengthFactor = 3;
+        if (lockSource) source.Processor.Lock();
+        var sourceProcessor = source.Processor;
+        var sourceCorrected = source.BaseLineCorrectedDataPoints;
+        var sourceBaseline = sourceProcessor.Interpolator.Baseline.ToArray();
+        var sourceHeat = source.Injections[0].RawPeakArea;
+
+        var destination = Experiment("destination");
+        var oldBaseline = new SplineInterpolator(destination.Processor)
+        { Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear };
+        oldBaseline.SetSplinePoints(new List<SplineInterpolator.SplinePoint>
+        {
+            new(0, 2, 0), new(40, 2, 1),
+        });
+        destination.Processor.Interpolator = oldBaseline;
+        destination.Processor.DiscardIntegratedPoints = false;
+        destination.Injections[0].SetIntegrationStartTime(1);
+        // Fit Peaks retains this endpoint when there is no tail after its fit-start time.
+        destination.Injections[0].SetIntegrationLengthByTime(
+            mode == InjectionData.IntegrationLengthMode.Fit ? 10 : 3);
+        if (processDestination) await destination.Processor.ProcessData(replace: false, showProgress: false);
+        var oldProcessor = destination.Processor;
+        var oldCorrected = destination.BaseLineCorrectedDataPoints;
+        var oldHeat = destination.Injections[0].RawPeakArea.Value;
+        Assert.NotEqual(12, oldHeat);
+        if (processDestination)
+        {
+            Assert.All(oldBaseline.Baseline, point => Assert.Equal(2, point.Value));
+            Assert.Equal(-1, oldCorrected[0].Power);
+        }
+        DataManager.AddData(new[] { source, destination });
+
+        await CopyProcessingAsync(source, source, destination);
+
+        AssertProcessed(destination);
+        Assert.NotEqual(oldHeat, destination.Injections[0].RawPeakArea.Value);
+        Assert.NotSame(oldProcessor, destination.Processor);
+        Assert.NotSame(oldCorrected, destination.BaseLineCorrectedDataPoints);
+        Assert.IsType<PolynomialLeastSquaresInterpolator>(destination.Processor.Interpolator);
+        Assert.True(destination.Processor.DiscardIntegratedPoints);
+        Assert.Equal(mode, destination.Processor.IntegrationLengthMode);
+        Assert.Equal(3, destination.Processor.IntegrationLengthFactor);
+        Assert.Equal(0, destination.Injections[0].IntegrationStartDelay);
+        Assert.Equal(mode == InjectionData.IntegrationLengthMode.Fit ? 10 : 6,
+            destination.Injections[0].IntegrationEndOffset);
+        Assert.Equal(lockSource, destination.Processor.IsLocked);
+        Assert.All(destination.BaseLineCorrectedDataPoints,
+            point => Assert.Equal(point.Time > 10 && point.Time <= 16 ? 2 : 0, point.Power));
+
+        Assert.Same(sourceProcessor, source.Processor);
+        Assert.Same(sourceCorrected, source.BaseLineCorrectedDataPoints);
+        Assert.Equal(sourceBaseline, source.Processor.Interpolator.Baseline);
+        Assert.Equal(sourceHeat, source.Injections[0].RawPeakArea);
+        Assert.Equal(0, source.Injections[0].IntegrationStartDelay);
+        Assert.Equal(6, source.Injections[0].IntegrationEndOffset);
+        Assert.Equal(lockSource, source.Processor.IsLocked);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CopyProcessingLeavesAlreadyLockedDestinationUntouched(bool hasInterpolator)
+    {
+        var source = Experiment("source");
+        await source.Processor.ProcessData(showProgress: false);
+        source.Processor.Lock();
+        var destination = Experiment("locked destination");
+        destination.Processor.DiscardIntegratedPoints = false;
+        destination.Injections[0].SetIntegrationLengthByTime(3);
+        if (hasInterpolator) await destination.Processor.ProcessData(showProgress: false);
+        else destination.Processor.Interpolator = null;
+        destination.Processor.Lock();
+        var processor = destination.Processor;
+        var corrected = destination.BaseLineCorrectedDataPoints;
+        var heat = destination.Injections[0].RawPeakArea;
+        var integrated = destination.Injections[0].IsIntegrated;
+        DataManager.AddData(new[] { source, destination });
+
+        await CopyProcessingAsync(source, source, destination);
+
+        Assert.Same(processor, destination.Processor);
+        Assert.Same(corrected, destination.BaseLineCorrectedDataPoints);
+        Assert.Equal(heat, destination.Injections[0].RawPeakArea);
+        Assert.Equal(integrated, destination.Injections[0].IsIntegrated);
+        Assert.Equal(3, destination.Injections[0].IntegrationEndOffset);
+        Assert.False(destination.Processor.DiscardIntegratedPoints);
+        Assert.True(destination.Processor.IsLocked);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task CopyProcessingDoesNotTransferLockAfterFailedOrCancelledProcessing(
+        bool cancelBaseline, bool failPeakFit)
+    {
+        var source = Experiment("source");
+        source.Processor.Interpolator = new FailingCopiedBaseline(source.Processor, cancelBaseline, failPeakFit);
+        await source.Processor.ProcessData(showProgress: false);
+        if (failPeakFit) source.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
+        source.Processor.Lock();
+        var destination = Experiment("destination");
+        DataManager.AddData(new[] { source, destination });
+
+        await CopyProcessingAsync(source, source, destination);
+
+        Assert.False(destination.Processor.IsLocked);
+        if (failPeakFit)
+        {
+            // Rollback can restore coherent outputs even though Fit Peaks failed.
+            AssertProcessed(destination);
+        }
+        else Assert.False(destination.Processor.BaselineCompleted);
+        Assert.True(source.Processor.IsLocked);
+        Assert.False(ProcessingActivity.IsBusy);
+    }
+
+    [Fact]
+    public async Task StoppingCopyProcessingDoesNotTransferLocksToCurrentOrPendingDestinations()
+    {
+        var source = Experiment("source");
+        await source.Processor.ProcessData(showProgress: false);
+        source.Processor.Lock();
+        var first = Experiment("first target");
+        var next = Experiment("next target");
+        DataManager.AddData(new[] { source, first, next });
+        EventHandler completed = (sender, _) =>
+        {
+            if (ReferenceEquals(sender, first.Processor)) DataManager.StopProcessCopying = true;
+        };
+        DataProcessor.BaselineInterpolationCompleted += completed;
+        try
+        {
+            await CopyProcessingAsync(source, source, first, next);
+
+            AssertProcessed(first);
+            Assert.False(first.Processor.IsLocked);
+            Assert.False(next.Processor.IsLocked);
+            Assert.False(next.Processor.IntegrationCompleted);
+            Assert.Null(next.BaseLineCorrectedDataPoints);
+        }
+        finally
+        {
+            DataProcessor.BaselineInterpolationCompleted -= completed;
+            DataManager.StopProcessCopying = false;
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RemovingOrClosingQueuedWorkDoesNotReinsertItOrPreventLaterProcessing(bool replaceDocument)
@@ -301,6 +462,27 @@ public sealed class ProcessingQueueTests : IDisposable
         }
     }
 
+    static async Task CopyProcessingAsync(ExperimentData source, params ExperimentData[] targets)
+    {
+        var idle = Signal();
+        EventHandler changed = (_, _) => { if (!ProcessingActivity.IsBusy) idle.TrySetResult(true); };
+        ProcessingActivity.Changed += changed;
+        var root = ProcessingActivity.TryBegin();
+        try
+        {
+            Assert.NotNull(root);
+            DataManager.CopySelectedProcessToSelection(source, targets.ToList());
+            root.Dispose();
+            await idle.Task.WaitAsync(Deadline);
+        }
+        finally
+        {
+            root?.Dispose();
+            try { await idle.Task.WaitAsync(Deadline); }
+            finally { ProcessingActivity.Changed -= changed; }
+        }
+    }
+
     static ExperimentData Experiment(string name)
     {
         var data = new ExperimentData(name + ".itc") { Name = name };
@@ -326,6 +508,39 @@ public sealed class ProcessingQueueTests : IDisposable
     }
 
     static TaskCompletionSource<bool> Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    sealed class FailingCopiedBaseline : PolynomialLeastSquaresInterpolator
+    {
+        readonly bool cancelBaseline;
+        readonly bool failPeakFit;
+        int invocations;
+
+        public FailingCopiedBaseline(DataProcessor processor, bool cancelBaseline, bool failPeakFit) : base(processor)
+        {
+            Degree = 0;
+            this.cancelBaseline = cancelBaseline;
+            this.failPeakFit = failPeakFit;
+        }
+
+        public override BaselineInterpolator Copy(DataProcessor processor)
+        {
+            var copy = new FailingCopiedBaseline(processor, cancelBaseline, failPeakFit);
+            copy.CopyBaselineFrom(this);
+            if (failPeakFit)
+                processor.PeakEndOffsetEstimator = _ => throw new ArithmeticException("Expected copied peak-fit failure.");
+            return copy;
+        }
+
+        public override Task Interpolate(CancellationToken token, bool replace = true)
+        {
+            if (Interlocked.Increment(ref invocations) == 2 && !failPeakFit)
+            {
+                if (cancelBaseline) throw new OperationCanceledException("Expected copied baseline cancellation.");
+                throw new ArithmeticException("Expected copied baseline failure.");
+            }
+            return base.Interpolate(token, replace);
+        }
+    }
 
     sealed class ObservedBaseline : PolynomialLeastSquaresInterpolator
     {
