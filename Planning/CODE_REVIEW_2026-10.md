@@ -586,6 +586,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-044 — Native graph construction fails when every injection is excluded
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.MacOS/Drawing/CGGraph.cs:2188`; `AnalysisITC.MacOS/GraphViews/AnalysisGraphView.cs:172`; `AnalysisITC.MacOS/ViewControllers/MainViews/DataAnalysisViewController.cs:127`
@@ -594,6 +595,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Exclude every injection while idle, then leave and return to Analyze or reselect the experiment.
 - Consequence: An empty-sequence exception interrupts graph construction. Final Figure and selected-fit graphs share the constructor; application termination was not demonstrated.
 - Suggested direction: Handle empty eligible observations before aggregation, preserving excluded-point scaling policy and any available prediction range.
+- Resolution: Native `DataFittingGraph.GetMinMaxEnthalpy` now aggregates eligible observations and existing fit/enabled Null predictions before taking finite minima and maxima. Included-only scaling remains literal: excluded observations do not become a fallback. Zero still anchors the range; an empty usable set yields `[0, 0]` for the existing axis buffer, giving finite nondegenerate limits. Unified enthalpy membership, solution resolution, offset handling, manual limits, property setters, native residual scaling (including CR-046), Core publication figures and Avalonia are unchanged. No shared helper was added.
+- Validation: The new native `AllExcludedFitGraphTests` fixture first reproduced the constructor's empty-sequence exception before the fix. All eight scenario groups now pass, covering excluded-only graphs with/without a fit and bitmap drawing, independently expected observation/fit/Null bounds, hidden and nonfinite Null predictions, empty/nonfinite observation sets, mixed and entirely excluded unified groups, selected-experiment membership boundaries, the existing empty-`IncludedData` branch, Traceability Mode with real Final Figure option order, actual Analyze initialization/reinitialization and selected-fit setup, unchanged neutral residual limits, and manual Final Figure limits after drawing. All seven targeted native fixtures pass: the new fixture, `AnalysisNullGraphTests`, `AnalysisNullEvidenceTests`, `InjectionEditingTests`, `DissociationGraphTests`, `UnifiedPowerAxisTests` and `FinalFigureModelSelectionTests`. Native managed compilation, shell syntax and focused `git diff --check` pass. No interactive application verification, packaging or signing was performed. Logs: `/private/tmp/cr044-before-native.log`, `/private/tmp/cr044-after-native.log` and `/private/tmp/cr044-related-native.log`.
 
 ## CR-045 — Unified native power axes include experiments with no thermogram
 

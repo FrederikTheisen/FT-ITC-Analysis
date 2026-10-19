@@ -2197,15 +2197,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var data in includeddata)
             {
+                evals.AddRange(data.Injections
+                    .Where(inj => inj.Include || AutoAxesIncludesBadData)
+                    .Select(inj => DisplayEnthalpy(data, inj)));
+
                 var solution = SolutionFor(data);
                 if (solution?.Model != null)
                     for (int i = 0; i < data.InjectionCount; i++)
                         evals.Add(solution.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
             }
-
-            // Consider only data points which were included for fitting, or if we explicitly show bad data
-            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DisplayEnthalpy(d, inj)));
-            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DisplayEnthalpy(d, inj)));
 
             if (ShowNullPrediction && NullComparison != null)
             {
@@ -2215,14 +2215,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 }
             }
 
-            if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
-            if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
-            if (minpoints.Count(v => double.IsFinite(v)) == 0) minpoints = new double[] { 0 };
+            var finiteValues = evals.Where(double.IsFinite).ToList();
+            if (finiteValues.Count == 0) finiteValues.Add(0);
 
-            var max = Math.Max(maxpoints.Max(), evals.Max());
-            var min = Math.Min(minpoints.Min(), evals.Min());
-
-            return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
+            return new double[] { Math.Min(finiteValues.Min(), 0), Math.Max(finiteValues.Max(), 0) };
         }
 
         public override void AutoSetFrame()
