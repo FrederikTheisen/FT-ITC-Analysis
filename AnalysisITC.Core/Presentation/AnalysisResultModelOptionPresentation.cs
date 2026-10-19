@@ -1,3 +1,6 @@
+using System;
+using System.Globalization;
+using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -37,7 +40,7 @@ namespace AnalysisITC.Core.Presentation
                     return (100.0 * value).AsNumber(style) + " %";
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
-                    return StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue);
+                    return FormatStoichiometry(option.DoubleValue);
             }
 
             return key.GetProperties().Type switch
@@ -47,6 +50,13 @@ namespace AnalysisITC.Core.Presentation
                     or ExperimentAttribute.AttributeType.ParameterConcentration => value.AsNumber(style),
                 _ => option.GetDisplayValue(),
             };
+        }
+
+        static string FormatStoichiometry(double value)
+        {
+            if (!FWEMath.IsFinite(value)) return "Unavailable";
+            var preset = StoichiometryOptions.Presets.FirstOrDefault(item => Math.Abs(item.Factor - value) < 1e-9);
+            return preset?.Title ?? value.ToString("G6", CultureInfo.CurrentCulture);
         }
     }
 }

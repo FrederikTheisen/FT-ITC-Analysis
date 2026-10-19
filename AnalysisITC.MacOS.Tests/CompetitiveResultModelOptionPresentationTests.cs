@@ -38,7 +38,8 @@ static class CompetitiveResultModelOptionPresentationTests
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             CheckModelPage(false);
             CheckModelPage(true);
-            Console.WriteLine("PASS: native saved competitor intervals, all display styles, manual/member rows and preference refresh");
+            CheckStoredStoichiometry();
+            Console.WriteLine("PASS: native saved competitor intervals, all display styles, manual/member rows, preference refresh and stored stoichiometry");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -49,6 +50,47 @@ static class CompetitiveResultModelOptionPresentationTests
             AppSettings.UncertaintyDisplayStyle = style;
             AppSettings.NumberPrecision = precision;
             CultureInfo.CurrentCulture = culture;
+        }
+    }
+
+    static void CheckStoredStoichiometry()
+    {
+        var values = new[] { new[] { 0.0, 7.0 }, new[] { 0.2, double.NaN }, new[] { 0.25, 1.0 } };
+        var expected = new[] { new[] { "0", "7" }, new[] { "0.2", "Unavailable" },
+            new[] { "One to tetramer (1:4)", "One to one (1:1)" } };
+        for (var index = 0; index < values.Length; index++)
+        {
+            var data = new ExperimentData("stored-stoichiometry.itc")
+            {
+                CellConcentration = new FloatWithError(10e-6), SyringeConcentration = new FloatWithError(100e-6),
+                CellVolume = 1.4e-3, MeasuredTemperature = 25,
+            };
+            data.Injections.Add(new InjectionData(data, volume: 1e-6) { IsIntegrated = true, Ratio = 1 });
+            var model = new TwoSetsOfSites(data);
+            model.InitializeParameters(data);
+            model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
+            var first = model.ModelOptions[AttributeKey.NumberOfSites1];
+            var second = model.ModelOptions[AttributeKey.NumberOfSites2];
+            first.DoubleValue = values[index][0];
+            second.DoubleValue = values[index][1];
+            first.IntValue = second.IntValue = 7;
+            model.Solution = SolutionInterface.FromModel(model, Convergence());
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+            using (var controller = Runtime.GetNSObject<AnalysisResultTabViewController>(
+                Send(Send(new Class(typeof(AnalysisResultTabViewController)).Handle, Selector.GetHandle("alloc")), Selector.GetHandle("init"))))
+            using (var stack = new NSStackView())
+            {
+                typeof(AnalysisResultTabViewController).GetField("modelStack", Instance).SetValue(controller, stack);
+                typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+                Refresh(controller);
+                var text = Text(stack);
+                Contains(text, expected[index][0]);
+                Contains(text, expected[index][1]);
+                if (index < 2) Check(!text.Contains("One to one (1:1)"), "Stored stoichiometry replaced with 1:1");
+                Check(first.DoubleValue == values[index][0], "First stored stoichiometry changed");
+                Check(second.DoubleValue.Equals(values[index][1]), "Second stored stoichiometry changed");
+                Check(first.IntValue == 7 && second.IntValue == 7, "Stored integer fields changed");
+            }
         }
     }
 

@@ -25,6 +25,51 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class CompetitiveResultModelOptionPresentationTests
 {
     [AvaloniaTheory]
+    [InlineData(0, 7, "0", "7")]
+    [InlineData(0.2, double.NaN, "0.2", "Unavailable")]
+    [InlineData(0.25, 1, "One to tetramer (1:4)", "One to one (1:1)")]
+    public void ModelPageShowsSavedStoichiometryWithoutDefaultPresetSubstitution(
+        double firstValue, double secondValue, string firstExpected, string secondExpected)
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            var data = new ExperimentData("stored-stoichiometry.itc")
+            {
+                CellConcentration = new FloatWithError(10e-6),
+                SyringeConcentration = new FloatWithError(100e-6),
+                CellVolume = 1.4e-3,
+                MeasuredTemperature = 25,
+            };
+            data.Injections.Add(new InjectionData(data, volume: 1e-6) { IsIntegrated = true, Ratio = 1 });
+            var model = new TwoSetsOfSites(data);
+            model.InitializeParameters(data);
+            model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
+            var first = model.ModelOptions[AttributeKey.NumberOfSites1];
+            var second = model.ModelOptions[AttributeKey.NumberOfSites2];
+            first.DoubleValue = firstValue;
+            second.DoubleValue = secondValue;
+            first.IntValue = second.IntValue = 7;
+            model.Solution = SolutionInterface.FromModel(model, Convergence());
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var text = TextFrom(workspace.ModelPanelForTesting);
+
+            Assert.Contains(firstExpected, text);
+            Assert.Contains(secondExpected, text);
+            if (firstExpected != "One to one (1:1)" && secondExpected != "One to one (1:1)")
+                Assert.DoesNotContain("One to one (1:1)", text);
+            Assert.Equal(firstValue, first.DoubleValue);
+            Assert.Equal(secondValue, second.DoubleValue);
+            Assert.Equal(7, first.IntValue);
+            Assert.Equal(7, second.IntValue);
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void ModelPagePreservesIntervalsAndRefreshesDisplayPreferences(bool fromAttributes)

@@ -163,6 +163,50 @@ public sealed class AnalysisResultModelOptionPresentationTests : IDisposable
         Assert.Equal("", AnalysisResultModelOptionPresentation.FormatValue(AttributeKey.PreboundLigandAffinity, null));
     }
 
+    [Theory]
+    [InlineData(0.25, "One to tetramer (1:4)")]
+    [InlineData(0.3333333333333333, "One to trimer (1:3)")]
+    [InlineData(0.5, "One to dimer (1:2)")]
+    [InlineData(1, "One to one (1:1)")]
+    [InlineData(2, "Two sites (2:1)")]
+    [InlineData(3, "Three sites (3:1)")]
+    [InlineData(4, "Four sites (4:1)")]
+    [InlineData(0, "0")]
+    [InlineData(-1, "-1")]
+    [InlineData(7, "7")]
+    [InlineData(0.2, "0.2")]
+    [InlineData(0.3, "0.3")]
+    [InlineData(double.NaN, "Unavailable")]
+    [InlineData(double.PositiveInfinity, "Unavailable")]
+    [InlineData(double.NegativeInfinity, "Unavailable")]
+    public void StoichiometryDisplaysItsSavedDecimalWithoutIntegerOrPresetSubstitution(double value, string expected)
+    {
+        foreach (var key in new[] { AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites2 })
+        {
+            var option = ExperimentAttribute.Double(key, "Stoichiometry", value);
+            option.IntValue = 7;
+            Assert.Equal(expected, AnalysisResultModelOptionPresentation.FormatValue(key, option));
+            Assert.Equal(value, option.DoubleValue);
+            Assert.Equal(7, option.IntValue);
+        }
+    }
+
+    [Theory]
+    [InlineData("en-US", "1.23457")]
+    [InlineData("da-DK", "1,23457")]
+    public void UnmatchedStoichiometryUsesDesktopCultureWithoutRoundingSavedValue(string culture, string expected)
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+        foreach (var key in new[] { AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites2 })
+        {
+            var option = ExperimentAttribute.Double(key, "Stoichiometry", 1.23456789);
+            option.IntValue = 1;
+            Assert.Equal(expected, AnalysisResultModelOptionPresentation.FormatValue(key, option));
+            Assert.Equal(1.23456789, option.DoubleValue);
+            Assert.Equal(1, option.IntValue);
+        }
+    }
+
     static string Format(AttributeKey key, FloatWithError value) => AnalysisResultModelOptionPresentation.FormatValue(key, Option(key, value));
 
     static ExperimentAttribute Option(AttributeKey key, FloatWithError value)
