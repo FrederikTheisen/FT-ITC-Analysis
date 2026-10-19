@@ -68,7 +68,7 @@ namespace AnalysisITC.Core.Presentation
             BuildAdvancedSections(document, result, options);
             BuildExperimentSections(document, result, members, labels, overview, options,
                 previousExperimentLabels);
-            AddResultDiagnostics(document, result, options.OutputPurpose, labels);
+            AddResultDiagnostics(document, result, options.OutputPurpose, labels, resultIndex);
 
             return document;
         }
@@ -123,7 +123,7 @@ namespace AnalysisITC.Core.Presentation
                 foreach (var diagnostic in child.Diagnostics)
                     document.AddDiagnostic(diagnostic.Severity,
                         "result-" + (index + 1).ToString(CultureInfo.InvariantCulture) + "-" + diagnostic.Code,
-                        selected[index].Name + ": " + diagnostic.Message);
+                        selected[index].Name + ": " + diagnostic.Message, diagnostic.WarningContext);
                 var cloned = child.Sections
                     .Select(section => CloneResultSection(section, index, selected[index]))
                     .ToList();
@@ -325,21 +325,18 @@ namespace AnalysisITC.Core.Presentation
                 {
                     new AnalysisReportKeyValueItem("Source", "Automatically generated"),
                     new AnalysisReportKeyValueItem("User edited", record.UserEdited ? "Yes" : "Not marked as user-edited"),
-                    new AnalysisReportKeyValueItem("Provider", Empty(record.Provider)),
-                    new AnalysisReportKeyValueItem("Model", Empty(record.Model)),
-                    new AnalysisReportKeyValueItem("Reasoning", Empty(record.ReasoningEffort)),
-                    new AnalysisReportKeyValueItem("Scientific guidance", FormatGuidance(record.ScientificGuidanceRevision)),
-                    new AnalysisReportKeyValueItem("Generated", FormatUtc(record.GeneratedAtUtc)),
-                    new AnalysisReportKeyValueItem("Approved", FormatUtc(record.ApprovedAtUtc)),
-                    new AnalysisReportKeyValueItem("Request", Empty(record.ServiceRequestId)),
+                    new AnalysisReportKeyValueItem("AI model", FormatInterpretationModel(record)),
                 };
             section.Add(new AnalysisReportKeyValueBlock("Source and editing history", items));
         }
 
-        static string FormatGuidance(string revision) =>
-            string.Equals(revision, "none", StringComparison.OrdinalIgnoreCase)
-                ? "none (minimal evidence boundary only)"
-                : Empty(revision);
+        static string FormatInterpretationModel(AnalysisInterpretationRecord record) =>
+            Empty(string.Join(" · ", new[]
+            {
+                record.Provider?.Trim(),
+                record.Model?.Trim(),
+                string.IsNullOrWhiteSpace(record.ReasoningEffort) ? null : record.ReasoningEffort.Trim() + " reasoning",
+            }.Where(value => !string.IsNullOrWhiteSpace(value))));
 
         static void AddMarkdownBlocks(AnalysisReportSection section, string markdown, bool validateAiResponse)
         {
@@ -933,7 +930,7 @@ namespace AnalysisITC.Core.Presentation
             section.Add(new AnalysisReportKeyValueBlock("Analysis", analysisItems));
 
             if (result.Health != AnalysisResultHealth.Valid || result.ValidityReport?.Reasons?.Count > 0)
-                AddValidityNotice(section, result);
+                AddValidityNotice(section, result, labels);
             var mixedBookkeeping = MixedBookkeeping(result, labels);
             if (mixedBookkeeping.Count > 0)
                 section.Add(new AnalysisReportNoticeBlock("Mixed injection bookkeeping",
@@ -1402,7 +1399,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 section.Add(new AnalysisReportNoticeBlock(
                     "Report warnings",
-                    string.Join(Environment.NewLine, document.Warnings),
+                    string.Join(Environment.NewLine, AnalysisReportWarningSummary.Appendix(document.Diagnostics)),
                     AnalysisReportNoticeLevel.Warning));
             }
 
@@ -1415,9 +1412,11 @@ namespace AnalysisITC.Core.Presentation
             if (options.ExtraTraceability)
             {
                 reportDetails.Add(Item("Report identifier", ReportIdText(document)));
-                reportDetails.Add(Item("Result identifiers", string.Join("\n", document.Results.Select(item => item.Label + ": " + item.Id))));
             }
             section.Add(new AnalysisReportKeyValueBlock("Report details", reportDetails));
+            if (options.ExtraTraceability)
+                section.Add(new AnalysisReportKeyValueBlock("Result identifiers", document.Results.Select(item =>
+                    Item("Result " + item.Label, item.Id)), AnalysisReportLayoutPolicy.AllowContinuation));
 
             document.AddSection(section);
             document.Sections.FirstOrDefault(item => item.Kind == AnalysisReportSectionKind.Cover)?
@@ -1451,14 +1450,18 @@ namespace AnalysisITC.Core.Presentation
             AnalysisResultOverviewTable overview, AnalysisResult result, AnalysisReportOptions options,
             IReadOnlyList<string> labels)
         {
-            var columns = overview.Columns.Select(column => new AnalysisReportTableColumn(
+            var modelParameters = new HashSet<ParameterType>(overview.Rows
+                .SelectMany(row => row.Solution.Parameters.Keys));
+            modelParameters.Remove(ParameterType.Offset);
+            var overviewColumns = overview.Columns.Where(column => column.Id != "InformationCriteria"
+                && (!column.Parameter.HasValue || modelParameters.Contains(column.Parameter.Value))).ToList();
+            var columns = overviewColumns.Select(column => new AnalysisReportTableColumn(
                 column.Id, column.Title, column.Alignment,
                 column.Id == "Experiment" ? 1.35
                     : column.Id == "Loss" ? .55
-                    : column.Id == "InformationCriteria" ? .72
                     : 1));
             var rows = overview.Rows.Select((row, index) => new AnalysisReportTableRow(
-                overview.Columns.Select(column =>
+                overviewColumns.Select(column =>
                     // Blank, unlike "—" (non-finite): Standard output omits binding values for no-binding members.
                     (column.Parameter.HasValue || column.Id == "Loss")
                         && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, row.Solution, options.OutputPurpose) ? ""
@@ -1481,7 +1484,7 @@ namespace AnalysisITC.Core.Presentation
                 rows,
                 AnalysisReportLayoutPolicy.KeepTogether
                     | AnalysisReportLayoutPolicy.ShrinkToSinglePage,
-                SummaryTableFontSize(overview.Columns.Count(column => column.Parameter.HasValue)));
+                SummaryTableFontSize(overviewColumns.Count(column => column.Parameter.HasValue)));
         }
 
         static string OverviewAssessmentLine(AnalysisResult result, SolutionInterface member, AnalysisReportOptions options)
@@ -2496,9 +2499,9 @@ namespace AnalysisITC.Core.Presentation
                     string.Join(Environment.NewLine, messages), AnalysisReportNoticeLevel.Warning));
         }
 
-        static void AddValidityNotice(AnalysisReportSection section, AnalysisResult result)
+        static void AddValidityNotice(AnalysisReportSection section, AnalysisResult result, IReadOnlyList<string> labels)
         {
-            var reasons = string.Join(Environment.NewLine, result.HealthReasons);
+            var reasons = string.Join(Environment.NewLine, AnalysisResultHealthReasonFormatter.FormatReport(result, labels));
             var level = result.Health == AnalysisResultHealth.Valid
                 ? AnalysisReportNoticeLevel.Information
                 : result.Health == AnalysisResultHealth.Invalid
@@ -2509,7 +2512,7 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static void AddResultDiagnostics(AnalysisReportDocument document, AnalysisResult result,
-            ResultOutputPurpose purpose, IReadOnlyList<string> labels)
+            ResultOutputPurpose purpose, IReadOnlyList<string> labels, int resultIndex)
         {
             if (result.Health != AnalysisResultHealth.Valid)
             {
@@ -2524,22 +2527,22 @@ namespace AnalysisITC.Core.Presentation
                 document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning, "mixed-bookkeeping",
                     "Experiments use different injection bookkeeping methods (" + string.Join("; ", mixedBookkeeping) + ").");
 
-            // Standard output omits fit warnings for no-binding members, whose binding estimates are not reported.
-            foreach (var solution in result.Solution.Solutions.Where(solution => solution != null
-                && ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
+            // Retain member provenance before chapter diagnostics receive their result prefixes.
+            var members = result.Solution.Solutions;
+            var warnings = members.SelectMany((solution, index) => solution != null
+                && ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)
+                    ? AnalysisResultHealthReasonFormatter.FitReasons(solution, result.Solution.ErrorEstimationMethod, index)
+                    : Enumerable.Empty<AnalysisResultHealthReason>())
+                .OrderBy(reason => reason.Category).ThenBy(reason => reason.MemberIndex);
+            foreach (var warning in warnings)
             {
-                if (solution.ParameterBoundaryHit)
-                    document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning,
-                        "parameter-boundary", (solution.Data?.Name ?? "Experiment") +
-                        " has a fitted parameter at a boundary.");
-                if (solution.BootstrapParameterBoundaryHit)
-                    document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning,
-                        "bootstrap-boundary", (solution.Data?.Name ?? "Experiment") +
-                        " has bootstrap estimates at a parameter boundary.");
-                if (solution.Convergence?.HasErrorEstimationLimitWarnings == true)
-                    document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning,
-                        "uncertainty-limit", (solution.Data?.Name ?? "Experiment") +
-                        " has limit-terminated uncertainty refits.");
+                var index = warning.MemberIndex.Value;
+                var code = warning.Category == AnalysisWarningCategory.ParameterBoundary ? "parameter-boundary"
+                    : warning.Category == AnalysisWarningCategory.UncertaintyBoundary ? "bootstrap-boundary" : "uncertainty-limit";
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning, code,
+                    (members[index].Data?.Name ?? "Experiment") + ": " + warning.Message,
+                    new AnalysisReportWarningContext(warning.Category, index, labels[index],
+                        result.Solution.ErrorEstimationMethod, resultIndex, result.Name, members.Count));
             }
         }
 

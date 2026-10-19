@@ -26,11 +26,17 @@ Final Figure and supporting figures, regardless of the excluded-point visibility
 In both desktop builders, the top Report inspector section has a separate Saved Reports…
 picker above equally sized Save Report and Save Report As… buttons
 in one row. The saved-report picker lists the latest saved reports first with their result
-names and last-save time. It refreshes each time it opens, including after Save As, and
+names and last-save time in compact three-line rows, with emphasized titles and separators
+between reports. Long titles and result names truncate, with full text available on hover;
+the macOS scroll area uses the popover background. It refreshes each time it opens,
+including after Save As, and
 uses the existing unsaved-draft prompt before replacing a draft. With no saved reports it
 shows an empty-state message. The Report contents picker contains only results and
-supporting experiments.
+supporting experiments, with emphasized names above their details in both apps;
+its macOS scroll area also uses the popover background.
 
+PDF label/value rows use 9 pt text on a 12 pt line height, with 2 pt padding above
+and below the text. A single-line row is 16 pt tall in both desktop renderers.
 
 
 ## F. Front page
@@ -89,7 +95,7 @@ not I01 and is not printed.
 | **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual text without "## " gets "Overall interpretation" heading |
 | **I03** | **Source and editing history** (rows) | Trace only |
 | | · Source: Written by the user · Saved | manual text |
-| | · Source: Automatically generated · User edited (Yes / Not marked as user-edited) · Provider · Model · Reasoning · Scientific guidance · Generated · Approved · Request | generated text; missing fields "not supplied" |
+| | · Source: Automatically generated · User edited (Yes / Not marked as user-edited) · AI model (provider, model, reasoning in one row) | generated text; omit missing model details, or "not supplied" if all are missing; no request ID, scientific guidance, generation or approval timestamps |
 
 ## R. Result overview (per result)
 
@@ -108,7 +114,7 @@ fitted series. Independent collections without temperature dependence retain par
 | | · Member assessments (independent collection) or Binding assessment (single/pooled) | only when Std hides binding (shown in Diag too); independent collections show their common outcome or Mixed assessments |
 | | · Experiments | |
 | **R03** | **[Info/Warn/Error] status title** (Valid with warnings · Partially invalid or stale · Invalid or stale · Validity unknown) | omitted when Valid with no recorded reasons |
-| | · One line per reason | |
+| | · Validity reasons unchanged; fit-warning categories and inconclusive member assessments use method-specific messages with counts and report references | |
 | **R03a** | **[Warn] Mixed injection bookkeeping** | only when the result's experiments have different saved methods |
 | | · "Experiments in this result use different injection bookkeeping methods." | |
 | | · <method>: <labels>, one line per method | |
@@ -220,9 +226,11 @@ between Std. and Diag.
 | Temperature (°C) | Temperature dependence enabled. |
 | [Ions] (mM) | Uses the captured run buffer policy. Electrostatics enabled: one-set-of-sites model, salt metadata for every member, and three usable ionic strengths selected by the strict greedy half-minimum-span spacing rule. |
 | ∆H,prot (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
-| One column per model parameter | "(fixed)" for fixed values; "—" for non-finite values. |
+| One column per binding model parameter | Saved model parameters only: N (or α), Kd, and ΔH as applicable per site/step. Offset and derived values (including apparent Kd, ΔG, and −TΔS) are omitted from this overview. "(fixed)" for fixed values; "—" for non-finite values. |
 | RMSD (µJ) | Member fit RMSD. |
-| AICc / AIC | "AIC <value>" when no AICc; omitted when no per-experiment criteria. |
+
+AIC/AICc are omitted from this overview. Full parameter tables and the separate fit
+diagnostic and binding-assessment blocks retain their existing contents.
 
 | Version | Cell differences |
 | --- | --- |
@@ -251,7 +259,7 @@ the result is not evaluable. Rows, in order:
 | Enthalpy (ΔH) | Per step. |
 | Entropy contribution (−TΔS) | Per step. |
 | Gibbs energy (ΔG) | Per step. |
-| Kd (from ΔG) | Per step. |
+| Kd (from ΔG) | Per step. Shared summary evaluator: fitted Gibbs center transformed to Kd, Gibbs SD propagated through the exponential, and Gibbs interval endpoints transformed. Same convention in desktop evaluation, table/clipboard export, and web viewer (CR-024). |
 
 ### A09. Summary uncertainty
 
@@ -485,15 +493,16 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Role: Buffer reference for … / Tandem source for … | blank when neither |
 | **P03** | **[Warn] Report warnings** | omitted when no warnings |
 | | · <Result>: The saved result is reported with status: <status>. | status not Valid |
-| | · <Result>: <Experiment> has a fitted parameter at a boundary. | not for no-binding |
-| | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | not for no-binding |
-| | · <Result>: <Experiment> has limit-terminated uncertainty refits. | not for no-binding |
 | | · <Result>: Experiments use different injection bookkeeping methods (<method>: <labels>; …). | as R03a |
+| | · <Result>: Best fit reached a parameter boundary. N of M experiments (<labels>). | P03 eligibility below |
+| | · <Result>: One or more bootstrap/leave-one-out fits reached a parameter boundary. N of M experiments (<labels>). | method-specific; P03 eligibility below |
+| | · <Result>: One or more bootstrap/leave-one-out refits reached an optimizer limit and were excluded. N of M experiments (<labels>). | method-specific; P03 eligibility below |
 | **P04** | **Report details** | |
 | | · Software | |
 | | · Application version | |
 | | · Report identifier | Trace only |
-| | · Result identifiers: one line per result ("1: <id>") | Trace only |
+| **P05** | **Result identifiers** | Trace only |
+| | · One independently pageable row per result: Result 1 · <id> | report order |
 
 ## H. Page furniture and validation
 
@@ -507,12 +516,16 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Software and version (left) | |
 | | · Report title (centre) | omitted on front page; single line, shortened with an ellipsis to preserve an 8 pt gap from both side fields |
 | | · Page n of N (right) | |
-| **H03** | **" – continued"** after a block heading split across pages | |
+| **H03** | **" – continued"** after a block heading split across pages, including notices and key-value rows split into line slices | |
 | **V01** | **Error list instead of a report** | no result; duplicate or missing selection; no model or experiments; missing/non-finite parameters where binding is shown |
 
 ## Rules that affect many blocks
 
+- CR-023 warning summaries: M is every member of the result; N counts distinct eligible member indices for the category. Multi-member results use the count/reference format even when N = 1; single-member results show the plain message without “1 of 1.” References follow member order, compressing runs of at least three consecutive indices (including Z→AA). P03 retains the result-name prefix and orders status, mixed bookkeeping, best-fit boundary, uncertainty boundary, then uncertainty limit within each result. Standard P03 omits effective no-binding members; Diagnostic P03 includes them. R03 fit warnings always use `FitWarningMembers`, excluding effective no-binding members. R03 orders validity reasons, best-fit boundary, uncertainty boundary, uncertainty limit, then inconclusive assessment (including single/pooled assessments). It uses structured health reasons; app health-reason text is unchanged. E04b keeps the detailed member warnings.
+
 - Buffer-protonation eligibility requires usable thermochemistry for every member and at least two distinct finite buffer enthalpies. A06 follows this shared eligibility; missing values never supply zero and members are not silently omitted. X06 remains conditional on a completed saved fit. Unavailability explanations appear in both desktop inspectors; no report block or layout is added (CR-021).
+
+- Numerical profile uncertainty uses the owning run's eligibility. Coordinates retained in a `CompleteFailure` run are diagnostic only, including completed affinity intervals and linked thermodynamic contributions. A05/A08/A10/E05 must not turn those coordinates into reported uncertainty; existing fit details keep the failed outcome and diagnostic endpoint counts. No report layout changes (CR-010).
 
 - Experiment conditions subtitles use 11 pt light text in the normal text color and a 3 pt gap below their heading. Initial concentrations form one field with syringe first and cell second (`100 µM ▸ 10 µM`); remaining fields use spaced pipes (` | `). Each concentration retains its own unit; unavailable concentrations are omitted without leaving an orphan triangle. The heading and complete wrapped subtitle stay together. Temperature follows the report's °C/K setting and retains the report's two-decimal rounding while omitting trailing zeros; concentrations omit uncertainty. Ionic strength is included only from an explicit attribute, without calculation. Detailed rows retain their full values and uncertainties.
 
@@ -540,6 +553,10 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 ## Revision notes
 
 - 2026-10-19 (CR-034): Avalonia now includes Expanded explanations in its existing busy policy, matching native macOS. The option remains fixed during construction; later changes still invalidate the preview and rebuild on export. A09/A12/A14 explanation content and triggers are unchanged.
+
+- 2026-10-19 (CR-023 review): Notice pagination and both desktop renderers share notice geometry, body bounds and line advance. Renderer tests verify that each notice fragment actually paints its final line. R03 single/pooled inconclusive assessments again follow fit warnings, matching their previous order; validity reasons remain first. Near-boundary pagination cannot append a zero-line notice fragment. P03/R03 eligibility and count definitions are unchanged.
+
+- 2026-10-18 (CR-023): P03 replaces per-experiment sentences with method-specific count/reference summaries. Previously its `<Experiment>` was the experiment name, not the report label, and its “bootstrap” sentence also appeared for leave-one-out results; both discrepancies are corrected. R03 adds counts/references to already-deduplicated fit-warning sentences and groups inconclusive member assessments. P04's multiline identifier value moves to independently pageable P05 rows. Notices and exceptionally tall key-value rows continue without dropping lines; measurement follows the existing drawn geometry, so other key-value blocks can reflow slightly. The shared app formatter retains its prior text and sentence deduplication; same-name inconclusive app reasons remain tracked separately.
 
 - 2026-10-16: Both builders use detached report drafts with explicit Save Report and Save Report As. Project save, autosave, preview, and PDF export do not commit drafts. Saved names follow the title, and Project Information Rename changes both. Result/supporting selections apply together and edit the current draft without automatically opening another report. A builder-only review warning covers changed result scope or results updated since the text was approved/confirmed, for both manual and AI text. Confirm persists review time/scope without changing fingerprints or I01. Save As preserves original fingerprint identity/date for v1 and v2, avoiding a freshness warning from copying alone. Printed I01 and interpretation provenance rows are unchanged.
 

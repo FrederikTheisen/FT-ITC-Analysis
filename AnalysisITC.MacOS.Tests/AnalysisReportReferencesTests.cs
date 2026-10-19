@@ -41,6 +41,7 @@ static class AnalysisReportReferencesTests
             CheckExperimentHeaders();
             CheckConditionsSubtitles();
             CheckSourceMetadata();
+            CheckReportContinuation();
             CheckTemperatureValidity();
             Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping, bounded footer titles and PDF rendering");
             return 0;
@@ -257,6 +258,101 @@ static class AnalysisReportReferencesTests
                 rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
                     Path.Combine(output, "macos-conditions-" + scenario + ".pdf") });
             }
+        }
+    }
+
+    static void CheckReportContinuation()
+    {
+        var document = AnalysisReportBuilder.BuildInterpretationPreview("Prelude");
+        var section = document.Sections.First();
+        var notice = NewReportBlock<AnalysisReportNoticeBlock>("Report warnings", string.Join("\n", Enumerable.Range(1, 150)
+            .Select(index => "Warning " + index.ToString("D3") + ": preserved evidence ΔH e\u0301")), AnalysisReportNoticeLevel.Warning);
+        var metadata = NewReportBlock<AnalysisReportKeyValueBlock>("Long metadata", new[]
+        { new AnalysisReportKeyValueItem("Provenance", string.Join("\n", Enumerable.Range(1, 150)
+            .Select(index => "Evidence " + index.ToString("D3") + ": saved value ± SD"))) }, AnalysisReportLayoutPolicy.KeepTogether);
+        var identifiers = NewReportBlock<AnalysisReportKeyValueBlock>("Result identifiers", Enumerable.Range(1, 70)
+            .Select(index => new AnalysisReportKeyValueItem("Result " + index, "00000000-0000-0000-0000-" + index.ToString("D12"))),
+            AnalysisReportLayoutPolicy.AllowContinuation);
+        foreach (var block in new AnalysisReportBlock[] { notice, metadata, identifiers })
+            typeof(AnalysisReportSection).GetMethod("Add", PrivateInstance).Invoke(section, new object[] { block });
+        var rendererType = typeof(MainWindowController).Assembly.GetType("AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+        var notices = plan.Pages.SelectMany(page => page.Fragments).Where(fragment => fragment.Block == notice).ToList();
+        Check(notices.Count > 1 && notices.Sum(fragment => fragment.Lines.Count) == 150, "Native notice lost lines");
+        Check(notices.Skip(1).All(fragment => fragment.Title == "Report warnings – continued"), "Native notice lost continuation titles");
+        var slices = plan.Pages.SelectMany(page => page.Fragments).Where(fragment => fragment.Block == metadata).ToList();
+        Check(slices.Count > 1 && slices[1].FirstItem == 0 && slices[1].IsContinuation, "Native first-row continuation lost state");
+        Check(slices.SelectMany(fragment => fragment.KeyValueLayout.Rows).Sum(row => row.ValueLines.Count) == 150, "Native row lost lines");
+        Check(plan.Pages.SelectMany(page => page.Fragments).Where(fragment => fragment.Block == identifiers)
+            .SelectMany(fragment => fragment.KeyValueLayout.Rows).Count() == 70, "Native identifier rows lost content");
+        var constructor = typeof(AnalysisReportLayoutFragment).GetConstructors(PrivateInstance).Single();
+        var arguments = constructor.GetParameters().Select(parameter => parameter.DefaultValue).ToArray();
+        arguments[0] = AnalysisReportFragmentKind.Notice; arguments[1] = notice; arguments[2] = notices[1].Bounds;
+        arguments[7] = notices[1].Lines;
+        var plain = (AnalysisReportLayoutFragment)constructor.Invoke(arguments);
+        Check(!RenderNoticePixels(renderer, notice, plain).SequenceEqual(RenderNoticePixels(renderer, notice, notices[1])),
+            "Native renderer drew block.Title instead of the continued fragment title");
+        foreach (var fragment in notices)
+        {
+            Check(fragment.Lines.Count > 0, "Native notice contains no body lines");
+            var shortenedArguments = constructor.GetParameters().Select(parameter => parameter.DefaultValue).ToArray();
+            shortenedArguments[0] = AnalysisReportFragmentKind.Notice; shortenedArguments[1] = notice;
+            shortenedArguments[2] = fragment.Bounds; shortenedArguments[4] = fragment.FirstItem;
+            shortenedArguments[7] = fragment.Lines.Take(fragment.Lines.Count - 1).ToArray();
+            var withoutLastLine = (AnalysisReportLayoutFragment)constructor.Invoke(shortenedArguments);
+            Check(!RenderNoticePixels(renderer, notice, fragment).SequenceEqual(RenderNoticePixels(renderer, notice, withoutLastLine)),
+                "Native notice fragment at line " + fragment.FirstItem + " did not draw its last line");
+        }
+        var output = Environment.GetEnvironmentVariable("FTITC_REPORT_CONTINUATION_QA_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            Directory.CreateDirectory(output);
+            rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan, Path.Combine(output, "macos-continuation.pdf") });
+        }
+        foreach (var page in plan.Pages)
+        {
+            Check(page.Fragments.All(fragment => fragment.Bounds.Bottom <= page.Height - plan.MarginBottom - 18 + .001),
+                "Native continuation overlaps footer");
+            if (!string.IsNullOrWhiteSpace(output))
+                RenderContinuationPage(renderer, document, plan, page, Path.Combine(output, "macos-continuation-" + page.PageNumber + ".png"));
+        }
+    }
+
+    static T NewReportBlock<T>(params object[] arguments)
+    {
+        return (T)Activator.CreateInstance(typeof(T), PrivateInstance, null, arguments, null);
+    }
+
+    static byte[] RenderNoticePixels(object renderer, AnalysisReportNoticeBlock block, AnalysisReportLayoutFragment fragment)
+    {
+        const int width = 600, height = 900;
+        using (var space = CGColorSpace.CreateDeviceRGB())
+        using (var bitmap = new CGBitmapContext(IntPtr.Zero, width, height, 8, width * 4, space, CGImageAlphaInfo.PremultipliedLast))
+        {
+            bitmap.SetFillColor(NSColor.White.CGColor); bitmap.FillRect(new CGRect(0, 0, width, height));
+            var bounds = fragment.Bounds;
+            renderer.GetType().GetMethod("DrawNotice", PrivateInstance).Invoke(renderer, new object[]
+            { bitmap, (double)height, block, fragment, new CGRect(bounds.X, height - bounds.Bottom, bounds.Width, bounds.Height) });
+            var pixels = new byte[width * height * 4];
+            Marshal.Copy(bitmap.Data, pixels, 0, pixels.Length);
+            return pixels;
+        }
+    }
+
+    static void RenderContinuationPage(object renderer, AnalysisReportDocument document, AnalysisReportLayoutPlan plan,
+        AnalysisReportPagePlan page, string output)
+    {
+        var width = (int)Math.Ceiling(page.Width * 2); var height = (int)Math.Ceiling(page.Height * 2);
+        using (var space = CGColorSpace.CreateDeviceRGB())
+        using (var bitmap = new CGBitmapContext(IntPtr.Zero, width, height, 8, width * 4, space, CGImageAlphaInfo.PremultipliedLast))
+        {
+            bitmap.ScaleCTM(2, 2);
+            renderer.GetType().GetMethod("DrawPage", PrivateInstance).Invoke(renderer, new object[] { bitmap, document, plan, page });
+            using (var image = bitmap.ToImage())
+            using (var representation = new NSBitmapImageRep(image))
+            using (var png = representation.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary()))
+                File.WriteAllBytes(output, png.ToArray());
         }
     }
 

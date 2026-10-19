@@ -580,8 +580,9 @@ namespace AnalysisITC
             var savedReports = AnalysisReportEditingPresentation.SavedReports(DataManager.Reports).ToList();
             const double rowHeight = 52;
             const double rowSpacing = 6;
+            var separatorCount = Math.Max(0, savedReports.Count - 1);
             var stackHeight = Math.Max(rowHeight,
-                savedReports.Count * rowHeight + Math.Max(0, savedReports.Count - 1) * rowSpacing);
+                savedReports.Count * rowHeight + separatorCount * (1 + 2 * rowSpacing));
             var view = new NSView(new CGRect(0, 0, 430, Math.Min(420, stackHeight + 48)));
             var document = new AnalysisReportFlippedView(new CGRect(0, 0, 406, stackHeight + 24));
             var stack = new AnalysisReportFlippedStackView(new CGRect(12, 12, 382, stackHeight))
@@ -601,12 +602,24 @@ namespace AnalysisITC
             }
             foreach (var saved in savedReports)
             {
-                var label = Label(AnalysisReportPresentation.DisplayName(saved, ResolveResult)
-                    + "\n" + string.Join(" · ", saved.ResultIds.Select(id => ResolveResult(id)?.Name ?? "Missing result"))
-                    + "\nLast saved: " + ProjectInformationPresentation.LastEditedText(saved));
-                label.Font = NSFont.SystemFontOfSize(11);
-                label.LineBreakMode = NSLineBreakMode.TruncatingTail;
-                label.MaximumNumberOfLines = 3;
+                var title = AnalysisReportPresentation.DisplayName(saved, ResolveResult);
+                var resultNames = string.Join(" · ", saved.ResultIds.Select(id => ResolveResult(id)?.Name ?? "Missing result"));
+                var titleLabel = Label(title);
+                titleLabel.Font = NSFont.BoldSystemFontOfSize(12);
+                var resultsLabel = Label(resultNames);
+                resultsLabel.Font = NSFont.SystemFontOfSize(11);
+                var savedLabel = Label("Last saved: " + ProjectInformationPresentation.LastEditedText(saved));
+                savedLabel.Font = NSFont.SystemFontOfSize(11);
+                var details = VerticalStack(titleLabel, resultsLabel, savedLabel);
+                details.Spacing = 1;
+                details.ToolTip = title + "\n" + resultNames;
+                foreach (var label in new[] { titleLabel, resultsLabel, savedLabel })
+                {
+                    label.LineBreakMode = NSLineBreakMode.TruncatingTail;
+                    label.MaximumNumberOfLines = 1;
+                    label.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+                    label.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
+                }
                 var open = Button("Open");
                 open.Enabled = saved.ResultIds.Count > 0 && AnalysisReportPresentation.MissingResultCount(saved, ResolveResult) == 0;
                 open.ToolTip = open.Enabled ? ProjectInformationPresentation.OpenTooltip : ProjectInformationPresentation.MissingResultsTooltip;
@@ -616,18 +629,27 @@ namespace AnalysisITC
                     if (!await ResolveDraftBeforeLeavingAsync()) return;
                     ApplyResultSelection(AnalysisReportPresentation.ResultsInProjectOrder(saved, results), false, exactReport: saved);
                 };
-                var row = HorizontalStack(label, open);
+                var row = HorizontalStack(details, open);
                 row.Distribution = NSStackViewDistribution.Fill;
-                label.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-                label.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
+                details.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+                details.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
                 open.WidthAnchor.ConstraintEqualToConstant(64).Active = true;
                 row.HeightAnchor.ConstraintEqualToConstant((nfloat)rowHeight).Active = true;
+                if (stack.ArrangedSubviews.Length > 0)
+                {
+                    var separator = new NSBox { BoxType = NSBoxType.NSBoxSeparator,
+                        TranslatesAutoresizingMaskIntoConstraints = false };
+                    separator.HeightAnchor.ConstraintEqualToConstant(1).Active = true;
+                    stack.AddArrangedSubview(separator);
+                    separator.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
+                }
                 stack.AddArrangedSubview(row);
                 row.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
             }
             var scroll = new NSScrollView
             {
                 DocumentView = document, HasVerticalScroller = true,
+                DrawsBackground = false,
                 BorderType = NSBorderType.NoBorder, TranslatesAutoresizingMaskIntoConstraints = false,
             };
             view.AddSubview(scroll);
@@ -673,12 +695,12 @@ namespace AnalysisITC
                 var details = result != null ? ResultPickerDetails(result) : ExperimentPickerDetails(experiment, role);
                 var button = new NSButton
                 {
-                    Title = (result != null ? "Result · " : "Experiment · ") + item.Name + "\n" + details,
                     ToolTip = result != null ? AnalysisReportExperimentReferences.ResultTooltip
                         : AnalysisReportExperimentReferences.PickerTooltip(experiment, selectedResults),
                     Alignment = NSTextAlignment.Left,
                 };
                 button.SetButtonType(NSButtonType.Switch);
+                SetResultPickerTitle(button, (result != null ? "Result · " : "Experiment · ") + item.Name, details);
                 button.HeightAnchor.ConstraintEqualToConstant((nfloat)rowHeight).Active = true;
                 button.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
                 button.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
@@ -706,6 +728,7 @@ namespace AnalysisITC
             var scroll = new NSScrollView
             {
                 DocumentView = document, HasVerticalScroller = true,
+                DrawsBackground = false,
                 BorderType = NSBorderType.NoBorder, TranslatesAutoresizingMaskIntoConstraints = false,
             };
             var selectAll = Button("Select All"); var clear = Button("Clear");
@@ -728,7 +751,7 @@ namespace AnalysisITC
                     var experiment = (ExperimentData)item.Value;
                     var role = AnalysisReportExperimentReferences.PickerRole(experiment, checkedResults);
                     var details = ExperimentPickerDetails(experiment, role);
-                    item.Key.Title = "Experiment · " + experiment.Name + "\n" + details;
+                    SetResultPickerTitle(item.Key, "Experiment · " + experiment.Name, details);
                     item.Key.ToolTip = AnalysisReportExperimentReferences.PickerTooltip(experiment, checkedResults);
                     SetAccessibilityLabel(item.Key, "Include supporting experiment " + experiment.Name + ". " + details);
                 }
@@ -937,6 +960,20 @@ namespace AnalysisITC
         IEnumerable<ExperimentData> ReferenceExperimentsFor(IEnumerable<AnalysisResult> selection)
         {
             return AnalysisReportExperimentReferences.Candidates(selection, experiments);
+        }
+
+        static void SetResultPickerTitle(NSButton button, string name, string details)
+        {
+            var font = NSFont.SystemFontOfSize(button.Font?.PointSize ?? NSFont.SystemFontSize);
+            var title = new NSMutableAttributedString(name + "\n" + details);
+            title.AddAttributes(new NSStringAttributes
+                {
+                    Font = font,
+                    ForegroundColor = button.Enabled ? NSColor.Label : NSColor.DisabledControlText,
+                }, new NSRange(0, title.Length));
+            title.AddAttribute(NSStringAttributeKey.Font, NSFont.BoldSystemFontOfSize(font.PointSize),
+                new NSRange(0, name.Length));
+            button.AttributedTitle = title;
         }
 
         string ExperimentPickerDetails(ExperimentData experiment, string role)

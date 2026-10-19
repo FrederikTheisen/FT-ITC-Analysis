@@ -699,12 +699,20 @@ namespace AnalysisITC.Avalonia.Tools
                     open.IsEnabled = missing == 0 && saved.ResultIds.Count > 0;
                     ToolTip.SetTip(open, open.IsEnabled ? ProjectInformationPresentation.OpenTooltip
                         : ProjectInformationPresentation.MissingResultsTooltip);
-                    var details = new TextBlock { TextWrapping = TextWrapping.Wrap,
-                        Text = AnalysisReportPresentation.DisplayName(saved, id => availableResults.FirstOrDefault(result => result.UniqueID == id))
-                            + "\n" + string.Join(" · ", saved.ResultIds.Select(id => availableResults.FirstOrDefault(result => result.UniqueID == id)?.Name ?? "Missing result"))
-                            + "\nLast saved: " + ProjectInformationPresentation.LastEditedText(saved) };
+                    var title = AnalysisReportPresentation.DisplayName(saved, id => availableResults.FirstOrDefault(result => result.UniqueID == id));
+                    var resultNames = string.Join(" · ", saved.ResultIds.Select(id => availableResults.FirstOrDefault(result => result.UniqueID == id)?.Name ?? "Missing result"));
+                    var details = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+                    details.Children.Add(new TextBlock { Text = title, FontWeight = FontWeight.SemiBold,
+                        TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
+                    details.Children.Add(new TextBlock { Text = resultNames, FontSize = 11,
+                        TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
+                    details.Children.Add(new TextBlock { Text = "Last saved: " + ProjectInformationPresentation.LastEditedText(saved),
+                        FontSize = 11, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
+                    ToolTip.SetTip(details, title + "\n" + resultNames);
                     var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8, MinHeight = 52 };
                     row.Children.Add(details); Grid.SetColumn(open, 1); row.Children.Add(open);
+                    if (savedReportsItems.Children.Count > 0)
+                        savedReportsItems.Children.Add(new Separator());
                     savedReportsItems.Children.Add(row);
                     open.Click += async (_, _) =>
                     {
@@ -719,6 +727,7 @@ namespace AnalysisITC.Avalonia.Tools
             savedReportsFlyout.Content = new ScrollViewer
             {
                 Content = savedReportsItems, Width = 420, MaxHeight = 390,
+                HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             };
         }

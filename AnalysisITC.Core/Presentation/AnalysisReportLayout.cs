@@ -91,7 +91,8 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportSection section = null,
             AnalysisReportTableLayout tableLayout = null,
             AnalysisReportSignOffLayout signOffLayout = null,
-            AnalysisReportHeadingLayout headingLayout = null)
+            AnalysisReportHeadingLayout headingLayout = null,
+            AnalysisReportKeyValueLayout keyValueLayout = null, bool isContinuation = false)
         {
             Kind = kind;
             Block = block;
@@ -105,9 +106,11 @@ namespace AnalysisITC.Core.Presentation
             TableLayout = tableLayout;
             SignOffLayout = signOffLayout;
             HeadingLayout = headingLayout;
-            // Only split blocks start a fragment after their first item.
+            KeyValueLayout = keyValueLayout;
+            IsContinuation = isContinuation || firstItem > 0;
+            // A key-value continuation can also start partway through item zero.
             Title = string.IsNullOrWhiteSpace(block?.Title) ? ""
-                : firstItem > 0 ? block.Title + ContinuedSuffix : block.Title;
+                : IsContinuation ? block.Title + ContinuedSuffix : block.Title;
         }
 
         public const string ContinuedSuffix = " – continued";
@@ -126,6 +129,42 @@ namespace AnalysisITC.Core.Presentation
         public AnalysisReportTableLayout TableLayout { get; }
         public AnalysisReportSignOffLayout SignOffLayout { get; }
         public AnalysisReportHeadingLayout HeadingLayout { get; }
+        public AnalysisReportKeyValueLayout KeyValueLayout { get; }
+        public bool IsContinuation { get; }
+    }
+
+    public sealed class AnalysisReportKeyValueRowLayout
+    {
+        internal AnalysisReportKeyValueRowLayout(int itemIndex, int indentLevel, int firstLine,
+            IEnumerable<string> labels, IEnumerable<string> values, int lineCount)
+        {
+            ItemIndex = itemIndex;
+            IndentLevel = indentLevel;
+            FirstLine = firstLine;
+            LabelLines = labels.ToList();
+            ValueLines = values.ToList();
+            Height = lineCount * AnalysisReportKeyValueLayout.LineHeight + 2 * AnalysisReportKeyValueLayout.RowPadding;
+        }
+        public int ItemIndex { get; }
+        public int IndentLevel { get; }
+        public int FirstLine { get; }
+        public IReadOnlyList<string> LabelLines { get; }
+        public IReadOnlyList<string> ValueLines { get; }
+        public double Height { get; }
+    }
+
+    public sealed class AnalysisReportKeyValueLayout
+    {
+        public const double LineHeight = 12;
+        public const double RowPadding = 2;
+        public const double HeadingHeight = 18;
+        internal AnalysisReportKeyValueLayout(double labelWidth, IEnumerable<AnalysisReportKeyValueRowLayout> rows)
+        {
+            LabelWidth = labelWidth;
+            Rows = rows.ToList();
+        }
+        public double LabelWidth { get; }
+        public IReadOnlyList<AnalysisReportKeyValueRowLayout> Rows { get; }
     }
 
     public sealed class AnalysisReportTableRowLayout
@@ -470,37 +509,76 @@ namespace AnalysisITC.Core.Presentation
 
             void PlaceNotice(AnalysisReportNoticeBlock block)
             {
-                var lines = Wrap(block.Message, ContentWidth - 2 * CellPadding, BodyStyle);
-                var height = TitleHeight(block.Title) + Math.Max(1, lines.Count) * LineHeight(BodyStyle) + 4 * CellPadding;
-                Ensure(height + BlockSpacing);
-                Add(AnalysisReportFragmentKind.Notice, block, height, lines: lines);
+                var lines = Wrap(block.Message, ContentWidth - 2 * AnalysisReportNoticeLayout.HorizontalInset,
+                    AnalysisReportNoticeLayout.BodyStyle);
+                var decorationHeight = 2 * AnalysisReportNoticeLayout.VerticalInset + AnalysisReportNoticeLayout.HeadingHeight(block.Title);
+                var needed = AnalysisReportNoticeLayout.Height(block.Title, lines.Count);
+                if (needed <= UsableHeight())
+                {
+                    Ensure(needed + BlockSpacing);
+                    Add(AnalysisReportFragmentKind.Notice, block, needed, count: lines.Count, lines: lines);
+                    return;
+                }
+                var first = 0;
+                while (first < lines.Count)
+                {
+                    if (Remaining < AnalysisReportNoticeLayout.Height(block.Title, 1)) NewPage();
+                    var room = (int)Math.Floor((Remaining - decorationHeight) / AnalysisReportNoticeLayout.LineHeight + 1e-9);
+                    if (room < 1) { NewPage(); continue; }
+                    var count = Math.Min(room, lines.Count - first);
+                    Add(AnalysisReportFragmentKind.Notice, block, AnalysisReportNoticeLayout.Height(block.Title, count),
+                        first: first, count: count, lines: lines.Skip(first).Take(count));
+                    first += count;
+                    if (first < lines.Count) NewPage();
+                }
             }
 
             void PlaceKeyValues(AnalysisReportKeyValueBlock block)
             {
-                var rowHeights = block.Items.Select(item => KeyValueRowHeight(item, 1)).ToList();
-                var total = TitleHeight(block.Title) + rowHeights.Sum();
+                var labelWidth = ContentWidth * .30;
+                var rowLabels = block.Items.Select(item => Wrap(item.Label,
+                    labelWidth - 6 - item.IndentLevel * 14, new AnalysisReportTextStyle(9, true))).ToList();
+                var rowValues = block.Items.Select(item => Wrap(item.Value,
+                    ContentWidth - labelWidth - 6, BodyStyle)).ToList();
+                var lineCounts = block.Items.Select((item, index) =>
+                    Math.Max(1, Math.Max(rowLabels[index].Count, rowValues[index].Count))).ToList();
+                var titleHeight = string.IsNullOrWhiteSpace(block.Title) ? 0 : AnalysisReportKeyValueLayout.HeadingHeight;
+                var total = titleHeight + lineCounts.Sum(count => count * AnalysisReportKeyValueLayout.LineHeight + 2 * AnalysisReportKeyValueLayout.RowPadding);
                 if (block.Layout.HasFlag(AnalysisReportLayoutPolicy.KeepTogether) && total <= UsableHeight())
                     Ensure(total + BlockSpacing);
 
                 var first = 0;
+                var firstLine = 0;
                 while (first < block.Items.Count)
                 {
-                    var titleHeight = TitleHeight(block.Title);
-                    if (Remaining < titleHeight + rowHeights[first]) NewPage();
-                    var available = Remaining - titleHeight;
-                    var count = 0;
+                    var rows = new List<AnalysisReportKeyValueRowLayout>();
+                    var fragmentFirst = first;
+                    var continuedRow = firstLine > 0;
                     var height = titleHeight;
-                    while (first + count < rowHeights.Count && rowHeights[first + count] <= available)
+                    while (first < block.Items.Count)
                     {
-                        height += rowHeights[first + count];
-                        available -= rowHeights[first + count];
-                        count++;
+                        var count = lineCounts[first] - firstLine;
+                        var fullHeight = count * AnalysisReportKeyValueLayout.LineHeight + 2 * AnalysisReportKeyValueLayout.RowPadding;
+                        var available = Remaining - height;
+                        if (fullHeight > available)
+                        {
+                            // Ordinary rows move intact. Only a row taller than a fresh page is sliced.
+                            if (firstLine == 0 && fullHeight <= UsableHeight() - titleHeight) break;
+                            count = Math.Min(count, (int)Math.Floor((available - 2 * AnalysisReportKeyValueLayout.RowPadding) / AnalysisReportKeyValueLayout.LineHeight));
+                            if (count <= 0) break;
+                        }
+                        var row = new AnalysisReportKeyValueRowLayout(first, block.Items[first].IndentLevel, firstLine,
+                            rowLabels[first].Skip(firstLine).Take(count), rowValues[first].Skip(firstLine).Take(count), count);
+                        rows.Add(row);
+                        height += row.Height;
+                        firstLine += count;
+                        if (firstLine < lineCounts[first]) break;
+                        first++;
+                        firstLine = 0;
                     }
-                    if (count == 0) count = 1;
-                    Add(AnalysisReportFragmentKind.KeyValueRows, block, height,
-                        first: first, count: count);
-                    first += count;
+                    if (rows.Count > 0)
+                        Add(AnalysisReportFragmentKind.KeyValueRows, block, height, first: fragmentFirst, count: rows.Count,
+                            keyValueLayout: new AnalysisReportKeyValueLayout(labelWidth, rows), isContinuation: continuedRow);
                     if (first < block.Items.Count) NewPage();
                 }
             }
@@ -632,12 +710,19 @@ namespace AnalysisITC.Core.Presentation
                 double scale = 1, int first = 0, int count = 0, bool repeatHeader = false,
                 IEnumerable<string> lines = null, AnalysisReportSection section = null,
                 AnalysisReportTableLayout tableLayout = null,
-                AnalysisReportHeadingLayout headingLayout = null)
+                AnalysisReportHeadingLayout headingLayout = null,
+                AnalysisReportKeyValueLayout keyValueLayout = null, bool isContinuation = false)
             {
-                height = Math.Max(1, Math.Min(height, Remaining));
+                if (kind == AnalysisReportFragmentKind.Notice || kind == AnalysisReportFragmentKind.KeyValueRows)
+                {
+                    if (height > Remaining + .001)
+                        throw new InvalidOperationException("Text fragment exceeds its allocated page space.");
+                }
+                else height = Math.Max(1, Math.Min(height, Remaining));
                 page.Add(new AnalysisReportLayoutFragment(kind, block,
                     new AnalysisReportRect(left, y, ContentWidth, height), scale,
-                    first, count, repeatHeader, lines, section, tableLayout, headingLayout: headingLayout));
+                    first, count, repeatHeader, lines, section, tableLayout, headingLayout: headingLayout,
+                    keyValueLayout: keyValueLayout, isContinuation: isContinuation));
                 y += height + BlockSpacing;
             }
 
@@ -646,15 +731,6 @@ namespace AnalysisITC.Core.Presentation
 
             double TableTitleHeight(string title, double scale = 1) =>
                 string.IsNullOrWhiteSpace(title) ? 0 : 18 * scale;
-
-            double KeyValueRowHeight(AnalysisReportKeyValueItem item, double scale)
-            {
-                var style = new AnalysisReportTextStyle(BodyStyle.FontSize * scale);
-                var indent = item.IndentLevel * 14;
-                var labelLines = Wrap(item.Label, ContentWidth * .30 - CellPadding - indent, style).Count;
-                var valueLines = Wrap(item.Value, ContentWidth * .68 - CellPadding, style).Count;
-                return Math.Max(1, Math.Max(labelLines, valueLines)) * LineHeight(style) + 2 * CellPadding;
-            }
 
             AnalysisReportTableLayout CreateTableLayout(AnalysisReportTableBlock table, double scale)
             {

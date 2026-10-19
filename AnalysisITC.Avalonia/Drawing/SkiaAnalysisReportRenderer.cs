@@ -269,13 +269,13 @@ public sealed class SkiaAnalysisReportRenderer
             : block.Level == AnalysisReportNoticeLevel.Error ? ErrorFill : InformationFill;
         Fill(canvas, rect, fill);
         Stroke(canvas, rect, Rule, .7f);
-        var inset = SKRect.Inflate(rect, -6, -5);
-        if (!string.IsNullOrWhiteSpace(block.Title))
+        if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
-            DrawText(canvas, block.Title, inset.Left, inset.Top, 10, Ink, true);
-            inset.Top += 15;
+            DrawText(canvas, fragment.Title, rect.Left + (float)AnalysisReportNoticeLayout.HorizontalInset,
+                rect.Top + (float)AnalysisReportNoticeLayout.VerticalInset, (float)AnalysisReportNoticeLayout.TitleFontSize, Ink, true);
         }
-        DrawLines(canvas, fragment.Lines, inset, 9, Ink);
+        DrawLines(canvas, fragment.Lines, Rect(AnalysisReportNoticeLayout.BodyBounds(fragment)),
+            (float)AnalysisReportNoticeLayout.BodyFontSize, Ink, lineHeight: (float)AnalysisReportNoticeLayout.LineHeight);
     }
 
     void DrawKeyValues(SKCanvas canvas, AnalysisReportKeyValueBlock block,
@@ -285,18 +285,19 @@ public sealed class SkiaAnalysisReportRenderer
         if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
             DrawText(canvas, fragment.Title, rect.Left, y, 12, Ink, true);
-            y += 18;
+            y += (float)AnalysisReportKeyValueLayout.HeadingHeight;
         }
-        var labelWidth = rect.Width * .30f;
-        var valueWidth = rect.Width - labelWidth;
-        foreach (var item in block.Items.Skip(fragment.FirstItem).Take(fragment.ItemCount))
+        var layout = fragment.KeyValueLayout;
+        var labelWidth = (float)layout.LabelWidth;
+        var padding = (float)AnalysisReportKeyValueLayout.RowPadding;
+        foreach (var row in layout.Rows)
         {
-            var indent = item.IndentLevel * 14;
-            var labels = Wrap(item.Label, labelWidth - 6 - indent, 9, false);
-            var values = Wrap(item.Value, valueWidth - 6, 9, false);
-            var height = Math.Max(labels.Count, values.Count) * 12 + 6;
-            DrawLines(canvas, labels, new SKRect(rect.Left + 3 + indent, y + 3, rect.Left + labelWidth - 3, y + height), 9, Muted, true);
-            DrawLines(canvas, values, new SKRect(rect.Left + labelWidth + 3, y + 3, rect.Right - 3, y + height), 9, Ink);
+            var indent = row.IndentLevel * 14;
+            var height = (float)row.Height;
+            DrawLines(canvas, row.LabelLines, new SKRect(rect.Left + 3 + indent, y + padding, rect.Left + labelWidth - 3, y + height),
+                9, Muted, true, (float)AnalysisReportKeyValueLayout.LineHeight);
+            DrawLines(canvas, row.ValueLines, new SKRect(rect.Left + labelWidth + 3, y + padding, rect.Right - 3, y + height),
+                9, Ink, lineHeight: (float)AnalysisReportKeyValueLayout.LineHeight);
             Line(canvas, rect.Left, y + height, rect.Right, y + height, Rule, .45f);
             y += height;
         }
@@ -844,10 +845,10 @@ public sealed class SkiaAnalysisReportRenderer
     }
 
     void DrawLines(SKCanvas canvas, IReadOnlyList<string> lines, SKRect rect,
-        float size, SKColor color, bool bold = false)
+        float size, SKColor color, bool bold = false, float lineHeight = 0)
     {
         var y = rect.Top;
-        var advance = size * 1.34f;
+        var advance = lineHeight > 0 ? lineHeight : size * 1.34f;
         foreach (var line in lines)
         {
             if (y + advance > rect.Bottom + .5f) break;

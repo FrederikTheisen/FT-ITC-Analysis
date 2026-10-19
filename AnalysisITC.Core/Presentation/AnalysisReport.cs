@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
@@ -196,16 +197,43 @@ namespace AnalysisITC.Core.Presentation
         internal AnalysisReportDiagnostic(
             AnalysisReportDiagnosticSeverity severity,
             string code,
-            string message)
+            string message,
+            AnalysisReportWarningContext warningContext = null)
         {
             Severity = severity;
             Code = code ?? "";
             Message = message ?? "";
+            WarningContext = warningContext;
         }
 
         public AnalysisReportDiagnosticSeverity Severity { get; }
         public string Code { get; }
         public string Message { get; }
+        public AnalysisReportWarningContext WarningContext { get; }
+    }
+
+    /// <summary>Report-only warning provenance; never serialized with an analysis.</summary>
+    public sealed class AnalysisReportWarningContext
+    {
+        internal AnalysisReportWarningContext(AnalysisWarningCategory category, int memberIndex,
+            string memberLabel, ErrorEstimationMethod method, int resultIndex, string resultName, int memberCount)
+        {
+            Category = category;
+            MemberIndex = memberIndex;
+            MemberLabel = memberLabel;
+            UncertaintyMethod = method;
+            ResultIndex = resultIndex;
+            ResultName = resultName;
+            MemberCount = memberCount;
+        }
+
+        public AnalysisWarningCategory Category { get; }
+        public int MemberIndex { get; }
+        public string MemberLabel { get; }
+        public ErrorEstimationMethod UncertaintyMethod { get; }
+        public int ResultIndex { get; }
+        public string ResultName { get; }
+        public int MemberCount { get; }
     }
 
     public sealed class AnalysisReportValidationResult
@@ -304,9 +332,10 @@ namespace AnalysisITC.Core.Presentation
         internal void AddDiagnostic(
             AnalysisReportDiagnosticSeverity severity,
             string code,
-            string message)
+            string message,
+            AnalysisReportWarningContext warningContext = null)
         {
-            diagnostics.Add(new AnalysisReportDiagnostic(severity, code, message));
+            diagnostics.Add(new AnalysisReportDiagnostic(severity, code, message, warningContext));
         }
     }
 

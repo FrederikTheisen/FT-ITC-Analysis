@@ -528,6 +528,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("Source and editing history", provenance.Title);
         Assert.Equal("Automatically generated", Assert.Single(provenance.Items, item => item.Label == "Source").Value);
         Assert.Equal("Not marked as user-edited", Assert.Single(provenance.Items, item => item.Label == "User edited").Value);
+        Assert.Equal(new[] { "Source", "User edited", "AI model" }, provenance.Items.Select(item => item.Label));
+        Assert.Equal("stub · fast-test", provenance.Items[2].Value);
 
         var changed = report.StudyContext.Copy();
         changed.ExpectedOutcome = "A changed expectation";
@@ -544,6 +546,38 @@ public sealed class AnalysisInterpretationTests
             .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Interpretation freshness unknown");
         Assert.Contains("The approved text has been retained", notice.Message, StringComparison.Ordinal);
         Assert.Equal(generated.Interpretation.InterpretationMarkdown, report.ApprovedInterpretation.InterpretationMarkdown);
+    }
+
+    [Theory]
+    [InlineData("openai", "test-model", "high", "openai · test-model · high reasoning")]
+    [InlineData("", "test-model", "", "test-model")]
+    [InlineData(null, null, null, "not supplied")]
+    public void InterpretationPreviewUsesCompactProvenance(string provider, string model, string reasoning, string expected)
+    {
+        var originalTraceability = AppSettings.TraceabilityModeEnabled;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = true;
+            var record = new AnalysisInterpretationRecord
+            {
+                Provider = provider,
+                Model = model,
+                ReasoningEffort = reasoning,
+                ScientificGuidanceRevision = "science-r1",
+                ServiceRequestId = "request-id",
+                GeneratedAtUtc = new DateTime(2026, 9, 3, 9, 0, 0, DateTimeKind.Utc),
+                ApprovedAtUtc = new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc),
+            };
+            var savedRecord = JsonSerializer.Serialize(record);
+
+            var preview = AnalysisReportBuilder.BuildInterpretationPreview("## Overall interpretation\nDraft text.", record);
+
+            var provenance = Assert.Single(preview.Sections.Single().Blocks.OfType<AnalysisReportKeyValueBlock>());
+            Assert.Equal(new[] { "Source", "User edited", "AI model" }, provenance.Items.Select(item => item.Label));
+            Assert.Equal(expected, provenance.Items[2].Value);
+            Assert.Equal(savedRecord, JsonSerializer.Serialize(record));
+        }
+        finally { AppSettings.TraceabilityModeEnabled = originalTraceability; }
     }
 
     [Theory]

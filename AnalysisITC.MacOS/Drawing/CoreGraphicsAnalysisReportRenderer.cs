@@ -213,25 +213,28 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             Fill(context, rect, block.Level == AnalysisReportNoticeLevel.Warning ? Warning : block.Level == AnalysisReportNoticeLevel.Error ? Error : Information);
             Stroke(context, rect, Rule, .7f);
-            var top = fragment.Bounds.Y + 5;
-            if (!string.IsNullOrWhiteSpace(block.Title)) { DrawTextTop(context, pageHeight, block.Title, fragment.Bounds.X + 6, top, 10, Ink, true); top += 15; }
-            DrawLines(context, pageHeight, fragment.Lines,
-                new AnalysisReportRect(fragment.Bounds.X + 6, top, fragment.Bounds.Width - 12, fragment.Bounds.Bottom - top - 4), 9, Ink);
+            if (!string.IsNullOrWhiteSpace(fragment.Title))
+                DrawTextTop(context, pageHeight, fragment.Title, fragment.Bounds.X + AnalysisReportNoticeLayout.HorizontalInset,
+                    fragment.Bounds.Y + AnalysisReportNoticeLayout.VerticalInset, AnalysisReportNoticeLayout.TitleFontSize, Ink, true);
+            DrawLines(context, pageHeight, fragment.Lines, AnalysisReportNoticeLayout.BodyBounds(fragment),
+                AnalysisReportNoticeLayout.BodyFontSize, Ink, lineHeight: AnalysisReportNoticeLayout.LineHeight);
         }
 
         void DrawKeyValues(CGContext context, double pageHeight, AnalysisReportKeyValueBlock block, AnalysisReportLayoutFragment fragment)
         {
             var bounds = fragment.Bounds; var y = bounds.Y;
-            if (!string.IsNullOrWhiteSpace(fragment.Title)) { DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12, Ink, true); y += 18; }
-            var labelWidth = bounds.Width * .30;
-            foreach (var item in block.Items.Skip(fragment.FirstItem).Take(fragment.ItemCount))
+            if (!string.IsNullOrWhiteSpace(fragment.Title)) { DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12, Ink, true); y += AnalysisReportKeyValueLayout.HeadingHeight; }
+            var layout = fragment.KeyValueLayout;
+            var labelWidth = layout.LabelWidth;
+            var padding = AnalysisReportKeyValueLayout.RowPadding;
+            foreach (var row in layout.Rows)
             {
-                var indent = item.IndentLevel * 14;
-                var labels = Wrap(item.Label, labelWidth - 6 - indent, 9, false);
-                var values = Wrap(item.Value, bounds.Width - labelWidth - 6, 9, false);
-                var height = Math.Max(labels.Count, values.Count) * 12 + 6;
-                DrawLines(context, pageHeight, labels, new AnalysisReportRect(bounds.X + 3 + indent, y + 3, labelWidth - 6 - indent, height - 3), 9, Muted, true);
-                DrawLines(context, pageHeight, values, new AnalysisReportRect(bounds.X + labelWidth + 3, y + 3, bounds.Width - labelWidth - 6, height - 3), 9, Ink);
+                var indent = row.IndentLevel * 14;
+                var height = row.Height;
+                DrawLines(context, pageHeight, row.LabelLines, new AnalysisReportRect(bounds.X + 3 + indent, y + padding, labelWidth - 6 - indent, height - padding),
+                    9, Muted, true, AnalysisReportKeyValueLayout.LineHeight);
+                DrawLines(context, pageHeight, row.ValueLines, new AnalysisReportRect(bounds.X + labelWidth + 3, y + padding, bounds.Width - labelWidth - 6, height - padding),
+                    9, Ink, lineHeight: AnalysisReportKeyValueLayout.LineHeight);
                 Line(context, bounds.X, pageHeight - y - height, bounds.Right, pageHeight - y - height, Rule, .45f);
                 y += height;
             }
@@ -632,9 +635,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
         }
 
-        void DrawLines(CGContext context, double pageHeight, IReadOnlyList<string> lines, AnalysisReportRect bounds, double size, CGColor color, bool bold = false)
+        void DrawLines(CGContext context, double pageHeight, IReadOnlyList<string> lines, AnalysisReportRect bounds, double size, CGColor color, bool bold = false, double lineHeight = 0)
         {
-            var y = bounds.Y; var advance = size * 1.34;
+            var y = bounds.Y; var advance = lineHeight > 0 ? lineHeight : size * 1.34;
             foreach (var line in lines) { if (y + advance > bounds.Bottom + .5) break; DrawTextTop(context, pageHeight, line, bounds.X, y, size, color, bold); y += advance; }
         }
 

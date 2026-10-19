@@ -21,7 +21,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
-public sealed class AnalysisReportBuilderTests
+public sealed partial class AnalysisReportBuilderTests
 {
     [Theory]
     [InlineData(1, 3)]
@@ -470,7 +470,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void ReportOverviewIncludesOffsetColumn()
+    public void ReportOverviewKeepsBindingModelParametersAndRmsd()
     {
         var result = CreateResult(2);
         foreach (var member in result.Solution.Solutions)
@@ -484,10 +484,35 @@ public sealed class AnalysisReportBuilderTests
         var overview = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Blocks.OfType<AnalysisReportTableBlock>().Single();
-        var offsetIndex = overview.Columns.ToList().FindIndex(column => column.Title == "Offset (J/mol)");
+        Assert.Equal(new[] { "Experiment", AnalysisResultOverviewTable.ParameterColumnId(ParameterType.Nvalue1),
+            AnalysisResultOverviewTable.ParameterColumnId(ParameterType.Affinity1),
+            AnalysisResultOverviewTable.ParameterColumnId(ParameterType.Enthalpy1), "Loss" },
+            overview.Columns.Select(column => column.Id));
+        Assert.All(overview.Rows, row => Assert.Equal(overview.Columns.Count, row.Cells.Count));
+        var fullOverview = AnalysisResultOverviewTable.Build(result, EnergyUnitFamily.Joules, EnergyUnit.Joule, false);
+        Assert.Contains(fullOverview.Columns, column => column.Parameter == ParameterType.Offset);
+        Assert.Contains(fullOverview.Columns, column => column.Parameter == ParameterType.Gibbs1);
+    }
 
-        Assert.True(offsetIndex >= 0);
-        Assert.All(overview.Rows, row => Assert.Equal("-250 ± 15", row.Cells[offsetIndex]));
+    [Theory]
+    [InlineData(2, ResultOutputPurpose.Standard)]
+    [InlineData(3, ResultOutputPurpose.Standard)]
+    [InlineData(4, ResultOutputPurpose.Standard)]
+    [InlineData(4, ResultOutputPurpose.Diagnostic)]
+    public void ReportOverviewKeepsAffinityAndEnthalpyForEverySequentialStep(int count, ResultOutputPurpose purpose)
+    {
+        var (_, result) = SequentialPersistenceTests.CreateGlobalResult(count);
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+        var overview = OverviewTable(document);
+        var expectedParameters = ThermodynamicParameterSlots.Active(count)
+            .SelectMany(slot => new[] { slot.Affinity, slot.Enthalpy })
+            .Select(AnalysisResultOverviewTable.ParameterColumnId);
+
+        Assert.Equal(expectedParameters, overview.Columns.Where(column => column.Id.StartsWith("Parameter:", StringComparison.Ordinal))
+            .Select(column => column.Id));
+        Assert.DoesNotContain(overview.Columns, column => column.Id == "InformationCriteria");
+        Assert.Contains(overview.Columns, column => column.Id == "Loss");
+        Assert.All(overview.Rows, row => Assert.Equal(overview.Columns.Count, row.Cells.Count));
     }
 
     [Fact]
@@ -576,7 +601,7 @@ public sealed class AnalysisReportBuilderTests
             .Single(block => block.Title == "Experiment parameter overview");
         var parameterWidth = overview.Columns.First(column => column.Id.StartsWith("Parameter:", StringComparison.Ordinal)).WidthWeight;
         Assert.True(overview.Columns.Single(column => column.Id == "Loss").WidthWeight < parameterWidth);
-        Assert.True(overview.Columns.Single(column => column.Id == "InformationCriteria").WidthWeight < parameterWidth);
+        Assert.DoesNotContain(overview.Columns, column => column.Id == "InformationCriteria");
 
         Assert.Equal(new[]
         {
@@ -633,7 +658,7 @@ public sealed class AnalysisReportBuilderTests
         var reportOverview = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Blocks.OfType<AnalysisReportTableBlock>().Single();
-        Assert.Equal(sourceOverview.Columns.Count, reportOverview.Columns.Count);
+        Assert.True(reportOverview.Columns.Count < sourceOverview.Columns.Count);
         Assert.DoesNotContain(reportOverview.Columns, column => column.Id == "Assessment");
         Assert.Equal(sourceOverview.Rows.Count, reportOverview.Rows.Count);
     }
@@ -1213,9 +1238,7 @@ public sealed class AnalysisReportBuilderTests
             Assert.DoesNotContain(items, item => item.Label == "AIC scope");
             var overview = document.Sections.SelectMany(section => section.Blocks)
                 .OfType<AnalysisReportTableBlock>().First(block => block.Title.Contains("Overview", StringComparison.OrdinalIgnoreCase));
-            var criteriaColumn = overview.Columns.ToList().FindIndex(column => column.Id == "InformationCriteria");
-            Assert.True(criteriaColumn >= 0);
-            Assert.All(overview.Rows, row => Assert.NotEmpty(row.Cells[criteriaColumn]));
+            Assert.DoesNotContain(overview.Columns, column => column.Id == "InformationCriteria");
         }
         else
         {
@@ -2403,9 +2426,9 @@ public sealed class AnalysisReportBuilderTests
 
         var appendix = Assert.Single(document.Sections, section => section.Kind == AnalysisReportSectionKind.Appendix);
         Assert.Equal("appendix", appendix.Id);
-        var identifiers = appendix.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details")
-            .Items.Single(item => item.Label == "Result identifiers").Value;
-        Assert.Equal("1: " + first.UniqueID + "\n2: " + second.UniqueID, identifiers);
+        var identifiers = appendix.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Result identifiers").Items;
+        Assert.Equal(new[] { "Result 1", "Result 2" }, identifiers.Select(item => item.Label));
+        Assert.Equal(new[] { first.UniqueID, second.UniqueID }, identifiers.Select(item => item.Value));
     }
 
     [Fact]
@@ -3065,9 +3088,9 @@ public sealed class AnalysisReportBuilderTests
             Assert.Equal(noBindingShown, FitDetails(chapters[1]).Any(item => item.Label.StartsWith("RMSD", StringComparison.Ordinal)));
             Assert.Contains(FitDetails(chapters[1]), item => item.Label == "Binding assessment" && item.Value == "No binding detected");
 
-            var boundaryWarnings = document.Diagnostics.Where(item => item.Message.Contains("has a fitted parameter at a boundary")).ToList();
-            Assert.Contains(boundaryWarnings, item => item.Message.Contains(members[0].Data.Name + " has"));
-            Assert.Equal(noBindingShown, boundaryWarnings.Any(item => item.Message.Contains(members[1].Data.Name + " has")));
+            var boundaryWarnings = document.Diagnostics.Where(item => item.WarningContext?.Category == AnalysisWarningCategory.ParameterBoundary).ToList();
+            Assert.Contains(boundaryWarnings, item => item.Message.Contains(members[0].Data.Name + ":"));
+            Assert.Equal(noBindingShown, boundaryWarnings.Any(item => item.Message.Contains(members[1].Data.Name + ":")));
         }
     }
 
