@@ -230,6 +230,8 @@ The **Protonation** view requires a **Buffer** attribute and available buffer io
 
 The view relates the stored member binding enthalpies to the buffer protonation information associated with their conditions. The result is conditional on the recorded buffer identities, their temperature-dependent protonation enthalpies, and the model assumptions; it does not identify a particular residue or microscopic protonation event.
 
+The band spans lines combining the ends of the slope’s and intercept’s 95% intervals, ignoring their correlation; it is neither a prediction interval nor a joint confidence band, and extrapolating the protonation intercept to zero buffer enthalpy can make it wide.
+
 > **Calculation:**
 >
 > *ΔH*<sub>obs</sub> = *ΔH*<sub>bind</sub> + *m* *ΔH*<sub>buffer</sub>

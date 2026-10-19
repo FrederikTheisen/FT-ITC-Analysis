@@ -145,7 +145,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     DrawLinFit(gc, f);
                     break;
                 case LinearFitWithError f:
-                    DrawLinearPredictionInterval(gc, f);
                     DrawLinFit(gc, f);
                     break;
                 case FitWithError f:
@@ -165,22 +164,27 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawLinFit(CGContext gc, LinearFitWithError fit)
         {
-            var offset = fit.ReferenceT;
-            var xmin = XAxis.Min - offset;
-            var xmax = XAxis.Max - offset;
-            var y0 = fit.Slope * xmin + fit.Intercept;
-            var y1 = fit.Slope * xmax + fit.Intercept;
+            var envelope = FitEnvelopeBuilder.Build(
+                fit, null, FitEnvelopeBuilder.SampleDomain(XAxis.Min, XAxis.Max));
+            DrawLinearUncertaintyEnvelope(gc, envelope);
 
-            var path = new CGPath();
-            path.MoveToPoint(GetRelativePosition(XAxis.Min, y0));
-            path.AddLineToPoint(GetRelativePosition(XAxis.Max, y1));
+            var points = envelope
+                .Select(point => GetRelativePosition(point.X, point.Center))
+                .Where(IsFinite)
+                .ToList();
+            if (points.Count < 2) return;
 
-            var layer = CGLayer.Create(gc, PlotSize);
-            layer.Context.SetStrokeColor(StrokeColor);
-            layer.Context.AddPath(path);
-            layer.Context.StrokePath();
+            using (var path = new CGPath())
+            using (var layer = CGLayer.Create(gc, PlotSize))
+            {
+                path.MoveToPoint(points[0]);
+                foreach (var point in points.Skip(1)) path.AddLineToPoint(point);
+                layer.Context.SetStrokeColor(StrokeColor);
+                layer.Context.AddPath(path);
+                layer.Context.StrokePath();
 
-            gc.DrawLayer(layer, Frame.Location);
+                gc.DrawLayer(layer, Frame.Location);
+            }
         }
 
         void DrawFit(CGContext gc, FitWithError fit)
@@ -299,61 +303,38 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(fitlayer, Frame.Location);
         }
 
-        void DrawLinearPredictionInterval(CGContext gc, LinearFitWithError fit)
+        void DrawLinearUncertaintyEnvelope(CGContext gc, IReadOnlyList<FitEnvelopePoint> envelope)
         {
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
-            var xrange = XAxis.Max - XAxis.Min;
-            var xpoints = new List<double>();
 
-            // In case xrange is zero
-            if (xrange < 1E-9f) xrange = 0.01f;
-
-            for (var x = XAxis.Min; x < XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
-            xpoints.Add(XAxis.Max);
-
-            foreach (var x in xpoints)
+            foreach (var point in envelope.Where(point => point.HasBand))
             {
-                var dx = x - fit.ReferenceT;
-                var e = ComputeConfidenceBand(x, XValues, YValues);
-                var val = fit.Slope * dx + fit.Intercept;
-                var max = val + e;
-                var min = val - e;
-
-                top.Add(new CGPoint(GetRelativePosition(x, max)));
-                bottom.Add(new CGPoint(GetRelativePosition(x, min)));
+                var upper = GetRelativePosition(point.X, point.Upper);
+                var lower = GetRelativePosition(point.X, point.Lower);
+                if (!IsFinite(upper) || !IsFinite(lower)) continue;
+                top.Add(upper);
+                bottom.Add(lower);
             }
+            if (top.Count < 2) return;
 
-            bottom.Reverse();
-
-            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: LineSmoothness.Linear);
-            GetSplineFromPoints(bottom.ToArray(), path, smoothness: LineSmoothness.Linear);
-
-            var layer = CGLayer.Create(gc, PlotSize);
-            layer.Context.SetFillColor(new CGColor(StrokeColor, .25f));
-            layer.Context.AddPath(path);
-            layer.Context.FillPath();
-
-            gc.DrawLayer(layer, Frame.Location);
-
-            double ComputeConfidenceBand(double x, FloatWithError[] xs, FloatWithError[] ys)
+            using (var path = new CGPath())
+            using (var layer = CGLayer.Create(gc, PlotSize))
             {
-                var x0 = xs.Average(x => x.Value);
-                var n = ys.Count();
-                var dx = x - x0;
-                var dx2 = dx * dx;
+                path.MoveToPoint(top[0]);
+                foreach (var point in top.Skip(1)) path.AddLineToPoint(point);
+                for (var index = bottom.Count - 1; index >= 0; index--) path.AddLineToPoint(bottom[index]);
+                path.CloseSubpath();
+                layer.Context.SetFillColor(new CGColor(StrokeColor, .25f));
+                layer.Context.AddPath(path);
+                layer.Context.FillPath();
 
-                var sy = Math.Sqrt(ys.Select(s =>
-                {
-                    var v = s.SD;
-                    return v * v;
-                }).Sum() / (n - 2));
-
-                var sx = xs.Select(x => Math.Pow(x - x0, 2)).Sum() / (n - 2);
-                var t = 1;
-
-                return t * sy * Math.Sqrt(1 + 1 / n + dx2 / sx);
+                gc.DrawLayer(layer, Frame.Location);
             }
         }
+
+        static bool IsFinite(CGPoint point) =>
+            !double.IsNaN(point.X) && !double.IsInfinity(point.X)
+            && !double.IsNaN(point.Y) && !double.IsInfinity(point.Y);
     }
 }
