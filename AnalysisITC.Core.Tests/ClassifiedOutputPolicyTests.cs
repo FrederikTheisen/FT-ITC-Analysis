@@ -450,11 +450,17 @@ public sealed class ClassifiedOutputPolicyTests
         settings.InjectionRows = AnalysisInterpretationInjectionRows.IncludedOnly;
         report.UpdateInterpretationSettings(settings);
         var included = AnalysisInterpretationPackageBuilder.Build(report, result);
-        Assert.Equal(1, Assert.Single(included.Result.BindingAssessment.NullMembers).Points.Single().InjectionNumber);
+        Assert.Equal(2, Assert.Single(included.Result.BindingAssessment.NullMembers).Points.Count);
+        using var includedModel = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(included));
+        Assert.Equal(1, Assert.Single(includedModel.RootElement.GetProperty("results")[0].GetProperty("bindingAssessment")
+            .GetProperty("nullMembers")[0].GetProperty("points").EnumerateArray()).GetProperty("injectionNumber").GetInt32());
         settings.InjectionRows = AnalysisInterpretationInjectionRows.None;
         report.UpdateInterpretationSettings(settings);
         var none = AnalysisInterpretationPackageBuilder.Build(report, result);
-        Assert.Empty(Assert.Single(none.Result.BindingAssessment.NullMembers).Points);
+        Assert.Equal(2, Assert.Single(none.Result.BindingAssessment.NullMembers).Points.Count);
+        using var noneModel = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(none));
+        Assert.False(noneModel.RootElement.GetProperty("results")[0].GetProperty("bindingAssessment")
+            .GetProperty("nullMembers")[0].TryGetProperty("points", out _));
     }
 
     static AnalysisResult NegativeResult()

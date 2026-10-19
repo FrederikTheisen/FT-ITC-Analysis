@@ -194,8 +194,10 @@ public sealed class AnalysisInterpretationCollectionTests
         report.UpdateInterpretationSettings(options);
         AnalysisResult Resolve(string id) => id == result.UniqueID ? result : other;
         var package = AnalysisInterpretationPackageBuilder.Build(report, Resolve, _ => support);
-        Assert.All(package.Results.SelectMany(item => item.Experiments).Concat(package.SupportingExperiments), item => Assert.Null(item.Thermogram));
+        Assert.All(package.Results.SelectMany(item => item.Experiments).Concat(package.SupportingExperiments), item => Assert.NotNull(item.Thermogram));
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+        using var sent = JsonDocument.Parse(prompt.ModelPackageJson);
+        Assert.False(sent.RootElement.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
         report.ApproveInterpretation(new AnalysisInterpretationRecord
         {
             InterpretationMarkdown = "## Overall interpretation\nStored scientific assessment.",
@@ -205,7 +207,7 @@ public sealed class AnalysisInterpretationCollectionTests
             ScientificGuidanceRevision = "science-r1", ScientificInstructionsFingerprint = new string('b', 64),
             OutputInstructionsFingerprint = prompt.OutputInstructionsFingerprint,
             AssessmentContextFingerprint = "assessment-context-r1",
-            Omissions = package.Omissions, KnowledgeBaseIds = new List<string> { "vs_test" }, RetrievedSourceIds = new List<string> { "file_test" },
+            Omissions = sent.RootElement.GetProperty("omissions").EnumerateArray().Select(item => item.GetString()).ToList(), KnowledgeBaseIds = new List<string> { "vs_test" }, RetrievedSourceIds = new List<string> { "file_test" },
         });
         Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, Resolve, _ => support).Status);
         // Server-owned guidance revisions are provenance only; unchanged local evidence remains current.

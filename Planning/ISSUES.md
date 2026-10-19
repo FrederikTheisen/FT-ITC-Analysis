@@ -899,3 +899,14 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: Reading a missing or malformed mail configuration can throw `IOException` or `JsonException`. `ProcessOneAsync` does not catch either, so the worker retries without recording an attempt or advancing the delivery's next-attempt time. The five-attempt retry cycle therefore never exhausts for these configuration failures.
 - Consequence: A pending delivery can remain at the front of the queue indefinitely while its retry count and delivery failure summary do not describe the configuration failure.
 - Boundary: Preserve the ITC-113 distinction between a provisioned credential and failed email delivery. Decide and test how configuration failures should affect retry scheduling and administrative diagnostics before changing the sender.
+
+## ITC-123 - No-binding interpretation restriction overwritten when traces are absent
+
+- Priority: Medium.
+- Status: Resolved locally (2026-10-18), within the approved CR-025/CR-027 change.
+- Location: `AnalysisInterpretationPackageBuilder.BuildResult`, `AnalysisInterpretationThermograms.UpdateBoundary`, compact model evidence boundaries.
+- Problem: `BuildResult` appended the No-binding assessment restriction, then `UpdateBoundary` assigned the no-thermogram restriction over it. Default requests consequently lost the sentence explaining that attempted-model parameters are diagnostic context rather than established binding findings.
+- Resolution: Compose independent trace-availability and No-binding clauses for both canonical and transmitted evidence. Trace removal and repeated boundary updates preserve the assessment restriction without duplication. Assessments, fit estimates and output eligibility are unchanged.
+- Development snapshots: The interpretation feature was never public. The approved full-capture design and canonical boundary correction may make unpublished saved AI interpretations stale; their text and original fingerprints remain readable and untouched. No legacy capture path, fingerprint-scheme change, application/format version change or migration was introduced. A frozen pre-change v2 project/canonical pair pins the expected Stale result.
+- Validation: The full Core suite passed (4,241 passed, one existing skip, zero failed), including canonical no-trace and all-level transmitted No-binding cases. All 81 focused Avalonia interpretation/report tests, native interpretation AppKit/action checks and the Swift layout check passed.
+- Timing observation: The bundled JORS fixture contains 8,994 source samples. One measured run recorded load 1,213 ms, full capture/prompt 678 ms, freshness 153 ms and report build 530 ms. These are single-run observations under concurrent test activity, not performance thresholds or a before/after comparison. Full capture includes compression during freshness evaluation; source fingerprints already detect raw/baseline changes.

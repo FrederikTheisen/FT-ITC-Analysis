@@ -1636,12 +1636,12 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Action draftChanged;
         readonly Func<bool> canApply;
         readonly IReadOnlyList<string> projectResultOrder = DataManager.Results.Select(result => result.UniqueID).ToList();
-        readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
-        readonly CheckBox includeInjectionTables = new CheckBox { Content = "Include injection tables" };
-        readonly CheckBox includeProcessingInformation = new CheckBox { Content = "Include processing information" };
-        readonly StackPanel thermogramOptions = new StackPanel { Spacing = 4 };
-        readonly TextBlock dataInclusionLabel = Heading("Data included");
-        bool thermogramsAvailable;
+        readonly ComboBox evidenceLevelCombo = Combo(220);
+        readonly TextBlock evidenceLevelDescription = Hint("");
+        readonly StackPanel evidenceLevelOptions = new StackPanel { Spacing = 4 };
+        readonly TextBlock dataInclusionLabel = Heading("Evidence level");
+        readonly AnalysisInterpretationEvidenceSelection evidenceSelection;
+        bool updatingEvidenceLevel;
         readonly TextBox questionBox = ContextBox();
         readonly TextBox contextBox = ContextBox(120);
         readonly TextBox draftBox = ContextBox(180);
@@ -1692,14 +1692,12 @@ namespace AnalysisITC.Avalonia.Tools
             this.httpClient = httpClient;
             this.draftChanged = draftChanged;
             this.canApply = canApply ?? (() => true);
-            includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
-            includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
-            // Thermograms are deliberately a per-opening opt-in. A saved report
-            // setting must not silently opt a newly opened dialog into transport.
-            includeThermograms.IsChecked = false;
-            thermogramOptions.Children.Add(includeThermograms);
-            thermogramOptions.Children.Insert(0, includeInjectionTables);
-            thermogramOptions.Children.Insert(1, includeProcessingInformation);
+            evidenceSelection = new AnalysisInterpretationEvidenceSelection(report.InterpretationSettings);
+            evidenceLevelOptions.Children.Add(evidenceLevelCombo);
+            evidenceLevelOptions.Children.Add(evidenceLevelDescription);
+            ToolTip.SetTip(evidenceLevelCombo, AnalysisInterpretationEvidencePolicy.SelectorTooltip);
+            ToolTip.SetTip(dataInclusionLabel, AnalysisInterpretationEvidencePolicy.SelectorTooltip);
+            AutomationProperties.SetName(evidenceLevelCombo, "Interpretation evidence level");
             interpretationPresetSelectionRow = SelectionRow("Interpretation depth", interpretationPresetCombo, 180);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
@@ -1721,9 +1719,13 @@ namespace AnalysisITC.Avalonia.Tools
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
             questionBox.TextChanged += (_, _) => UpdatePackageSize();
             contextBox.TextChanged += (_, _) => UpdatePackageSize();
-            includeInjectionTables.IsCheckedChanged += (_, _) => UpdatePackageSize();
-            includeProcessingInformation.IsCheckedChanged += (_, _) => UpdatePackageSize();
-            includeThermograms.IsCheckedChanged += (_, _) => UpdatePackageSize();
+            evidenceLevelCombo.SelectionChanged += (_, _) =>
+            {
+                if (updatingEvidenceLevel || evidenceLevelCombo.SelectedIndex < 0) return;
+                evidenceSelection.Select(evidenceSelection.AvailableLevels[evidenceLevelCombo.SelectedIndex]);
+                evidenceLevelDescription.Text = AnalysisInterpretationEvidencePolicy.Description(evidenceSelection.EffectiveLevel);
+                UpdatePackageSize();
+            };
             draftBox.IsVisible = false;
             draftBox.IsReadOnly = true;
             ToolTip.SetTip(draftBox, AnalysisReportEditingPresentation.GeneratedTextTooltip);
@@ -1754,7 +1756,6 @@ namespace AnalysisITC.Avalonia.Tools
             retryServiceStatus.Click += async (_, _) => await RefreshGenerationAvailabilityAsync();
             AutomationProperties.SetName(retryServiceStatus, "Retry interpretation access and service availability checks");
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
-            AutomationProperties.SetName(includeThermograms, "Include compressed thermograms");
             AutomationProperties.SetName(questionBox, "Main question");
             AutomationProperties.SetName(contextBox, "Additional context");
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
@@ -1796,10 +1797,10 @@ namespace AnalysisITC.Avalonia.Tools
                             Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
-                                Hint("Sends selected report data (including names, comments, fits and injection data), your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."),
+                                Hint("Sends report evidence at the selected level, your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."),
                                 Heading("Main question"), questionBox,
                                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, controls, limitations, or caveats."), contextBox,
-                                dataInclusionLabel, thermogramOptions,
+                                dataInclusionLabel, evidenceLevelOptions,
                                 generationLabel,
                                 new StackPanel
                                 {
@@ -1887,11 +1888,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         AnalysisReport CreateDialogReport()
         {
-            var settings = report.InterpretationSettings.Copy();
-            settings.IncludeThermograms = thermogramsAvailable && includeThermograms.IsChecked == true;
-            settings.InjectionRows = includeInjectionTables.IsVisible && includeInjectionTables.IsChecked == true
-                ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
-            settings.IncludeProcessingInformation = includeProcessingInformation.IsVisible && includeProcessingInformation.IsChecked == true;
+            var settings = evidenceSelection.RequestOptions(report.InterpretationSettings);
             var context = report.StudyContext.Copy();
             context.ScientificQuestion = questionBox.Text ?? "";
             context.SystemDescription = "";
@@ -1965,23 +1962,17 @@ namespace AnalysisITC.Avalonia.Tools
 
         void UpdateOptionalPackageInclusionControls(InterpretationOperatorOptionsResponse? options)
         {
-            var canThermograms = InterpretationAccessDisplay.CanIncludeThermograms(options);
-            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(options);
-            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(options);
-            thermogramsAvailable = canThermograms;
-
-            includeThermograms.IsVisible = canThermograms;
-            includeThermograms.IsEnabled = canThermograms;
-            includeInjectionTables.IsVisible = canTables;
-            includeInjectionTables.IsEnabled = canTables;
-            includeProcessingInformation.IsVisible = canProcessing;
-            includeProcessingInformation.IsEnabled = canProcessing;
-            thermogramOptions.IsVisible = canThermograms || canTables || canProcessing;
-            dataInclusionLabel.IsVisible = thermogramOptions.IsVisible;
-
-            if (!canThermograms) includeThermograms.IsChecked = false;
-            if (!canTables) includeInjectionTables.IsChecked = false;
-            if (!canProcessing) includeProcessingInformation.IsChecked = false;
+            evidenceSelection.ApplyCapabilities(options);
+            updatingEvidenceLevel = true;
+            try
+            {
+                evidenceLevelCombo.ItemsSource = evidenceSelection.AvailableLevels.Select(AnalysisInterpretationEvidencePolicy.Label).ToArray();
+                evidenceLevelCombo.SelectedIndex = evidenceSelection.AvailableLevels.ToList().IndexOf(evidenceSelection.EffectiveLevel);
+                evidenceLevelCombo.IsEnabled = options != null && cancellation == null;
+                evidenceLevelDescription.Text = AnalysisInterpretationEvidencePolicy.Description(evidenceSelection.EffectiveLevel);
+                evidenceLevelOptions.IsVisible = dataInclusionLabel.IsVisible = evidenceSelection.IsVisible;
+            }
+            finally { updatingEvidenceLevel = false; }
         }
 
         void UpdateInterpretationAccountSummary()
@@ -2314,7 +2305,8 @@ namespace AnalysisITC.Avalonia.Tools
         {
             progress.IsVisible = value;
             var selectionEnabled = !value && interpretationSelectionEnabled;
-            questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
+            questionBox.IsEnabled = contextBox.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
+            evidenceLevelCombo.IsEnabled = !value && interpretationOptions != null;
             if (value) generate.IsEnabled = false; else UpdateGenerateButton();
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;

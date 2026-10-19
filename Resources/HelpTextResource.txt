@@ -403,7 +403,7 @@ Fixed estimates have no uncertainty interval. Combined spread and approximate pr
 ## Online interpretation
 In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the read-only draft against your results, then choose **Use in report** to include it. Edit it in the report builder if needed. Generation requires an internet connection; local analysis and PDF export remain available without it.
 
-Completed structuring, electrostatics, and protonation results are included when available. Generation uses saved estimates and does not rerun analyses. Tandem source data are included only when selected. Thermograms require a fresh opt-in each time the dialog opens.
+Completed structuring, electrostatics, and protonation results are included when available. Generation uses saved estimates and does not rerun analyses. Tandem source data are included only when selected. **Evidence level** selects cumulative detail: Results; Injection data; Processing details; Thermograms. Results includes fitted values, uncertainty, assessments and fit diagnostics. Higher levels add injection comparisons, then integration and baseline details, then compressed traces. Injection data is the default where permitted; Public access uses Results. Standard permits Injection data; Advanced and Administrator also permit Processing details and Thermograms. Thermograms requires a fresh selection each time the dialog opens.
 
 # Access and request size
 
@@ -417,7 +417,7 @@ Generate sends selected names, comments, conditions, fits, injection evidence, a
 
 The service retains usage metadata without automatic expiry, excluding full scientific evidence and generated text. Provider and infrastructure retention are separate, with no guaranteed deletion deadline. Canceling does not retract sent data.
 
-**Save package** writes a local ZIP of the selected evidence, question, context, and settings without contacting the service or running fits. Review its scientific data before sharing.
+**Save package** writes a local ZIP of the full local evidence and the exact compact payload prepared at the selected level, with the question, context, and settings. Full local evidence includes supported injections and compressed thermograms even when omitted from transmission. Saving does not contact the service or run fits. Review its scientific data before sharing.
 
 ## Presenting data
 Choose the output that matches your task: **Final Figure** for one publication plot, **Export Associated Final Figures** for one per result member, **Supporting Figure** for a multi-panel canvas, **Analysis Report** for a printable record, or the Analysis Result Exporter for CSV/TSV tables.

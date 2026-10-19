@@ -114,11 +114,16 @@ namespace AnalysisITC.Core.Interpretation
 
         public static void UpdateBoundary(AnalysisInterpretationPackage package)
         {
-            var traces = package.Results.SelectMany(result => result.Experiments).Concat(package.SupportingExperiments)
-                .Select(item => item.Thermogram).Where(item => item != null).ToList();
+            var experiments = package.Results.SelectMany(result => result.Experiments).Concat(package.SupportingExperiments).ToList();
+            var traces = experiments.Select(item => item.Thermogram).Where(item => item != null).ToList();
             package.DataBoundary.ContainsRawThermogramSamples = traces.Count > 0;
             package.DataBoundary.ContainsBaselineArrays = traces.Any(item => item.BaselineMinMax != null);
-            if (traces.Count == 0) package.DataBoundary.ModelObservationRestriction = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
+            package.DataBoundary.ContainsBaselineSummary = experiments.Any(item => item.Baseline?.IsAvailable == true);
+            package.DataBoundary.ContainsBaselineControlRepresentation = experiments.Any(item => item.Baseline != null
+                && (item.Baseline.Landmarks.Count > 0 || item.Baseline.Spline != null
+                    || item.Baseline.Segmented != null || item.Baseline.Polynomial != null));
+            package.DataBoundary.ModelObservationRestriction = AnalysisInterpretationEvidencePolicy.ObservationRestriction(
+                traces.Count > 0, package.DataBoundary.ModelObservationRestriction?.Contains(AnalysisInterpretationEvidencePolicy.NoBindingRestriction) == true);
         }
 
         static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);

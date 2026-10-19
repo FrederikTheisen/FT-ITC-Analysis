@@ -262,11 +262,89 @@ between result members, the smaller candidate may use
 `compact-tables-shared-evidence-v1`. MIST forwards either form as opaque JSON;
 its scientific guidance applies to both.
 
-The application omits thermogram traces by default to keep ordinary requests
-small. The report-builder option to include compressed traces is shown only for
-locally verified Advanced or Administrator capability access. When explicitly
-selected, the compressed traces stay in the request; an oversized request or
-provider context rejection fails visibly instead of dropping them.
+Full local canonical capture includes all supported evidence, including injection
+and Null points and compressed thermograms, independently of the selected model
+input level. Canonical omission reasons describe unavailable captured evidence.
+The canonical package remains the freshness authority. This changes unpublished
+development fingerprints; saved text and its original fingerprint are retained,
+with normal Stale status when the rebuilt full capture differs. The fingerprint
+algorithm and evidence/relay versions are unchanged.
+
+Both desktop dialogs select one cumulative **Evidence level**: Results,
+Injection data, Processing details, Thermograms. Each includes all lower levels.
+Injection data is the default where permitted. Public access permits Results;
+Standard additionally permits Injection data; Advanced and Administrator permit
+all four. A saved Thermograms selection reopens at Processing details, requiring
+fresh opt-in. Capability responses, including failures, recompute effective
+selection and visibility without erasing the dialog's requested level. An
+explicit user choice replaces that requested level.
+
+The enum and dialog state are not serialized. Transmitted
+`requestedInterpretation` uses the existing fields, normalized together:
+
+| Effective level | `injectionRows` | `includeProcessingInformation` | `includeThermograms` |
+|---|---|---|---|
+| Results | `none` | false | false |
+| Injection data | `all` or preserved `includedOnly` | false | false |
+| Processing details | `all` or preserved `includedOnly` | true | false |
+| Thermograms | `all` or preserved `includedOnly` | true | true |
+
+Noncumulative combinations map downward to their deepest complete level. In
+particular, `injectionRows:none` with processing enabled becomes Results, with
+both Boolean flags false in the model payload. This normalized metadata also
+controls server SIGNAL, INJECTIONS and THERMOGRAM guidance. `includedOnly` filters
+model injection tables and both pooled and independent-member Null points;
+canonical capture retains all eligible rows. Within a dialog, changing levels
+preserves the saved `includedOnly` preference.
+
+#### Evidence ownership
+
+Here `E` means `results[].experiments[]`, `supportingExperiments[]`, or shared
+`experimentEvidence[]`. The table describes transmitted evidence; canonical
+capture remains complete. Applicable scientific output restrictions still apply.
+
+| JSON paths/evidence | First included level |
+|---|---|
+| `report`, `studyContext`; `results[].{reportReference,resultId,name,dateUtc,comments,health,validityStatus,validityReasons,matchedFitDiagnosticsUnavailableReason}` | Results |
+| Result `model`, `solver`, `informationCriteria`, `bindingAssessment` except points, `bootstrapCorrelation(s)`, `temperatureDependence`, `advancedAnalyses` | Results |
+| `E.{reportReference,experimentId,name,sourceFileBasename,dateProvenance,dateUtc,comments,sourceStateFingerprint,traceability}` | Results |
+| `E.{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason}` | Results |
+| `E.{concentrationMethod,heatMethod,fittedHeatMethod,analysisAxis,instrument}` | Results |
+| `E.{targetTemperatureKelvin,measuredTemperatureKelvin,targetTemperatureCelsius,measuredTemperatureCelsius,cellConcentrationMolar,cellConcentrationSdMolar,syringeConcentrationMolar,syringeConcentrationSdMolar}` | Results |
+| `E.{attributes,modelOptions,parameters,cValues,tandemSegments,tandemSourceExperimentIds,blankReferenceExperimentId,blankSubtractionMethod,initialDelaySeconds,baselineCompleted,integrationCompleted,residualDiagnostics}` | Results |
+| `E.injections.{acquisition,heatObservations,fit}`; `results[].bindingAssessment.{members,nullMembers}[].points` | Injection data |
+| `E.injections.{integration,baseline}` | Processing details |
+| Entire `E.baseline`, including availability, drift/range/RMS statistics, landmarks, spline/segmented/polynomial representations | Processing details |
+| `E.{baselineProcessor,processorLocked,discardsIntegratedPointsForBaseline,integrationLengthMode,integrationLengthFactor}` | Processing details |
+| Entire `results[].historicalFitInputs` (saved metadata, injection data and processing snapshot); invalid-fit warning remains at Results | Processing details |
+| `E.thermogram`, aligned baseline arrays, trace-specific omission/unavailability reasons | Thermograms |
+| `packageSchemaVersion`, `modelInputEncoding`, `requestedInterpretation`, `omissions`, `dataBoundary`, `tableSchemas`, `modelInputDefinitions`; shared owner/reference links | Describe retained evidence at every level |
+
+Schemas are retained for the actual positional tables. Below Thermograms,
+trace-specific unavailability reasons are replaced by the trace-selection
+omission; unrelated omissions remain intact. Selected traces are retained even
+when large: request-size or provider-context rejection fails visibly instead of
+automatically reducing the selected level.
+
+#### Evidence boundaries
+
+`dataBoundary` describes actual retained model content, rather than capability
+or requested availability. Full canonical flags describe full captured content.
+
+| Flag | Results | Injection data | Processing details | Thermograms |
+|---|---|---|---|---|
+| `containsRawThermogramSamples` | false | false | false | retained compressed trace exists |
+| `containsBaselineArrays` | false | false | false | retained `baselineMinMax` array exists |
+| `containsBaselineSummary` | false | false | available retained baseline summary exists | same |
+| `containsBaselineControlRepresentation` | false | false | nonempty landmark table or spline/segmented/polynomial representation exists | same |
+| `containsBootstrapReplicateArrays` | false | false | false | false |
+| `containsLocalPaths` | false | false | false | false |
+
+The historical `containsRawThermogramSamples` wire name denotes the compressed
+thermogram representation, subject to its explicit limitations.
+`modelObservationRestriction` composes a trace-availability clause with the
+applicable No-binding assessment clause. Removing traces or recomputing a
+boundary never erases that assessment restriction or duplicates it.
 
 Injection records are carried in acquisition, integration, heat-observation,
 fit and baseline tables, for both result members and supporting experiments.
@@ -277,7 +355,7 @@ The package declares the column schemas once. Every table identifies its
 schema and owning report or evidence reference, and every row identifies its
 injection.
 Array positions correspond to the declared columns; `null` remains unavailable,
-not zero. Excluded injections and the original record order are retained.
+not zero. Excluded injections and the original record order are retained unless `includedOnly` explicitly filters excluded rows from the model payload.
 Scientific quantities, experiment identities, blank relationships and source
 fingerprints remain available. Internal evidence catalogs/IDs are omitted;
 correlation scope links use report references instead. Results are not merged.

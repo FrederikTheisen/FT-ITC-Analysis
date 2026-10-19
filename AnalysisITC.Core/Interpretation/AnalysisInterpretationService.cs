@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -192,6 +193,9 @@ namespace AnalysisITC.Core.Interpretation
                 var markdown = AnalysisInterpretationResponseParser.Parse(response.InterpretationMarkdown, package);
                 var generated = response.GeneratedAtUtc == default(DateTime) ? DateTime.UtcNow : response.GeneratedAtUtc;
                 if (generated.Kind != DateTimeKind.Utc) generated = generated.ToUniversalTime();
+                using var modelEvidence = JsonDocument.Parse(prompt.ModelPackageJson);
+                var transmittedOmissions = modelEvidence.RootElement.GetProperty("omissions").EnumerateArray()
+                    .Select(item => item.GetString());
                 var value = new AnalysisInterpretationGenerationResult
                 {
                     Package = package,
@@ -204,7 +208,7 @@ namespace AnalysisITC.Core.Interpretation
                         InputFingerprint = prompt.InputFingerprint,
                         EffectiveInputFingerprint = response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
                         AssessmentContextFingerprint = AnalysisInterpretationPackageBuilder.AssessmentContextFingerprint(package.Results),
-                        Omissions = package.Omissions.Concat(response.Omissions ?? new List<string>()).Distinct().ToList(),
+                        Omissions = transmittedOmissions.Concat(response.Omissions ?? new List<string>()).Distinct().ToList(),
                         KnowledgeBaseIds = response.KnowledgeBaseIds ?? new List<string>(),
                         RetrievedSourceIds = response.RetrievedSourceIds ?? new List<string>(),
                         PromptVersion = prompt.PromptVersion,

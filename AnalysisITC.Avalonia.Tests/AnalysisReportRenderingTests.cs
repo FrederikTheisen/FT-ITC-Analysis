@@ -332,10 +332,10 @@ public sealed class AnalysisReportRenderingTests
             control.Text == "Generation setting");
         Assert.Single(controls.OfType<TextBlock>(), control =>
             AutomationProperties.GetName(control) == "Interpretation account status");
-        var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms");
-        Assert.False(thermograms.IsVisible);
-        Assert.False(thermograms.IsChecked);
+        var evidence = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation evidence level");
+        Assert.False(Assert.IsType<StackPanel>(evidence.Parent).IsVisible);
+        Assert.Equal("Results", evidence.SelectedItem);
         var omitGuidance = Assert.Single(controls.OfType<CheckBox>(), control =>
             AutomationProperties.GetName(control) == "Omit scientific guidance");
         Assert.False(omitGuidance.IsVisible);
@@ -355,35 +355,24 @@ public sealed class AnalysisReportRenderingTests
         var populate = typeof(AnalysisInterpretationDialog).GetMethod("PopulateInterpretationChoices",
             BindingFlags.Instance | BindingFlags.NonPublic, null,
             new[] { typeof(InterpretationOperatorOptionsResponse) }, null)!;
-        var label = Assert.Single(controls.OfType<TextBlock>(), control => control.Text == "Data included");
-        var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms");
-        var tables = Assert.Single(controls.OfType<CheckBox>(), control =>
-            Equals(control.Content, "Include injection tables"));
-        var processing = Assert.Single(controls.OfType<CheckBox>(), control =>
-            Equals(control.Content, "Include processing information"));
-
+        var label = Assert.Single(controls.OfType<TextBlock>(), control => control.Text == "Evidence level");
+        var evidence = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation evidence level");
         populate.Invoke(dialog, new object[] { new InterpretationOperatorOptionsResponse
         {
             AccessTier = "standard", Mode = "presets",
             Presets = new() { new InterpretationPresetOption { Id = "fast", Name = "Default" } },
         } });
-
         Assert.True(label.IsVisible);
-        Assert.True(tables.IsVisible);
-        Assert.False(thermograms.IsVisible);
-        Assert.False(processing.IsVisible);
-
+        Assert.True(Assert.IsType<StackPanel>(evidence.Parent).IsVisible);
+        Assert.Equal(new[] { "Results", "Injection data" }, evidence.Items.Cast<string>());
         populate.Invoke(dialog, new object[] { new InterpretationOperatorOptionsResponse
         {
             AccessTier = "advanced", Mode = "presets",
             Presets = new() { new InterpretationPresetOption { Id = "standard", Name = "Advanced" } },
         } });
-
         Assert.True(label.IsVisible);
-        Assert.True(tables.IsVisible);
-        Assert.True(thermograms.IsVisible);
-        Assert.True(processing.IsVisible);
+        Assert.Equal(new[] { "Results", "Injection data", "Processing details", "Thermograms" }, evidence.Items.Cast<string>());
     }
 
     [AvaloniaTheory]

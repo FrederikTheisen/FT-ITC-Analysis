@@ -111,6 +111,36 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task GenerationProvenanceRecordsTransmittedLayerOmissionsRatherThanFullCapture()
+    {
+        var result = await LoadResult();
+        var report = ReportFor(result);
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { InjectionRows = AnalysisInterpretationInjectionRows.None });
+        var generated = await new AnalysisInterpretationService(new StubProvider()).GenerateAsync(report, result);
+        Assert.DoesNotContain("Injection tables omitted by user choice.", generated.Package.Omissions);
+        Assert.Contains("Injection tables omitted by user choice.", generated.Interpretation.Omissions);
+        Assert.Contains("Detailed processing information omitted by user choice.", generated.Interpretation.Omissions);
+        Assert.Contains("Thermograms and sampled baselines omitted by user choice.", generated.Interpretation.Omissions);
+    }
+
+    [Fact]
+    public async Task GenerationProvenanceRecordsOmittedSavedNullComparisonPoints()
+    {
+        using var source = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "report_test.ftxtc"));
+        var result = (await FTXTCReader.ReadStream(source)).OfType<AnalysisResult>().First(item =>
+            item.BindingAssessment?.EffectiveOutcome == BindingAssessmentOutcome.NoBindingDetected
+            && item.NullComparison?.Members.Any(member => member.Points.Count > 0) == true);
+        var report = ReportFor(result);
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { InjectionRows = AnalysisInterpretationInjectionRows.None });
+
+        var generated = await new AnalysisInterpretationService(new StubProvider()).GenerateAsync(report, result);
+
+        Assert.Contains(generated.Package.Result.BindingAssessment.NullMembers, member => member.Points.Count > 0);
+        Assert.DoesNotContain("Saved Null comparison points omitted by user choice.", generated.Package.Omissions);
+        Assert.Equal(1, generated.Interpretation.Omissions.Count(reason => reason == "Saved Null comparison points omitted by user choice."));
+    }
+
+    [Fact]
     public async Task BlankReportCommentsAreNotSent()
     {
         var result = await LoadResult();

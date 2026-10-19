@@ -135,6 +135,7 @@ namespace AnalysisITC.Core.Interpretation
             var supporting = report.SupportingExperimentIds.Select(id => experimentResolver(id)
                 ?? throw new InvalidOperationException("Supporting experiment is missing or unresolved: " + id)).ToList();
             var requested = (options ?? report.InterpretationSettings ?? AnalysisInterpretationOptions.Default()).Copy();
+            var capture = AnalysisInterpretationEvidencePolicy.WithLevel(requested, AnalysisInterpretationEvidenceLevel.Thermograms);
             var package = new AnalysisInterpretationPackage
             {
                 Report = new InterpretationReportEvidence
@@ -151,11 +152,11 @@ namespace AnalysisITC.Core.Interpretation
             AddEvidence(package, "report-1", "report", package.Report.Name, null);
             AddContextEvidence(package, package.StudyContext);
             for (var index = 0; index < results.Count; index++)
-                package.Results.Add(BuildResult(package, results[index], requested, index));
+                package.Results.Add(BuildResult(package, results[index], capture, index));
             var memberIds = new HashSet<string>(package.Results.SelectMany(result => result.Experiments).Select(item => item.ExperimentId), StringComparer.Ordinal);
             foreach (var data in supporting.Where(data => !memberIds.Contains(data.UniqueID)))
                 package.SupportingExperiments.Add(BuildExperiment(package, data, null,
-                    package.SupportingExperiments.Count + 1, null, null, requested, -1, false));
+                    package.SupportingExperiments.Count + 1, null, null, capture, -1, false));
             foreach (var result in package.Results)
             {
                 package.Report.References.Add(new InterpretationReportReference { ReportReference = result.ReportReference,
@@ -168,7 +169,6 @@ namespace AnalysisITC.Core.Interpretation
                 package.Report.References.Add(new InterpretationReportReference { ReportReference = data.ReportReference,
                     Kind = "supporting-experiment", Id = data.ExperimentId, Name = data.Name });
             AnalysisInterpretationThermograms.UpdateBoundary(package);
-            if (!requested.IncludeThermograms) package.Omissions.Add("Thermograms and sampled baselines omitted by user choice.");
             return package;
         }
 
@@ -277,7 +277,8 @@ namespace AnalysisITC.Core.Interpretation
                 if (!suppressBinding || ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index]))
                     value.BootstrapCorrelations.Add(Correlation(global, index, $"{resultEvidenceId}/experiment-{index + 1}"));
             if (suppressBinding && !hasEligibleMember)
-                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; supplied attempted-model parameters are diagnostic context, not established binding findings. Use each member assessment when interpreting its parameters. Use its saved Null model predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
+                package.DataBoundary.ModelObservationRestriction = AnalysisInterpretationEvidencePolicy.ObservationRestriction(
+                    package.DataBoundary.ContainsRawThermogramSamples, true);
             value.BootstrapCorrelation = value.BootstrapCorrelations.FirstOrDefault();
             return value;
         }

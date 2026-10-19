@@ -339,6 +339,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-025 — Disabling injection tables removes schemas still used by processing evidence
 
 - Priority: Medium
+- Status: Fixed and validated locally (2026-10-18).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.Core/Interpretation/AnalysisInterpretationModelInputWriter.cs:469`; `AnalysisITC.Core/Interpretation/AnalysisInterpretationModelInputWriter.cs:515`; `AnalysisITC.Core/Interpretation/AnalysisInterpretationPackageBuilder.cs:347`
@@ -346,7 +347,11 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Problem: Injection-table selection removes baseline schemas as well, even when detailed processing remains enabled and its positional tables still reference those schemas.
 - Failure scenario: An Advanced or Administrator user retains detailed processing but disables injection tables for a spline or segmented experiment.
 - Consequence: The compact interpretation request contains baseline arrays without their declared column definitions. Canonical evidence remains intact; an incorrect generated interpretation was not demonstrated.
-- Suggested direction: Retain every schema referenced by remaining processing tables and test the independent injection/processing option combination.
+- Resolution (2026-10-18): Both desktop dialogs now select cumulative Results, Injection data, Processing details and Thermograms levels through a shared Core policy. Full canonical capture remains local; model projection normalizes the effective option flags and filters current injection/Null points, historical fit snapshots, processing evidence and traces consistently in inline, supporting and shared layouts. Only schemas used by retained tables are emitted. IncludedOnly remains a transmission filter, and selected-level omissions are recorded in generation provenance. Canonical and model boundaries compose trace and No-binding restrictions; ITC-123 records the former overwrite defect. The enum is not serialized, and unpublished v2 development snapshots are intentionally allowed to become stale. Manual/help, relay contract, report map and export README describe the selected transmission level and fuller local archive.
+- Validation: Final full Core VSTest suite passed: 4,241 passed, one existing external-reference diagnostic skip, zero failed. Handwritten content/column expectations cover all four levels, source-sharing rewrites, the old processing-on/injections-off combination, historical evidence, No-binding clauses, IncludedOnly, real pre-change v2 canonical/project fixtures and generation provenance. All 81 focused Avalonia interpretation/report tests passed. Native managed compilation, the real AppKit evidence-selection/action harness and the Swift interpretation layout check passed. The separate native AnalysisReportReferencesTests stops in its existing tandem buffer-subtraction picker setup, before report rendering; that unrelated fixture was preserved.
+
+- Review follow-up (2026-10-19): Results payloads now disclose when saved Null comparison points were omitted, including generation provenance. Missing or empty point arrays add no omission, and repeated projection preserves a single disclosure. The No-binding scientific guidance is unchanged. The privacy paragraph now explains the selected transmission level and the full local evidence archive.
+- Follow-up validation (2026-10-19): Four regression cases failed before the disclosure fix; all 22 focused Core cases now pass. Full Release Core VSTest: 4,306 passed, one existing external-reference diagnostic skip, zero failed. All 81 focused Avalonia interpretation/report VSTest cases, the native InterpretationEvidenceLevelTests AppKit harness and the Swift interpretation layout check passed on the live checkout. No interactive desktop or live service validation was performed.
 
 ## CR-026 — Public enrollment notifies native UI subscribers from a worker thread
 
@@ -363,6 +368,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-027 — Native interpretation hides permitted evidence choices inside a stale parent
 
 - Priority: Medium
+- Status: Fixed and validated locally (2026-10-18).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs:1502`; `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs:1697`; `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs:1852`
@@ -370,7 +376,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Problem: The optional-evidence parent is hidden according to initial thermogram eligibility and is not recomputed with current capabilities.
 - Failure scenario: Open the native dialog with verified Standard access. Injection tables are permitted and their checkbox is individually unhidden, but its parent remains hidden.
 - Consequence: The user cannot change an inclusion choice still consumed by generation. Capability refresh also retains stale thermogram eligibility; access guards prevent claiming unauthorized generation.
-- Suggested direction: Update every inclusion control, selected state, parent and heading from the same capability response, including consistent clearing after failure.
+- Resolution (2026-10-18): Replaced both checkbox groups with the cumulative Evidence level selector. Dialog-owned requested state is separate from the access-limited effective state; cached capabilities, refreshed responses and failures recompute permitted items, selected level, parent/heading visibility and enabled state. Recovery restores the requested level unless the user changed it. Thermograms resets once on opening and retains an explicit opt-in through capability refresh within that opening. Standard native access now exposes the selector, and opening/refreshing does not save a downgrade.
+- Validation: All 81 focused Avalonia interpretation/report VSTest cases passed. Native managed compilation and the AppKit harness passed none-to-Standard-to-Advanced visibility/restoration, failure/recovery, fresh Thermograms opt-in, explicit user changes, IncludedOnly preservation, unchanged saved report state and retained Generate/Save package/Cancel actions. The Swift layout check passed. Shared selection tests also passed in the full Core suite (4,241 passed, one skipped, zero failed).
 
 ## CR-028 — Saving unrelated settings resets the live fitting configuration
 

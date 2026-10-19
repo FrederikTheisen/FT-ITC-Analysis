@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\AnalysisITC.Tests\Interpretation\*" Link="Fixtures\Interpretation\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Documentation\Schemas\FTXTC\**\*.json" Link="Schemas\FTXTC\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\nonbinding_d2a.ftxtc" Link="Fixtures\nonbinding_d2a.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Resources\Buffers.json" Link="Fixtures\Buffers.json" CopyToOutputDirectory="PreserveNewest" />

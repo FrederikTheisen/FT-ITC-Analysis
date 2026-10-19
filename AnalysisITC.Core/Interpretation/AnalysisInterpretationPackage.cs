@@ -75,8 +75,7 @@ namespace AnalysisITC.Core.Interpretation
         public bool ContainsLocalPaths { get; set; }
         public bool ContainsBaselineSummary { get; set; } = true;
         public bool ContainsBaselineControlRepresentation { get; set; } = true;
-        public string ModelObservationRestriction { get; set; } =
-            "Compressed value bounds preserve original observations but omit exact occurrence times, within-segment order and waveform detail. Do not infer precise settling or integration adequacy from extrema alone. Use timing, fitted baseline and processing evidence where supplied.";
+        public string ModelObservationRestriction { get; set; } = AnalysisInterpretationEvidencePolicy.TraceRestriction;
     }
 
     public sealed class InterpretationEvidenceCatalogEntry

@@ -112,6 +112,10 @@ public sealed class InterpretationPackageExportTests
                 Assert.Equal(6, archive.Entries.Count);
                 Assert.NotNull(archive.GetEntry("canonical-package.json"));
                 Assert.NotNull(archive.GetEntry("model-package.json"));
+                using var canonical = JsonDocument.Parse(archive.GetEntry("canonical-package.json")!.Open());
+                using var model = JsonDocument.Parse(archive.GetEntry("model-package.json")!.Open());
+                Assert.NotEmpty(canonical.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].GetProperty("injections").EnumerateArray());
+                Assert.False(model.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].TryGetProperty("injections", out _));
                 using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json")!.Open());
                 Assert.False(manifest.RootElement.GetProperty("sentToServer").GetBoolean());
             }
@@ -133,22 +137,20 @@ public sealed class InterpretationPackageExportTests
     {
         using var access = new AdvancedInterpretationAccessScope();
         var report = new AnalysisReport();
-        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeThermograms = true });
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeProcessingInformation = true, IncludeThermograms = true });
         report.MarkClean();
         using var client = new HttpClient(new NoNetworkHandler());
 
         var dialog = new AnalysisInterpretationDialog(report, null!, client, () => { });
-        var thermograms = Assert.Single(dialog.GetLogicalDescendants().OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms");
-        Assert.False(thermograms.IsChecked);
+        var levels = EvidenceCombo(dialog);
+        Assert.Equal("Processing details", levels.SelectedItem);
 
-        thermograms.IsChecked = true;
+        levels.SelectedIndex = 3;
         Assert.True(DialogSnapshot(dialog).InterpretationSettings.IncludeThermograms);
 
         var reopened = new AnalysisInterpretationDialog(report, null!, client, () => { });
-        var reopenedThermograms = Assert.Single(reopened.GetLogicalDescendants().OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms");
-        Assert.False(reopenedThermograms.IsChecked);
+        Assert.Equal("Processing details", EvidenceCombo(reopened).SelectedItem);
+        Assert.False(report.IsModified);
     }
 
     [AvaloniaFact]
@@ -163,16 +165,17 @@ public sealed class InterpretationPackageExportTests
         using var client = new HttpClient(new NoNetworkHandler());
         var dialog = new AnalysisInterpretationDialog(report, id => id == result.UniqueID ? result : null!,
             _ => null!, client, () => { });
-        var thermograms = Assert.Single(dialog.GetLogicalDescendants().OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms");
-
+        var levels = EvidenceCombo(dialog);
         var omitted = AnalysisInterpretationPackageBuilder.Build(DialogSnapshot(dialog),
             id => id == result.UniqueID ? result : null!, _ => null!);
-        thermograms.IsChecked = true;
+        levels.SelectedIndex = 3;
         var included = AnalysisInterpretationPackageBuilder.Build(DialogSnapshot(dialog),
             id => id == result.UniqueID ? result : null!, _ => null!);
-
-        Assert.False(omitted.DataBoundary.ContainsRawThermogramSamples);
+        using var omittedModel = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(omitted));
+        using var includedModel = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(included));
+        Assert.False(omittedModel.RootElement.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
+        Assert.True(includedModel.RootElement.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
+        Assert.True(omitted.DataBoundary.ContainsRawThermogramSamples);
         Assert.True(included.DataBoundary.ContainsRawThermogramSamples);
         Assert.False(report.InterpretationSettings.IncludeThermograms);
     }
@@ -187,7 +190,7 @@ public sealed class InterpretationPackageExportTests
         report.SetResultIds(new[] { "missing-result" });
         report.SetSupportingExperimentIds(new[] { "supporting-experiment" });
         report.UpdateStudyContext(new AnalysisStudyContext { ScientificQuestion = "Saved question" });
-        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeThermograms = true });
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeProcessingInformation = true, IncludeThermograms = true });
         report.ApproveInterpretation(new AnalysisInterpretationRecord
         {
             InterpretationMarkdown = "Saved interpretation.", Model = "saved-model",
@@ -218,6 +221,49 @@ public sealed class InterpretationPackageExportTests
         Assert.Equal(approved.Model, snapshot.ApprovedInterpretation.Model);
         Assert.Equal(approved.ScientificGuidanceRevision, snapshot.ApprovedInterpretation.ScientificGuidanceRevision);
     }
+
+    [AvaloniaFact]
+    public void CapabilitiesRestoreRequestedEvidenceAndRefreshVisibilityWithoutSavingDowngrades()
+    {
+        using var access = new AdvancedInterpretationAccessScope();
+        var report = new AnalysisReport();
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions
+        { IncludeProcessingInformation = true, InjectionRows = AnalysisInterpretationInjectionRows.IncludedOnly });
+        report.MarkClean();
+        using var client = new HttpClient(new NoNetworkHandler());
+        var dialog = new AnalysisInterpretationDialog(report, null!, client, () => throw new Exception("Refresh must not save"));
+        var levels = EvidenceCombo(dialog);
+        void Refresh(string? tier)
+        {
+            typeof(AnalysisInterpretationDialog).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Single(method => method.Name == "PopulateInterpretationChoices" && method.GetParameters().Length == 1)
+                .Invoke(dialog, new object?[] { tier == null ? null : new InterpretationOperatorOptionsResponse { AccessTier = tier, Mode = "presets" } });
+        }
+        Refresh(null);
+        Assert.False(Assert.IsType<StackPanel>(levels.Parent).IsVisible);
+        Assert.Equal("Results", levels.SelectedItem);
+        Refresh("standard");
+        Assert.True(Assert.IsType<StackPanel>(levels.Parent).IsVisible);
+        Assert.Equal(new[] { "Results", "Injection data" }, levels.Items.Cast<string>());
+        Assert.Equal("Injection data", levels.SelectedItem);
+        Refresh("advanced");
+        Assert.Equal("Processing details", levels.SelectedItem);
+        Assert.Equal(AnalysisInterpretationInjectionRows.IncludedOnly, DialogSnapshot(dialog).InterpretationSettings.InjectionRows);
+        levels.SelectedIndex = 3;
+        typeof(AnalysisInterpretationDialog).GetMethod("SetInterpretationAccessFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dialog, new object[] { "Access unavailable" });
+        Assert.False(Assert.IsType<StackPanel>(levels.Parent).IsVisible);
+        Assert.False(levels.IsEnabled);
+        Refresh("advanced");
+        Assert.Equal("Thermograms", levels.SelectedItem);
+        levels.SelectedIndex = 0;
+        Refresh("standard"); Refresh("advanced");
+        Assert.Equal("Results", levels.SelectedItem);
+        Assert.False(report.IsModified);
+    }
+
+    static ComboBox EvidenceCombo(AnalysisInterpretationDialog dialog) => Assert.Single(
+        dialog.GetLogicalDescendants().OfType<ComboBox>(), control => AutomationProperties.GetName(control) == "Interpretation evidence level");
 
     static AnalysisReport DialogSnapshot(AnalysisInterpretationDialog dialog) =>
         Assert.IsType<AnalysisReport>(typeof(AnalysisInterpretationDialog)

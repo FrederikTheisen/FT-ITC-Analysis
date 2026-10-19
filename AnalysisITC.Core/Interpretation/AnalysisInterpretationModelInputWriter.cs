@@ -122,19 +122,9 @@ namespace AnalysisITC.Core.Interpretation
 
             var compactEncoding = String(root["modelInputEncoding"]);
             var isCompact = compactEncoding == SharedEvidenceEncoding || compactEncoding == Encoding;
-            var hasProcessingSelection = TryReadProcessingSelection(root, out var includeProcessing);
-            var includeInjectionTables = TryReadInjectionTableSelection(root, out var includeTables) ? includeTables : true;
-
-            // A compact package may be passed through again by an export or a
-            // later dialog selection. Reapply changed processing selections to the
-            // existing tables, but preserve packages without the selection field
-            // for backwards compatibility.
-            if (isCompact && (!hasProcessingSelection || includeProcessing) && includeInjectionTables)
-                return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
             if (isCompact)
             {
-                if (!includeProcessing) ApplyProcessingSelection(root, includeProcessing: false);
-                if (!includeInjectionTables) ApplyInjectionTableSelection(root);
+                if (root["requestedInterpretation"] is JsonObject) ApplyEvidenceSelection(root);
                 return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
             }
 
@@ -160,8 +150,7 @@ namespace AnalysisITC.Core.Interpretation
             };
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);
-            ApplyProcessingSelection(root, includeProcessing);
-            if (!includeInjectionTables) ApplyInjectionTableSelection(root);
+            ApplyEvidenceSelection(root);
             RemoveKnownEvidenceIds(root);
             RoundKnownNumbers(root);
             var inline = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
@@ -333,7 +322,7 @@ namespace AnalysisITC.Core.Interpretation
                 copy.Remove("reportReference"); copy["evidenceReference"] = evidenceReference;
                 sourceTables[tableName] = copy;
             }
-            record["injections"] = sourceTables;
+            if (sourceTables.Count > 0) record["injections"] = sourceTables;
             SetBaselineTableOwners(record["baseline"], evidenceReference);
             return record;
         }
@@ -449,57 +438,147 @@ namespace AnalysisITC.Core.Interpretation
             experiment["injections"] = tables;
         }
 
-        static bool TryReadProcessingSelection(JsonObject root, out bool include)
+        static AnalysisInterpretationOptions ReadEvidenceSelection(JsonObject root)
         {
-            include = true;
-            if (root?["requestedInterpretation"] is not JsonObject settings) return false;
-            if (settings["includeProcessingInformation"] is JsonValue value && value.TryGetValue<bool>(out var parsed)) { include = parsed; return true; }
-            return false;
+            var settings = root["requestedInterpretation"] as JsonObject;
+            // Older standalone evidence without option fields retains its supplied content.
+            var options = new AnalysisInterpretationOptions
+            { IncludeProcessingInformation = true, IncludeThermograms = true };
+            if (settings?["injectionRows"] is JsonValue rows && rows.TryGetValue<string>(out var mode)
+                && Enum.TryParse<AnalysisInterpretationInjectionRows>(mode, true, out var parsedRows)) options.InjectionRows = parsedRows;
+            if (settings?["includeProcessingInformation"] is JsonValue processing && processing.TryGetValue<bool>(out var includeProcessing))
+                options.IncludeProcessingInformation = includeProcessing;
+            if (settings?["includeThermograms"] is JsonValue traces && traces.TryGetValue<bool>(out var includeTraces))
+                options.IncludeThermograms = includeTraces;
+            return AnalysisInterpretationEvidencePolicy.WithLevel(options,
+                AnalysisInterpretationEvidencePolicy.Level(options), options.InjectionRows);
         }
 
-        static bool TryReadInjectionTableSelection(JsonObject root, out bool include)
+        static void ApplyEvidenceSelection(JsonObject root)
         {
-            include = true;
-            if (root?["requestedInterpretation"] is not JsonObject settings) return false;
-            if (settings["injectionRows"] is JsonValue value && value.TryGetValue<string>(out var mode))
-            { include = !string.Equals(mode, "none", StringComparison.OrdinalIgnoreCase); return true; }
-            return false;
-        }
-
-        static void ApplyInjectionTableSelection(JsonObject root)
-        {
-            foreach (var experiment in AllExperiments(root))
-                experiment.Remove("injections");
-            if (root["tableSchemas"] is JsonObject schemas)
-                foreach (var schema in Tables.Select(item => item.SchemaName).Concat(BaselineTables.Select(item => item.SchemaName)).ToList()) schemas.Remove(schema);
-            if (root["omissions"] is not JsonArray omissions) root["omissions"] = omissions = new JsonArray();
-            if (!omissions.Any(item => String(item) == "Injection tables omitted by user choice.")) omissions.Add("Injection tables omitted by user choice.");
-        }
-
-        static void ApplyProcessingSelection(JsonObject root, bool includeProcessing)
-        {
-            if (includeProcessing) return;
-            foreach (var experiment in AllExperiments(root))
+            var selection = ReadEvidenceSelection(root);
+            // A repeated projection has already removed the points; retain its factual disclosure.
+            var omittedNullPoints = (root["omissions"] as JsonArray)?.Any(reason =>
+                String(reason) == AnalysisInterpretationEvidencePolicy.NullPointsOmission) == true;
+            if (root["requestedInterpretation"] is JsonObject settings)
             {
-                experiment.Remove("baseline");
-                foreach (var field in new[] { "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" }) experiment.Remove(field);
-                if (experiment["injections"] is JsonObject tables)
+                settings["injectionRows"] = selection.InjectionRows == AnalysisInterpretationInjectionRows.None ? "none"
+                    : selection.InjectionRows == AnalysisInterpretationInjectionRows.IncludedOnly ? "includedOnly" : "all";
+                settings["includeProcessingInformation"] = selection.IncludeProcessingInformation;
+                settings["includeThermograms"] = selection.IncludeThermograms;
+            }
+            if (selection.InjectionRows == AnalysisInterpretationInjectionRows.IncludedOnly) FilterIncludedInjections(root);
+            foreach (var owner in EvidenceOwners(root))
+            {
+                if (selection.InjectionRows == AnalysisInterpretationInjectionRows.None) owner.Remove("injections");
+                if (!selection.IncludeProcessingInformation)
                 {
-                    tables.Remove("integration"); tables.Remove("baseline");
+                    owner.Remove("baseline");
+                    foreach (var field in new[] { "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" })
+                        owner.Remove(field);
+                    if (owner["injections"] is JsonObject tables) { tables.Remove("integration"); tables.Remove("baseline"); }
+                }
+                if (!selection.IncludeThermograms) owner.Remove("thermogram");
+            }
+            foreach (var result in Objects(root["results"]))
+            {
+                if (!selection.IncludeProcessingInformation) result.Remove("historicalFitInputs");
+                var assessment = result["bindingAssessment"] as JsonObject;
+                foreach (var member in Objects(assessment?["members"]).Concat(Objects(assessment?["nullMembers"])))
+                {
+                    if (selection.InjectionRows == AnalysisInterpretationInjectionRows.None)
+                    {
+                        omittedNullPoints |= member["points"] is JsonArray savedPoints && savedPoints.Count > 0;
+                        member.Remove("points");
+                    }
+                    else if (selection.InjectionRows == AnalysisInterpretationInjectionRows.IncludedOnly && member["points"] is JsonArray points)
+                        for (var i = points.Count - 1; i >= 0; i--)
+                            if (points[i]?["included"]?.GetValue<bool>() != true) points.RemoveAt(i);
                 }
             }
-            if (root["tableSchemas"] is JsonObject schemas)
-            {
-                schemas.Remove("integration-v1"); schemas.Remove("integration-v2"); schemas.Remove("baseline-v1");
-                schemas.Remove("landmarks-v1"); schemas.Remove("baseline-landmarks-v1"); schemas.Remove("controlPoints-v1"); schemas.Remove("baseline-spline-controls-v1"); schemas.Remove("segments-v1"); schemas.Remove("baseline-segments-v1");
-            }
             if (root["omissions"] is not JsonArray omissions) root["omissions"] = omissions = new JsonArray();
-            if (!omissions.Any(item => String(item) == "Detailed processing information omitted by user choice.")) omissions.Add("Detailed processing information omitted by user choice.");
-            if (root["dataBoundary"] is JsonObject boundary)
+            for (var i = omissions.Count - 1; i >= 0; i--)
             {
-                boundary["containsBaselineSummary"] = false;
-                boundary["containsBaselineControlRepresentation"] = false;
+                var reason = String(omissions[i]);
+                if (reason == AnalysisInterpretationEvidencePolicy.InjectionOmission
+                    || reason == AnalysisInterpretationEvidencePolicy.NullPointsOmission
+                    || reason == AnalysisInterpretationEvidencePolicy.ProcessingOmission
+                    || reason == AnalysisInterpretationEvidencePolicy.ThermogramOmission
+                    || (!selection.IncludeThermograms && reason?.Contains("Thermogram omitted because") == true)) omissions.RemoveAt(i);
             }
+            if (selection.InjectionRows == AnalysisInterpretationInjectionRows.None) omissions.Add(AnalysisInterpretationEvidencePolicy.InjectionOmission);
+            if (selection.InjectionRows == AnalysisInterpretationInjectionRows.None && omittedNullPoints)
+                omissions.Add(AnalysisInterpretationEvidencePolicy.NullPointsOmission);
+            if (!selection.IncludeProcessingInformation) omissions.Add(AnalysisInterpretationEvidencePolicy.ProcessingOmission);
+            if (!selection.IncludeThermograms) omissions.Add(AnalysisInterpretationEvidencePolicy.ThermogramOmission);
+            if (!selection.IncludeProcessingInformation && root["modelInputDefinitions"] is JsonObject definitions) definitions.Remove("baselineControls");
+            UpdateModelBoundary(root);
+            PruneUnusedSchemas(root);
+        }
+
+        static IEnumerable<JsonObject> EvidenceOwners(JsonObject root) => AllExperiments(root).Concat(Objects(root["experimentEvidence"]));
+
+        static void FilterIncludedInjections(JsonObject root)
+        {
+            HashSet<int> IncludedIds(JsonObject owner)
+            {
+                var rows = (owner["injections"] as JsonObject)?["heatObservations"]?["rows"] as JsonArray;
+                return rows == null ? null : new HashSet<int>(rows.OfType<JsonArray>()
+                    .Where(row => row[1]?.GetValue<bool>() == true).Select(row => row[0].GetValue<int>()));
+            }
+            var sharedIds = Objects(root["experimentEvidence"]).ToDictionary(owner => String(owner["evidenceReference"]), IncludedIds, StringComparer.Ordinal);
+            foreach (var owner in EvidenceOwners(root))
+            {
+                var ids = IncludedIds(owner);
+                if (ids == null && String(owner["experimentEvidenceRef"]) is string reference) sharedIds.TryGetValue(reference, out ids);
+                if (ids == null || owner["injections"] is not JsonObject tables) continue;
+                foreach (var definition in Tables)
+                    if (tables[definition.Name]?["rows"] is JsonArray rows)
+                        for (var i = rows.Count - 1; i >= 0; i--)
+                            if (rows[i] is JsonArray row && !ids.Contains(row[0].GetValue<int>())) rows.RemoveAt(i);
+            }
+        }
+
+        static void UpdateModelBoundary(JsonObject root)
+        {
+            if (root["dataBoundary"] is not JsonObject boundary) root["dataBoundary"] = boundary = new JsonObject();
+            var owners = EvidenceOwners(root).ToList();
+            var traces = owners.Select(owner => owner["thermogram"]).OfType<JsonObject>().ToList();
+            boundary["containsRawThermogramSamples"] = traces.Count > 0;
+            boundary["containsBaselineArrays"] = traces.Any(trace => trace["baselineMinMax"] is JsonArray);
+            boundary["containsBaselineSummary"] = owners.Any(owner => owner["baseline"]?["isAvailable"]?.GetValue<bool>() == true);
+            boundary["containsBaselineControlRepresentation"] = owners.Any(owner => owner["baseline"] is JsonObject baseline
+                && ((baseline["landmarks"]?["rows"] as JsonArray)?.Count > 0 || baseline["spline"] != null
+                    || baseline["segmented"] != null || baseline["polynomial"] != null));
+            boundary["containsBootstrapReplicateArrays"] = false;
+            boundary["containsLocalPaths"] = false;
+            var noBinding = String(boundary["modelObservationRestriction"])?.Contains(AnalysisInterpretationEvidencePolicy.NoBindingRestriction) == true
+                || Objects(root["results"]).Any(result =>
+                {
+                    var assessment = result["bindingAssessment"] as JsonObject;
+                    var members = Objects(assessment?["members"]).ToList();
+                    return String(assessment?["effectiveOutcome"]) == "NoBindingDetected"
+                        || (members.Count > 0 && members.All(member => String(member["effectiveOutcome"]) == "NoBindingDetected"));
+                });
+            boundary["modelObservationRestriction"] = AnalysisInterpretationEvidencePolicy.ObservationRestriction(traces.Count > 0, noBinding);
+        }
+
+        static void PruneUnusedSchemas(JsonObject root)
+        {
+            if (root["tableSchemas"] is not JsonObject schemas) return;
+            var referenced = new HashSet<string>(StringComparer.Ordinal);
+            void Visit(JsonNode node)
+            {
+                if (node is JsonObject obj)
+                {
+                    if (obj["rows"] is JsonArray && String(obj["schema"]) is string schema) referenced.Add(schema);
+                    foreach (var property in obj) if (property.Key != "tableSchemas") Visit(property.Value);
+                }
+                else if (node is JsonArray array) foreach (var item in array) Visit(item);
+            }
+            Visit(root);
+            foreach (var definition in Tables.Concat(BaselineTables))
+                if (!referenced.Contains(definition.SchemaName)) schemas.Remove(definition.SchemaName);
         }
 
         static JsonNode ComplementFraction(JsonObject source)

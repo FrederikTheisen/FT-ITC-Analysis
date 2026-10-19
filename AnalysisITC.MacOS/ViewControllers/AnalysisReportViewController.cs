@@ -1662,11 +1662,12 @@ namespace AnalysisITC
             Indeterminate = true,
             ControlSize = NSControlSize.Small,
         };
-        readonly NSButton includeThermograms = Button("Include compressed thermograms");
-        readonly NSButton includeInjectionTables = Button("Include injection tables");
-        readonly NSButton includeProcessingInformation = Button("Include processing information");
-        readonly NSStackView thermogramOptions = VerticalStack();
-        readonly bool thermogramsAvailable;
+        readonly NSPopUpButton evidenceLevelPopup = Popup();
+        readonly NSTextField evidenceLevelDescription = Hint("");
+        readonly NSTextField dataInclusionHeading = Heading("Evidence level");
+        readonly NSStackView evidenceLevelOptions = VerticalStack();
+        readonly AnalysisInterpretationEvidenceSelection evidenceSelection;
+        bool updatingEvidenceLevel;
         readonly NSButton savePackage = Button("Save package");
         readonly NSButton generate = Button("Generate");
         readonly NSButton use = Button("Use in report");
@@ -1700,24 +1701,13 @@ namespace AnalysisITC
         {
             this.report = report; this.resultResolver = resultResolver; this.experimentResolver = experimentResolver; this.httpClient = httpClient;
             this.canWriteReport = canWriteReport;
-            thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
-            includeInjectionTables.SetButtonType(NSButtonType.Switch);
-            includeProcessingInformation.SetButtonType(NSButtonType.Switch);
+            evidenceSelection = new AnalysisInterpretationEvidenceSelection(report.InterpretationSettings);
             omitScientificGuidance.SetButtonType(NSButtonType.Switch);
             omitScientificGuidance.State = NSCellStateValue.Off;
-            includeInjectionTables.Hidden = string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
-            includeProcessingInformation.Hidden = !thermogramsAvailable;
-            includeInjectionTables.State = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None ? NSCellStateValue.On : NSCellStateValue.Off;
-            includeProcessingInformation.State = report.InterpretationSettings.IncludeProcessingInformation ? NSCellStateValue.On : NSCellStateValue.Off;
-            includeThermograms.SetButtonType(NSButtonType.Switch);
-            includeThermograms.Hidden = !thermogramsAvailable;
-            // Thermograms are deliberately a per-opening opt-in. A saved report
-            // setting must not silently opt a newly opened dialog into transport.
-            includeThermograms.State = NSCellStateValue.Off;
-            thermogramOptions.AddArrangedSubview(includeThermograms);
-            thermogramOptions.AddArrangedSubview(includeInjectionTables);
-            thermogramOptions.AddArrangedSubview(includeProcessingInformation);
-            thermogramOptions.Hidden = !thermogramsAvailable;
+            evidenceLevelPopup.ToolTip = dataInclusionHeading.ToolTip = AnalysisInterpretationEvidencePolicy.SelectorTooltip;
+            evidenceLevelPopup.WidthAnchor.ConstraintEqualToConstant(220).Active = true;
+            evidenceLevelOptions.AddArrangedSubview(evidenceLevelPopup);
+            evidenceLevelOptions.AddArrangedSubview(evidenceLevelDescription);
             PopulateInterpretationChoices();
             interpretationSelectionEnabled = false;
             interpretationAccessAllowsGeneration = false;
@@ -1735,8 +1725,6 @@ namespace AnalysisITC
             View = new NSView(new CGRect(0, 0, DefaultSheetWidth, DefaultSheetHeight));
             rootWidthConstraint = View.WidthAnchor.ConstraintEqualToConstant((nfloat)DefaultSheetWidth);
             rootWidthConstraint.Active = true;
-            var dataInclusionHeading = Heading("Data included");
-            dataInclusionHeading.Hidden = !thermogramsAvailable;
             draftScroll = TextEditor(draft, 170);
             draft.Editable = false;
             draft.Selectable = true;
@@ -1747,7 +1735,7 @@ namespace AnalysisITC
                 Heading("Main question"), TextEditor(question, 66),
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 dataInclusionHeading,
-                thermogramOptions,
+                evidenceLevelOptions,
                 Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), packageSize, interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
                 progress, status, generatedProvenance, draftScroll);
             content.Alignment = NSLayoutAttribute.Width;
@@ -1816,9 +1804,15 @@ namespace AnalysisITC
                 .Where(value => !string.IsNullOrWhiteSpace(value))));
             question.Changed = UpdatePackageSize;
             context.Changed = UpdatePackageSize;
-            includeInjectionTables.Activated += (sender, e) => UpdatePackageSize();
-            includeProcessingInformation.Activated += (sender, e) => UpdatePackageSize();
-            includeThermograms.Activated += (sender, e) => UpdatePackageSize();
+            evidenceLevelPopup.Activated += (sender, e) =>
+            {
+                var index = (int)evidenceLevelPopup.IndexOfSelectedItem;
+                if (updatingEvidenceLevel || index < 0) return;
+                evidenceSelection.Select(evidenceSelection.AvailableLevels[index]);
+                evidenceLevelDescription.StringValue = AnalysisInterpretationEvidencePolicy.Description(evidenceSelection.EffectiveLevel);
+                UpdatePackageSize();
+            };
+            SetAccessibilityLabel(evidenceLevelPopup, "Interpretation evidence level");
             progress.Hidden = true; draftScroll.Hidden = true; use.Hidden = true;
             generatedProvenance.Hidden = true;
             ResizeToFitContent();
@@ -1870,11 +1864,7 @@ namespace AnalysisITC
 
         AnalysisReport CreateDialogReport()
         {
-            var settings = report.InterpretationSettings.Copy();
-            settings.IncludeThermograms = thermogramsAvailable && includeThermograms.State == NSCellStateValue.On;
-            settings.InjectionRows = !includeInjectionTables.Hidden && includeInjectionTables.State == NSCellStateValue.On
-                ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
-            settings.IncludeProcessingInformation = !includeProcessingInformation.Hidden && includeProcessingInformation.State == NSCellStateValue.On;
+            var settings = evidenceSelection.RequestOptions(report.InterpretationSettings);
             var studyContext = report.StudyContext.Copy();
             studyContext.ScientificQuestion = question.String ?? "";
             studyContext.SystemDescription = "";
@@ -1898,14 +1888,7 @@ namespace AnalysisITC
             interpretationAccessAllowsGeneration = interpretationOptions != null
                 && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(interpretationOptions);
             UpdateInterpretationAccountSummary();
-            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(interpretationOptions);
-            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(interpretationOptions);
-            includeInjectionTables.Hidden = !canTables;
-            includeProcessingInformation.Hidden = !canProcessing;
-            includeInjectionTables.Enabled = canTables;
-            includeProcessingInformation.Enabled = canProcessing;
-            if (!canTables) includeInjectionTables.State = NSCellStateValue.Off;
-            if (!canProcessing) includeProcessingInformation.State = NSCellStateValue.Off;
+            UpdateOptionalPackageInclusionControls(interpretationOptions);
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1943,6 +1926,23 @@ namespace AnalysisITC
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled;
             UpdateInterpretationSetting();
             UpdatePackageSize();
+        }
+
+        void UpdateOptionalPackageInclusionControls(InterpretationOperatorOptionsResponse options)
+        {
+            evidenceSelection.ApplyCapabilities(options);
+            updatingEvidenceLevel = true;
+            try
+            {
+                evidenceLevelPopup.RemoveAllItems();
+                evidenceLevelPopup.AddItems(evidenceSelection.AvailableLevels.Select(AnalysisInterpretationEvidencePolicy.Label).ToArray());
+                evidenceLevelPopup.SelectItem(evidenceSelection.AvailableLevels.ToList().IndexOf(evidenceSelection.EffectiveLevel));
+                evidenceLevelPopup.Enabled = options != null && cancellation == null;
+                evidenceLevelDescription.StringValue = AnalysisInterpretationEvidencePolicy.Description(evidenceSelection.EffectiveLevel);
+                evidenceLevelOptions.Hidden = dataInclusionHeading.Hidden = !evidenceSelection.IsVisible;
+            }
+            finally { updatingEvidenceLevel = false; }
+            if (content != null) ResizeToFitContent();
         }
 
         void UpdateInterpretationAccountSummary()
@@ -2069,6 +2069,7 @@ namespace AnalysisITC
         void SetInterpretationAccessFailure(string message)
         {
             interpretationOptions = null;
+            UpdateOptionalPackageInclusionControls(null);
             interpretationSelectionEnabled = false;
             interpretationAccessAllowsGeneration = false;
             interpretationAccessCheckFailed = true;
@@ -2277,7 +2278,7 @@ namespace AnalysisITC
         {
             progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
             question.Editable = context.Editable = !value;
-            includeThermograms.Enabled = includeInjectionTables.Enabled = includeProcessingInformation.Enabled = !value;
+            evidenceLevelPopup.Enabled = !value && interpretationOptions != null;
             savePackage.Enabled = use.Enabled = !value;
             if (value) generate.Enabled = false; else UpdateGenerateButton();
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
@@ -2419,7 +2420,7 @@ namespace AnalysisITC
             base.ViewWillDisappear();
         }
 
-        static NSTextField PrivacyNotice() { var label = Hint("Sends selected report data (including names, comments, fits and injection data), your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."); label.MaximumNumberOfLines = 0; return label; }
+        static NSTextField PrivacyNotice() { var label = Hint("Sends report evidence at the selected level, your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."); label.MaximumNumberOfLines = 0; return label; }
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
