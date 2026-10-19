@@ -232,6 +232,83 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Theory]
+    [InlineData(ResultOutputPurpose.Standard)]
+    [InlineData(ResultOutputPurpose.Diagnostic)]
+    public void MultiExperimentFixedParametersListSharedNOnceRegardlessOfMemberNames(ResultOutputPurpose purpose)
+    {
+        var result = CreateResult(2);
+        foreach (var member in result.Solution.Solutions)
+            member.Data.Name = "Same name";
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 1, islocked: true);
+        var options = new AnalysisReportOptions { OutputPurpose = purpose };
+
+        var items = FixedParameterItems(AnalysisReportBuilder.Build(result, options));
+
+        var item = Assert.Single(items);
+        Assert.Equal("Shared N-value", item.Label);
+        Assert.Equal(1, double.Parse(item.Value, CultureInfo.InvariantCulture));
+        Assert.DoesNotContain("±", item.Value, StringComparison.Ordinal);
+        for (var index = 0; index < result.Solution.Solutions.Count; index++)
+        {
+            result.Solution.Solutions[index].Data.Name = "Renamed " + index;
+            var renamed = FixedParameterItems(AnalysisReportBuilder.Build(result, options));
+            Assert.Equal(items.Select(row => (row.Label, row.Value)), renamed.Select(row => (row.Label, row.Value)));
+        }
+    }
+
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard)]
+    [InlineData(ResultOutputPurpose.Diagnostic)]
+    public void MultiExperimentFixedParametersRetainSharedCoordinatesAndOmitUnlockedOnes(ResultOutputPurpose purpose)
+    {
+        var result = CreateResult(2, temperatureStep: 10);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.TemperatureDependent);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.SameForAll);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 1, islocked: true);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -25_000, islocked: true);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.HeatCapacity1, 500, islocked: true);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Affinity1, 6, islocked: true);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0, islocked: false);
+        var options = new AnalysisReportOptions
+        {
+            OutputPurpose = purpose,
+            EnergyUnitOverride = EnergyUnit.KiloJoule,
+        };
+
+        var items = FixedParameterItems(AnalysisReportBuilder.Build(result, options));
+
+        Assert.Equal(new[] { "Shared N-value", "Shared Enthalpy", "Shared Heat capacity", "Shared Affinity" },
+            items.Select(item => item.Label));
+        Assert.Contains("-25", items[1].Value, StringComparison.Ordinal);
+        Assert.Contains("kJ/mol", items[1].Value, StringComparison.Ordinal);
+        Assert.Contains("0.5", items[2].Value, StringComparison.Ordinal);
+        Assert.Contains("kJ/mol·K⁻¹", items[2].Value, StringComparison.Ordinal);
+        Assert.Equal("1000 nM", items[3].Value);
+        Assert.All(items, item => Assert.DoesNotContain("±", item.Value, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard)]
+    [InlineData(ResultOutputPurpose.Diagnostic)]
+    public void MultiExperimentReportOmitsFixedParameterBlockWithoutLockedSharedCoordinates(ResultOutputPurpose purpose)
+    {
+        var result = CreateResult(2);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 1, islocked: false);
+
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+
+        Assert.DoesNotContain(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Fixed parameters");
+    }
+
+    static IReadOnlyList<AnalysisReportKeyValueItem> FixedParameterItems(AnalysisReportDocument document) =>
+        document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fixed parameters").Items;
+
+    [Theory]
     [InlineData(7, 7.5)]
     [InlineData(8, 5.5)]
     [InlineData(12, 5.5)]

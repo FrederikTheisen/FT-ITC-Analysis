@@ -281,8 +281,8 @@ Only when parameters are locked. Rows, in order:
 
 | Row | Content |
 | --- | --- |
-| <Parameter> — <experiment> | Value and unit. |
-| Shared <Parameter> | Value and unit. |
+| <Parameter> — <experiment> | Single-experiment fits only; value and unit. |
+| Shared <Parameter> | One row per locked shared coordinate; value and unit. Multi-experiment fits list only these rows, independent of experiment names. |
 
 ### A12. Reading fit diagnostics
 

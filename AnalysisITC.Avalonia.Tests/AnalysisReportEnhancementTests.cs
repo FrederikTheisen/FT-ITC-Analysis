@@ -23,9 +23,11 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -904,13 +906,18 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         {
             ResetData();
             AppSettings.AutoSelectReportReferenceExperiments = automatic;
-            var tandem = CreateResult("Tandem");
+            AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
             var first = CreateResult("First source").Data;
             var second = CreateResult("Second source").Data;
-            tandem.Data.SetTandemSourceExperimentIds(new[] { first.UniqueID, second.UniqueID });
-            tandem.Data.SetBufferSubtraction(first, BufferSubtractionMethod.MatchedInjection, notify: false);
-            DataManager.AddData(new ITCDataContainer[] { second, first, tandem.Data, tandem.Result });
-            var window = new AnalysisReportWindow(tandem.Result);
+            var tandem = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+            var corrected = CreateResult("Corrected").Data;
+            corrected.SetBufferSubtraction(first, BufferSubtractionMethod.MatchedInjection, notify: false);
+            var result = CreateResult("Tandem", tandem, corrected);
+            Assert.True(tandem.IsTandemExperiment);
+            Assert.Equal(2, tandem.Segments.Count);
+            Assert.Null(tandem.BufferSubtractionSettings);
+            DataManager.AddData(new ITCDataContainer[] { second, first, tandem, corrected, result });
+            var window = new AnalysisReportWindow(result);
             try
             {
                 window.Styles.Add(new global::Avalonia.Themes.Fluent.FluentTheme());
@@ -922,7 +929,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                     .Invoke(window, null);
                 var checks = Field<List<CheckBox>>(window, "resultPickerChecks");
                 var firstCheck = checks.Single(check => ReferenceEquals(check.Tag, first));
-                var tandemCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem.Data));
+                var tandemCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem));
                 Assert.Equal("Buffer and tandem source for selected results", ToolTip.GetTip(firstCheck));
                 Assert.Equal("Already reported with a selected result", ToolTip.GetTip(tandemCheck));
                 Assert.Contains("Included through Result 1", ((StackPanel)tandemCheck.Content!).Children.OfType<TextBlock>().Last().Text);
@@ -930,7 +937,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 Assert.Contains("Buffer reference; Tandem source", ((StackPanel)firstCheck.Content!).Children.OfType<TextBlock>().Last().Text);
                 // Supporting edits remain transient until Apply; references
                 // are selected automatically only for a new report.
-                var resultCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem.Result));
+                var resultCheck = checks.Single(check => ReferenceEquals(check.Tag, result));
                 Assert.Equal("Reports this fit and its experiments", ToolTip.GetTip(resultCheck));
                 resultCheck.IsChecked = false;
                 Assert.Equal("Adds saved data as a supporting experiment", ToolTip.GetTip(firstCheck));
@@ -945,8 +952,9 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.DoesNotContain(first, Field<List<ExperimentData>>(window, "selectedSupportingExperiments"));
                 var report = Field<AnalysisReport>(window, "report");
-                var document = AnalysisReportBuilder.Build(report, _ => tandem.Result,
+                var document = AnalysisReportBuilder.Build(report, _ => result,
                     id => DataManager.Data.FirstOrDefault(data => data.UniqueID == id));
+                Assert.True(document.IsValid);
                 Assert.DoesNotContain(document.SupportingExperiments, item => item.Id == first.UniqueID);
             }
             finally { window.Close(); }
@@ -956,18 +964,29 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     [AvaloniaFact]
     public void TandemSourcesAndMissingSourceDetailsRenderInReportPdf()
     {
-        var tandem = CreateResult("Tandem result");
+        AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         var source = CreateResult("Source experiment").Data;
-        tandem.Data.TandemMergeDescription = "2 experiments merged; fixed back-mixing";
-        tandem.Data.SetTandemSourceExperimentIds(new[] { source.UniqueID, "unavailable-source" });
-        tandem.Data.SetBufferSubtraction(source, BufferSubtractionMethod.MatchedInjection, notify: false);
-        tandem.Result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(tandem.Result.Solution));
+        var missingSource = CreateResult("Unavailable source").Data;
+        var tandem = TandemConcatenation.ConcatTandem(new List<ExperimentData> { source, missingSource });
+        var corrected = CreateResult("Corrected").Data;
+        corrected.SetBufferSubtraction(source, BufferSubtractionMethod.MatchedInjection, notify: false);
+        var result = CreateResult("Tandem result", tandem, corrected);
+        Assert.True(tandem.IsTandemExperiment);
+        Assert.Equal(2, tandem.Segments.Count);
+        Assert.Null(tandem.BufferSubtractionSettings);
         var report = new AnalysisReport();
-        report.SetResultIds(new[] { tandem.Result.UniqueID });
+        report.SetResultIds(new[] { result.UniqueID });
         report.SetSupportingExperimentIds(new[] { source.UniqueID });
-        var document = AnalysisReportBuilder.Build(report, _ => tandem.Result,
+        var document = AnalysisReportBuilder.Build(report, _ => result,
             id => id == source.UniqueID ? source : null);
         Assert.True(document.IsValid);
+        var sources = document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableBlock>()
+            .Single(table => table.Title == "Experiment sources");
+        Assert.Equal("Buffer reference for 1B; Tandem source for 1A",
+            sources.Rows.Single(row => row.Cells[1] == source.Name).Cells[7]);
+        Assert.Contains(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .SelectMany(block => block.Items), item => item.Label == "Tandem sources"
+                && item.Value == "1 of 2 recorded source experiments is not in this project.");
         var renderer = new SkiaAnalysisReportRenderer();
         var plan = renderer.CreatePlan(document);
         Assert.NotEmpty(plan.Pages);
@@ -1029,12 +1048,11 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             injection.SetPeakArea(new FloatWithError(-2e-6 + index * 1e-7, 1e-8));
             data.Injections.Add(injection);
         }
-        var model = new OneSetOfSites(data);
-        model.InitializeParameters(data);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -25_000);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+        return (data, CreateResult(name, data));
+    }
+
+    static AnalysisResult CreateResult(string name, params ExperimentData[] experiments)
+    {
         var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
         {
             Algorithm = SolverAlgorithm.LevenbergMarquardt,
@@ -1042,19 +1060,27 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             Loss = 1,
             Iterations = 1,
         });
-        model.Solution = SolutionInterface.FromModel(model, convergence);
-        data.UpdateSolution(model);
-
-        var globalModel = new GlobalModel(new List<Model> { model })
+        var models = experiments.Select(data =>
+        {
+            var model = new OneSetOfSites(data);
+            model.InitializeParameters(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -25_000);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+            model.Solution = SolutionInterface.FromModel(model, convergence);
+            data.UpdateSolution(model);
+            return (Model)model;
+        }).ToList();
+        var globalModel = new GlobalModel(models)
         {
             Parameters = new GlobalModelParameters(),
             ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None },
         };
-        globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+        foreach (var model in models) globalModel.Parameters.AddIndivdualParameter(model.Parameters);
         var globalSolution = new GlobalSolution(new GlobalSolver { Model = globalModel },
-            new List<SolutionInterface> { model.Solution }, convergence, reconstructBootstrap: false);
+            models.Select(model => model.Solution).ToList(), convergence, reconstructBootstrap: false);
         globalModel.Solution = globalSolution;
-        var result = new AnalysisResult(globalSolution) { Name = name, Date = new DateTime(2026, 8, 30) };
-        return (data, result);
+        return new AnalysisResult(globalSolution) { Name = name, Date = new DateTime(2026, 8, 30) };
     }
 }

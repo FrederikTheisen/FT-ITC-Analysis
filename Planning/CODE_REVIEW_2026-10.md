@@ -1063,15 +1063,17 @@ This is a staging review for maintainer triage, not an approved implementation b
 
 ## CR-077 — Same-name experiments lose fixed-parameter entries from reports
 
+- Status: Resolved (2026-10-19).
 - Priority: Low
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs:1516`; `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs:1539`
 - Related: ITC-048, ITC-051
-- Problem: The A11 fixed-parameter block deduplicates local parameters by display label, using experiment names instead of identities.
-- Failure scenario: Two distinct members share a name and each has N fixed, possibly at different values. The second parameter-plus-name label matches the first and is discarded.
-- Consequence: The fixed-parameter inventory is incomplete and can hide a different fixed value. Member tables and stored data retain the evidence.
-- Suggested direction: Identify local rows by experiment identity and parameter, and distinguish equal names through report references; deduplicate only genuinely shared parameters.
+- Scope correction: The original different-local-fixed-values scenario is not exposed by multi-experiment setup: a parameter must be shared before it can be fixed. Single-experiment setup does expose local locks.
+- Problem: A11 scanned member projections of shared fixed parameters and deduplicated them by display label before also listing the shared coordinates. This made a redundant inventory depend on experiment names.
+- Resolution: Multi-experiment A11 now lists each locked shared coordinate once as `Shared <Parameter>`, directly from the shared parameter table. Single-experiment fixed rows remain. Removed display-label deduplication and the helper's unused single-solution argument; formatting, units, uncertainty omission, report-purpose policy and persistence are unchanged. Updated A11 in the report map; no new member-identity or fallback handling was added.
+- Initial validation: Four regression cases failed before the fix on redundant member rows. All six new Standard/Diagnostic cases and the retained single-experiment fixed-value test pass, covering same-name members, renaming, shared coordinates, affinity/unit formatting, uncertainty omission, unlocked coordinates and absent A11. Full Release Core suite: 4,331 passed, one existing opt-in external-reference skip. Release Avalonia report checks: 77 passed. Native figure-pair checks and all nine existing renderer checks pass. The full native report-reference harness stops in its unrelated picker fixture because it configures buffer subtraction on a tandem experiment, now forbidden by the working-tree policy; the nine renderer checks were invoked separately through a temporary runner. `git diff --check` passes. Evidence: `/private/tmp/cr077-before-tests.log`, `/private/tmp/cr077-core-full.log`, `/private/tmp/cr077-core-results/cr077-core.trx`, `/private/tmp/cr077-avalonia-report-tests.log`, `/private/tmp/cr077-macos-report-tests.log`, `/private/tmp/cr077-macos-figure-tests.log` and `/private/tmp/cr077-native-renderer-checks.log`. No packaging, release or interactive desktop verification was performed.
+- Fixture follow-up (2026-10-19): Replaced the unsupported tandem correction setup with a real two-segment tandem plus a separate corrected ordinary member in the same result. The source retains both buffer-reference and tandem-source roles. The Avalonia picker and PDF fixtures now use actual concatenation and assert tandem identity, two segments, no tandem correction, combined appendix roles and missing-source metadata. The complete native report-reference and tandem-restriction harnesses pass; all 83 Avalonia report/restriction cases and 75 Core restriction/provenance cases pass. Production restrictions remain unchanged. Evidence: `/private/tmp/picker-fixture-native-tests.log`, `/private/tmp/picker-fixture-avalonia-tests.log` and `/private/tmp/picker-fixture-core-tests.log`.
 
 ## CR-078 — A native preference describes project reprocessing instead of import recalculation
 

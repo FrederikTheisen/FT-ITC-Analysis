@@ -560,9 +560,12 @@ static class AnalysisReportReferencesTests
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         var first = Source("first"); var second = Source("second");
         var tandem = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
-        tandem.SetBufferSubtraction(first, BufferSubtractionMethod.MatchedInjection, notify: false);
-        var result = Result(tandem);
-        DataManager.AddData(new ITCDataContainer[] { second, first, tandem, result });
+        var corrected = Source("corrected");
+        corrected.SetBufferSubtraction(first, BufferSubtractionMethod.MatchedInjection, notify: false);
+        var result = Result(tandem, corrected);
+        Check(tandem.IsTandemExperiment && tandem.Segments.Count == 2 && tandem.BufferSubtractionSettings == null,
+            "Native picker fixture must use an uncorrected real tandem");
+        DataManager.AddData(new ITCDataContainer[] { second, first, tandem, corrected, result });
         using (var controller = (NSViewController)Activator.CreateInstance(ReportControllerType, new object[] { result }))
         using (var window = new NSWindow(new CGRect(0, 0, 1120, 720), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
         {
@@ -603,6 +606,10 @@ static class AnalysisReportReferencesTests
             pdfReport.SetSupportingExperimentIds(new[] { first.UniqueID });
             var pdfDocument = AnalysisReportBuilder.Build(pdfReport, _ => result, id => id == "first" ? first : null);
             Check(pdfDocument.IsValid, "Missing recorded source prevented native report generation");
+            var sources = pdfDocument.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableBlock>()
+                .Single(table => table.Title == "Experiment sources");
+            Check(sources.Rows.Single(row => row.Cells[1] == first.Name).Cells[7]
+                == "Buffer reference for 1B; Tandem source for 1A", "Native appendix lost the combined source role");
             var renderer = Field(controller, "renderer");
             var rendererType = renderer.GetType();
             var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { pdfDocument });
@@ -684,21 +691,25 @@ static class AnalysisReportReferencesTests
         return data;
     }
 
-    static AnalysisResult Result(ExperimentData data)
+    static AnalysisResult Result(params ExperimentData[] experiments)
     {
-        var model = new OneSetOfSites(data);
-        model.InitializeParameters(data);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -25_000);
-        model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
         var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
             { Algorithm = SolverAlgorithm.LevenbergMarquardt, Termination = SolverTermination.Converged, Loss = 1 });
-        model.Solution = SolutionInterface.FromModel(model, convergence);
-        var globalModel = new GlobalModel(new List<Model> { model })
+        var models = experiments.Select(data =>
+        {
+            var model = new OneSetOfSites(data);
+            model.InitializeParameters(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -25_000);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+            model.Solution = SolutionInterface.FromModel(model, convergence);
+            return (Model)model;
+        }).ToList();
+        var globalModel = new GlobalModel(models)
             { Parameters = new GlobalModelParameters(), ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None } };
-        globalModel.Parameters.AddIndivdualParameter(model.Parameters);
-        var global = new GlobalSolution(new GlobalSolver { Model = globalModel }, new List<SolutionInterface> { model.Solution }, convergence,
+        foreach (var model in models) globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+        var global = new GlobalSolution(new GlobalSolver { Model = globalModel }, models.Select(model => model.Solution).ToList(), convergence,
             reconstructBootstrap: false);
         globalModel.Solution = global;
         return new AnalysisResult(global);

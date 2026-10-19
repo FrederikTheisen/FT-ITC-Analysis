@@ -1055,7 +1055,7 @@ namespace AnalysisITC.Core.Presentation
 
             section.Add(new AnalysisReportKeyValueBlock("Model and fit details",
                 BuildModelItems(result, options).Concat(BuildFitDiagnosticItems(result))));
-            var fixedItems = BuildFixedParameterItems(result, null, overview, options);
+            var fixedItems = BuildFixedParameterItems(result, overview, options);
             if (fixedItems.Count > 0)
                 section.Add(new AnalysisReportKeyValueBlock("Fixed parameters", fixedItems));
             if (options.ExpandedExplanations && result.Solution.UseWeightedFitting)
@@ -1514,15 +1514,15 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static List<AnalysisReportKeyValueItem> BuildFixedParameterItems(
-            AnalysisResult result, SolutionInterface onlySolution,
+            AnalysisResult result,
             AnalysisResultOverviewTable overview, AnalysisReportOptions options)
         {
-            var solutions = onlySolution == null
-                ? result?.Solution?.Solutions ?? new List<SolutionInterface>()
-                : new List<SolutionInterface> { onlySolution };
+            var solutions = result?.Solution?.Solutions;
             var items = new List<AnalysisReportKeyValueItem>();
-            foreach (var solution in solutions)
+            // Multi-experiment fits expose locks only for shared coordinates.
+            if (solutions?.Count == 1)
             {
+                var solution = solutions[0];
                 var parameterKeys = (solution?.ReportParameters?.Keys ?? Enumerable.Empty<ParameterType>())
                     .Concat(solution?.Parameters?.Keys ?? Enumerable.Empty<ParameterType>())
                     .Distinct();
@@ -1538,8 +1538,7 @@ namespace AnalysisITC.Core.Presentation
                     var formatted = FormatParameter(parameter, value, overview, fixedOptions, noUncertainty: true);
                     var suffix = solution.Data?.Name;
                     var label = ParameterLabel(parameter) + (string.IsNullOrWhiteSpace(suffix) ? "" : " — " + suffix);
-                    if (!items.Any(item => item.Label == label))
-                        items.Add(Item(label, formatted.value + (string.IsNullOrWhiteSpace(formatted.unit) ? "" : " " + formatted.unit)));
+                    items.Add(Item(label, formatted.value + (string.IsNullOrWhiteSpace(formatted.unit) ? "" : " " + formatted.unit)));
                 }
             }
             foreach (var entry in result?.Model?.Parameters?.GlobalTable ?? new Dictionary<ParameterType, Parameter>())
@@ -1553,8 +1552,7 @@ namespace AnalysisITC.Core.Presentation
                 fixedOptions.UncertaintyDisplayStyle = UncertaintyDisplayStyle.None;
                 var formatted = FormatParameter(parameter, value, overview, fixedOptions, noUncertainty: true);
                 var label = "Shared " + ParameterLabel(parameter);
-                if (!items.Any(item => item.Label == label))
-                    items.Add(Item(label, formatted.value + (string.IsNullOrWhiteSpace(formatted.unit) ? "" : " " + formatted.unit)));
+                items.Add(Item(label, formatted.value + (string.IsNullOrWhiteSpace(formatted.unit) ? "" : " " + formatted.unit)));
             }
             return items;
         }
