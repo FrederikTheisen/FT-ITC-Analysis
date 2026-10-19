@@ -698,6 +698,8 @@ namespace AnalysisITC
                     if (concentrationsChanged || attributesChanged || Changed(TemperatureField)) Data.UpdateProcessing();
                     else Data.MarkModified();
                 }
+                var lastBuffer = stagedAttributes.Attributes.LastOrDefault(attribute => attribute.Key == AttributeKey.Buffer);
+                if (lastBuffer != null) ExperimentAttributeView.LastValue_PH = lastBuffer.DoubleValue;
                 DismissViewController(this);
                 UpdateTable?.Invoke(this, null);
             }

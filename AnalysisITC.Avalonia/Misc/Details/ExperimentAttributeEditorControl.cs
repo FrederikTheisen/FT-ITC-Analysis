@@ -27,6 +27,9 @@ namespace AnalysisITC.Avalonia.Details
         readonly ExperimentAttribute attribute;
         readonly Func<ExperimentAttribute, AttributeKey, bool> canUseKey;
         readonly ExperimentData? experiment;
+        readonly Dictionary<TextBox, string?> originalNumericText = new();
+        FloatWithError originalParameterValue;
+        double originalDoubleValue;
         readonly ComboBox keyCombo = new ComboBox
         {
             Width = 210,
@@ -145,7 +148,7 @@ namespace AnalysisITC.Avalonia.Details
             keyCombo.SelectionChanged += (_, _) =>
             {
                 if (keyCombo.SelectedItem is not Choice<AttributeKey> choice) return;
-                attribute.UpdateOptionKey(choice.Value);
+                attribute.UpdateOptionKey(choice.Value, dd: 7.4);
                 UpdateKeyToolTip();
                 BuildEditor();
                 KeyChanged?.Invoke(this, EventArgs.Empty);
@@ -201,6 +204,9 @@ namespace AnalysisITC.Avalonia.Details
 
         void BuildEditor()
         {
+            originalNumericText.Clear();
+            originalParameterValue = attribute.ParameterValue;
+            originalDoubleValue = attribute.DoubleValue;
             editorPanel.Children.Clear();
             trailingPanel.Children.Clear();
             enumCombo = null;
@@ -242,6 +248,9 @@ namespace AnalysisITC.Avalonia.Details
                     AddGenericEditor();
                     break;
             }
+
+            foreach (var box in new[] { valueBox, errorBox, doubleBox })
+                if (box != null) originalNumericText.Add(box, box.Text);
         }
 
         void AddPreboundLigandConcentrationEditor()
@@ -269,7 +278,7 @@ namespace AnalysisITC.Avalonia.Details
             editorPanel.Children.Add(enumCombo);
 
             trailingPanel.Children.Add(Label("pH"));
-            doubleBox = Box(attribute.DoubleValue > 0 ? attribute.DoubleValue.ToString("G4", CultureInfo.CurrentCulture) : "7.4", 48);
+            doubleBox = Box(attribute.DoubleValue.ToString("G4", CultureInfo.CurrentCulture), 48);
             trailingPanel.Children.Add(doubleBox);
             AddValueWithUnit("mM", attribute.ParameterValue.Value * 1000, attribute.ParameterValue.SD * 1000, includeError: false);
         }
@@ -426,17 +435,19 @@ namespace AnalysisITC.Avalonia.Details
                 return false;
             }
 
-            if (!TryReadDouble(doubleBox, "pH", out var pH, out error)) return false;
-            if (!TryReadDouble(valueBox, "buffer concentration", out var concentration, out error)) return false;
-            if (pH < 0 || pH > 14)
+            var pH = originalDoubleValue;
+            if (string.IsNullOrWhiteSpace(doubleBox?.Text)
+                || (Changed(doubleBox) && !TryReadDouble(doubleBox, "pH", out pH, out error))
+                || !ExperimentAttributeInputPolicy.IsValidBufferPh(pH))
             {
-                error = "pH must be between 0 and 14.";
+                error = ExperimentAttributeInputPolicy.BufferPhValidationMessage;
                 return false;
             }
+            if (!TryReadParameter("buffer concentration", "SD", 1000, out var concentration, out error)) return false;
 
             attribute.IntValue = (int)bufferChoice.Value;
             attribute.DoubleValue = pH;
-            attribute.ParameterValue = new FloatWithError(concentration / 1000);
+            attribute.ParameterValue = concentration;
             return true;
         }
 
@@ -554,6 +565,30 @@ namespace AnalysisITC.Avalonia.Details
                     attribute.ParameterValue = new FloatWithError(value, sd);
                     return true;
             }
+        }
+
+        bool Changed(TextBox? box) => box != null && box.Text != originalNumericText[box];
+
+        bool TryReadParameter(string valueLabel, string errorLabel, double scale, out FloatWithError parameter, out string error)
+        {
+            parameter = originalParameterValue;
+            error = "";
+            if (!Changed(valueBox) && !Changed(errorBox)) return true;
+
+            var value = originalParameterValue.Value;
+            var sd = originalParameterValue.SD;
+            if (Changed(valueBox))
+            {
+                if (!TryReadDouble(valueBox, valueLabel, out var entered, out error)) return false;
+                value = entered / scale;
+            }
+            if (Changed(errorBox))
+            {
+                if (!TryReadDouble(errorBox, errorLabel, out var entered, out error)) return false;
+                sd = entered / scale;
+            }
+            parameter = new FloatWithError(value, sd);
+            return true;
         }
 
         static bool TryReadDouble(TextBox? box, string label, out double value, out string error)

@@ -825,6 +825,10 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Consequence: The typo becomes experiment metadata and the remembered pH default, and enters buffer-inclusive ionic-strength calculations. The concern is inconsistent application validation, not a universal physical 0–14 bound.
 - Suggested direction: Validate before staging attributes using an explicit shared input policy across both desktops.
 
+- Resolution: **2026-10-19; FIXED**. The confirmed application entry policy is finite pH from 0 through 14, inclusive; blank input is rejected. Shared Core `ExperimentAttributeInputPolicy` supplies the rule and message to both Details editors and native field coloring. Native Buffer Apply validates pH and concentration before assigning draft values, preserves unchanged full-precision inputs, and remembers pH only after successful application (including the complete form when staging). Avalonia rejects nonfinite input and preserves saved zero; new buffer rows receive 7.4 when their key is selected. Scientific calculations, loading, concentration uncertainty, and detached staging retain their existing behavior.
+- Validation: native managed compilation and both focused Details harnesses pass (52 value/pH cases and 18 draft cases). The focused Avalonia Details, identifiers, precision and draft tests pass 77/77. Cases exercise 74, out-of-range values, nonnumeric/nonfinite text, blank/whitespace, invalid-field coloring, correction/retry, 0/14 Apply/reopen, new-buffer defaults, native direct application, and remembered pH after an earlier valid buffer or later form rejection. Rejected input preserves live attributes, pending text, comments, processing revision and measured heats. Full Core suite: 4,340 passed, one skipped, zero failures, including all nine new policy cases. Both desktop app/test builds pass; no interactive desktop verification was performed.
+- Documentation: one entry-range sentence added to the existing Details manual and in-app help.
+
 ## CR-058 — Opening a project silently appends to native report-only documents
 
 - Priority: Medium

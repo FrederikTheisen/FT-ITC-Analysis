@@ -34,6 +34,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         NSView trailingSpacer;
         NSTextField unitLabel, phLabel;
         NSTextField parameterValueField, parameterErrorField, competitorStatusField;
+        readonly Dictionary<NSTextField, string> originalNumericText = new();
+        FloatWithError originalParameterValue;
+        double originalDoubleValue;
 
         public override nfloat Spacing { get => spacious ? 4 : 1; set => base.Spacing = value; }
 
@@ -153,6 +156,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
 		void SetupOption()
 		{
+            originalNumericText.Clear();
+            originalParameterValue = Option.ParameterValue;
+            originalDoubleValue = Option.DoubleValue;
+            parameterValueField = parameterErrorField = DoubleField = null;
 			if (Option.Key == AttributeKey.Null) return;
 			KeySelectionControl.SynchronizeTitleAndSelectedItem();
 			KeySelectionControl.Title = KeySelectionControl.TitleOfSelectedItem;
@@ -188,6 +195,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     SetupSpecies();
                     break;
             }
+            foreach (var field in new[] { parameterValueField, parameterErrorField, DoubleField })
+                if (field != null) originalNumericText.Add(field, field.StringValue);
         }
 
         NSFont AttributeFont => NSFont.SystemFontOfSize(spacious ? 13 : NSFont.SmallSystemFontSize);
@@ -701,6 +710,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (field == null)
                 return;
 
+            if (Option.Key == AttributeKey.Buffer && field == DoubleField)
+            {
+                field.TextColor = TryReadNumeric(field, out var pH)
+                    && ExperimentAttributeInputPolicy.IsValidBufferPh(pH) ? DefaultFieldColor : NSColor.SystemRed;
+                return;
+            }
+
             field.TextColor = NSColor.SystemRed;
 
             string input = field.StringValue;
@@ -708,7 +724,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             else if (double.TryParse(input, out double value))
             {
                 if (value < 0) return;
-                if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
                 field.TextColor = DefaultFieldColor;
             }
         }
@@ -754,20 +769,19 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     }
                 case AttributeKey.Buffer:
                     {
-                        Option.IntValue = (int)EnumPopUpControl.SelectedTag;
-                        if (Option.IntValue == -1) return;
-                        if (!string.IsNullOrEmpty(DoubleField.StringValue))
-                        {
-                            Option.DoubleValue = DoubleField.DoubleValue;
-                            LastValue_PH = DoubleField.DoubleValue;
-                        }
+                        var buffer = (int)EnumPopUpControl.SelectedTag;
+                        if (buffer == -1) return;
+                        var pH = originalDoubleValue;
+                        if (string.IsNullOrWhiteSpace(DoubleField.StringValue)
+                            || (Changed(DoubleField) && !TryReadNumeric(DoubleField, out pH))
+                            || !ExperimentAttributeInputPolicy.IsValidBufferPh(pH))
+                            throw new InvalidOperationException(ExperimentAttributeInputPolicy.BufferPhValidationMessage);
+                        var concentration = ReadParameter(1000, "Buffer concentration must be finite and non-negative.");
 
-
-                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
-                            throw new InvalidOperationException("Buffer concentration must be finite and non-negative.");
-
-                        Option.ParameterValue = new(val / 1000);
-                        LastValue_HighConcentration = val / 1000;
+                        Option.IntValue = buffer;
+                        Option.DoubleValue = pH;
+                        Option.ParameterValue = concentration;
+                        LastValue_HighConcentration = Option.ParameterValue.Value;
 
                         break;
                     }
@@ -817,7 +831,34 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
 
             if (stageOnly) experiment.Attributes.Add(Option.Copy());
-            else experiment.AddOrUpdateAttribute(Option);
+            else
+            {
+                experiment.AddOrUpdateAttribute(Option);
+                if (Option.Key == AttributeKey.Buffer) LastValue_PH = Option.DoubleValue;
+            }
+        }
+
+        bool Changed(NSTextField field) => field != null && field.StringValue != originalNumericText[field];
+
+        FloatWithError ReadParameter(double scale, string error)
+        {
+            if (!Changed(parameterValueField) && !Changed(parameterErrorField)) return originalParameterValue;
+
+            var value = originalParameterValue.Value;
+            var sd = originalParameterValue.SD;
+            if (Changed(parameterValueField))
+            {
+                if (!TryReadNumeric(parameterValueField, out var entered) || entered < 0)
+                    throw new InvalidOperationException(error);
+                value = entered / scale;
+            }
+            if (Changed(parameterErrorField))
+            {
+                if (!TryReadNumeric(parameterErrorField, out var entered) || entered < 0)
+                    throw new InvalidOperationException(error);
+                sd = entered / scale;
+            }
+            return new FloatWithError(value, sd);
         }
 
         static bool TryReadNumeric(NSTextField field, out double value)
