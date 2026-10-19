@@ -199,17 +199,12 @@ namespace AnalysisITC
                     }
                 case ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease:
                     {
-                        var dps = dataPoints.GroupBy(dp => dp.Item1).ToList();
-
-                        var x = dps.Select(g => new FloatWithError(g.Select(v => v.Item1).ToList()));
-                        var y = dps.Select(g => new FloatWithError(g.Select(v => v.Item2).ToList()));
-
                         Graph = new ParameterDependenceGraph(this)
                         {
                             XLabel = "ln(*a*{salt})",
                             YLabel = $"ln({MarkdownStrings.DissociationConstant})",
-                            XValues = x.ToArray(),
-                            YValues = y.ToArray(),
+                            XValues = dataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                            YValues = dataPoints.Select(dp => dp.Item2).ToArray(),
                             XScaleFactor = 1,
                             YScaleFactor = 1,
                             Fit = analysis.HasCounterIonResult ? analysis.CounterIonReleaseFit : null,
@@ -221,19 +216,12 @@ namespace AnalysisITC
                 default:
                 case ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel:
                     {
-                        var dps = dataPoints.GroupBy(dp => dp.Item1).ToList();
-
-                        var x = dps.Select(g => new FloatWithError(Math.Sqrt(g.Select(v => v.Item1).Average())));
-                        var y = dps.Select(g => FWEMath.Log10(new FloatWithError(g.Select(v => v.Item2).ToList())));
-
-                        var yvalues = dataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray();
-
                         Graph = new ParameterDependenceGraph(this)
                         {
                             XLabel = "√(*Ionic Strength* / M)",
                             YLabel = $"Log({MarkdownStrings.DissociationConstant})",
-                            XValues = x.ToArray(),
-                            YValues = y.ToArray(),
+                            XValues = dataPoints.Select(dp => new FloatWithError(Math.Sqrt(dp.Item1))).ToArray(),
+                            YValues = dataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray(),
                             XScaleFactor = ConcentrationUnit.mM.GetMod(),
                             YScaleFactor = 1,
                             Fit = analysis.HasIonicStrengthResult ? analysis.IonicStrengthDependenceFit : null,
@@ -245,10 +233,6 @@ namespace AnalysisITC
                         Graph.XAxis.HideUnwantedTicks = true;
                         Graph.XAxis.ValueFactor = 1; //should not be necessary
 
-                        //var logrange = Math.Log(yvalues.Max()) - Math.Log(yvalues.Min());
-                        //var logmin = yvalues.Min()) - 1;// - logrange * 2f;
-                        //var logmax = Math.Log(yvalues.Max()) + 1;// + logrange * 0.5f;
-                        //Graph.YAxis.Set(Math.Exp(logmin), Math.Exp(logmax)); // We want a larger Y range
                         break;
                     }
             }
