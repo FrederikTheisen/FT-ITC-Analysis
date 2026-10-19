@@ -10,6 +10,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Tools;
+using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -131,10 +132,9 @@ public sealed class ExperimentDesignerRetentionTests
             SelectModel(window, AnalysisModel.SequentialBindingSites);
             window.ApplyUserParameter(ParameterType.Affinity1, 6.5);
             Assert.Equal(5, window.ParameterPanelForTesting.Children.Count);
-            var siteCount = window.OptionPanelForTesting.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "2");
+            var siteCount = SiteCountSelector(window);
 
-            siteCount.Text = "3";
-            siteCount.RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
+            siteCount.SelectedIndex = 1;
 
             Assert.Equal(7, window.ParameterPanelForTesting.Children.Count);
             Assert.Equal(-30000, Value(window.GenerationFactoryForTesting!, ParameterType.Enthalpy3));
@@ -148,6 +148,47 @@ public sealed class ExperimentDesignerRetentionTests
         });
     }
 
+    static ComboBox SiteCountSelector(ExperimentDesignerWindow window) =>
+        window.OptionPanelForTesting.GetLogicalDescendants().OfType<ComboBox>().Single();
+
+    [AvaloniaFact]
+    public void SequentialSelectorRebuildsSimulationAndFitAndRetainsDrafts()
+    {
+        WithWindow(window =>
+        {
+            SelectModel(window, AnalysisModel.SequentialBindingSites);
+            var selector = SiteCountSelector(window);
+            Assert.Equal(new[] { 2, 3, 4 }, selector.Items.Cast<ComboBoxItem>().Select(item => (int)item.Tag!));
+            Assert.Equal(AttributeKey.SequentialSiteCount.GetProperties().ToolTip, ToolTip.GetTip(selector));
+            window.ApplyUserParameter(ParameterType.Affinity1, 6.5);
+            foreach (var count in new[] { 2, 3, 4, 2 })
+            {
+                selector.SelectedIndex = count - 2;
+                var factory = window.GenerationFactoryForTesting!;
+                Assert.Equal(count, factory.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+                Assert.Equal(2 * count + 1, window.ParameterPanelForTesting.Children.Count);
+                Assert.Equal(6.5, Value(factory, ParameterType.Affinity1));
+                var fit = window.CreateFitFactory();
+                Assert.Equal(count, fit.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+                Assert.Equal(factory.GetExposedParameters().Select(p => p.Key), fit.GetExposedParameters().Select(p => p.Key));
+                Assert.All(Peaks(factory), peak => Assert.True(double.IsFinite(peak)));
+                if (count == 4) window.ApplyUserParameter(ParameterType.Enthalpy4, -42000);
+            }
+            selector.SelectedIndex = 2;
+            Assert.Equal(-42000, Value(window.GenerationFactoryForTesting!, ParameterType.Enthalpy4));
+            SelectModel(window, AnalysisModel.OneSetOfSites);
+            SelectModel(window, AnalysisModel.SequentialBindingSites);
+            Assert.Equal(2, SiteCountSelector(window).SelectedIndex);
+            Assert.Equal(-42000, Value(window.GenerationFactoryForTesting!, ParameterType.Enthalpy4));
+            var solver = new Solver();
+            window.BeginFit(solver);
+            Assert.False(SiteCountSelector(window).IsEffectivelyEnabled);
+            solver.ReportAnalysisFinished(SolverConvergence.ReportStopped(DateTime.Now));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(SiteCountSelector(window).IsEffectivelyEnabled);
+        });
+    }
+
     [AvaloniaFact]
     public void OptionChangesDoNotCarryIntoOtherWindows()
     {
@@ -158,9 +199,8 @@ public sealed class ExperimentDesignerRetentionTests
             WithWindow(window =>
             {
                 SelectModel(window, AnalysisModel.SequentialBindingSites);
-                var siteCount = window.OptionPanelForTesting.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "2");
-                siteCount.Text = "3";
-                siteCount.RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
+                var siteCount = SiteCountSelector(window);
+                siteCount.SelectedIndex = 1;
                 Assert.Equal(7, window.ParameterPanelForTesting.Children.Count);
 
                 var fitFactory = window.CreateFitFactory();

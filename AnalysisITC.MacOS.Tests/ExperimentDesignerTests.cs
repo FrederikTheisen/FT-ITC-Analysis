@@ -10,6 +10,7 @@ using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
+using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -43,6 +44,8 @@ static class ExperimentDesignerTests
             ArchivedVolumeControlsMatchSchedule(args[1]);
             SetupAndModelChangesKeepEnteredValues(autoRun: true);
             SetupAndModelChangesKeepEnteredValues(autoRun: false);
+            SequentialSelectorRetainsInputs(true);
+            SequentialSelectorRetainsInputs(false);
             FitLocksControlsAndRestoresTheirStates();
             BusyOperationBlocksDesignerFit();
             Console.WriteLine("PASS: native designer volumes match the schedule, retain entered values and restore control states after fitting");
@@ -172,6 +175,65 @@ static class ExperimentDesignerTests
 
     static void Dispatch(NSControl control) =>
         Check(NSApplication.SharedApplication.SendAction(control.Action, control.Target, control), "archived control action dispatches");
+
+    static NSPopUpButton SiteCountSelector(ExperimentDesignerViewController2 controller)
+    {
+        var options = (List<OptionAdjustmentView>)controller.GetType().GetField("OptionControls", Instance).GetValue(controller);
+        var row = options.Single(option => option.Key == AttributeKey.SequentialSiteCount);
+        return (NSPopUpButton)row.GetType().GetField("SequentialSiteCountPopup", Instance).GetValue(row);
+    }
+
+    static void SequentialSelectorRetainsInputs(bool autoRun)
+    {
+        var previousAuto = ExperimentDesignerViewController2.AutoRunExperimentSimulation;
+        ExperimentDesignerViewController2.AutoRunExperimentSimulation = autoRun;
+        try
+        {
+            using (var controller = CreateController())
+            {
+                SelectModel(controller, AnalysisModel.SequentialBindingSites);
+                var selector = SiteCountSelector(controller);
+                Check(selector.ItemCount == 3 && selector.SelectedItem.Tag == 2, "sequential selector defaults to two of three choices");
+                Check(selector.ToolTip == AttributeKey.SequentialSiteCount.GetProperties().ToolTip, "shared sequential tooltip");
+                var affinity = Enter(controller, ParameterType.Affinity1, "6.5");
+                double fourthEnthalpy = 0;
+                foreach (var count in new[] { 2, 3, 4, 2 })
+                {
+                    selector.SelectItemWithTag(count);
+                    Dispatch(selector);
+                    Check(Factory(controller).Model.ModelOptions[AttributeKey.SequentialSiteCount].IntValue == count, "selection applied to model");
+                    Check(ParameterControls(controller).Count == 2 * count + 1, "sequential parameter rows rebuilt");
+                    if (!autoRun) Invoke(controller, "UpdateSyntheticData");
+                    Check(Value(Factory(controller), ParameterType.Affinity1) == affinity, "existing affinity retained");
+                    Check(Factory(controller).Model.Data.Injections.All(injection => !double.IsNaN(injection.PeakArea.Value) && !double.IsInfinity(injection.PeakArea.Value)), "sequential simulation is finite");
+                    var solver = Solver.Initialize(Factory(controller));
+                    Check(((Solver)solver).Model.ModelOptions[AttributeKey.SequentialSiteCount].IntValue == count, "fit receives selected count");
+                    if (count == 4) fourthEnthalpy = Enter(controller, ParameterType.Enthalpy4, "-42");
+                }
+                selector.SelectItemWithTag(4);
+                Dispatch(selector);
+                if (!autoRun) Invoke(controller, "UpdateSyntheticData");
+                Check(Value(Factory(controller), ParameterType.Enthalpy4) == fourthEnthalpy, "hidden step draft restored");
+                SetInjectionCount(controller, 21);
+                SelectModel(controller, AnalysisModel.OneSetOfSites);
+                SelectModel(controller, AnalysisModel.SequentialBindingSites);
+                selector = SiteCountSelector(controller);
+                Check(selector.SelectedItem.Tag == 4, "count survives setup and model changes");
+                Check(Value(Factory(controller), ParameterType.Enthalpy4) == fourthEnthalpy, "step draft survives setup and model changes");
+                var fitting = new Solver();
+                Invoke(controller, "BeginFit", fitting);
+                Check(!selector.Enabled, "site count disabled during fit");
+                fitting.ReportAnalysisFinished(SolverConvergence.ReportStopped(DateTime.Now));
+                Check(selector.Enabled, "site count enabled after fit");
+            }
+            using (var fresh = CreateController())
+            {
+                SelectModel(fresh, AnalysisModel.SequentialBindingSites);
+                Check(SiteCountSelector(fresh).SelectedItem.Tag == 2, "site count isolated between windows");
+            }
+        }
+        finally { ExperimentDesignerViewController2.AutoRunExperimentSimulation = previousAuto; }
+    }
 
     static void BusyOperationBlocksDesignerFit()
     {

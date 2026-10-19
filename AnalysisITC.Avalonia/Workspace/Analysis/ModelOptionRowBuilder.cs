@@ -25,6 +25,12 @@ namespace AnalysisITC.Avalonia.Analysis
         const double NumericWidth = 132;
         const double ErrorNumericWidth = 82;
 
+        public static Control BuildDesignerSequentialSiteCountEditor(
+            ExperimentAttribute option,
+            Action<AttributeKey, ExperimentAttribute> apply,
+            Action<string> setStatus) =>
+            SequentialSiteCountEditor(option.Key, option, true, apply, setStatus);
+
         public static Control Build(
             AttributeKey key,
             ExperimentAttribute option,
@@ -220,6 +226,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var combo = WorkspaceControlBuilder.Combo(
                 WorkspaceControlBuilder.InspectorFieldWidth);
+            ToolTip.SetTip(combo, key.GetProperties().ToolTip);
             var siteCounts = option.EnumOptions.ToList();
             foreach (var siteCount in siteCounts)
             {

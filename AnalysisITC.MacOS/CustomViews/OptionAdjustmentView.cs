@@ -36,6 +36,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         private NSTextField InputField;
         private ValueWithErrorTextField InputValueWithErrorField;
         private NSSlider Slider;
+        private NSPopUpButton SequentialSiteCountPopup;
         private bool IsSyncingControls;
         private NSStackView HeaderRow;
         private NSStackView EditorRow;
@@ -123,6 +124,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             switch (Option.Key)
             {
+                case AttributeKey.SequentialSiteCount:
+                    SetupLabel();
+                    SetupSequentialSiteCountOption();
+                    break;
                 case AttributeKey.NumberOfSites2:
                 case AttributeKey.NumberOfSites1:
                     SetupLabel();
@@ -368,6 +373,29 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             Slider.Activated += Slider_Activated;
 
             AddEditorSubview(Slider);
+        }
+
+        void SetupSequentialSiteCountOption()
+        {
+            SequentialSiteCountPopup = new NSPopUpButton(CGRect.Empty, pullsDown: false)
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                Font = NSFont.SystemFontOfSize(Mode == AdjustmentViewMode.Analysis ? NSFont.SystemFontSize : NSFont.SmallSystemFontSize),
+                BezelStyle = NSBezelStyle.Recessed,
+                ControlSize = Mode == AdjustmentViewMode.Analysis ? NSControlSize.Regular : NSControlSize.Small,
+                ToolTip = Option.Key.GetProperties().ToolTip,
+            };
+            foreach (var choice in Option.EnumOptions)
+            {
+                SequentialSiteCountPopup.AddItem(choice.Item2);
+                var item = SequentialSiteCountPopup.LastItem;
+                item.Tag = choice.Item1;
+                item.ToolTip = choice.Item3;
+            }
+            SequentialSiteCountPopup.SelectItemWithTag(Option.IntValue);
+            SequentialSiteCountPopup.Activated += InputChanged;
+            SequentialSiteCountPopup.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            AddEditorSubview(SequentialSiteCountPopup);
         }
 
         void SetupStoichiometryOption()
@@ -666,6 +694,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public void ApplyOptions()
         {
+            if (SequentialSiteCountPopup != null)
+                Option.IntValue = (int)SequentialSiteCountPopup.SelectedItem.Tag;
+
             if (InputButton != null)
             {
                 Option.BoolValue = InputButton.State == NSCellStateValue.On;

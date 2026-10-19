@@ -356,6 +356,8 @@ namespace AnalysisITC.Avalonia.Tools
 
             Control editor = key switch
             {
+                AttributeKey.SequentialSiteCount =>
+                    ModelOptionRowBuilder.BuildDesignerSequentialSiteCountEditor(option, (_, copy) => ApplyUserOption(copy), SetStatus),
                 AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 => StoichiometryOptionEditor(option),
                 _ => optionType switch
                 {

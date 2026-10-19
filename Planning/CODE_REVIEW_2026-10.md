@@ -795,6 +795,10 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Consequence: Users cannot design the supported three- or four-step experiments there. Native analysis has a separate working editor, and Avalonia Designer supports these choices.
 - Suggested direction: Provide a bounded site-count editor through the existing designer option and parameter-table rebuilding flow.
 
+- Resolution: **2026-10-19; FIXED**. Native Designer now provides a popup populated from `SequentialSiteCount.EnumOptions`; selection applies `IntValue` and raises the existing change event. Avalonia Designer reuses its analysis selector instead of accepting an unrestricted integer. Both use the shared Core tooltip and a sentence-case label. The existing controller/state paths retain edits, rebuild parameter rows, and preserve automatic/manual simulation behavior; defaults and window isolation are unchanged.
+- Validation: native `ExperimentDesignerTests` passed, including actual AppKit 2→3→4→2 actions with automatic simulation on/off, retained affinity and hidden fourth-step enthalpy, setup/model rebuilds, finite simulations, solver option transfer, window isolation and fitting locks. Avalonia Designer/competitor tests passed 52/52; focused Core Designer/Sequential tests passed 108/108. Visual QA confirmed the native option row and the Avalonia Designer selector fit and display correctly. Full Core suite: 4,329 passed, one skipped, two failures in `ProjectLoadingProgressTests.CancellationDuringItemUpdateClearsLoadingText` and `InteractiveReadLetsUiRenderEachItemBeforeLoadingCompletes` (project-loading cancellation/progress assertions; unrelated to this UI change).
+- Documentation: existing model-option guidance and Sequential model description remain sufficient; no additional prose, scientific calculations, serialization, or settings changes.
+
 ## CR-057 — Native Details commits pH input that its editor marks invalid
 
 - Priority: Medium

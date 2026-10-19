@@ -81,7 +81,7 @@ namespace AnalysisITC.Core.Analysis
         NumberOfSites2,
         [AttributeKey("Species", "Name of a species in the ITC cell or syringe. This is annotation metadata for figures and exported results.", ExperimentAttribute.AttributeType.String, true)]
         Species,
-        [AttributeKey("Number of Sites", "Number of sequential macroscopic binding sites, from 2 to 4.", ExperimentAttribute.AttributeType.Int)]
+        [AttributeKey("Number of sites", "Choose two to four sequential macroscopic binding steps.", ExperimentAttribute.AttributeType.Int)]
         SequentialSiteCount,
         [AttributeKey("Competitor properties", "Summary affinity and enthalpy copied from a one-set-of-sites Analysis Result.", ExperimentAttribute.AttributeType.String)]
         CompetitorResult,
