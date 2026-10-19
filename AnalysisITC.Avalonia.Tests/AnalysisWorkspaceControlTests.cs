@@ -17,6 +17,7 @@ using Avalonia.VisualTree;
 using Xunit;
 
 using AnalysisITC.Avalonia.Analysis;
+using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -27,6 +28,7 @@ using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
+using DataListEntry = AnalysisITC.Avalonia.MainWindow.DataListEntry;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -1364,17 +1366,25 @@ public sealed class AnalysisWorkspaceControlTests
             await WaitForFitToFinish();
 
             Assert.Equal(createResult ? 1 : 0, DataManager.Results.Count);
+            var resultWorkspace = window.FindControl<AnalysisResultWorkspaceControl>("ResultWorkspace")!;
             if (createResult && autoOpen)
             {
-                // Core requests auto-open. Avalonia's later selection restoration
-                // is tracked separately as CR-038.
-                Assert.Same(Assert.Single(DataManager.Results), autoOpenRequested);
+                var result = Assert.Single(DataManager.Results);
+                Assert.Same(result, autoOpenRequested);
+                Assert.Same(result, DataManager.SelectedResult);
+                Assert.Same(result, Assert.IsType<DataListEntry>(items.SelectedItem).Item);
+                Assert.Same(result, resultWorkspace.Result);
+                Assert.True(resultWorkspace.IsVisible);
+                Assert.False(tabs.IsVisible);
             }
             else
             {
                 Assert.Null(autoOpenRequested);
                 Assert.Null(DataManager.SelectedResult);
+                Assert.Same(experiment, Assert.IsType<DataListEntry>(items.SelectedItem).Item);
                 Assert.Same(experiment, workspace.Experiment);
+                Assert.False(resultWorkspace.IsVisible);
+                Assert.True(tabs.IsVisible);
             }
 
             if (!createResult)

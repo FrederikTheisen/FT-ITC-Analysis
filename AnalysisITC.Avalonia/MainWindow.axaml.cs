@@ -1070,17 +1070,11 @@ public partial class MainWindow : Window
 
     void RefreshDataList()
     {
-        var previous = selectedItem;
-
         entries = DataManager.SourceItems
             .Select(DataListEntry.From)
             .ToList();
 
-        var nextIndex = previous == null
-            ? DataManager.SelectedContentIndex
-            : entries.FindIndex(entry => ReferenceEquals(entry.Item, previous));
-
-        if (nextIndex < 0 && entries.Count > 0) nextIndex = Math.Min(Math.Max(DataManager.SelectedContentIndex, 0), entries.Count - 1);
+        var nextIndex = DataManager.SelectedContentIndex;
 
         isRestoringDataListSelection = true;
         try

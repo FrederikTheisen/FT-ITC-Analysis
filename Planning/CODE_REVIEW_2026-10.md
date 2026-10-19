@@ -528,6 +528,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-038 — Avalonia overrides automatic selection of a newly created result
 
 - Priority: Medium
+- Status: Resolved (2026-10-19).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.Avalonia/MainWindow.axaml.cs:1068`; `AnalysisITC.Avalonia/MainWindow.axaml.cs:1129`; `AnalysisITC.Core/DataManager.cs:577`
@@ -536,6 +537,15 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Finish a fit with Create analysis result and Auto-open new result enabled. Core selects the new result, but the queued Avalonia refresh restores the preceding experiment.
 - Consequence: The requested Results workspace does not open automatically; the result remains available for manual selection. Native macOS follows the Core selection.
 - Suggested direction: Honor explicit Core selection changes and retain the old row only when no new selection was requested.
+
+- Resolution (2026-10-19): `RefreshDataList` reads the current Core selected index when the queued refresh executes, replacing the previous local-row and first-row fallbacks. The existing selection-event guard protects list replacement, and the existing selection handler opens the Results workspace. Later user selection and CR-001's fit-context reconciliation remain intact; Core and native macOS behavior are unchanged.
+- Validation: The strengthened actual-fit test reproduced the auto-open failure before the fix; three additional Core-selection cases also failed (result, another experiment and no selection). After the fix, 99 relevant Avalonia checks pass with one platform-specific import test skipped on macOS. Attached headless MainWindow checks cover all four create-result/auto-open combinations, selected result identity and visible Results workspace after dispatcher drain, later user selection, mixed list order, reordering, selected/unselected removal, empty/no selection and repeated refreshes without extra selection notifications. Existing CR-001 workspace, selection-menu and progress regressions pass, along with import, macOS workflow-header and result-update-dialog checks. Build succeeds. Logs and xUnit results: `/private/tmp/cr038-build-green.log`, `/private/tmp/cr038-red.log`, `/private/tmp/cr038-red.xml`, `/private/tmp/cr038-focused.log`, `/private/tmp/cr038-focused.xml`. Interactive desktop verification was not performed.
+- Recheck: **2026-10-19; FIXED**; evidence=`AnalysisITC.Avalonia/MainWindow.axaml.cs:1059`; `AnalysisITC.Avalonia.Tests/AnalysisWorkspaceControlTests.cs:1330`; `AnalysisITC.Avalonia.Tests/ResultSelectionNavigationTests.cs:26`; validation=source+tests; tests/UI=99 passed, 1 platform skip (attached headless windows); interactive UI=not-run.
+- Target: Auto-open new result → selected new result and Results workspace.
+- Strategy: reflect Core's current selected index during list replacement, keeping isRestoringDataListSelection and avoiding stale local writeback. Preserve user selection after later interaction, mixed list order and disabled-auto-open behavior.
+- Verify: attached MainWindow + actual result creation, dispatcher drained, setting on/off; removal/reorder/no-selection and repeated refresh cases.
+- Questions: none.
+- Depends: preserve CR-001's selection-during-fit reconciliation.
 
 ## CR-039 — Avalonia silently drops case-distinct Linux import paths
 
