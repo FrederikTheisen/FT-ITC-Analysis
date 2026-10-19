@@ -233,6 +233,10 @@ namespace AnalysisITC.Core.Viewer
             var all = containers?.Where(item => item != null).ToList() ?? new List<ITCDataContainer>();
             var experiments = all.OfType<ExperimentData>().ToList();
             var results = all.OfType<AnalysisResult>().ToList();
+            var experimentsById = experiments.ToDictionary(item => item.UniqueID);
+            var resultsById = results.ToDictionary(item => item.UniqueID);
+            ExperimentData ResolveExperiment(string id) => experimentsById.TryGetValue(id, out var value) ? value : null;
+            AnalysisResult ResolveResult(string id) => resultsById.TryGetValue(id, out var value) ? value : null;
             var document = new ViewerDocument
             {
                 DisplayName = displayName,
@@ -259,7 +263,8 @@ namespace AnalysisITC.Core.Viewer
             {
                 var experiment = experiments[index];
                 fitsByExperiment.TryGetValue(experiment.UniqueID, out var fitSources);
-                document.Experiments.Add(BuildExperiment(experiment, index, fitSources ?? new List<FitSource>(), document.Warnings));
+                document.Experiments.Add(BuildExperiment(experiment, index, fitSources ?? new List<FitSource>(), document.Warnings,
+                    ResolveExperiment, ResolveResult));
             }
 
             var fitsByKey = document.Experiments
@@ -1179,7 +1184,9 @@ namespace AnalysisITC.Core.Viewer
             ExperimentData experiment,
             int index,
             IEnumerable<FitSource> fitSources,
-            List<string> warnings)
+            List<string> warnings,
+            Func<string, ExperimentData> resolveExperiment,
+            Func<string, AnalysisResult> resolveResult)
         {
             var viewer = new ViewerExperiment
             {
@@ -1199,7 +1206,7 @@ namespace AnalysisITC.Core.Viewer
                 InjectionCount = experiment.Injections?.Count ?? 0,
             };
 
-            AddMetadata(viewer, experiment);
+            AddMetadata(viewer, experiment, resolveExperiment, resolveResult);
             viewer.Raw = BuildRaw(experiment);
             viewer.Integrated = BuildIntegrated(experiment);
             viewer.Processed = BuildProcessed(experiment);
@@ -1230,7 +1237,8 @@ namespace AnalysisITC.Core.Viewer
             return viewer;
         }
 
-        static void AddMetadata(ViewerExperiment viewer, ExperimentData experiment)
+        static void AddMetadata(ViewerExperiment viewer, ExperimentData experiment,
+            Func<string, ExperimentData> resolveExperiment, Func<string, AnalysisResult> resolveResult)
         {
             Add("Filename", viewer.SourceFileName);
             Add("Format", viewer.SourceFormat);
@@ -1247,16 +1255,9 @@ namespace AnalysisITC.Core.Viewer
 
             foreach (var attribute in experiment.Attributes ?? new List<ExperimentAttribute>())
             {
+                if (attribute == null) continue;
                 var name = attribute.GetDisplayName();
-                var value = !string.IsNullOrWhiteSpace(attribute.StringValue)
-                    ? attribute.StringValue
-                    : attribute.ParameterValue.HasError || Math.Abs(attribute.ParameterValue.Value) > double.Epsilon
-                        ? attribute.ParameterValue.Value.ToString("G6", CultureInfo.InvariantCulture)
-                        : attribute.DoubleValue != 0
-                            ? attribute.DoubleValue.ToString("G6", CultureInfo.InvariantCulture)
-                            : attribute.IntValue != 0
-                                ? attribute.IntValue.ToString(CultureInfo.InvariantCulture)
-                                : attribute.BoolValue.ToString();
+                var value = ViewerAttributePresentation.Format(attribute, resolveExperiment, resolveResult);
                 Add(name, value);
             }
 

@@ -34,6 +34,51 @@ public sealed class ViewerUploadTests : IClassFixture<ViewerUploadApplicationFac
     }
 
     [Fact]
+    public async Task UploadReturnsTypedConditionsAndExperimentSavedCompetitorValues()
+    {
+        using var source = File.OpenRead(Fixture("data.ftitc"));
+        var containers = await FTITCReader.ReadStream(source);
+        var result = Assert.Single(containers.OfType<AnalysisResult>());
+        result.Name = "Reference";
+        var target = new ExperimentData("typed-metadata.itc");
+        var buffer = ExperimentAttribute.FromKey(AttributeKey.Buffer);
+        buffer.IntValue = (int)Buffer.SodiumPhosphate;
+        buffer.ParameterValue = new FloatWithError(0.02);
+        buffer.DoubleValue = 7.4;
+        var salt = ExperimentAttribute.FromKey(AttributeKey.Salt);
+        salt.IntValue = (int)Salt.NaCl;
+        salt.ParameterValue = new FloatWithError(0.15);
+        var competitor = ExperimentAttribute.CompetitorResultReference(result.UniqueID);
+        competitor.CapturedAffinity = new FloatWithError(2e-6, 0.1e-6, 1.8e-6, 2.3e-6);
+        competitor.CapturedEnthalpy = new FloatWithError(-40000, 1000, -42000, -38000);
+        const string species = "Protein <b>literal annotation</b> & αβγ — " +
+            "a long recorded species name that must remain plain text in the viewer";
+        target.Attributes.AddRange(new[] { buffer, salt, competitor,
+            ExperimentAttribute.Species(ExperimentSpeciesLocation.Cell, species) });
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { target }.Concat(containers.OfType<ExperimentData>()), new[] { result });
+        package.Position = 0;
+        var token = await Token();
+        using var content = UploadContent("typed-metadata.ftxtc", package);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var experiment = Assert.Single(json.RootElement.GetProperty("experiments").EnumerateArray(),
+            item => item.GetProperty("name").GetString() == target.Name);
+        var metadata = experiment.GetProperty("metadata").EnumerateArray().ToDictionary(
+            item => item.GetProperty("label").GetString()!, item => item.GetProperty("value").GetString());
+        Assert.Equal("20 mM NaHPO4 pH 7.4", metadata["Buffer"]);
+        Assert.Equal("150 mM NaCl", metadata["Salt"]);
+        Assert.Equal("Cell: " + species, metadata["Species"]);
+        Assert.Equal("From result \"Reference\"; saved on experiment (± SD; brackets: 95% CI): Kd 2 ± 0.1 [1.8, 2.3] µM · ΔH -40 ± 1 [-42, -38] kJ/mol",
+            metadata["Competitor properties"]);
+    }
+
+    [Fact]
     public async Task DevelopmentAntiforgeryTokenSupportsLocalHttp()
     {
         using var httpClient = factory.CreateClient(new WebApplicationFactoryClientOptions
