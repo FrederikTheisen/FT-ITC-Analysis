@@ -118,6 +118,11 @@ namespace AnalysisITC.Core.DataReaders
 
                 if (interactive) Console.WriteLine($"File has {counter} lines.");
 
+                var omittedCount = readState.CompleteInjectionList(experiment);
+                if (omittedCount > 0)
+                    AppEventHandler.PrintAndLog(
+                        $"Omitted {omittedCount} trailing planned injection(s) with no recorded stream marker while reading {experiment.FileName}.");
+
                 var tandemSegments = readState.GetSegments(experiment.InjectionCount).ToList();
                 if (tandemSegments.Count > 1)
                 {
@@ -259,6 +264,7 @@ namespace AnalysisITC.Core.DataReaders
         sealed class MicroCalReadState
         {
             readonly List<TandemConcatenation.TandemInjectionSegment> segments = new List<TandemConcatenation.TandemInjectionSegment>();
+            readonly HashSet<int> recordedInjectionIds = new HashSet<int>();
 
             public int ProtocolInjectionCount { get; set; }
             public bool IsFirstSegment => segments.Count == 0;
@@ -267,6 +273,7 @@ namespace AnalysisITC.Core.DataReaders
 
             public bool RegisterInjection(int id, float? localInjectionTime)
             {
+                recordedInjectionIds.Add(id);
                 var isSegmentStart = false;
 
                 if (localInjectionTime.HasValue
@@ -285,6 +292,25 @@ namespace AnalysisITC.Core.DataReaders
                     previousLocalInjectionTime = localInjectionTime.Value;
 
                 return isSegmentStart;
+            }
+
+            public int CompleteInjectionList(ExperimentData experiment)
+            {
+                var lastRecordedId = recordedInjectionIds.Count > 0 ? recordedInjectionIds.Max() : -1;
+                foreach (var injection in experiment.Injections)
+                {
+                    if (injection.ID < lastRecordedId && !recordedInjectionIds.Contains(injection.ID))
+                        throw new FormatException(
+                            $"Injection #{injection.ID + 1} has no stream marker, but a later injection was recorded. " +
+                            "The injection history is incomplete; this experiment cannot be imported safely.");
+                }
+
+                // The unmarked suffix was never reached. Drop it before bookkeeping or segment creation.
+                var omittedCount = experiment.Injections.RemoveAll(injection => !recordedInjectionIds.Contains(injection.ID));
+                if (experiment.Injections.Where((injection, index) => injection.ID != index).Any())
+                    throw new FormatException("The recorded injection sequence has missing or inconsistent IDs; this experiment cannot be imported safely.");
+
+                return omittedCount;
             }
 
             public IReadOnlyList<TandemConcatenation.TandemInjectionSegment> GetSegments(int injectionCount)

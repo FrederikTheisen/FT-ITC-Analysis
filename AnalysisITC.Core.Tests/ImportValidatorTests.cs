@@ -23,144 +23,107 @@ namespace AnalysisITC.Core.Tests
         public ImportValidatorTests()
         {
             PlatformServices.RegisterDataValidationPromptService(promptService);
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = true;
         }
 
         public void Dispose()
         {
             PlatformServices.RegisterDataValidationPromptService(null);
             PlatformServices.RegisterSettingsStore(null);
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = true;
+        }
+
+        [Theory]
+        [InlineData(-1, DataValidationPromptAction.Keep)]
+        [InlineData(101, DataValidationPromptAction.Keep)]
+        [InlineData(-1, DataValidationPromptAction.AttemptFix)]
+        [InlineData(101, DataValidationPromptAction.Discard)]
+        public void RawImportRejectsRecordedStartsOutsideTraceWithoutMutatingData(
+            double outsideTime, DataValidationPromptAction action)
+        {
+            promptService.Action = action;
+            var experiment = Experiment(Injection(0, outsideTime), Injection(1, 20));
+            RawDataReader.ProcessInjections(experiment, DilutionMethod.MicroCal);
+            var injections = experiment.Injections.ToArray();
+            var concentrations = injections.Select(injection => injection.ActualTitrantConcentration).ToArray();
+            // Mandatory coverage rejection must precede even the short-trace warning.
+            experiment.DataPoints = new List<DataPoint> { new DataPoint(0, 0, 25), new DataPoint(100, 0, 25) };
+
+            Assert.False(ImportValidator.ValidateData(experiment, isRawImport: true));
+
+            Assert.Equal(injections, experiment.Injections);
+            Assert.Equal(concentrations, experiment.Injections.Select(injection => injection.ActualTitrantConcentration));
+            Assert.Equal(new[] { 0, 1 }, experiment.Injections.Select(injection => injection.ID));
+            Assert.Contains("outside the recorded thermogram range", Assert.Single(promptService.Messages));
+            Assert.False(Assert.Single(promptService.AllowKeepValues));
+            Assert.False(Assert.Single(promptService.CanFixValues));
         }
 
         [Fact]
-        public void AutomaticCleanupRemovesOnlyOutOfBoundsMarkersAndReprocessesConcentrations()
+        public void RawImportAcceptsExactEndpointsIncludingZero()
         {
-            var experiment = Experiment(
-                Injection(-1, -1, 50e-6),
-                Injection(0, 0, 1e-6),
-                Injection(1, 20, 1e-6),
-                Injection(2, 100, 1e-6),
-                Injection(3, 101, 50e-6));
-            // Raw import records its method before the validation/cleanup pass.
-            RawDataReader.ProcessInjections(experiment, DilutionMethod.MicroCal);
-            var reports = new List<AutomaticImportActionReport>();
+            var experiment = Experiment(Injection(0, 0), Injection(1, 20), Injection(2, 100));
 
-            var valid = ImportValidator.ValidateData(experiment, allowAutomaticActions: true, reports);
+            Assert.True(ImportValidator.ValidateData(experiment, isRawImport: true));
 
-            Assert.True(valid);
-            Assert.Equal(new[] { 0, 1, 2 }, experiment.Injections.Select(injection => injection.ID).ToArray());
-            Assert.Equal(new[] { 0f, 20f, 100f }, experiment.Injections.Select(injection => injection.Time).ToArray());
-            Assert.Equal(0.00001998, experiment.Injections[1].ActualTitrantConcentration, 10);
-            var report = Assert.Single(reports);
-            Assert.Equal(2, report.DiscardedOrphanInjectionCount);
+            Assert.Equal(new[] { 0f, 20f, 100f }, experiment.Injections.Select(injection => injection.Time));
             Assert.Empty(promptService.Messages);
         }
 
         [Fact]
-        public void DisabledPreferenceLeavesOrphansForTheExistingPrompt()
+        public void SavedProjectKeepPreservesRecordedInjectionsAndScientificValues()
         {
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = false;
-            promptService.Action = DataValidationPromptAction.Keep;
+            var experiment = Experiment(Injection(0, -1), Injection(1, 20), Injection(2, 101));
+            RawDataReader.ProcessInjections(experiment, DilutionMethod.MicroCal);
+            experiment.Injections[1].ActualTitrantConcentration = 123e-6;
+            var injections = experiment.Injections.ToArray();
+            var concentrations = injections.Select(injection => injection.ActualTitrantConcentration).ToArray();
+
+            Assert.True(ImportValidator.ValidateData(experiment));
+
+            Assert.Equal(injections, experiment.Injections);
+            Assert.Equal(concentrations, experiment.Injections.Select(injection => injection.ActualTitrantConcentration));
+            Assert.True(Assert.Single(promptService.AllowKeepValues));
+            Assert.False(Assert.Single(promptService.CanFixValues));
+        }
+
+        [Theory]
+        [InlineData(DataValidationPromptAction.Keep, true)]
+        [InlineData(DataValidationPromptAction.Discard, false)]
+        public void NearEndWarningOffersOnlyKeepOrDiscard(DataValidationPromptAction action, bool expected)
+        {
+            promptService.Action = action;
+            var experiment = Experiment(Injection(0, 150));
+            experiment.DataPoints = Enumerable.Range(0, 156).Select(time => new DataPoint(time, 0, 25)).ToList();
+            var injection = Assert.Single(experiment.Injections);
+
+            Assert.Equal(expected, ImportValidator.ValidateData(experiment, isRawImport: true));
+
+            Assert.Same(injection, Assert.Single(experiment.Injections));
+            Assert.Equal(150, injection.Time);
+            Assert.Contains("very end", Assert.Single(promptService.Messages));
+            Assert.True(Assert.Single(promptService.AllowKeepValues));
+            Assert.False(Assert.Single(promptService.CanFixValues));
+        }
+
+        [Fact]
+        public void RawTandemImportCannotBypassCoverageRejection()
+        {
             var experiment = Experiment(Injection(0, -1), Injection(1, 20));
-            var reports = new List<AutomaticImportActionReport>();
+            experiment.ReplaceSegments(new[] { new TandemExperimentSegment(0, 0.001, 0) });
 
-            var valid = ImportValidator.ValidateData(experiment, allowAutomaticActions: true, reports);
-
-            Assert.True(valid);
+            Assert.False(ImportValidator.ValidateData(experiment, isRawImport: true));
             Assert.Equal(2, experiment.Injections.Count);
-            Assert.Empty(reports);
-            Assert.Single(promptService.Messages);
-            Assert.Contains("outside the recorded thermogram range", promptService.Messages[0]);
+            Assert.False(Assert.Single(promptService.AllowKeepValues));
         }
 
         [Fact]
-        public void DisabledPreferenceCanRemoveOrphansThroughAttemptFix()
+        public void IntegratedHeatsDoNotRequireThermogramCoverage()
         {
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = false;
-            promptService.Action = DataValidationPromptAction.AttemptFix;
-            var experiment = Experiment(Injection(0, -1), Injection(1, 20));
-            var reports = new List<AutomaticImportActionReport>();
+            var experiment = Experiment(Injection(0, 200), Injection(1, 300));
+            experiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
 
-            var valid = ImportValidator.ValidateData(experiment, allowAutomaticActions: true, reports);
-
-            Assert.True(valid);
-            Assert.Equal(1, Assert.Single(experiment.Injections).ID);
-            Assert.Empty(reports);
-            Assert.Single(promptService.Messages);
-        }
-
-        [Fact]
-        public void RemovingEveryOrphanContinuesToTheNoInjectionsPrompt()
-        {
-            promptService.Action = DataValidationPromptAction.Discard;
-            var experiment = Experiment(Injection(0, -2), Injection(1, 102));
-            var reports = new List<AutomaticImportActionReport>();
-
-            var valid = ImportValidator.ValidateData(experiment, allowAutomaticActions: true, reports);
-
-            Assert.False(valid);
-            Assert.Empty(experiment.Injections);
-            Assert.Equal(2, Assert.Single(reports).DiscardedOrphanInjectionCount);
-            Assert.Single(promptService.Messages);
-            Assert.Contains("No injections were found", promptService.Messages[0]);
-        }
-
-        [Fact]
-        public void AutomaticCleanupIsSuppressedForSavedIntegratedAndTandemData()
-        {
-            promptService.Action = DataValidationPromptAction.Keep;
-            var reports = new List<AutomaticImportActionReport>();
-
-            var savedProjectExperiment = Experiment(Injection(0, -1), Injection(1, 20));
-            Assert.True(ImportValidator.ValidateData(savedProjectExperiment, allowAutomaticActions: false, reports));
-
-            var integratedExperiment = Experiment(Injection(0, -1), Injection(1, 20));
-            integratedExperiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
-            Assert.True(ImportValidator.ValidateData(integratedExperiment, allowAutomaticActions: true, reports));
-
-            var tandemExperiment = Experiment(Injection(0, -1), Injection(1, 20));
-            tandemExperiment.ReplaceSegments(new[] { new TandemExperimentSegment(0, 0.001, 0) });
-            Assert.True(ImportValidator.ValidateData(tandemExperiment, allowAutomaticActions: true, reports));
-
-            Assert.Empty(reports);
-            Assert.Equal(2, savedProjectExperiment.Injections.Count);
-            Assert.Equal(2, integratedExperiment.Injections.Count);
-            Assert.Equal(2, tandemExperiment.Injections.Count);
-            Assert.Equal(3, promptService.Messages.Count);
-        }
-
-        [Fact]
-        public void AutomaticActionStatusSummarizesSingleAndMultipleExperiments()
-        {
-            Assert.Equal(
-                "Automatically discarded 1 orphan injection while loading First.",
-                DataReader.BuildAutomaticImportActionStatus(new[] { new AutomaticImportActionReport("First", 1) }));
-            Assert.Equal(
-                "Automatically discarded 4 orphan injections across 2 experiments.",
-                DataReader.BuildAutomaticImportActionStatus(new[]
-                {
-                    new AutomaticImportActionReport("First", 1),
-                    new AutomaticImportActionReport("Second", 3),
-                }));
-            Assert.Equal("", DataReader.BuildAutomaticImportActionStatus(Array.Empty<AutomaticImportActionReport>()));
-        }
-
-        [Fact]
-        public void SettingPersistsAndResetRestoresEnabledDefault()
-        {
-            PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
-            AppSettings.Reset();
-            Assert.True(AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad);
-
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = false;
-            AppSettings.Save();
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = true;
-            AppSettings.Load();
-
-            Assert.False(AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad);
-            AppSettings.Reset();
-            Assert.True(AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad);
+            Assert.True(ImportValidator.ValidateData(experiment, isRawImport: true));
+            Assert.Equal(2, experiment.Injections.Count);
+            Assert.Empty(promptService.Messages);
         }
 
         [Fact]
@@ -343,6 +306,7 @@ namespace AnalysisITC.Core.Tests
         sealed class RecordingValidationPromptService : IDataValidationPromptService
         {
             public List<string> Messages { get; } = new List<string>();
+            public List<bool> CanFixValues { get; } = new List<bool>();
             public List<bool> AllowKeepValues { get; } = new List<bool>();
             public Queue<DataValidationPromptResult> Responses { get; } = new Queue<DataValidationPromptResult>();
             public DataValidationPromptAction Action { get; set; } = DataValidationPromptAction.Keep;
@@ -356,6 +320,7 @@ namespace AnalysisITC.Core.Tests
             {
                 Messages.Add(message ?? "");
                 AllowKeepValues.Add(allowKeep);
+                CanFixValues.Add(canFix);
                 if (Responses.Count > 0) return Responses.Dequeue();
                 return new DataValidationPromptResult(Action);
             }

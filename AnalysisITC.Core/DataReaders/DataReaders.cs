@@ -24,17 +24,14 @@ namespace AnalysisITC.Core.DataReaders
     {
         static ITCDataContainer GetValidData(
             ITCDataContainer data,
-            bool allowAutomaticActions,
-            ICollection<AutomaticImportActionReport> automaticActionReports)
+            bool isRawImport)
         {
             if (data == null) return null;
             bool valid = true;
             if (data is ExperimentData experiment)
             {
                 valid = ImportValidator.ValidateData(
-                    experiment,
-                    allowAutomaticActions && !experiment.IsTandemExperiment,
-                    automaticActionReports);
+                    experiment, isRawImport);
             }
 
             return valid ? data : null;
@@ -42,12 +39,11 @@ namespace AnalysisITC.Core.DataReaders
 
         static bool AddData(
             ITCDataContainer[] data,
-            bool allowAutomaticActions,
-            ICollection<AutomaticImportActionReport> automaticActionReports,
+            bool isRawImport,
             ICollection<ExperimentData> acceptedExperiments = null)
         {
             var validData = data?
-                .Select(item => GetValidData(item, allowAutomaticActions, automaticActionReports))
+                .Select(item => GetValidData(item, isRawImport))
                 .Where(dat => dat != null)
                 .ToArray() ?? Array.Empty<ITCDataContainer>();
 
@@ -98,7 +94,6 @@ namespace AnalysisITC.Core.DataReaders
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
             var loadedPaths = new List<string>();
             var importedExperiments = new List<ExperimentData>();
-            var automaticActionReports = new List<AutomaticImportActionReport>();
             var recoveryIssues = new List<FtxtcRecoveryIssue>();
 
             StatusBarManager.SetStatus("Reading data...", 0);
@@ -152,8 +147,7 @@ namespace AnalysisITC.Core.DataReaders
                         var acceptedThisFile = isProjectFile ? null : new List<ExperimentData>();
                         var addedContainers = dat != null && AddData(
                             dat,
-                            allowAutomaticActions: !isProjectFile,
-                            automaticActionReports: automaticActionReports,
+                            isRawImport: !isProjectFile,
                             acceptedExperiments: acceptedThisFile);
                         if (format == ITCDataFormat.FTXTC && dat != null)
                             DataManager.AddReports(reports);
@@ -221,10 +215,6 @@ namespace AnalysisITC.Core.DataReaders
             await Task.Delay(1);
             StatusBarManager.ClearAppStatus();
 
-            var automaticActionStatus = BuildAutomaticImportActionStatus(automaticActionReports);
-            if (!string.IsNullOrEmpty(automaticActionStatus))
-                StatusBarManager.SetStatus(automaticActionStatus, 8000);
-
             FTXTCReader.DisplayRecoveryNotice(recoveryIssues);
 
             return new DataReadResult(
@@ -263,7 +253,7 @@ namespace AnalysisITC.Core.DataReaders
 
                 using (DocumentDirtyTracker.RestoreDocument())
                 {
-                    if (!AddData(recovered, allowAutomaticActions: false, new List<AutomaticImportActionReport>())) return false;
+                    if (!AddData(recovered, isRawImport: false)) return false;
                     DataManager.AddReports(recoveredReports);
                     DataManager.ApplyOptions();
                     FTITCFormat.CurrentAccessedAppDocumentPath = "";
@@ -280,28 +270,6 @@ namespace AnalysisITC.Core.DataReaders
                 AppEventHandler.PrintAndLog("Recovery file could not be opened: " + ex.Message);
                 return false;
             }
-        }
-
-        internal static string BuildAutomaticImportActionStatus(
-            IEnumerable<AutomaticImportActionReport> reports)
-        {
-            var reportList = reports?
-                .Where(report => report != null && report.DiscardedOrphanInjectionCount > 0)
-                .ToList() ?? new List<AutomaticImportActionReport>();
-
-            if (reportList.Count == 0) return "";
-
-            var discardedCount = reportList.Sum(report => report.DiscardedOrphanInjectionCount);
-            var injectionWord = discardedCount == 1 ? "injection" : "injections";
-
-            if (reportList.Count == 1)
-            {
-                return $"Automatically discarded {discardedCount} orphan {injectionWord} " +
-                    $"while loading {reportList[0].ExperimentName}.";
-            }
-
-            return $"Automatically discarded {discardedCount} orphan {injectionWord} " +
-                $"across {reportList.Count} experiments.";
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)

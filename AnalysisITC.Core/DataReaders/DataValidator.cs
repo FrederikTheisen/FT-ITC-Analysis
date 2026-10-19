@@ -13,18 +13,6 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.DataReaders
 {
-    internal sealed class AutomaticImportActionReport
-    {
-        public AutomaticImportActionReport(string experimentName, int discardedOrphanInjectionCount)
-        {
-            ExperimentName = experimentName ?? "";
-            DiscardedOrphanInjectionCount = Math.Max(0, discardedOrphanInjectionCount);
-        }
-
-        public string ExperimentName { get; }
-        public int DiscardedOrphanInjectionCount { get; }
-    }
-
     public static class ImportValidator
     {
         sealed class ValidationIssue
@@ -35,51 +23,37 @@ namespace AnalysisITC.Core.DataReaders
             public bool RequiresInput => FixProtocol == DataFixProtocol.CellVolume
                 || FixProtocol == DataFixProtocol.CellConcentration
                 || FixProtocol == DataFixProtocol.SyringeConcentration;
-            public bool IsOrphanInjectionIssue => FixProtocol == DataFixProtocol.OrphanInjection;
+            public bool AllowKeep { get; }
 
-            public ValidationIssue(string message, DataFixProtocol fixProtocol = DataFixProtocol.None)
+            public ValidationIssue(string message, DataFixProtocol fixProtocol = DataFixProtocol.None, bool allowKeep = true)
             {
                 Message = message ?? "";
                 FixProtocol = fixProtocol;
+                AllowKeep = allowKeep;
             }
         }
 
         public static bool ValidateData(ExperimentData data) =>
-            ValidateData(data, allowAutomaticActions: false, automaticActionReports: null);
+            ValidateData(data, isRawImport: false);
 
-        internal static bool ValidateData(
-            ExperimentData data,
-            bool allowAutomaticActions,
-            ICollection<AutomaticImportActionReport> automaticActionReports)
+        internal static bool ValidateData(ExperimentData data, bool isRawImport)
         {
             if (data == null) return false;
 
             while (true)
             {
-                var issue = GetFirstIssue(data);
+                var issue = GetFirstIssue(data, isRawImport);
                 if (issue == null) return true;
-
-                if (issue.IsOrphanInjectionIssue
-                    && allowAutomaticActions
-                    && !data.IsTandemExperiment
-                    && AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad)
-                {
-                    var discardedCount = DiscardOrphanInjections(data);
-                    if (discardedCount > 0)
-                    {
-                        ReprocessUsingRecordedMethod(data);
-                        automaticActionReports?.Add(new AutomaticImportActionReport(data.Name, discardedCount));
-                        AppEventHandler.PrintAndLog(
-                            $"Automatically discarded {discardedCount} orphan injection(s) while loading {data.Name}.");
-                        continue;
-                    }
-                }
 
                 var response = PlatformServices.DataValidationPromptService.AskValidationIssue(
                     "Potential Error Detected: " + data.Name,
                     issue.Message,
                     issue.Fixable,
-                    issue.RequiresInput);
+                    issue.RequiresInput,
+                    issue.AllowKeep);
+
+                // A prompt implementation cannot override a raw-import rejection.
+                if (!issue.AllowKeep) return false;
 
                 if (issue.Fixable)
                 {
@@ -111,7 +85,7 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        static ValidationIssue GetFirstIssue(ExperimentData data)
+        static ValidationIssue GetFirstIssue(ExperimentData data, bool isRawImport)
         {
             var injs = data.Injections;
 
@@ -122,6 +96,25 @@ namespace AnalysisITC.Core.DataReaders
             {
                 var dps = data.DataPoints;
 
+                // Check recorded coverage before optional warnings: Keep must not bypass it.
+                if (dps != null && dps.Count > 0 && injs != null && injs.Count > 0)
+                {
+                    var minDataTime = dps.Min(dp => dp.Time);
+                    var maxDataTime = dps.Max(dp => dp.Time);
+                    var outsideCount = injs.Count(inj => IsOutsideThermogram(inj, minDataTime, maxDataTime));
+                    if (outsideCount > 0)
+                    {
+                        return new ValidationIssue(
+                            $"{outsideCount} recorded injection marker(s) occur outside the recorded thermogram range " +
+                            $"({minDataTime:G4}–{maxDataTime:G4} s).\n" +
+                            "The thermogram is incomplete or the injection times are inconsistent with it. " +
+                            (isRawImport
+                                ? "This experiment was skipped because recorded injections cannot be removed safely."
+                                : "Keeping the experiment preserves its injections and saved scientific values."),
+                            allowKeep: !isRawImport);
+                    }
+                }
+
                 if (dps == null || dps.Count < 10)
                 {
                     var n = dps?.Count ?? 0;
@@ -130,18 +123,7 @@ namespace AnalysisITC.Core.DataReaders
 
                 if (injs != null && injs.Count > 0)
                 {
-                    var minDataTime = dps.Min(dp => dp.Time);
                     var maxDataTime = dps.Max(dp => dp.Time);
-                    var orphanCount = injs.Count(inj => IsOrphanInjection(inj, minDataTime, maxDataTime));
-
-                    if (orphanCount > 0)
-                    {
-                        return new ValidationIssue(
-                            $"{orphanCount} injection marker(s) occur outside the recorded thermogram range " +
-                            $"({minDataTime:G4}–{maxDataTime:G4} s).\n" +
-                            "Attempt fix can remove the orphan injection markers.",
-                            DataFixProtocol.OrphanInjection);
-                    }
 
                     // Optimize the original O(Ninj * Ndps) check to O(Ninj).
                     if (injs.All(inj => (inj.Time + 10) >= maxDataTime))
@@ -151,8 +133,7 @@ namespace AnalysisITC.Core.DataReaders
                         return new ValidationIssue(
                             "All injections appear to occur at the very end of the recorded data range.\n" +
                             $"Last data point: {maxDataTime:G4} s. Injection time range: {firstInj:G4}–{lastInj:G4} s.\n" +
-                            "Attempt fix can remove problematic injections.",
-                            DataFixProtocol.InvalidInjection);
+                            "The recorded response may be incomplete, which affects baseline estimation and integration.");
                     }
 
                     var gap = FindInjectionAfterThermogramGap(dps, injs);
@@ -201,9 +182,7 @@ namespace AnalysisITC.Core.DataReaders
                 var example = negative[0];
                 return new ValidationIssue(
                     $"{negative.Count} injection(s) have negative time (example: #{example.ID + 1} at {example.Time:G4} s).\n" +
-                    "This usually indicates an injection table that is not aligned to the recorded data.\n" +
-                    "Attempt fix can remove invalid injections.",
-                    DataFixProtocol.InvalidInjection);
+                    "Check that the injection times are aligned to the recorded data.");
             }
 
             var deltaT = Math.Abs(data.MeasuredTemperature - data.TargetTemperature);
@@ -289,19 +268,6 @@ namespace AnalysisITC.Core.DataReaders
                 switch (fix)
                 {
                     case DataFixProtocol.FileExists: data.IterateCopyName(); break;
-                    case DataFixProtocol.OrphanInjection:
-                        DiscardOrphanInjections(data);
-                        ReprocessUsingRecordedMethod(data);
-                        break;
-                    case DataFixProtocol.InvalidInjection:
-                        var injectiondata = new List<InjectionData>();
-                        foreach (var inj in data.Injections)
-                        {
-                            if (inj.Time > 0)
-                                injectiondata.Add(inj);
-                        }
-                        data.Injections = injectiondata;
-                        break;
                     case DataFixProtocol.CellVolume:
                         if (TryParseCellVolumeLiters(inputValue, out var cellVolume))
                             data.CellVolume = cellVolume;
@@ -376,16 +342,6 @@ namespace AnalysisITC.Core.DataReaders
                 RawDataReader.ProcessInjections(data, method);
         }
 
-        static int DiscardOrphanInjections(ExperimentData data)
-        {
-            if (data?.Injections == null || data.DataPoints == null || data.DataPoints.Count == 0)
-                return 0;
-
-            var minDataTime = data.DataPoints.Min(point => point.Time);
-            var maxDataTime = data.DataPoints.Max(point => point.Time);
-            return data.Injections.RemoveAll(injection => IsOrphanInjection(injection, minDataTime, maxDataTime));
-        }
-
         const float ThermogramGapWarningSeconds = 10;
 
         static (InjectionData Injection, float PrecedingTime)? FindInjectionAfterThermogramGap(
@@ -406,7 +362,7 @@ namespace AnalysisITC.Core.DataReaders
             return null;
         }
 
-        static bool IsOrphanInjection(InjectionData injection, float minDataTime, float maxDataTime)
+        static bool IsOutsideThermogram(InjectionData injection, float minDataTime, float maxDataTime)
         {
             return injection != null && (injection.Time < minDataTime || injection.Time > maxDataTime);
         }
@@ -415,8 +371,6 @@ namespace AnalysisITC.Core.DataReaders
         {
             None,
             FileExists,
-            OrphanInjection,
-            InvalidInjection,
             CellVolume,
             CellConcentration,
             SyringeConcentration,

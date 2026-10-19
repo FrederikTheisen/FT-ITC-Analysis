@@ -10,6 +10,28 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class DataValidationPromptServiceTests
 {
     [AvaloniaFact]
+    public void IncompleteResponseOffersKeepAndDiscardWithoutRepair()
+    {
+        var window = new AvaloniaDataValidationPromptService.ValidationPromptWindow(
+            "Incomplete response", "The recorded response may be incomplete.",
+            canFix: false, requiresInput: false);
+
+        Assert.Equal(new[] { "Keep", "Discard" },
+            window.ActionButtons.Select(button => button.Content?.ToString()).ToArray());
+    }
+
+    [AvaloniaFact]
+    public void RejectedRawImportOffersOnlyCancel()
+    {
+        var window = new AvaloniaDataValidationPromptService.ValidationPromptWindow(
+            "Incomplete thermogram", "A recorded injection starts outside the thermogram.",
+            canFix: false, requiresInput: false, allowKeep: false);
+
+        Assert.Equal(new[] { "Cancel" },
+            window.ActionButtons.Select(button => button.Content?.ToString()).ToArray());
+    }
+
+    [AvaloniaFact]
     public void RequiredInputPromptOffersImportAndCancelWithoutKeep()
     {
         var window = new AvaloniaDataValidationPromptService.ValidationPromptWindow(
