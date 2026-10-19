@@ -84,6 +84,7 @@ namespace AnalysisITC.Core.Export
             options ??= new AnalysisResultExportOptions();
 
             var parameters = GetParameterColumns(results, options);
+            var columns = GetExportColumns(results, parameters, options);
             var concentrationUnits = GetConcentrationUnits(results, parameters, options);
             var energyUnits = GetEnergyUnits(results, parameters, options);
             options.ResolvedEnergyUnit = energyUnits.molar;
@@ -97,20 +98,20 @@ namespace AnalysisITC.Core.Export
                 && results.Any(r => r.IsIndependentAssessmentCollection);
             var rows = new List<List<string>>
             {
-                BuildHeader(results, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation,
+                BuildHeader(results, columns, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation,
                     includePooledDiagnostics, options)
             };
 
             if (options.RowMode == AnalysisResultExportRowMode.Summary)
             {
-                rows.AddRange(results.Select(result => BuildSummaryRow(result, parameters, concentrationUnits, energyUnits,
+                rows.AddRange(results.Select(result => BuildSummaryRow(result, columns, concentrationUnits, energyUnits,
                     includeIonicStrength, includeProtonation, includePooledDiagnostics, options)));
             }
             else
             {
                 foreach (var result in results)
                 {
-                    rows.AddRange(result.Solution.Solutions.Select(solution => BuildSolutionRow(result, solution, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)));
+                    rows.AddRange(result.Solution.Solutions.Select(solution => BuildSolutionRow(result, solution, columns, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)));
                 }
             }
 
@@ -166,6 +167,83 @@ namespace AnalysisITC.Core.Export
             }
 
             return columns;
+        }
+
+        enum ExportColumnKind { Parameter, SyringeActivity, FixedStoichiometry1, FixedStoichiometry2 }
+
+        readonly struct ExportColumn
+        {
+            public ExportColumn(ParameterType parameter, ExportColumnKind kind = ExportColumnKind.Parameter)
+            {
+                Parameter = parameter;
+                Kind = kind;
+            }
+
+            public ParameterType Parameter { get; }
+            public ExportColumnKind Kind { get; }
+            public bool IsFixed => Kind == ExportColumnKind.FixedStoichiometry1
+                || Kind == ExportColumnKind.FixedStoichiometry2;
+
+            public bool AppliesTo(SolutionInterface solution)
+            {
+                var corrected = UsesSyringeCorrection(solution);
+                if (Kind == ExportColumnKind.FixedStoichiometry2)
+                    return corrected && solution.ModelType == AnalysisModel.TwoSetsOfSites;
+                if (Kind != ExportColumnKind.Parameter) return corrected;
+                return (Parameter != ParameterType.Nvalue1 && Parameter != ParameterType.Nvalue2) || !corrected;
+            }
+        }
+
+        static bool UsesSyringeCorrection(SolutionInterface solution)
+            => solution.ModelOptions.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var option)
+                && option?.BoolValue == true;
+
+        static List<ExportColumn> GetExportColumns(List<AnalysisResult> results, List<ParameterType> parameters,
+            AnalysisResultExportOptions options)
+        {
+            var members = results.Where(result => HasExportableBindingMember(result, options))
+                .SelectMany(result => result.Solution.Solutions.Where(member => options.RowMode == AnalysisResultExportRowMode.Summary
+                    || ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)))
+                .ToList();
+            var hasOrdinaryN = members.Any(member => !UsesSyringeCorrection(member)
+                && member.ReportParameters.ContainsKey(ParameterType.Nvalue1));
+            var hasCorrection = members.Any(UsesSyringeCorrection);
+            var hasCorrectedTwoSite = members.Any(member => UsesSyringeCorrection(member)
+                && member.ModelType == AnalysisModel.TwoSetsOfSites);
+            var columns = new List<ExportColumn>();
+            foreach (var parameter in parameters)
+            {
+                if (parameter == ParameterType.Nvalue1)
+                {
+                    if (hasOrdinaryN) columns.Add(new ExportColumn(parameter));
+                    if (hasCorrection)
+                    {
+                        columns.Add(new ExportColumn(parameter, ExportColumnKind.SyringeActivity));
+                        columns.Add(new ExportColumn(parameter, ExportColumnKind.FixedStoichiometry1));
+                    }
+                    continue;
+                }
+
+                // A corrected Two-Site fit omits Nvalue2 from ReportParameters.
+                // Anchor the entire second-site N group before Kd2 in either selection order.
+                if (hasCorrectedTwoSite && parameter == ParameterType.Nvalue2) continue;
+                if (hasCorrectedTwoSite && parameter == ParameterType.Affinity2)
+                {
+                    if (parameters.Contains(ParameterType.Nvalue2)) columns.Add(new ExportColumn(ParameterType.Nvalue2));
+                    columns.Add(new ExportColumn(ParameterType.Nvalue2, ExportColumnKind.FixedStoichiometry2));
+                }
+                columns.Add(new ExportColumn(parameter));
+            }
+            return columns;
+        }
+
+        static void AddFixedStoichiometry(List<string> row, ExportColumn column, SolutionInterface solution)
+        {
+            var key = column.Kind == ExportColumnKind.FixedStoichiometry2
+                ? AttributeKey.NumberOfSites2 : AttributeKey.NumberOfSites1;
+            row.Add(solution.ModelOptions.TryGetValue(key, out var option) && option != null
+                && SummaryUncertainty.IsFinite(option.DoubleValue)
+                ? option.DoubleValue.ToString("G5", CultureInfo.InvariantCulture) : "");
         }
 
         static Dictionary<ParameterType, ConcentrationUnit> GetConcentrationUnits(
@@ -270,7 +348,7 @@ namespace AnalysisITC.Core.Export
             return parameter.GetProperties().ParentType == ParameterType.HeatCapacity1;
         }
 
-        static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
+        static List<string> BuildHeader(List<AnalysisResult> results, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
         {
             var hasProfileLikelihood = results.Any(result => result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
                 || result?.Solution?.Solutions?.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true);
@@ -298,11 +376,20 @@ namespace AnalysisITC.Core.Export
             if (includeIonicStrength) header.Add("IS (mM)");
             if (includeProtonation) header.Add("∆H,prot (" + energyUnits.molar.GetUnit() + "/mol)");
 
-            foreach (var parameter in parameters)
+            var numberFirstSite = results.Any(result => HasExportableBindingMember(result, options)
+                && result.Model.ModelType == AnalysisModel.TwoSetsOfSites);
+            foreach (var column in columns)
             {
-                var label = GetParameterHeader(results, parameter, concentrationUnits, energyUnits, options);
+                var label = column.Kind == ExportColumnKind.SyringeActivity ? "α"
+                    : column.Kind == ExportColumnKind.FixedStoichiometry1 ? (numberFirstSite ? "N1 fixed" : "N fixed")
+                    : column.Kind == ExportColumnKind.FixedStoichiometry2 ? "N2 fixed"
+                    : GetParameterHeader(results, column.Parameter, concentrationUnits, energyUnits, options);
 
-                if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError)
+                if (column.IsFixed)
+                {
+                    header.Add(label + (options.ErrorStyle == AnalysisResultExportErrorStyle.SeparateColumns ? "_value" : ""));
+                }
+                else if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError)
                 {
                     header.Add(label);
                 }
@@ -340,7 +427,7 @@ namespace AnalysisITC.Core.Export
             return header;
         }
 
-        static List<string> BuildSummaryRow(AnalysisResult result, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
+        static List<string> BuildSummaryRow(AnalysisResult result, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
         {
             var solutions = result.Solution.Solutions;
             var row = new List<string>
@@ -357,12 +444,14 @@ namespace AnalysisITC.Core.Export
 
             if (includeProtonation) row.Add(!suppressBinding && result.IsProtonationAnalysisEnabled ? "-" : "");
 
-            foreach (var parameter in parameters)
+            foreach (var column in columns)
             {
-                if (ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose))
-                    AddBlankValue(row, options);
+                if (suppressBinding || !column.AppliesTo(solutions[0]))
+                    AddBlankValue(row, options, column.IsFixed);
+                else if (column.IsFixed)
+                    AddFixedStoichiometry(row, column, solutions[0]);
                 else
-                    AddValue(row, SummaryValue(result, parameter), parameter, concentrationUnits, energyUnits, options);
+                    AddValue(row, SummaryValue(result, column.Parameter), column.Parameter, concentrationUnits, energyUnits, options);
             }
 
             row.Add(ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose)
@@ -419,7 +508,7 @@ namespace AnalysisITC.Core.Export
             return new FloatWithError(values, values.Average(value => value.Value));
         }
 
-        static List<string> BuildSolutionRow(AnalysisResult result, SolutionInterface solution, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static List<string> BuildSolutionRow(AnalysisResult result, SolutionInterface solution, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
         {
             var row = new List<string>
             {
@@ -438,13 +527,15 @@ namespace AnalysisITC.Core.Export
             if (includeProtonation)
                 row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
 
-            foreach (var parameter in parameters)
+            foreach (var column in columns)
             {
-                if (suppressBinding)
-                    AddBlankValue(row, options);
+                if (suppressBinding || !column.AppliesTo(solution))
+                    AddBlankValue(row, options, column.IsFixed);
+                else if (column.IsFixed)
+                    AddFixedStoichiometry(row, column, solution);
                 else
-                    AddValue(row, solution.ReportParameters.ContainsKey(parameter) ? solution.ReportParameters[parameter] : FloatWithError.NaN,
-                        parameter, concentrationUnits, energyUnits, options);
+                    AddValue(row, solution.ReportParameters.ContainsKey(column.Parameter) ? solution.ReportParameters[column.Parameter] : FloatWithError.NaN,
+                        column.Parameter, concentrationUnits, energyUnits, options);
             }
 
             row.Add(suppressBinding
@@ -454,9 +545,9 @@ namespace AnalysisITC.Core.Export
             return row;
         }
 
-        static void AddBlankValue(List<string> row, AnalysisResultExportOptions options)
+        static void AddBlankValue(List<string> row, AnalysisResultExportOptions options, bool isFixed = false)
         {
-            if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError) row.Add("");
+            if (isFixed || options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError) row.Add("");
             else foreach (var _ in GetSeparateColumnSuffixes(options)) row.Add("");
         }
 
@@ -688,22 +779,16 @@ namespace AnalysisITC.Core.Export
                 .ToList();
             var containstwo = ThermodynamicParameterSlots.TryResolve(parameter, out _, out _)
                 ? ThermodynamicParameterSlots.FamilyMemberCount(reportParameters, parameter) > 1
-                : results.SelectMany(r => r.Solution.Solutions)
-                    .Any(solution => solution.ParametersConformingToKey(parameter).Count > 1);
-
-            var modelOptions = results
-                .Select(r => r.Solution.Solutions.FirstOrDefault()?.ModelOptions)
-                .FirstOrDefault(optionsMap => optionsMap != null);
-
-            var useSyringeCorrection = modelOptions != null
-                && modelOptions.ContainsKey(AttributeKey.UseSyringeActiveFraction)
-                && (modelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false);
+                : parameter == ParameterType.Nvalue1
+                    ? results.Any(result => result.Model.ModelType == AnalysisModel.TwoSetsOfSites)
+                    : results.SelectMany(r => r.Solution.Solutions)
+                        .Any(solution => solution.ParametersConformingToKey(parameter).Count > 1);
 
             var unit = IsConcentrationParameter(parameter)
                 ? concentrationUnits[parameter].GetName()
                 : AppSettings.DefaultConcentrationUnit.GetName();
 
-            var title = GetParameterTitle(parameter, containstwo, useSyringeCorrection);
+            var title = GetParameterTitle(parameter, containstwo);
 
             switch (parameter.GetProperties().ParentType)
             {
@@ -722,7 +807,7 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static string GetParameterTitle(ParameterType parameter, bool containstwo, bool useSyringeCorrection)
+        static string GetParameterTitle(ParameterType parameter, bool containstwo)
         {
             if (ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
             {
@@ -741,7 +826,6 @@ namespace AnalysisITC.Core.Export
 
             switch (parameter)
             {
-                case ParameterType.Nvalue1 when useSyringeCorrection: return "α";
                 case ParameterType.Nvalue1: return "N" + (containstwo ? "1" : "");
                 case ParameterType.Nvalue2: return "N2";
                 case ParameterType.ApparentAffinity: return "Kd_app";
