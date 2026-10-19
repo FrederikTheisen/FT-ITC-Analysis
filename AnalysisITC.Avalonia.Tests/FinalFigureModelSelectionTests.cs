@@ -29,6 +29,7 @@ public sealed class FinalFigureModelSelectionTests
             var originalSelection = FinalFigureModelPresentation.Selection;
             var directory = Path.Combine(Path.GetTempPath(), "itc012-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
+            Window? window = null;
             try
             {
                 DataManager.Clear(DataClearMode.ResetSession);
@@ -38,8 +39,12 @@ public sealed class FinalFigureModelSelectionTests
                 DataManager.AddData(data);
                 DataManager.AddData(other);
                 var workspace = new FinalFigureWorkspaceControl { SelectedItem = data };
+                window = new Window { Width = 1024, Height = 768, Content = workspace };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
                 var attached = data.Solution;
                 var initialKey = workspace.PreviewCacheKeyForTesting;
+                Assert.NotEmpty(initialKey);
                 Assert.Equal(0, workspace.PlottedModelSelectorForTesting.SelectedIndex);
                 Assert.Equal(FinalFigureModelPresentation.SelectorTooltip,
                     ToolTip.GetTip(workspace.PlottedModelSelectorForTesting));
@@ -143,6 +148,7 @@ public sealed class FinalFigureModelSelectionTests
             }
             finally
             {
+                window?.Close();
                 FinalFigureModelPresentation.Selection = originalSelection;
                 DataManager.Clear(DataClearMode.ResetSession);
                 Directory.Delete(directory, recursive: true);
@@ -251,6 +257,108 @@ public sealed class FinalFigureModelSelectionTests
             Members = { new NullModelComparisonMember { ExperimentId = data.UniqueID } },
         });
         return data;
+    }
+
+    [AvaloniaFact]
+    public void HiddenSelectionsPrepareOnlyLatestFigureWhenOpened()
+    {
+        var original = FinalFigureModelPresentation.Selection;
+        var workspace = new FinalFigureWorkspaceControl();
+        var window = new Window { Width = 1024, Height = 768 };
+        var first = Experiment("First");
+        var second = Experiment("Second");
+        var latest = Experiment("Latest");
+        var models = new[] { first, second, latest }.Select(AttachTwoSiteSolution).ToArray();
+        try
+        {
+            FinalFigureModelPresentation.Selection = PublicationFigureModelSelection.BindingModel;
+            foreach (var data in new[] { first, second, latest }) workspace.SelectedItem = data;
+            workspace.LineWidthForTesting.Value = 3.25m;
+            workspace.InvalidatePreview();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(workspace.PreviewCacheKeyForTesting);
+            Assert.All(models, model => Assert.Equal(0, model.HeatContentSolveCount));
+
+            window.Content = workspace;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEmpty(workspace.PreviewCacheKeyForTesting);
+            Assert.StartsWith(latest.UniqueID + "|", workspace.PreviewCacheKeyForTesting);
+            Assert.Equal(3.25, workspace.GetOptionsSnapshot().FitLineWidth);
+            Assert.Equal(0, models[0].HeatContentSolveCount);
+            Assert.Equal(0, models[1].HeatContentSolveCount);
+            Assert.True(models[2].HeatContentSolveCount > 0);
+
+            window.Content = null;
+            Assert.Empty(workspace.PreviewCacheKeyForTesting);
+            var replacement = AttachTwoSiteSolution(latest);
+            workspace.ApplySettingsDefaults();
+            workspace.LineWidthForTesting.Value = 4.5m;
+            workspace.InvalidatePreview();
+            Assert.Equal(0, replacement.HeatContentSolveCount);
+            window.Content = workspace;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(replacement.Solution.Guid, workspace.PreviewCacheKeyForTesting);
+            Assert.Equal(4.5, workspace.GetOptionsSnapshot().FitLineWidth);
+            Assert.True(replacement.HeatContentSolveCount > 0);
+
+            window.Content = null;
+            workspace.SelectedItem = null;
+            window.Content = workspace;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(workspace.PreviewCacheKeyForTesting);
+            Assert.False(workspace.TryGetPrintTarget(out _));
+        }
+        finally
+        {
+            window.Close();
+            FinalFigureModelPresentation.Selection = original;
+        }
+    }
+
+    [AvaloniaFact]
+    public void HiddenFigureCanExportAndPrintBeforePreviewIsOpened()
+    {
+        var original = FinalFigureModelPresentation.Selection;
+        var directory = Path.Combine(Path.GetTempPath(), "figure-hidden-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            FinalFigureModelPresentation.Selection = PublicationFigureModelSelection.BindingModel;
+            var data = Experiment("Hidden export");
+            var model = AttachTwoSiteSolution(data);
+            var workspace = new FinalFigureWorkspaceControl { SelectedItem = data };
+            Assert.Empty(workspace.PreviewCacheKeyForTesting);
+            Assert.Equal(0, model.HeatContentSolveCount);
+            var path = Path.Combine(directory, "figure.pdf");
+            workspace.ExportExperimentFigure(data, path, PublicationFigureModelSelection.BindingModel);
+            Assert.True(new FileInfo(path).Length > 500);
+            Assert.True(workspace.TryGetPrintTarget(out var target));
+            using var capture = target!.CaptureAsync().GetAwaiter().GetResult();
+            Assert.True(capture.Pdf.Length > 500);
+            Assert.Empty(workspace.PreviewCacheKeyForTesting);
+        }
+        finally
+        {
+            FinalFigureModelPresentation.Selection = original;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    static TwoSetsOfSites AttachTwoSiteSolution(ExperimentData data)
+    {
+        var model = new TwoSetsOfSites(data) { ReuseAttachedSolutionInitialValues = false };
+        model.InitializeParameters(data);
+        model.Parameters.Table[ParameterType.Nvalue1].Update(.8);
+        model.Parameters.Table[ParameterType.Nvalue2].Update(1.2);
+        model.Parameters.Table[ParameterType.Affinity1].Update(6);
+        model.Parameters.Table[ParameterType.Affinity2].Update(4);
+        model.Parameters.Table[ParameterType.Enthalpy1].Update(-20000);
+        model.Parameters.Table[ParameterType.Enthalpy2].Update(-10000);
+        model.Parameters.Table[ParameterType.Offset].Update(100);
+        model.Solution = SolutionInterface.FromModel(model, Converged());
+        data.Model = model;
+        return model;
     }
 
     static SolverConvergence Converged() => SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot

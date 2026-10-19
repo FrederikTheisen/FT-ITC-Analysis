@@ -494,6 +494,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(MarkdownStrings.DissociationConstant + "{,1}", Kd1.AsFormattedConcentration(withunit: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(MarkdownStrings.Enthalpy + "{1}", Enthalpy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Entropy)) output.Add(new(MarkdownStrings.EntropyContribution + "{1}", TdS1.ToFormattedString(ReportEnergyUnit, permole: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(MarkdownStrings.GibbsFreeEnergy + "{1}", GibbsFreeEnergy1.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 // Site 2
@@ -506,6 +507,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(MarkdownStrings.DissociationConstant + "{,2}", Kd2.AsFormattedConcentration(withunit: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(MarkdownStrings.Enthalpy + "{2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Entropy)) output.Add(new(MarkdownStrings.EntropyContribution + "{2}", TdS2.ToFormattedString(ReportEnergyUnit, permole: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(MarkdownStrings.GibbsFreeEnergy + "{2}", GibbsFreeEnergy2.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 // Offset

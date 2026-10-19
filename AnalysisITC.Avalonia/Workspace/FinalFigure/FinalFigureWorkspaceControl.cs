@@ -151,6 +151,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         ITCDataContainer? selectedItem;
         ExperimentData? figureExperiment;
         string? cacheKey;
+        bool isAttached;
         bool isApplyingSettingsDefaults;
         bool showExcludedPoints = true;
 
@@ -261,6 +262,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            isAttached = true;
 
             DataManager.DataDidChange += OnExportDataChanged;
             DataManager.DataInclusionDidChange += OnExportDataChanged;
@@ -273,6 +275,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            isAttached = false;
             DataManager.DataDidChange -= OnExportDataChanged;
             DataManager.DataInclusionDidChange -= OnExportDataChanged;
             AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
@@ -648,6 +651,13 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void RefreshPreview(bool force = false)
         {
+            if (!isAttached)
+            {
+                UpdateModelControls();
+                cacheKey = null;
+                return;
+            }
+
             if (figureExperiment == null)
             {
                 statusText.Text = "No figure selected";
