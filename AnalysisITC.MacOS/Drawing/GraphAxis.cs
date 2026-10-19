@@ -146,7 +146,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public static GraphAxis WithBuffer(GraphBase graph, double min, double max, double buffer = 0.035, AxisPosition position = AxisPosition.Unknown)
         {
-            return new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer };
+            var range = BufferedRange(min, max, buffer);
+            var axis = new GraphAxis(graph, range.Min, range.Max, position);
+            // Preserve historical autoscaling for ordinary ranges. Constant ranges already
+            // have their full padding and must not be rescaled from the default buffer.
+            if (min == max) axis.buffer = buffer;
+            else axis.Buffer = buffer;
+            return axis;
         }
 
         public void Set(double min, double max)
@@ -159,13 +165,18 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public void SetWithBuffer(double min, double max, double buffer = 0.035)
         {
-            var delta = max - min;
-            if (delta == 0) delta = 1;  
-
-            ActualMin = (float)(min - delta * buffer);
-            ActualMax = (float)(max + delta * buffer);
+            var range = BufferedRange(min, max, buffer);
+            ActualMin = (float)range.Min;
+            ActualMax = (float)range.Max;
 
             SetTickScale();
+        }
+
+        static (double Min, double Max) BufferedRange(double min, double max, double buffer)
+        {
+            var delta = max - min;
+            if (delta == 0) delta = Math.Max(1, Math.Abs(min));
+            return (min - delta * buffer, max + delta * buffer);
         }
 
         void UpdateAutoScale(double old)
