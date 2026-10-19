@@ -598,6 +598,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-045 — Unified native power axes include experiments with no thermogram
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.MacOS/Drawing/CGGraph.cs:939`; `AnalysisITC.MacOS/GraphViews/FinalFigureGraphView.cs:279`; `AnalysisITC.MacOS/PopOptionViewControllers/FinalFigureOptions/FinalFigureOptionsController.cs:374`
@@ -606,6 +607,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Load an integrated-heats file alongside a processed raw experiment, select the raw experiment and enable unified power axes in Final Figure.
 - Consequence: The heat-only member causes an empty-sequence exception. The selected-experiment thermogram guard does not protect other members; the option is session-local and default-off.
 - Suggested direction: Build the common power domain only from usable thermogram samples and define an explicit empty-domain fallback.
+- Resolution (2026-10-18): Native power-axis bounds and heat-direction classification now use only thermogram-bearing experiments with nonempty traces in the selected raw/corrected mode. An explicitly empty corrected trace is skipped; the existing null-corrected fallback to raw samples is retained. An empty shared domain falls back to the selected experiment's usable trace, otherwise retaining the initialized/current axis. Switching raw/corrected display recalculates shared bounds when enabled; local scaling, zero anchoring, buffering, units, and manual bounds retain their existing behavior. No Core, Avalonia, persistence, or manual/help changes.
+- Validation: Eight of nine new native behavioral checks failed before the fix; all nine now pass. The fixture regression strictly reopens `SolutionIdentityTracingTest/processed.ftxtc`, imports `BufferSubtraction/hepes-01.DH` through the real reader with a test unit prompt, and verifies both active members, shared figure construction, bitmap preview drawing, and native PDF rendering. Independent numeric expectations cover exothermal/endothermal/mixed domains, ignored heat-only directions, raw/corrected switching, local scaling, empty corrected traces, null-corrected raw fallback, selected-trace fallback, no available samples, and manual-bound precedence. Inactive heat-only members and heat-only selection are also covered. Existing `FinalFigureModelSelectionTests` and all seven `DissociationGraphTests` checks pass. Managed native compilation only; no packaging/signing targets. Logs: `/private/tmp/cr045-before.log` and `/private/tmp/cr045-after.log`.
 
 ## CR-046 — Native residual axes can exclude their own uncertainty bars
 

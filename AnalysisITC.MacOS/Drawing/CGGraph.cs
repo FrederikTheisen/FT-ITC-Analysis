@@ -904,15 +904,22 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 bool _value = _showBaselineCorrected;
                 _showBaselineCorrected = value;
 
-                if (value != _value) SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
+                if (value == _value) return;
+
+                if (UseUnifiedAxes) SetupYAxes();
+                else if (DataPoints?.Count > 0)
+                    SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
             }
         }
 
         public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupYAxes(); } }
 
-        public List<DataPoint> DataPoints => ShowBaselineCorrected && ExperimentData.BaseLineCorrectedDataPoints != null
-                    ? ExperimentData.BaseLineCorrectedDataPoints
-                    : ExperimentData.DataPoints;
+        public List<DataPoint> DataPoints => GetDataPoints(ExperimentData);
+
+        List<DataPoint> GetDataPoints(ExperimentData experiment)
+            => ShowBaselineCorrected && experiment.BaseLineCorrectedDataPoints != null
+                ? experiment.BaseLineCorrectedDataPoints
+                : experiment.DataPoints;
 
         public DataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -938,17 +945,22 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void SetupYAxes()
         {
-            IEnumerable<ExperimentData> data;
+            var candidates = UseUnifiedAxes ? DataManager.IncludedData : new[] { ExperimentData };
+            var data = candidates.Where(experiment => experiment.HasThermogram
+                && GetDataPoints(experiment)?.Count > 0).ToList();
 
-            if (UseUnifiedAxes) data = DataManager.IncludedData;
-            else data = new ExperimentData[] { ExperimentData };
+            if (data.Count == 0)
+            {
+                if (!ExperimentData.HasThermogram || !(DataPoints?.Count > 0)) return;
+                data.Add(ExperimentData);
+            }
 
-            var minmax = Method(data);
+            var minmax = GetPowerRange(data);
 
             YAxis.SetWithBuffer(minmax[0], minmax[1], YAxis.Buffer);
         }
 
-        double[] Method(IEnumerable<ExperimentData> data)
+        double[] GetPowerRange(IEnumerable<ExperimentData> data)
         {
             PeakHeatDirection direction;
             if (data.All(exp => exp.AverageHeatDirection == PeakHeatDirection.Exothermal)) direction = PeakHeatDirection.Exothermal;
@@ -960,21 +972,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             switch (direction)
             {
-                case PeakHeatDirection.Exothermal when ShowBaselineCorrected: min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power)); break;
-                case PeakHeatDirection.Endothermal when ShowBaselineCorrected: max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power)); break;
+                case PeakHeatDirection.Exothermal when ShowBaselineCorrected: min = data.Min(exp => GetDataPoints(exp).Min(dp => dp.Power)); break;
+                case PeakHeatDirection.Endothermal when ShowBaselineCorrected: max = data.Max(exp => GetDataPoints(exp).Max(dp => dp.Power)); break;
                 default:
-                    min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power));
-                    max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power));
+                    min = data.Min(exp => GetDataPoints(exp).Min(dp => dp.Power));
+                    max = data.Max(exp => GetDataPoints(exp).Max(dp => dp.Power));
                     break;
             }
 
             return new double[] { min, max };
-
-            List<DataPoint> local_getdatapoints(ExperimentData _exp)
-            {
-                if (ShowBaselineCorrected && _exp.BaseLineCorrectedDataPoints != null) return _exp.BaseLineCorrectedDataPoints;
-                else return _exp.DataPoints;
-            }
         }
 
         internal override void Draw(CGContext gc)
