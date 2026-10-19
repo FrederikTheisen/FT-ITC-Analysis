@@ -25,16 +25,16 @@ namespace AnalysisITC.UI.MacOS
             int segmentCount,
             TandemConcatenation.BackMixingSettings defaults)
         {
-            var accessory = new NSView(new CGRect(0, 0, 340, 92));
-            var deadVolumeField = new NSTextField(new CGRect(190, 58, 80, 22))
+            var accessory = new NSView(new CGRect(0, 0, 340, 140));
+            var deadVolumeField = new NSTextField(new CGRect(190, 106, 80, 22))
             {
                 StringValue = (defaults.DeadVolume * 1e6).ToString("G4", CultureInfo.InvariantCulture),
             };
-            var mixingFractionField = new NSTextField(new CGRect(190, 30, 80, 22))
+            var mixingFractionField = new NSTextField(new CGRect(190, 78, 80, 22))
             {
                 StringValue = "20",
             };
-            var removeOverflowCheckbox = new NSButton(new CGRect(0, 0, 300, 20))
+            var removeOverflowCheckbox = new NSButton(new CGRect(0, 48, 300, 20))
             {
                 Title = "Remove overflow between segments",
                 State = defaults.DidRemoveOverflow ? NSCellStateValue.On : NSCellStateValue.Off,
@@ -42,14 +42,28 @@ namespace AnalysisITC.UI.MacOS
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
             removeOverflowCheckbox.SetButtonType(NSButtonType.Switch);
+            var errorText = new NSTextField(new CGRect(0, 0, 340, 40))
+            {
+                Editable = false,
+                Bordered = false,
+                DrawsBackground = false,
+                Selectable = false,
+                TextColor = NSColor.SystemRed,
+                Hidden = true,
+            };
+            errorText.Cell.Wraps = true;
+            errorText.Cell.Scrollable = false;
+            errorText.Cell.UsesSingleLineMode = false;
+            errorText.Cell.LineBreakMode = NSLineBreakMode.ByWordWrapping;
 
-            accessory.AddSubview(MakeLabel("Dead volume (µL)", 0, 61));
+            accessory.AddSubview(MakeLabel("Dead volume (µL)", 0, 109));
             accessory.AddSubview(deadVolumeField);
-            accessory.AddSubview(MakeLabel("Mixing fraction (%)", 0, 33));
+            accessory.AddSubview(MakeLabel("Mixing fraction (%)", 0, 81));
             accessory.AddSubview(mixingFractionField);
             accessory.AddSubview(removeOverflowCheckbox);
+            accessory.AddSubview(errorText);
 
-            var alert = new NSAlert
+            using var alert = new NSAlert
             {
                 AlertStyle = NSAlertStyle.Informational,
                 MessageText = "Tandem ITC File Detected",
@@ -61,25 +75,45 @@ namespace AnalysisITC.UI.MacOS
             alert.AddButton("Use Back-Mixing Compensation");
             alert.Layout();
 
-            var response = (int)alert.RunModal();
-            if (response != 1001) return defaults;
-
-            if (!TryParseDouble(deadVolumeField.StringValue, out var deadVolumeMicroliters)
-                || deadVolumeMicroliters <= 0)
-                throw new FormatException("Dead volume must be a positive number in microliters.");
-            if (!TryParseDouble(mixingFractionField.StringValue, out var mixingFractionPercent)
-                || mixingFractionPercent < 0
-                || mixingFractionPercent > 100)
-                throw new FormatException("Mixing fraction must be a number from 0 to 100 percent.");
-
-            return new TandemConcatenation.BackMixingSettings
+            var settings = defaults;
+            // Replace the alert's automatic dismissal action so invalid entries
+            // can be corrected in this same dialog.
+            alert.Buttons[1].Activated += (_, _) =>
             {
-                UseBackMixingMethod = true,
-                DeadVolume = deadVolumeMicroliters * 1e-6,
-                MixingFraction = mixingFractionPercent / 100.0,
-                DidRemoveOverflow = removeOverflowCheckbox.State == NSCellStateValue.On,
-                RemoveOverflowVolume = defaults.RemoveOverflowVolume,
+                if (!TryParseDouble(deadVolumeField.StringValue, out var deadVolumeMicroliters)
+                    || deadVolumeMicroliters <= 0)
+                {
+                    ShowError("Dead volume must be a positive number in microliters.", deadVolumeField);
+                    return;
+                }
+                if (!TryParseDouble(mixingFractionField.StringValue, out var mixingFractionPercent)
+                    || mixingFractionPercent < 0
+                    || mixingFractionPercent > 100)
+                {
+                    ShowError("Mixing fraction must be a number from 0 to 100 percent.", mixingFractionField);
+                    return;
+                }
+
+                settings = new TandemConcatenation.BackMixingSettings
+                {
+                    UseBackMixingMethod = true,
+                    DeadVolume = deadVolumeMicroliters * 1e-6,
+                    MixingFraction = mixingFractionPercent / 100.0,
+                    DidRemoveOverflow = removeOverflowCheckbox.State == NSCellStateValue.On,
+                    RemoveOverflowVolume = defaults.RemoveOverflowVolume,
+                };
+                NSApplication.SharedApplication.StopModalWithCode(1001);
             };
+
+            return alert.RunModal() == 1001 ? settings : defaults;
+
+            void ShowError(string message, NSTextField field)
+            {
+                errorText.StringValue = message;
+                errorText.Hidden = false;
+                alert.Window.MakeFirstResponder(field);
+                field.SelectText(alert);
+            }
         }
 
         static NSTextField MakeLabel(string text, nfloat x, nfloat y)

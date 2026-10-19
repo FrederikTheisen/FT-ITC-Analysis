@@ -1138,6 +1138,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-084 — Correcting a tandem-import option requires restarting the import
 
 - Priority: Low
+- Status: Resolved (2026-10-19).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.MacOS/Platform/MacTandemImportPromptService.cs:64`; `AnalysisITC.Core/DataReaders/MicroCalITC200Reader.cs:163`; `AnalysisITC.Core/DataReaders/DataReaders.cs:336`
@@ -1146,6 +1147,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Import a valid concatenated MicroCal file, enter dead volume 0 or mixing percentage 200, then choose back-mixing compensation.
 - Consequence: A handled per-file error skips the current import; correcting the typo requires reopening the file and reentering choices. Remaining files continue, with no crash or persisted-data loss established.
 - Suggested direction: Keep the dialog and entered choices available until validation succeeds, consistent with Avalonia.
+- Resolution: The native compensation button validates before ending the modal dialog. Invalid input displays a wrapping error in the same dialog and selects the field to correct; both entered values and the overflow choice remain available. Valid compensation input completes the current import, and choosing MicroCal remains available after a validation error.
+- Validation: A native modal regression reproduced the original `FormatException` with dead volume 0 before the fix. All seven final native scenarios pass, covering repeated correction of dead volume 0 and mixing fraction 200, retained drafts and defaults, switching to MicroCal after an error, 0%/100% boundaries, decimal-comma and invariant input, and a real three-segment MicroCal import completed with corrected compensation settings. The managed native build and `git diff --check` pass. Evidence: `/private/tmp/cr084-before.log` and `/private/tmp/cr084-final.log`. No packaging or release was performed.
 
 ## Review coverage
 
