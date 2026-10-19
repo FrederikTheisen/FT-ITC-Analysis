@@ -54,6 +54,50 @@ public sealed class BaselineAutoCorrelationTests
         Assert.Equal(expected, Statistics.EstimateAutoCorrelation(points, 2), 12);
     }
 
+    [Theory]
+    [InlineData(0, 1.25)]
+    [InlineData(0.5, 1.75)]
+    public void WeightedVarianceIncludesSquaredFractionalWeights(double correlation, double expected)
+    {
+        Assert.Equal(expected, Statistics.Ar1WeightedSumVarFactor(new[] { 1.0, 0.5 }, correlation), 12);
+    }
+
+    [Theory]
+    [InlineData(-0.999)]
+    [InlineData(-0.5)]
+    [InlineData(0)]
+    [InlineData(0.5)]
+    [InlineData(0.85)]
+    public void WeightedVarianceAgreesWithIndependentCovarianceExpansion(double correlation)
+    {
+        var cases = new[]
+        {
+            Array.Empty<double>(),
+            new[] { 0.5 },
+            new[] { 0.5, 1, 0.5 },
+            new[] { 1.0, 2, 3 },
+            new[] { 1.0, 0, 0.5 },
+            new[] { 1e-6, 2e-6, 0.5e-6 },
+            new[] { 1e-12, 2e-12, 0.5e-12 },
+            new double[100],
+        };
+        Array.Fill(cases[cases.Length - 1], 1.0);
+
+        foreach (var weights in cases)
+        {
+            double expected = 0;
+            for (int i = 0; i < weights.Length; i++)
+                for (int j = 0; j < weights.Length; j++)
+                    expected += weights[i] * weights[j] * Math.Pow(correlation, Math.Abs(i - j));
+
+            var actual = Statistics.Ar1WeightedSumVarFactor(weights, correlation);
+
+            Assert.True(double.IsFinite(actual));
+            Assert.True(actual >= 0);
+            Assert.InRange(Math.Abs(actual - expected), 0, Math.Max(Math.Abs(expected) * 1e-11, double.Epsilon));
+        }
+    }
+
     [Fact]
     public void IntegratedHeatSdUsesWithinSegmentCorrelationAndSuppliesFitWeight()
     {
@@ -80,10 +124,10 @@ public sealed class BaselineAutoCorrelationTests
         // Baseline samples [1, 2] and [-1, -2] give r = 4/8 = 1/2,
         // power variance = (1 + 4 + 1 + 4)/(4 - 1) = 10/3, with no clipping.
         // Independently summing the AR(1) covariance matrices gives:
-        // three interior samples: 3 + 2*(1/2 + 1/2 + 1/4) = 5.5;
+        // four contributing samples: 4 + 2*(3/2 + 2/4 + 1/8) = 8.25;
         // each two-sample baseline segment: 2 + 2*(1/2) = 3.
         // dt = 10, integration length = 40, baseline sample count = 4.
-        var expectedSd = Math.Sqrt((10.0 / 3.0) * (100 * 5.5 + 1600.0 * 6 / 16));
+        var expectedSd = Math.Sqrt(4750);
         Assert.Equal(80.0, injection.RawPeakArea.Value, 12);
         Assert.Equal(expectedSd, injection.RawPeakArea.SD, 12);
         Assert.Equal(expectedSd, injection.PeakAreaError, 12);

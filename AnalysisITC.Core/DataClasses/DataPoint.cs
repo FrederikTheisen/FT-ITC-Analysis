@@ -47,6 +47,8 @@ namespace AnalysisITC.Core.Data
 
         public static double VolatilityWeightedAverage(List<DataPoint> list)
         {
+            if (list.Count == 1) return list[0].Power;
+
             double w = 0;
             double sum = 0;
 
