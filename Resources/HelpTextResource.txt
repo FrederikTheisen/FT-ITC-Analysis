@@ -67,6 +67,12 @@ Drag the blue markers to adjust individual injections. When focused on one injec
 
 Lock the processor to freeze processing and disable graphical edits. Lock individual spline points instead when only selected handles should stay fixed.
 
+Copying processing leaves locked destinations untouched. A locked source locks destinations after recalculating their baselines and heats; an unlocked source leaves them unlocked.
+
+**Active** copies to included experiments; **New** copies to experiments without a baseline, whether included or not. In native macOS, **All** targets all other experiments.
+
+Experiments without a raw thermogram are skipped; the status message reports how many.
+
 # How processing affects heats
 
 An integrated heat is the area between the measured trace and its baseline within the integration region. By default, baseline fitting excludes these regions, so changing a boundary can change both the fitted baseline and the heat.
@@ -89,16 +95,16 @@ $$
 Integration noise contributes:
 
 $$
-\sigma{q,i,int} = \sigma{p,i} · ∆*t* · √*N*{int,eff}
+\sigma{q,i,int} = \sigma{p,i} · √(∑{j,k} *w*{j}*w*{k}*r*^|j−k|^)
 $$
 
-Here, \sigma{p,i} is the local RMS power noise, ∆*t* the sampling interval, and *N*{int,eff} the effective integrated-sample count. Baseline-level uncertainty contributes:
+Here, \sigma{p,i} is the local RMS power noise, *w*{j} the time each sample contributes to the heat in seconds, and *r* the correlation between neighboring samples. Baseline-level uncertainty contributes:
 
 $$
 \sigma{q,i,bl} = \sigma{p,i} · (*T*{int} / √*N*{bl,eff})
 $$
 
-Here, *T*{int} is integration duration in seconds and *N*{bl,eff} the effective baseline-sample count. Effective counts account for correlation between neighboring samples using a chosen AR(1) approximation, in which correlation decays geometrically with separation. Local noise is estimated from samples before integration and near the end of the injection interval; the latter can overlap integration.
+Here, *T*{int} is integration duration in seconds and *N*{bl,eff} the effective baseline-sample count accounting for correlated noise. Propagation uses a chosen AR(1) approximation, in which correlation decays geometrically with separation. Local noise is estimated from samples before integration and near the end of the injection interval; the latter can overlap integration.
 
 Correlation uses consecutive baseline sample pairs separated by at most twice the sampling interval, with the same eligible pairs in its numerator and normalization. Longer gaps are excluded.
 
@@ -195,7 +201,7 @@ Every included experiment needs the requested attributes. A fit captures the val
 
 # Multiple experiments and global fitting
 
-Mark the experiments **Active**, enable **\multexp**, and choose which parameters to share. With no shared constraints, experiments are fitted independently. Shared parameters connect them in a global fit. Temperature, salt, or buffer variation can support further analyses; see **Derived analyses**.
+Mark the experiments **Active**, enable **\multexp**, and choose which parameters to share. With no shared constraints, experiments are fitted independently. Shared parameters connect them in a global fit. Changing models resets global constraints to **Independent**. Temperature, salt, or buffer variation can support further analyses; see **Derived analyses**.
 
 # Fit completion
 
@@ -210,7 +216,7 @@ Affinity is fitted as log₁₀K, so a negative coordinate still represents a po
 When comparing programs, check the model, concentration and stoichiometry definitions, injection bookkeeping, and dilution-heat treatment. Matching one convention does not make parameter values interchangeable.
 
 ## Syringe correction
-Enable syringe correction when the main concentration uncertainty concerns material in the syringe rather than the cell. The result reports the fitted correction factor as α. Check this setting when comparing fitted stoichiometry between analyses.
+Enable syringe correction when the main concentration uncertainty concerns material in the syringe rather than the cell. The **N-value** parameter row becomes **Correction factor** (α), which scales delivered titrant concentration. Enter or lock α there and set the fixed cell-side site ratio under **Stoichiometry**. Check this setting when comparing fitted stoichiometry between analyses.
 
 # Scientific interpretation
 
@@ -243,6 +249,8 @@ For local parameters, **Combined SD** is the square root of between-experiment s
 
 The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. ΔCp uses slope uncertainty.
 
+Summary Kd is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
+
 These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
 
 ## Binding assessment
@@ -258,7 +266,7 @@ Reopening evaluates saved comparison evidence with the current automatic rule wh
 
 # Reports, figures, and tables
 
-**Standard reports:** list every member, but suppress no-binding estimates, RMSD, parameter tables, and fit warnings. Unavailable values appear as **—**. Inconclusive results retain binding output with a health warning. Manual conclusions are marked **(manual)**.
+**Standard reports:** list every member, but suppress no-binding estimates, RMSD, parameter tables, and fit warnings. Unavailable values appear as **—**. Inconclusive results retain binding output with a health warning. In report warning summaries, “N of M experiments” counts affected eligible members against all members of the result; overview fit warnings exclude no-binding members, while Diagnostic appendix warnings retain them. Manual conclusions are marked **(manual)**.
 
 **Figures:** Standard report and Supporting Figure plots use the Null prediction for no-binding members and omit their c-values and correlations. Thermodynamic summary graphs omit those members in both Standard and Diagnostic reports. Final Figure has a separate **Plotted model** choice.
 
@@ -357,6 +365,8 @@ For one-set-of-sites results, open the additional analysis tabs when the experim
 
 Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
 
+Each salt-plot point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Counter Ion Release views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
+
 **Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection.
 
 Check buffer constants and conditions before interpreting these analyses. Completed structuring outputs retain their saved estimates and evaluation temperature until rerun.
@@ -395,6 +405,8 @@ Editing interpretation text makes it user-written and current, replacing any pre
 Changes to included results, including values, uncertainties, assessments, names, or comments, ask you to review the interpretation. This applies to both user-written and generated text. Choose **Confirm**, or edit the text, then save the report. A later result change asks for review again. Confirm preserves the text and its source; it does not clear a generated interpretation's separate AI fingerprint freshness status or printed warning.
 
 # Interpreting report values
+
+The experiment parameter overview focuses on binding model parameters (N or α, Kd, and ΔH, as applicable), relevant conditions, and RMSD. Full thermodynamic values appear in the detailed parameter tables.
 
 Fitted values and fit settings come from the saved result. Processing details, observations, and injection tables describe **Current experiment data**. Fit and Residual use the reported solution, with residual = observed − predicted. Supporting experiments show observations only. Recheck result validity after editing processing.
 
@@ -440,7 +452,7 @@ Figure batches ask once before replacing existing PDFs; **Cancel** stops the ent
 
 # Exporting and checking plots
 
-Use **File > Export**, context menus, or the result exporter for data and figures. The selected tool determines whether traces, heats, uncertainties, or fitted parameters are included. Fitted values can also be copied from the result view.
+Use **File > Export**, context menus, or the result exporter for data and figures. Combined Data includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available. **Copy Result Table** copies one row per experiment as tab-separated text for spreadsheet pasting. Values and uncertainties use separate columns following the uncertainty display preference; **None** copies values only. Use the Analysis Result Exporter for combined summary rows or other formats.
 
 Figures use current processing. After changing baselines or integration regions, rerun the fit before exporting; processing edits do not automatically refit curves. Supporting Figure retains its sources and layout during the current document session.
 
@@ -449,12 +461,16 @@ Use the \designer to check a proposed titration before collecting data. Select t
 
 Choose a model and adjust parameters to inspect the predicted titration. Enable **Simulate noise** and set **Noise level** to explore its effect. Fit the simulated data to examine whether the design may constrain the model.
 
+For Competitive Binding, enter total competitor concentration and dissociation constant (**Kd**) in the displayed concentration unit, and binding enthalpy in the displayed energy unit per mole. With µM and kJ/mol shown, enter **1** for Kd = 1 µM and **−40** for enthalpy = −40 kJ/mol.
+
 # Tandem designs
 
 Tandem mode repeats the injection series for each syringe load, with a small first injection at each segment start when enabled. Concentrations advance between segments using the tandem back-mixing model; see **Tandem experiments** for its assumptions.
 
 ## Buffer subtraction
 Select a reference buffer experiment and one or more targets in the Buffer Subtraction tool, then apply the correction. Original integrated heats remain stored and raw files are unchanged.
+
+Buffer subtraction is currently unavailable for tandem experiments, including through Experiment Details.
 
 **Matched:** subtract matching buffer injections, using nearby valid injections as fallback.
 
@@ -473,6 +489,7 @@ Matched subtraction uses the reference injection SD, or combines SDs when nearby
 ## Tandem experiments
 Tandem experiments can be collected by refilling the syringe while leaving the current cell content, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
 The standard merge concatenates thermograms and recomputes injection concentrations and ratios across the combined titration. If an input experiment has already been baseline processed, the merger uses its baseline-corrected trace for that segment.
+Source experiments must have no buffer subtraction. Remove any buffer-subtraction attribute in **Experiment Details** before merging or scanning, in every merger mode.
 Back-mixing mode adds a simple overflow/dead-volume model between syringe loads. You can set the dead volume, choose whether displaced titrated solution was removed between segments, and adjust the fraction of the dead volume that mixes back into the active cell. The merged experiment stores segment start concentrations so processing, fitting, and project saving treat it as one tandem dataset. Its comments retain the first source’s notes and append the merge method, auto criterion when used, settings, and selected fractions in reload order.
 
 Select **Auto back-mixing** (**Auto** on macOS), then choose **One-site** or **Model-free** under **Auto criterion**. One-site uses a binding model; Model-free matches the two sides of each reload without specifying a binding model. Both infer corrections from the data rather than measuring liquid mixing.
@@ -517,3 +534,5 @@ Edit experiment attributes in experiment details to supply metadata for derived 
 # Restoring preferences
 
 In Preferences, **Restore Defaults** restores built-in values, including the 20,000 optimizer iteration limit. Choose **Apply** to save changes or **Cancel** to discard them.
+
+Saving a project or applying Preferences preserves the solver and uncertainty choices in the Analysis inspector. Their saved defaults are loaded at application startup or through **Restore defaults** in Analysis; that action also clears stored analysis inputs and **Unlock parameters**.

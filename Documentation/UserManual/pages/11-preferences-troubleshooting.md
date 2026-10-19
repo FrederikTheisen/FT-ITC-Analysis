@@ -37,7 +37,6 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 | **Include buffer in ionic-strength calculation** | Includes buffer contribution when ionic strength is calculated. |
 | **Check for updates and online resources on launch** | Controls launch-time online checks; it does not disable local analysis. |
 | **Confirm remove/delete actions** | Controls confirmation before remove or delete commands. |
-| **Automatically discard injections outside the thermogram range** | Controls automatic removal of orphan injections when data are loaded. |
 | **Enable autosave** | Enables periodic recovery copies. |
 | **Interval (minutes)** | Sets the autosave interval. The built-in default is **5 minutes**. |
 | **Maximum files** | Sets the number of autosave files retained. The built-in default is **10 files**. |
