@@ -1023,12 +1023,12 @@ namespace AnalysisITC.Avalonia.Results
             if (options != null && options.Count > 0)
             {
                 modelPanel.Children.Add(Section("Model options", options
-                    .Select(option => Pair(OptionName(option.Key, option.Value), OptionValue(option.Key, option.Value), labelContainsMarkdown: true))
+                    .Select(option => Pair(OptionName(option.Key, option.Value), AnalysisResultModelOptionPresentation.FormatValue(option.Key, option.Value), labelContainsMarkdown: true))
                     .Cast<Control>()
                     .ToArray()));
 
                 var fromAttributes = options
-                    .Where(option => UsesExperimentAttribute(option.Key, option.Value))
+                    .Where(option => AnalysisResultModelOptionPresentation.UsesExperimentAttribute(option.Key, option.Value))
                     .Select(option => option.Key)
                     .ToList();
                 if (fromAttributes.Count > 0)
@@ -1038,7 +1038,7 @@ namespace AnalysisITC.Avalonia.Results
                         modelPanel.Children.Add(Section(model.Data?.Name ?? "Experiment", fromAttributes
                             .Where(key => model.ModelOptions.ContainsKey(key))
                             .Select(key => Pair(OptionName(key, model.ModelOptions[key]),
-                                OptionValue(key, model.ModelOptions[key], showAttributeSource: false), labelContainsMarkdown: true))
+                                AnalysisResultModelOptionPresentation.FormatValue(key, model.ModelOptions[key], showAttributeSource: false), labelContainsMarkdown: true))
                             .Cast<Control>()
                             .ToArray()));
                     }
@@ -1801,27 +1801,6 @@ namespace AnalysisITC.Avalonia.Results
             return option?.GetDisplayName()
                 ?? key.GetProperties()?.Name
                 ?? key.GetEnumDescription();
-        }
-
-        static bool UsesExperimentAttribute(AttributeKey key, ExperimentAttribute option) =>
-            option.BoolValue && key is AttributeKey.PreboundLigandConc
-                or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy;
-
-        static string OptionValue(AttributeKey key, ExperimentAttribute option, bool showAttributeSource = true)
-        {
-            if (showAttributeSource && UsesExperimentAttribute(key, option))
-                return "From experiment attribute";
-            return key switch
-            {
-                AttributeKey.PreboundLigandAffinity => (1.0 / FWEMath.Pow(10.0, option.ParameterValue)).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true),
-                AttributeKey.PreboundLigandEnthalpy => new Energy(option.ParameterValue).ToFormattedString(
-                    EnergyDisplay.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value),
-                    true,
-                    true),
-                AttributeKey.NumberOfSites1 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),
-                AttributeKey.NumberOfSites2 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),
-                _ => option.ToString()
-            };
         }
 
         static HorizontalAlignment HorizontalAlignmentFor(AnalysisResultColumnAlignment alignment)

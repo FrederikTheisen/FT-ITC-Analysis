@@ -669,6 +669,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-050 — Native Results replaces saved competitor intervals with symmetric bounds
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs:2173`; `AnalysisITC.MacOS/CustomViews/AnalysisInspectorViews.cs:456`; `AnalysisITC.Core/Math/NumberStructs.cs:60`
@@ -677,6 +678,9 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Fit competitive data using competitor properties from a one-site result with asymmetric uncertainty, then view Results → Model using CI or Automatic uncertainty display.
 - Consequence: macOS shows different bounds or a different uncertainty style from the saved value and Avalonia. The stored scientific evidence remains intact.
 - Suggested direction: Format the complete transformed FloatWithError using shared presentation instead of reconstructing it from two scalars.
+
+- Resolution: Core `AnalysisResultModelOptionPresentation` formats saved model options for both desktop Results views. Affinity-to-Kd and unit conversions retain the complete `FloatWithError`, including interval endpoints; Automatic selects its style after transformation. Numeric options follow the selected uncertainty, precision, concentration-unit and energy-family preferences. Source indicators and per-experiment saved values retain their existing roles. Native editable value/SD fields, fitting and persistence are unchanged.
+- Validation: Before-fix native checks reproduced Kd `1.0 [0.5, 1.5] µM` instead of `1.0 [0.1, 10.0] µM`, and reconstructed enthalpy bounds; Avalonia checks reproduced its fixed-precision Kd formatting. All 32 new Core regressions pass, covering independent conversion expectations, all five styles, units/precision, zero and symmetric uncertainty, source indicators and saved-value preservation. Full Core suite: 4,273 passed, one existing skip. The 40 focused Avalonia competitor/results/designer tests pass. Native `CompetitiveResultModelOptionPresentationTests`, `EnergyEditorUnitTests` and `AnalysisParameterDraftTests` pass. Real Skia and AppKit renders were inspected at inspector width. Evidence: `/private/tmp/cr050-core-focused.log`, `/private/tmp/cr050-core-full.log`, `/private/tmp/cr050-after-avalonia.log`, `/private/tmp/cr050-after-native.log`, and `/private/tmp/cr050-qa/`. No packaging, signing, commit or push was performed.
 
 ## CR-051 — Native integration sliders use another experiment's baseline-exclusion policy
 

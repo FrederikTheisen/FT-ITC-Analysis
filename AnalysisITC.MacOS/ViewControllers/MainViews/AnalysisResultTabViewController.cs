@@ -1373,13 +1373,13 @@ namespace AnalysisITC
                                 Pair(
                                     AnalysisInspectorDisplayCatalog
                                         .OptionTitle(option.Value),
-                                    OptionValue(
+                                    AnalysisResultModelOptionPresentation.FormatValue(
                                         option.Key,
                                         option.Value)))
                             .ToArray()));
 
                 var fromAttributes = options
-                    .Where(option => UsesExperimentAttribute(option.Key, option.Value))
+                    .Where(option => AnalysisResultModelOptionPresentation.UsesExperimentAttribute(option.Key, option.Value))
                     .Select(option => option.Key)
                     .ToList();
                 if (fromAttributes.Count > 0)
@@ -1392,7 +1392,7 @@ namespace AnalysisITC
                                 .Where(key => model.ModelOptions.ContainsKey(key))
                                 .Select(key => Pair(
                                     AnalysisInspectorDisplayCatalog.OptionTitle(model.ModelOptions[key]),
-                                    OptionValue(key, model.ModelOptions[key], showAttributeSource: false)))
+                                    AnalysisResultModelOptionPresentation.FormatValue(key, model.ModelOptions[key], showAttributeSource: false)))
                                 .ToArray()));
                     }
                 }
@@ -2148,57 +2148,6 @@ namespace AnalysisITC
             var value = celsius + (UseKelvin ? 273.15 : 0);
             return $"{value:G3} {(UseKelvin ? "K" : "°C")}";
         }
-
-        static string OptionValue(
-            AttributeKey key,
-            ExperimentAttribute option,
-            bool showAttributeSource = true)
-        {
-            if (option == null) return "";
-
-            if (showAttributeSource && UsesExperimentAttribute(key, option))
-            {
-                return "From experiment attribute";
-            }
-
-            var type = key.GetProperties().Type;
-            if (type == ExperimentAttribute.AttributeType.Parameter
-                || type
-                    == ExperimentAttribute.AttributeType.ParameterAffinity
-                || type
-                    == ExperimentAttribute.AttributeType.ParameterConcentration)
-            {
-                var display =
-                    AnalysisInspectorDisplayCatalog.OptionDisplayValue(
-                        option);
-                var formatted = new FloatWithError(
-                        display.value,
-                        display.error)
-                    .AsNumber(AppSettings.UncertaintyDisplayStyle);
-                var unit =
-                    AnalysisInspectorDisplayCatalog.OptionUnit(
-                        key,
-                        option.ParameterValue.Value);
-                return string.IsNullOrWhiteSpace(unit)
-                    ? formatted
-                    : formatted + " " + unit;
-            }
-
-            return key switch
-            {
-                AttributeKey.NumberOfSites1
-                    or AttributeKey.NumberOfSites2 =>
-                    StoichiometryOptions.FormatAsTitle(
-                        option.DoubleValue > 0
-                            ? option.DoubleValue
-                            : option.IntValue),
-                _ => option.GetDisplayValue(),
-            };
-        }
-
-        static bool UsesExperimentAttribute(AttributeKey key, ExperimentAttribute option) =>
-            option.BoolValue && key is AttributeKey.PreboundLigandConc
-                or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy;
 
         static NSTextAlignment TextAlignment(
             AnalysisResultColumnAlignment alignment)

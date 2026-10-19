@@ -1,7 +1,14 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
@@ -17,6 +24,137 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class CompetitiveResultModelOptionPresentationTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ModelPagePreservesIntervalsAndRefreshesDisplayPreferences(bool fromAttributes)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var originalUnit = AppSettings.DefaultConcentrationUnit;
+            var originalFamily = AppSettings.EnergyUnitFamily;
+            var originalStyle = AppSettings.UncertaintyDisplayStyle;
+            var originalPrecision = AppSettings.NumberPrecision;
+            var originalCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                AppSettings.DefaultConcentrationUnit = ConcentrationUnit.µM;
+                AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+                AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
+                var models = new List<Model>
+                {
+                    CreateModel("saved-a", 1e-6, -32000),
+                    CreateModel("saved-b", 1e-7, -16000),
+                };
+                for (var index = 0; index < models.Count; index++)
+                {
+                    var options = models[index].ModelOptions;
+                    options[AttributeKey.PreboundLigandAffinity].BoolValue = fromAttributes;
+                    // log10 Ka 6 [5, 7] => Kd 1 [0.1, 10] µM; the next member is tenfold tighter.
+                    options[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6 + index, .1, 5 + index, 7 + index);
+                    options[AttributeKey.PreboundLigandEnthalpy].BoolValue = fromAttributes;
+                    options[AttributeKey.PreboundLigandEnthalpy].ParameterValue = index == 0
+                        ? new FloatWithError(-32000, 2000, -35000, -20000)
+                        : new FloatWithError(-16000, 1000, -18000, -10000);
+                    models[index].Solution = SolutionInterface.FromModel(models[index], Convergence());
+                }
+                var global = new GlobalModel(models) { ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions };
+                var solution = new GlobalSolution(new GlobalSolver { Model = global },
+                    models.Select(model => model.Solution).ToList(), Convergence());
+                global.Solution = solution;
+                var workspace = new AnalysisResultWorkspaceControl { Result = new AnalysisResult(solution) };
+                var cases = new[]
+                {
+                    (UncertaintyDisplayStyle.ConfidenceInterval, "1.0 [0.1, 10.0] µM", "-32.0 [-35.0, -20.0] kJ/mol"),
+                    (UncertaintyDisplayStyle.Automatic, "1.0 [0.1, 10.0] µM", "-32.0 [-35.0, -20.0] kJ/mol"),
+                    (UncertaintyDisplayStyle.StandardDeviation, "1.0 ± 0.2 µM", "-32.0 ± 2.0 kJ/mol"),
+                    (UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, "1.0 ± 0.2 [0.1, 10.0] µM", "-32.0 ± 2.0 [-35.0, -20.0] kJ/mol"),
+                    (UncertaintyDisplayStyle.None, "1.0 µM", "-32.0 kJ/mol"),
+                };
+                foreach (var (style, affinity, enthalpy) in cases)
+                {
+                    AppSettings.UncertaintyDisplayStyle = style;
+                    workspace.Refresh();
+                    var sections = workspace.ModelPanelForTesting.Children.Select(TextFrom).ToArray();
+                    Assert.Equal(fromAttributes ? 2 : 0, sections[0].Count(value => value == "From experiment attribute"));
+                    Assert.Contains(affinity, sections[fromAttributes ? 1 : 0]);
+                    Assert.Contains(enthalpy, sections[fromAttributes ? 1 : 0]);
+                    if (fromAttributes && style == UncertaintyDisplayStyle.ConfidenceInterval)
+                    {
+                        Assert.Contains("0.1 [0.0, 1.0] µM", sections[2]);
+                        Assert.Contains("-16.0 [-18.0, -10.0] kJ/mol", sections[2]);
+                        CheckLayout(workspace);
+                    }
+                }
+                AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.ConfidenceInterval;
+                AppSettings.DefaultConcentrationUnit = ConcentrationUnit.nM;
+                AppSettings.NumberPrecision = NumberPrecision.AllDecimals;
+                workspace.Refresh();
+                Assert.Contains("1000 [100, 10000] nM", TextFrom(workspace.ModelPanelForTesting));
+                Assert.Equal(5, models[0].ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Lower);
+            }
+            finally
+            {
+                AppSettings.DefaultConcentrationUnit = originalUnit;
+                AppSettings.EnergyUnitFamily = originalFamily;
+                AppSettings.UncertaintyDisplayStyle = originalStyle;
+                AppSettings.NumberPrecision = originalPrecision;
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+        });
+    }
+
+    static void CheckLayout(AnalysisResultWorkspaceControl workspace)
+    {
+        var panel = workspace.ModelPanelForTesting;
+        var originalParent = Assert.IsType<Border>(panel.Parent);
+        originalParent.Child = null;
+        var host = new Border { Padding = new Thickness(12), Child = panel };
+        var application = Application.Current!;
+        var originalVariant = application.RequestedThemeVariant;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        var colors = new ResourceInclude(new Uri("avares://FT-ITC Analysis/"))
+        {
+            Source = new Uri("avares://FT-ITC Analysis/Styling/AppTheme.axaml"),
+        };
+        application.Styles.Add(theme);
+        application.Resources.MergedDictionaries.Add(colors);
+        application.RequestedThemeVariant = ThemeVariant.Light;
+        var window = new Window { Width = 330, Height = 900, Content = host };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.True(workspace.ModelPanelForTesting.IsEffectivelyVisible);
+            var directory = Environment.GetEnvironmentVariable("FTITC_CR050_QA_DIRECTORY");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+                using var bitmap = new RenderTargetBitmap(new PixelSize((int)window.ClientSize.Width, (int)window.ClientSize.Height));
+                bitmap.Render(window);
+                bitmap.Save(Path.Combine(directory, "avalonia-model.png"));
+            }
+            foreach (var field in workspace.ModelPanelForTesting.GetLogicalDescendants().OfType<TextBlock>()
+                .Where(field => field.Text?.Contains('[') == true))
+            {
+                Assert.True(field.Bounds.Width > 0, $"Unlaid interval row: {field.Text}; bounds {field.Bounds}");
+                Assert.True(field.Bounds.Height >= field.FontSize, $"Clipped interval row: {field.Text}; bounds {field.Bounds}");
+            }
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            host.Child = null;
+            originalParent.Child = panel;
+            application.RequestedThemeVariant = originalVariant;
+            application.Styles.Remove(theme);
+            application.Resources.MergedDictionaries.Remove(colors);
+        }
+    }
+
     [AvaloniaFact]
     public void ModelPageShowsSavedCompetitorValuesForEachExperiment()
     {
