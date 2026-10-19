@@ -23,6 +23,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
@@ -124,6 +125,14 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("+15", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
+                    Assert.NotNull(workspace.GraphForTesting.NullComparison);
+                    pooled.RemoveModel(notifyDataChange: false);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Null(workspace.GraphForTesting.NullComparison);
+                    Assert.Equal("Unknown", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("Not calculated", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     workspace.Experiment = restored;
                     AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
@@ -344,6 +353,17 @@ public sealed class AnalysisWorkspaceControlTests
     {
         DataManager.Clear(DataClearMode.ResetSession);
         var experiment = CreateReadyExperiment("heat-only-summary.DH");
+        var saved = AttachFittedSolution(experiment);
+        saved.Solution!.NullComparison = new NullModelComparison
+        {
+            NullModelId = "offset",
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = 12,
+            BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+            NullInformationCriteria = RestoreCriteria(112, parameterCount: 2, residualRmsdMicrojoules: 2),
+            Members = { CreateComparisonMember(experiment, 1e-8) }
+        };
         var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
         var window = new Window { Content = workspace };
         window.Show();
@@ -352,7 +372,17 @@ public sealed class AnalysisWorkspaceControlTests
             Assert.False(experiment.HasThermogram);
             Assert.True(experiment.CanBeAnalyzed);
             Assert.False(experiment.Processor.BaselineCompleted);
-            AssertNoFitSummary(workspace);
+            Assert.Equal("One-Set-Of-Sites", FitSummaryHeaderText(workspace));
+            Assert.Same(saved.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
+            Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("2", workspace.NullTestValueForTesting("Null RMSD").Text);
+            var predictionCheck = workspace.GetLogicalDescendants().OfType<CheckBox>()
+                .Single(check => Equals(check.Content, "Null prediction"));
+            Assert.True(predictionCheck.IsEnabled);
+            predictionCheck.IsChecked = true;
+            Assert.True(workspace.GraphForTesting.ShowNullPrediction);
+            Assert.True(workspace.GraphForTesting.NullPredictionValueForTesting(experiment.Injections[0].ID).HasValue);
 
             foreach (var stoichiometry in new[] { 2.0, 3.0 })
             {
@@ -361,17 +391,68 @@ public sealed class AnalysisWorkspaceControlTests
                 model.Parameters.Table[ParameterType.Nvalue1].Update(stoichiometry);
                 model.Solution = SolutionInterface.FromModel(
                     model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+                model.Solution.NullComparison = new NullModelComparison
+                {
+                    NullModelId = "offset",
+                    BindingFitSucceeded = true,
+                    NullFitSucceeded = true,
+                    DeltaAicc = 12,
+                    BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+                    NullInformationCriteria = RestoreCriteria(112, parameterCount: 2, residualRmsdMicrojoules: 3),
+                    Members = { CreateComparisonMember(experiment, 3e-8) }
+                };
                 await Publish(() => experiment.UpdateSolution(model));
 
                 Assert.Same(model.Solution, experiment.Solution);
                 Assert.Equal("One-Set-Of-Sites", FitSummaryHeaderText(workspace));
                 Assert.Equal(stoichiometry.ToString("0", CultureInfo.InvariantCulture),
                     FitSummaryValue(workspace, "N"));
+                Assert.Equal("3", workspace.NullTestValueForTesting("Null RMSD").Text);
+                Assert.Same(model.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
             }
 
             await Publish(() => experiment.RemoveModel(notifyDataChange: false));
             Assert.Null(experiment.Solution);
             AssertNoFitSummary(workspace);
+            Assert.Null(workspace.GraphForTesting.NullComparison);
+            Assert.True(predictionCheck.IsEnabled);
+            Assert.True(predictionCheck.IsChecked);
+            Assert.True(workspace.GraphForTesting.ShowNullPrediction);
+            Assert.Null(workspace.GraphForTesting.NullPredictionValueForTesting(experiment.Injections[0].ID));
+            Assert.Equal("Unknown", workspace.NullTestValueForTesting("Model").Text);
+            Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Equal("Not calculated", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
+            var replacement = new OneSetOfSites(experiment);
+            replacement.InitializeParameters(experiment);
+            replacement.Solution = SolutionInterface.FromModel(
+                replacement, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            await Publish(() => experiment.UpdateSolution(replacement));
+            Assert.Null(workspace.GraphForTesting.NullComparison);
+            Assert.True(predictionCheck.IsChecked);
+            Assert.True(workspace.GraphForTesting.ShowNullPrediction);
+            Assert.Null(workspace.GraphForTesting.NullPredictionValueForTesting(experiment.Injections[0].ID));
+
+            var replacementMember = CreateComparisonMember(experiment, 2e-8);
+            var replacementComparison = new NullModelComparison
+            {
+                NullModelId = "offset",
+                BindingFitSucceeded = true,
+                NullFitSucceeded = true,
+                DeltaAicc = 7,
+                BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+                NullInformationCriteria = RestoreCriteria(107, parameterCount: 2, residualRmsdMicrojoules: 4),
+                Members = { replacementMember }
+            };
+            replacement.Solution.NullComparison = replacementComparison;
+            await Publish(() => experiment.UpdateSolution(replacement));
+            Assert.Same(replacementComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("+7", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("4", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.True(workspace.GraphForTesting.ShowNullPrediction);
+            Assert.True(workspace.GraphForTesting.NullPredictionValueForTesting(experiment.Injections[0].ID).HasValue);
+            Assert.True(predictionCheck.IsEnabled);
+            Assert.True(predictionCheck.IsChecked);
             Assert.False(experiment.Processor.BaselineCompleted);
             Assert.True(experiment.CanBeAnalyzed);
         }
@@ -395,22 +476,46 @@ public sealed class AnalysisWorkspaceControlTests
         DataManager.Clear(DataClearMode.ResetSession);
         var first = CreateReadyExperiment("old-summary.DH");
         var second = CreateReadyExperiment("selected-summary.DH");
+        var secondModel = AttachFittedSolution(second);
+        secondModel.Solution!.NullComparison = new NullModelComparison
+        {
+            NullModelId = "offset",
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = -6,
+            BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+            NullInformationCriteria = RestoreCriteria(94, parameterCount: 2, residualRmsdMicrojoules: 5),
+            Members = { CreateComparisonMember(second, 5e-8) }
+        };
         var workspace = new AnalysisWorkspaceControl { Experiment = first };
         var window = new Window { Content = workspace };
         window.Show();
         try
         {
             var model = AttachFittedSolution(first);
-            first.UpdateSolution(model);
+            model.Solution!.NullComparison = new NullModelComparison
+            {
+                NullModelId = "offset",
+                BindingFitSucceeded = true,
+                NullFitSucceeded = true,
+                DeltaAicc = 20,
+                BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+                NullInformationCriteria = RestoreCriteria(120, parameterCount: 2, residualRmsdMicrojoules: 9),
+                Members = { CreateComparisonMember(first, 9e-8) }
+            };
+            Task.Run(() => first.UpdateSolution(model)).GetAwaiter().GetResult();
             workspace.Experiment = second;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Same(second, workspace.Experiment);
-            AssertNoFitSummary(workspace);
+            Assert.Equal("-6", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("5", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Same(secondModel.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
 
             first.RemoveModel(notifyDataChange: false);
             Dispatcher.UIThread.RunJobs();
-            AssertNoFitSummary(workspace);
+            Assert.Same(secondModel.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("-6", workspace.NullTestValueForTesting("ΔAICc").Text);
         }
         finally
         {
@@ -418,6 +523,144 @@ public sealed class AnalysisWorkspaceControlTests
             DataManager.Clear(DataClearMode.ResetSession);
         }
     }
+
+    [AvaloniaFact]
+    public async Task SolutionEvidenceStaysSuppressedDuringFitUntilOwnedCompletion()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("fit-evidence-suppression.DH");
+        var model = AttachFittedSolution(experiment);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            SetWorkspaceField(workspace, "isFitting", true);
+            var fittingModel = new OneSetOfSites(experiment);
+            fittingModel.InitializeParameters(experiment);
+            fittingModel.Parameters.Table[ParameterType.Nvalue1].Update(4);
+            fittingModel.Solution = SolutionInterface.FromModel(
+                fittingModel, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            fittingModel.Solution.NullComparison = new NullModelComparison
+            {
+                NullModelId = "offset",
+                BindingFitSucceeded = true,
+                NullFitSucceeded = true,
+                DeltaAicc = 11,
+                BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+                NullInformationCriteria = RestoreCriteria(111, parameterCount: 2, residualRmsdMicrojoules: 6),
+                Members = { CreateComparisonMember(experiment, 6e-8) }
+            };
+            var solver = new Solver { Model = fittingModel };
+            SetWorkspaceField(workspace, "activeSolver", solver);
+
+            await Task.Run(() => experiment.UpdateSolution(fittingModel));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("4", FitSummaryValue(workspace, "N"));
+            Assert.Null(workspace.GraphForTesting.NullComparison);
+            Assert.Equal("Unknown", workspace.NullTestValueForTesting("Model").Text);
+
+            var completion = new FittingCompletion(solver.OperationId, solver,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()), TimeSpan.Zero, isResultUpdate: false);
+            typeof(AnalysisWorkspaceControl).GetMethod("OnFittingCompleted", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(workspace, new object?[] { solver, completion });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(fittingModel.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("+11", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("6", workspace.NullTestValueForTesting("Null RMSD").Text);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ProcessingRefreshSynchronizesAttachedNullComparisonEvidence()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("processing-evidence-refresh.DH");
+        typeof(DataProcessor).GetProperty(nameof(DataProcessor.BaselineCompleted))!
+            .SetValue(experiment.Processor, true);
+        var model = AttachFittedSolution(experiment);
+        model.Solution!.NullComparison = CreateComparison(experiment, 12, 2, 1e-8);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            Assert.Same(model.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
+
+            var updated = CreateComparison(experiment, -8, 7, 3e-8);
+            model.Solution.NullComparison = updated;
+            experiment.UpdateProcessing(invalidate: false);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(model.Solution, experiment.Solution);
+            Assert.Same(updated, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("-8", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaFact]
+    public void PointInclusionRefreshSynchronizesAttachedNullComparisonEvidence()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("inclusion-evidence-refresh.DH");
+        var model = AttachFittedSolution(experiment);
+        model.Solution!.NullComparison = CreateComparison(experiment, 12, 2, 1e-8);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            Assert.Same(model.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
+
+            var updated = CreateComparison(experiment, -8, 7, 3e-8);
+            model.Solution.NullComparison = updated;
+            experiment.Injections[0].ToggleDataPointActive();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(model.Solution, experiment.Solution);
+            Assert.Same(updated, workspace.GraphForTesting.NullComparison);
+            Assert.Equal("-8", workspace.NullTestValueForTesting("ΔAICc").Text);
+            Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    static NullModelComparison CreateComparison(
+        ExperimentData experiment, double deltaAicc, double nullRmsdMicrojoules, double predictedHeat)
+        => new()
+        {
+            NullModelId = "offset",
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = deltaAicc,
+            BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+            NullInformationCriteria = RestoreCriteria(100 + deltaAicc, parameterCount: 2,
+                residualRmsdMicrojoules: nullRmsdMicrojoules),
+            Members = { CreateComparisonMember(experiment, predictedHeat) }
+        };
+
+    static void SetWorkspaceField(AnalysisWorkspaceControl workspace, string name, object? value)
+        => typeof(AnalysisWorkspaceControl).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(workspace, value);
 
     static void AssertNoFitSummary(AnalysisWorkspaceControl workspace)
     {
@@ -1937,6 +2180,19 @@ public sealed class AnalysisWorkspaceControlTests
             SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
         experiment.Model = model;
         return model;
+    }
+
+    static NullModelComparisonMember CreateComparisonMember(ExperimentData experiment, double predictedHeat)
+    {
+        var member = new NullModelComparisonMember { ExperimentId = experiment.UniqueID };
+        foreach (var injection in experiment.Injections)
+            member.Points.Add(new NullModelComparisonPoint
+            {
+                Ratio = injection.Ratio,
+                InjectionMass = injection.InjectionMass,
+                PredictedHeatJoules = predictedHeat
+            });
+        return member;
     }
 
     static ExperimentData CreateNullComparisonExperiment(

@@ -393,6 +393,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-030 — Clearing a fit leaves its cached Null assessment visible
 
 - Priority: Medium
+- Status: Resolved (2026-10-18).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisWorkspaceControl.cs:349`; `AnalysisITC.MacOS/ViewControllers/MainViews/DataAnalysisViewController.cs:230`; `AnalysisITC.Core/DataClasses/ExperimentData.cs:811`
@@ -401,6 +402,9 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Select an experiment with a saved Null comparison and invoke Clear Solution while keeping it selected.
 - Consequence: Old Null RMSD, ΔAICc, conclusion and optional prediction can remain beside the cleared fit. Selection away/back or refitting repairs the display; saved scientific state is not corrupted.
 - Suggested direction: Synchronize Null evidence on every owned solution change using the same UI-dispatch and selection protections as the fit summary.
+- Resolution (2026-10-18): Avalonia's shared solution, processing, and point-inclusion refresh now rebuilds its analysis context, then refreshes only the fit summary while fitting or refreshes selected-experiment evidence otherwise, before fitting graph axes. Its existing fit-completion evidence refresh remains in place. macOS now handles owned solution notifications inline on the main thread or dispatches them there from workers, checks that the sender is both the subscribed summary experiment and current selection, synchronizes Null evidence through the existing fitting guard, and refreshes the fit summary on the main thread.
+- Validation: Seeded saved-comparison regressions failed before the fix on both platforms: Avalonia retained its graph Null comparison after `RemoveModel` for both main-thread and worker notifications, and the native controller retained its cached Null comparison with the original handler. After the fix, Avalonia `AnalysisWorkspaceControlTests` passed 51/51, including selected/restored evidence, global-parent member removal, replacement with and without comparison, prediction preference/data restoration, worker suppression while fitting, and shared processing/inclusion refresh; `IntegratedHeatsGraphControlTests` passed 22/22. Native `AnalysisNullEvidenceTests` and `AnalysisNullGraphTests` passed. The native fixture verifies rendered values and cleared states, main-thread and worker removal, same-selection replacement, global-parent member removal, fitting suppression, and delayed callback selection ownership.
+- Boundaries: No Core scientific behavior, serialization, documentation/help, or saved state changed. The shared Avalonia callback intentionally covers solution, processing, and inclusion notifications. The separate macOS `OnAnalysisFinished` active-solver evidence assignment and its cross-selection behavior were not changed or runtime-tested; it remains outside this fix.
 
 ## CR-031 — Avalonia Final Figure PDFs have the wrong physical dimensions
 

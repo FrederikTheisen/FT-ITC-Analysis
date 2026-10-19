@@ -391,9 +391,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
                 experimentRefreshQueued = false;
                 RebuildAnalysisContext();
+                if (isFitting) RefreshFitSummary();
+                else RefreshSelectedExperimentEvidence();
                 graph.FitToData();
                 UpdateStatus();
-                RefreshFitSummary();
                 GraphChanged?.Invoke(this, EventArgs.Empty);
             });
         }

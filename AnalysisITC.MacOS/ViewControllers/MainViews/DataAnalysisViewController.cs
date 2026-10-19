@@ -343,7 +343,16 @@ namespace AnalysisITC
 
         void OnSummaryExperimentSolutionChanged(object sender, EventArgs e)
         {
-            RefreshFitSummary();
+            void RefreshOwnedExperiment()
+            {
+                if (!ReferenceEquals(sender, summaryExperiment)
+                    || !ReferenceEquals(sender, DataManager.Current)) return;
+                SyncNullComparisonFromExperiment((ExperimentData)sender);
+                RefreshFitSummaryOnMainThread();
+            }
+
+            if (NSThread.IsMain) RefreshOwnedExperiment();
+            else NSApplication.SharedApplication.BeginInvokeOnMainThread(RefreshOwnedExperiment);
         }
 
         void OnSummaryExperimentInjectionIncludeChanged(object sender, EventArgs e)
