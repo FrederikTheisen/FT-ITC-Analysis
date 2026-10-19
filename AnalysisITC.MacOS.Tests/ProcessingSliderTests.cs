@@ -33,6 +33,10 @@ static class ProcessingSliderTests
         var application = NSApplication.SharedApplication;
         try
         {
+            foreach (var discard in new[] { true, false })
+                foreach (var start in new[] { true, false })
+                    foreach (var keyboard in new[] { true, false })
+                        SelectionUsesProcessorPolicy(discard, start, keyboard);
             ProcessingCompletionWithoutSelectedExperiment("result");
             ProcessingCompletionWithoutSelectedExperiment("no selection");
             ProcessingCompletionWithoutSelectedExperiment("empty project");
@@ -60,6 +64,108 @@ static class ProcessingSliderTests
         {
             Console.Error.WriteLine("FAIL: " + error);
             return 1;
+        }
+    }
+
+    static void SelectionUsesProcessorPolicy(bool discard, bool start, bool keyboard)
+    {
+        var experiment = CreateExperiment();
+        var processor = experiment.Processor;
+        processor.DiscardIntegratedPoints = discard;
+        var polynomial = new BlockingPolynomial(processor) { Degree = 0, ZLimit = 1e6 };
+        processor.Interpolator = polynomial;
+        Task.Run(() => processor.ProcessData(showProgress: false)).GetAwaiter().GetResult();
+        var other = CreateExperiment();
+        other.Processor.DiscardIntegratedPoints = !discard;
+        var otherPolynomial = new BlockingPolynomial(other.Processor) { Degree = 0, ZLimit = 1e6 };
+        other.Processor.Interpolator = otherPolynomial;
+        Task.Run(() => other.Processor.ProcessData(showProgress: false)).GetAwaiter().GetResult();
+        var otherHeat = other.Injections[0].RawPeakArea.Value;
+        var otherCalls = otherPolynomial.Calls;
+        DataManager.Clear(DataClearMode.ResetSession);
+        DataManager.AddData(experiment);
+        var controller = CreateController(experiment);
+        try
+        {
+            var polynomialCheck = Outlet<NSButton>(controller, "PolynomialDiscardIntegrationRange");
+            var splineCheck = Outlet<NSButton>(controller, "SplineDiscardIntegrationRange");
+            Check((polynomialCheck.State == NSCellStateValue.On) == discard
+                && (splineCheck.State == NSCellStateValue.On) == discard,
+                "initial exclusion checkboxes did not read the selected processor");
+            DataManager.AddData(other);
+            Check((polynomialCheck.State == NSCellStateValue.On) == !discard
+                && (splineCheck.State == NSCellStateValue.On) == !discard,
+                "import selection did not refresh both exclusion checkboxes");
+            DataManager.SelectIndex(0);
+            Check((polynomialCheck.State == NSCellStateValue.On) == discard
+                && (splineCheck.State == NSCellStateValue.On) == discard,
+                "experiment reselection did not refresh both exclusion checkboxes");
+
+            polynomial.Calls = 0;
+            var slider = Outlet<NSSlider>(controller, start ? "IntegrationDelayControl" : "IntegrationLengthControl");
+            slider.Target = controller;
+            slider.Action = new Selector(start ? "IntegrationStartTimeSliderChanged:" : "IntegrationLengthSliderChanged:");
+            var injection = experiment.Injections[0];
+            var chosen = start ? 5f : 15f;
+            if (keyboard)
+            {
+                slider.FloatValue = chosen;
+                DispatchAction(slider, NSEventType.KeyDown);
+            }
+            else
+                TrackSlider(slider, () =>
+                {
+                    slider.FloatValue = chosen;
+                    DispatchAction(slider, NSEventType.LeftMouseDragged);
+                    DispatchAction(slider, NSEventType.LeftMouseUp);
+                    Check(polynomial.Calls == 0, "selection regression refitted during drag preview");
+                });
+            DrainProcessor(processor);
+            Check(polynomial.Calls == (discard ? 1 : 0), "slider commit used another experiment's exclusion policy");
+            Check((start ? injection.IntegrationStartDelay : injection.IntegrationEndOffset) == chosen,
+                "selection regression did not retain the chosen integration region");
+
+            // This grid has 201 samples, including 20 elevated pulse samples.
+            // Either edit leaves 15 one-second pulse intervals. Exclusion leaves
+            // 185 baseline samples, including four (start edit) or five (end edit)
+            // elevated samples. A degree-zero fit is their arithmetic mean.
+            double background = experiment.DataPoints[0].Power;
+            double pulse = experiment.DataPoints[50].Power;
+            var pulseCount = discard ? (start ? 4 : 5) : 20;
+            var sampleCount = discard ? 185 : 201;
+            var expectedBaseline = ((sampleCount - pulseCount) * background + pulseCount * pulse) / sampleCount;
+            var expectedHeat = 15 * (pulse - expectedBaseline);
+            Check(Math.Abs(injection.RawPeakArea.Value - expectedHeat) < 1e-11,
+                "selected experiment's heat disagrees with the independent constant-baseline expectation");
+
+            var expectedPolicy = discard;
+            foreach (var button in new[] { polynomialCheck, splineCheck })
+            {
+                button.SetButtonType(NSButtonType.Switch);
+                button.Target = controller;
+                button.Action = new Selector("DiscardIntRangeAction:");
+                expectedPolicy = !expectedPolicy;
+                var callsBeforeClick = polynomial.Calls;
+                button.PerformClick(button);
+                DrainProcessor(processor);
+                Check(processor.DiscardIntegratedPoints == expectedPolicy
+                    && (polynomialCheck.State == NSCellStateValue.On) == expectedPolicy
+                    && (splineCheck.State == NSCellStateValue.On) == expectedPolicy,
+                    "first exclusion-checkbox click did not toggle and synchronize the selected processor");
+                Check(polynomial.Calls == callsBeforeClick + 1, "exclusion-checkbox click did not process exactly once");
+            }
+            Check(other.Processor.DiscardIntegratedPoints == !discard
+                && otherPolynomial.Calls == otherCalls && other.Injections[0].RawPeakArea.Value == otherHeat,
+                "editing the selected experiment changed the other experiment");
+            Console.WriteLine("PASS: selected exclusion=" + discard + ", slider=" + (start ? "start" : "end")
+                + ", input=" + (keyboard ? "keyboard" : "drag") + ", independent heat and both checkbox clicks");
+        }
+        finally
+        {
+            DrainProcessor(processor);
+            UnsubscribeController(controller);
+            controller.Dispose();
+            DataManager.Clear(DataClearMode.ResetSession);
         }
     }
 
@@ -293,8 +399,6 @@ static class ProcessingSliderTests
             if (value is NSSegmentedControl) ((NSSegmentedControl)value).SegmentCount = 6;
             outlet.SetValue(controller, value);
         }
-        typeof(DataProcessingViewControllet).GetProperty("DiscardIntegratedPoints", Instance)
-            .SetValue(controller, experiment.Processor.DiscardIntegratedPoints);
         Outlet<DataProcessingGraphView>(controller, "BaselineGraphView").Initialize(experiment);
         var length = Outlet<NSSlider>(controller, "IntegrationLengthControl");
         length.Continuous = true;

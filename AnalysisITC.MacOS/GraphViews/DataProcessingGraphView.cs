@@ -137,7 +137,7 @@ namespace AnalysisITC
             switch ((NSKey)theEvent.KeyCode)
             {
                 case NSKey.Space:
-                    if (CanEditProcessing && SelectedPeak != -1 && IsInjectionZoomed)
+                    if (CanEditProcessing && SelectedPeak >= 0 && SelectedPeak < Data.InjectionCount - 1)
                     {
                         using var activity = ProcessingActivity.TryBegin();
                         if (activity == null) break;
