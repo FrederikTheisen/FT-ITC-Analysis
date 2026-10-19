@@ -119,7 +119,7 @@ namespace AnalysisITC.Core.Application
             CacheInterpretationAccess(InterpretationOperatorCode, options);
             SaveToStorage();
             Storage.Synchronize();
-            SettingsDidUpdate?.Invoke(null, null);
+            NotifySettingsChanged(applied: false, updated: true);
         }
 
         public static bool TryGetInterpretationAccount(string operatorCode, out InterpretationAccountResponse account, out DateTime? fetchedAtUtc)
@@ -147,7 +147,7 @@ namespace AnalysisITC.Core.Application
             InterpretationAccountFetchedAtUtc = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
             SaveToStorage();
             Storage.Synchronize();
-            SettingsDidUpdate?.Invoke(null, null);
+            NotifySettingsChanged(applied: false, updated: true);
         }
 
         public static void ClearInterpretationAccessVerification()
@@ -165,7 +165,6 @@ namespace AnalysisITC.Core.Application
         public static int AutoSaveIntervalMinutes { get; set; }
         public static int AutoSaveFileLimit { get; set; }
         public static bool PromptForAutoSaveRecovery { get; set; }
-        public static bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
 
         public static bool Verbose { get; set; } = false;
 
@@ -247,10 +246,10 @@ namespace AnalysisITC.Core.Application
 
         public static void Save()
         {
-            ApplySettings();
+            UpdateDerivedSettings();
             SaveToStorage();
             Storage.Synchronize();
-            SettingsDidUpdate?.Invoke(null, null);
+            NotifySettingsChanged(applied: true, updated: true);
         }
 
         static void SaveToStorage()
@@ -337,7 +336,6 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes);
             Storage.SetInt("AutoSaveFileLimit", AutoSaveFileLimit);
             Storage.SetBool("PromptForAutoSaveRecovery", PromptForAutoSaveRecovery);
-            Storage.SetBool("AutomaticallyDiscardOrphanInjectionsOnLoad", AutomaticallyDiscardOrphanInjectionsOnLoad);
 
             Storage.SetStringArray("LastDocumentUrls", LastDocumentPaths);
             Storage.SetDoubleArray("FinalFigureDimensions", FinalFigureDimensions);
@@ -449,12 +447,10 @@ namespace AnalysisITC.Core.Application
             AutoSaveIntervalMinutes = Math.Max(1, Math.Min(60, Storage.GetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes)));
             AutoSaveFileLimit = Math.Max(1, Math.Min(100, Storage.GetInt("AutoSaveFileLimit", AutoSaveFileLimit)));
             PromptForAutoSaveRecovery = Storage.GetBool("PromptForAutoSaveRecovery", PromptForAutoSaveRecovery);
-            AutomaticallyDiscardOrphanInjectionsOnLoad = Storage.GetBool(
-                "AutomaticallyDiscardOrphanInjectionsOnLoad",
-                AutomaticallyDiscardOrphanInjectionsOnLoad);
 
             lastDocumentPaths = NormalizeDocumentPaths(Storage.GetStringArray("LastDocumentUrls"));
 
+            FittingOptionsController.ResetToPreferenceDefaults();
             ApplySettings();
 
             StatusBarManager.ClearAppStatus();
@@ -551,15 +547,23 @@ namespace AnalysisITC.Core.Application
             EnableExtendedParameterLimits = ParameterLimitSetting != ParameterLimitSetting.Standard;
         }
 
+        /// <summary>
+        /// Applies preferences without replacing live inspector fitting choices.
+        /// Those choices are initialized on load or by Analysis restore defaults.
+        /// </summary>
         public static void ApplySettings()
         {
             UpdateDerivedSettings();
-            FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
-            FittingOptionsController.ErrorEstimationMethod = DefaultErrorEstimationMethod;
-            FittingOptionsController.IncludeConcentrationVariance = IncludeConcentrationErrorsInBootstrap;
-            FittingOptionsController.Algorithm = DefaultSolverAlgorithm;
-            FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
-            SettingsApplied?.Invoke(null, null);
+            NotifySettingsChanged(applied: true, updated: false);
+        }
+
+        static void NotifySettingsChanged(bool applied, bool updated)
+        {
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            {
+                if (applied) SettingsApplied?.Invoke(null, null);
+                if (updated) SettingsDidUpdate?.Invoke(null, null);
+            });
         }
     }
 

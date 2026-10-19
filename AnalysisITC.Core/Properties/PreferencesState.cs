@@ -90,7 +90,6 @@ namespace AnalysisITC.Core.Application
         public int AutoSaveIntervalMinutes { get; set; } = 5;
         public int AutoSaveFileLimit { get; set; } = 10;
         public bool PromptForAutoSaveRecovery { get; set; } = true;
-        public bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; } = true;
         public bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.DiscreteDisplacement;
@@ -190,7 +189,6 @@ namespace AnalysisITC.Core.Application
                 AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
                 AutoSaveFileLimit = AppSettings.AutoSaveFileLimit,
                 PromptForAutoSaveRecovery = AppSettings.PromptForAutoSaveRecovery,
-                AutomaticallyDiscardOrphanInjectionsOnLoad = AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad,
                 DiscardIntegrationRegionForBaseline = AppSettings.DiscardIntegrationRegionForBaseline,
                 IncludeBufferInIonicStrengthCalc = AppSettings.IncludeBufferInIonicStrengthCalc,
                 DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
@@ -287,7 +285,6 @@ namespace AnalysisITC.Core.Application
             AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;
             AppSettings.AutoSaveFileLimit = AutoSaveFileLimit;
             AppSettings.PromptForAutoSaveRecovery = PromptForAutoSaveRecovery;
-            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = AutomaticallyDiscardOrphanInjectionsOnLoad;
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline;
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrengthCalc;
             AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;

@@ -67,7 +67,6 @@ namespace AnalysisITC
             Set(IncludeBufferCheck, state.IncludeBufferInIonicStrengthCalc);
             Set(OnlineChecksCheck, state.PerformOnlineChecksOnLaunch);
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
-            Set(DiscardOrphanCheck, state.AutomaticallyDiscardOrphanInjectionsOnLoad);
             ReportAuthorField.StringValue = state.UserName ?? "";
             ReportAuthorField.ToolTip = "Operator used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled.";
             Set(TraceabilityModeCheck, state.TraceabilityModeEnabled);
@@ -110,7 +109,6 @@ namespace AnalysisITC
             state.IncludeBufferInIonicStrengthCalc = IsOn(IncludeBufferCheck);
             state.PerformOnlineChecksOnLaunch = IsOn(OnlineChecksCheck);
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
-            state.AutomaticallyDiscardOrphanInjectionsOnLoad = IsOn(DiscardOrphanCheck);
             state.UserName = ReportAuthorField.StringValue ?? "";
             state.TraceabilityModeEnabled = IsOn(TraceabilityModeCheck);
             state.PromptForIdentifiersOnImport = IsOn(PromptForIdentifiersCheck);

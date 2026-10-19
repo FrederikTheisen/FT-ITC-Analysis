@@ -71,8 +71,6 @@ internal sealed class PreferencesWindow : Window
     readonly CheckBox includeBufferInIonicStrengthCheck = Check("Include buffer in ionic-strength calculation");
     readonly CheckBox onlineChecksCheck = Check("Check for updates and online resources on launch");
     readonly CheckBox confirmRemoveDeleteCheck = Check("Confirm remove/delete actions");
-    readonly CheckBox automaticallyDiscardOrphanInjectionsCheck =
-        Check("Automatically discard injections outside the thermogram range");
     readonly CheckBox autoSaveEnabledCheck = Check("Enable autosave");
     readonly Slider autoSaveIntervalSlider = DiscreteSlider(AutoSaveIntervalValues.Length);
     readonly TextBlock autoSaveIntervalValueLabel = ValueLabel();
@@ -383,10 +381,6 @@ internal sealed class PreferencesWindow : Window
             onlineChecksCheck,
             confirmRemoveDeleteCheck
         }));
-        panel.Children.Add(Section("File loading", new Control[]
-        {
-            automaticallyDiscardOrphanInjectionsCheck
-        }));
         panel.Children.Add(Section("Autosave and recovery", new Control[]
         {
             autoSaveEnabledCheck,
@@ -538,7 +532,6 @@ internal sealed class PreferencesWindow : Window
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;
         onlineChecksCheck.IsChecked = state.PerformOnlineChecksOnLaunch;
         confirmRemoveDeleteCheck.IsChecked = state.ConfirmRemoveDelete;
-        automaticallyDiscardOrphanInjectionsCheck.IsChecked = state.AutomaticallyDiscardOrphanInjectionsOnLoad;
         autoSaveEnabledCheck.IsChecked = state.AutoSaveEnabled;
         loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
         autoSaveIntervalChanged = false;
@@ -715,7 +708,6 @@ internal sealed class PreferencesWindow : Window
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
         state.PerformOnlineChecksOnLaunch = onlineChecksCheck.IsChecked == true;
         state.ConfirmRemoveDelete = confirmRemoveDeleteCheck.IsChecked == true;
-        state.AutomaticallyDiscardOrphanInjectionsOnLoad = automaticallyDiscardOrphanInjectionsCheck.IsChecked == true;
         state.AutoSaveEnabled = autoSaveEnabledCheck.IsChecked == true;
         state.AutoSaveIntervalMinutes = autoSaveIntervalChanged
             ? AutoSaveIntervalValues[SliderIndex(autoSaveIntervalSlider, AutoSaveIntervalValues.Length)]

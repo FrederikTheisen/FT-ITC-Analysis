@@ -600,13 +600,6 @@
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
                                                         </button>
-                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-DiscardOrphanCheck">
-                                                            <rect key="frame" x="0.0" y="493" width="602" height="18"/>
-                                                            <buttonCell key="cell" type="check" title="Automatically discard injections outside the thermogram range" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-DiscardOrphanCheck-cell">
-                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                                <font key="font" metaFont="system"/>
-                                                            </buttonCell>
-                                                        </button>
                                                         <stackView distribution="fill" orientation="vertical" alignment="none" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-3-container">
                                                             <rect key="frame" x="0.0" y="457" width="600" height="33"/>
                                                             <subviews>
@@ -954,7 +947,6 @@ DQ
                         <outlet property="AutoSaveLimitField" destination="general-AutoSaveLimitField" id="general-AutoSaveLimitField-outlet"/>
                         <outlet property="ConcentrationUnitPopup" destination="general-ConcentrationUnitPopup" id="general-ConcentrationUnitPopup-outlet"/>
                         <outlet property="ConfirmDeleteCheck" destination="general-ConfirmDeleteCheck" id="general-ConfirmDeleteCheck-outlet"/>
-                        <outlet property="DiscardOrphanCheck" destination="general-DiscardOrphanCheck" id="general-DiscardOrphanCheck-outlet"/>
                         <outlet property="EnergyUnitPopup" destination="general-EnergyUnitPopup" id="general-EnergyUnitPopup-outlet"/>
                         <outlet property="IncludeBufferCheck" destination="general-IncludeBufferCheck" id="general-IncludeBufferCheck-outlet"/>
                         <outlet property="InstrumentPopup" destination="general-InstrumentPopup" id="general-InstrumentPopup-outlet"/>

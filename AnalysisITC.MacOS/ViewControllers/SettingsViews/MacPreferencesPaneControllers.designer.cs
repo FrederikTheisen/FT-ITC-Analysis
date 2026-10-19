@@ -22,7 +22,6 @@ namespace AnalysisITC
         [Outlet] AppKit.NSButton IncludeBufferCheck { get; set; }
         [Outlet] AppKit.NSButton OnlineChecksCheck { get; set; }
         [Outlet] AppKit.NSButton ConfirmDeleteCheck { get; set; }
-        [Outlet] AppKit.NSButton DiscardOrphanCheck { get; set; }
         [Outlet] AppKit.NSButton AutoSaveEnabledCheck { get; set; }
         [Outlet] AppKit.NSSlider AutoSaveIntervalSlider { get; set; }
         [Outlet] AppKit.NSTextField AutoSaveIntervalValueLabel { get; set; }
@@ -57,7 +56,6 @@ namespace AnalysisITC
             IncludeBufferCheck = Release(IncludeBufferCheck);
             OnlineChecksCheck = Release(OnlineChecksCheck);
             ConfirmDeleteCheck = Release(ConfirmDeleteCheck);
-            DiscardOrphanCheck = Release(DiscardOrphanCheck);
             AutoSaveEnabledCheck = Release(AutoSaveEnabledCheck);
             AutoSaveIntervalSlider = Release(AutoSaveIntervalSlider);
             AutoSaveIntervalValueLabel = Release(AutoSaveIntervalValueLabel);
