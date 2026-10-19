@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Globalization;
 
@@ -310,6 +311,7 @@ namespace AnalysisITC.Core.Data
             // value covers that partial period too. Do not extrapolate past the data.
             var data = Experiment.BaseLineCorrectedDataPoints;
             var area = 0.0;
+            var integrationDurations = new List<double>();
             DataPoint? previous = null;
 
             foreach (var dp in data)
@@ -319,7 +321,11 @@ namespace AnalysisITC.Core.Data
                     var intervalStart = Math.Max(IntegrationStartTime, previous.Value.Time);
                     var intervalEnd = Math.Min(IntegrationEndTime, dp.Time);
                     if (intervalEnd > intervalStart)
-                        area += dp.Power * (intervalEnd - intervalStart);
+                    {
+                        float duration = intervalEnd - intervalStart;
+                        area += dp.Power * duration;
+                        integrationDurations.Add((double)duration);
+                    }
 
                     if (dp.Time >= IntegrationEndTime)
                         break;
@@ -328,7 +334,7 @@ namespace AnalysisITC.Core.Data
                 previous = dp;
             }
 
-            var sd = EstimateError2();
+            var sd = EstimateError2(integrationDurations);
             var peakarea = new FloatWithError(area, sd);
 
             // Set the peak area and perform buffer subtraction if relevant
@@ -426,8 +432,10 @@ namespace AnalysisITC.Core.Data
             return area;
         }
 
-        private double EstimateError2()
+        private double EstimateError2(IReadOnlyList<double> integrationDurations)
         {
+            if (integrationDurations.Count == 0) return 0;
+
             // Set baseline fitting time points to non-integrated data points surrounding current peak.
             float baseline_start_time = ID == 0 ? 0 : Experiment.Injections[ID - 1].IntegrationEndTime;
             float baseline_end_time = Time + Delay;
@@ -477,16 +485,11 @@ namespace AnalysisITC.Core.Data
 
             var sigma_p = Math.Sqrt(ss / (blpoints - 1));
 
-            var intpoints = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).ToList();
-            int n_samples_integration = intpoints.Count;
-
-            if (n_samples_integration < 2) return 0;
-
             float dt = (float)Experiment.TimeStep;
             var r1 = Statistics.EstimateAutoCorrelation(bl, 2 * dt);
 
-            var sumVarInt = Statistics.Ar1SumVarFactor(n_samples_integration, r1);
-            var sigma_q = sigma_p * dt * Math.Sqrt(sumVarInt);
+            var integrationVarianceFactor = Statistics.Ar1WeightedSumVarFactor(integrationDurations, r1);
+            var sigma_q = sigma_p * Math.Sqrt(integrationVarianceFactor);
 
             var sumVar = Statistics.Ar1SumVarFactor(n1, r1) + Statistics.Ar1SumVarFactor(n2, r1);
             var sigma_q_bl = (sigma_p * Math.Sqrt(sumVar) / blpoints) * IntegrationLength;

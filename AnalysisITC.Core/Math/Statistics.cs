@@ -35,6 +35,27 @@ namespace AnalysisITC.Core.Numerics
             return n + 2.0 * S;
         }
 
+        /// <summary>
+        /// Variance multiplier for an AR(1) weighted sum. Integration weights are
+        /// contributing durations in seconds; correlation follows sample-order
+        /// separation, including when those durations differ.
+        /// </summary>
+        internal static double Ar1WeightedSumVarFactor(IReadOnlyList<double> weights, double r)
+        {
+            double carry = 0;
+            double variance = 0;
+
+            // Express the sum in independent AR(1) innovations, accumulating
+            // squares rather than cancelling positive and negative covariances.
+            for (int i = weights.Count - 1; i >= 0; i--)
+            {
+                carry = weights[i] + r * carry;
+                variance += (i == 0 ? 1 : 1 - r * r) * carry * carry;
+            }
+
+            return variance;
+        }
+
         public static double EstimateAutoCorrelation(List<DataPoint> pts, double dtMax)
         {
             // Computes r1 = sum(x_i x_{i-1}) / sum(x_i^2) over the same
