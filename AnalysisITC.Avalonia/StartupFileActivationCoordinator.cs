@@ -8,6 +8,11 @@ namespace AnalysisITC.Avalonia;
 
 internal sealed class StartupFileActivationCoordinator
 {
+    // Ordinal comparison on macOS also matches the native application's import policy.
+    internal static StringComparer DefaultPathComparer { get; } =
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    readonly StringComparer pathComparer;
     readonly List<string> pendingPaths = new();
     readonly List<TaskCompletionSource<bool>> pendingCompletions = new();
     bool initializationStarted;
@@ -18,6 +23,11 @@ internal sealed class StartupFileActivationCoordinator
     Action? releaseReadyAction;
 
     public bool IsReady { get; private set; }
+
+    internal StartupFileActivationCoordinator(StringComparer? pathComparer = null)
+    {
+        this.pathComparer = pathComparer ?? DefaultPathComparer;
+    }
 
     public Task<bool> Request(IEnumerable<string> paths)
     {
@@ -84,7 +94,7 @@ internal sealed class StartupFileActivationCoordinator
         {
             if (string.IsNullOrWhiteSpace(path)) continue;
             var fullPath = Path.GetFullPath(path);
-            if (!pendingPaths.Contains(fullPath, StringComparer.OrdinalIgnoreCase))
+            if (!pendingPaths.Contains(fullPath, pathComparer))
                 pendingPaths.Add(fullPath);
         }
 

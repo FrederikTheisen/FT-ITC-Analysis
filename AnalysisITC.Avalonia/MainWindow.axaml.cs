@@ -971,7 +971,6 @@ public partial class MainWindow : Window
             .Select(GetLocalPath)
             .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
             .Select(path => path!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? Array.Empty<string>();
 
         var supportedPaths = paths
@@ -991,7 +990,6 @@ public partial class MainWindow : Window
     {
         var existingPaths = paths
             .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return OpenPathsAsync(existingPaths);
@@ -1274,7 +1272,6 @@ public partial class MainWindow : Window
                 .Select(GetLocalPath)
                 .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
                 .Select(path => path!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(path => DataReader.GetFormat(path) != ITCDataFormat.Unknown)
                 .ToArray() ?? Array.Empty<string>();
             if (paths.Length == 0)
