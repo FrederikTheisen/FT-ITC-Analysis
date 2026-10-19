@@ -63,16 +63,26 @@ test('nonlinear replicate curves use their own references and percentile endpoin
   }
 });
 
-test('bootstrap affinity spread is computed from transformed samples', () => {
+test('bootstrap affinity uncertainty is propagated from summarized Gibbs energy', () => {
   const curve = { ...line, referenceTemperatureCelsius: 26.85, intercept: -25, slope: 0, contributions: [],
     replicates: [-24, -27].map(intercept => ({ ...line, referenceTemperatureCelsius: 26.85, intercept, slope: 0, contributions: [] })) };
   const actual = context.deriveAffinity(evaluate(curve, 26.85), 26.85);
   const center = Math.exp(-25000 / (300 * 8.3145));
   const samples = [-24000, -27000].map(g => Math.exp(g / (300 * 8.3145)));
-  const expectedSd = Math.sqrt(samples.reduce((sum, x) => sum + (x - center) ** 2, 0) / 2);
+  const expectedSd = center * Math.sqrt((1000 ** 2 + 2000 ** 2) / 2) / (300 * 8.3145);
   assert.equal(actual.unit, 'µM');
   assert.ok(Math.abs(actual.value - center * 1e6) < 1e-9);
   assert.ok(Math.abs(actual.sd - expectedSd * 1e6) < 1e-9);
   assert.ok(Math.abs(actual.confidenceLower - samples[1] * 1e6) < 1e-9);
   assert.ok(Math.abs(actual.confidenceUpper - samples[0] * 1e6) < 1e-9);
+});
+
+test('affinity keeps summarized unavailable or zero SD even when samples are present', () => {
+  for (const sd of [null, 0]) {
+    const actual = context.deriveAffinity({ value: -25, sd, confidenceLower: -27,
+      confidenceUpper: -24, samples: [-27, -24] }, 26.85);
+    assert.equal(actual.sd, sd);
+    assert.ok(actual.confidenceLower < actual.value);
+    assert.ok(actual.confidenceUpper > actual.value);
+  }
 });

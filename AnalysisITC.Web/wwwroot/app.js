@@ -956,10 +956,8 @@ function deriveAffinity(gibbs, temperatureCelsius) {
   const value = convert(gibbs.value);
   if (!Number.isFinite(value)) return null;
   const concentration = concentrationDisplayScale(value);
-  const samples = gibbs.samples?.map(convert);
-  const sd = samples?.length
-    ? (samples.length > 1 ? Math.sqrt(samples.reduce((sum, sample) => sum + (sample - value) ** 2, 0) / samples.length) : 0)
-    : Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) : null;
+  // Match desktop summaries: propagate summarized Gibbs SD, then transform bounds.
+  const sd = Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) : null;
   return {
     value: value * concentration.scale,
     sd: Number.isFinite(sd) ? sd * concentration.scale : null,
