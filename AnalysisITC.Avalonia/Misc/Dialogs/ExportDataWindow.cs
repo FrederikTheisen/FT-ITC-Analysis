@@ -159,13 +159,6 @@ internal sealed class ExportDataWindow : Window
             case ExportType.ITCsim:
                 optionsPanel.Children.Add(offsetCorrectedCheck);
                 break;
-            case ExportType.InterchangeCsv:
-                optionsPanel.Children.Add(new TextBlock
-                {
-                    Text = "Each file places thermogram and integrated-peak columns side by side. Raw data, corrected data, fitted values, and residuals are included when available.",
-                    TextWrapping = TextWrapping.Wrap
-                });
-                break;
         }
 
         if (export is ExportType.Peaks or ExportType.InterchangeCsv or ExportType.ITCsim)

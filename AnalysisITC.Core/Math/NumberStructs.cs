@@ -357,10 +357,13 @@ namespace AnalysisITC.Core.Numerics
         }
 
         public string ToString(string format = "F1", UncertaintyDisplayStyle? style = null)
+            => ToString(format, style, CultureInfo.CurrentCulture);
+
+        public string ToString(string format, UncertaintyDisplayStyle? style, IFormatProvider provider)
         {
             var displayStyle = ResolveDisplayStyle(this, style, includeConfidenceInterval: false);
 
-            return FormatNumberWithUncertainty(this, this, format, displayStyle);
+            return FormatNumberWithUncertainty(this, this, format, displayStyle, provider);
         }
 
         public string AsNumber(UncertaintyDisplayStyle? style = null)
@@ -446,20 +449,20 @@ namespace AnalysisITC.Core.Numerics
 
         /// <param name="value">The unit-converted and display-rounded value.</param>
         /// <param name="source">The unit-converted value before display rounding.</param>
-        static string FormatNumberWithUncertainty(FloatWithError value, FloatWithError source, string format, UncertaintyDisplayStyle displayStyle)
+        static string FormatNumberWithUncertainty(FloatWithError value, FloatWithError source, string format, UncertaintyDisplayStyle displayStyle, IFormatProvider provider = null)
         {
-            var output = FormatComponent(value.Value, source.Value, format);
+            var output = FormatComponent(value.Value, source.Value, format, provider);
 
             if (!HasDisplayUncertainty(value, displayStyle)) return output;
 
             if (displayStyle == UncertaintyDisplayStyle.StandardDeviation || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
             {
-                if (value.HasError) output += " ± " + FormatComponent(value.SD, source.SD, format);
+                if (value.HasError) output += " ± " + FormatComponent(value.SD, source.SD, format, provider);
             }
 
             if (displayStyle == UncertaintyDisplayStyle.ConfidenceInterval || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
             {
-                if (value.HasConfidenceInterval) output += ConfidenceIntervalString(value, source, format);
+                if (value.HasConfidenceInterval) output += ConfidenceIntervalString(value, source, format, provider);
             }
 
             return output;
@@ -513,20 +516,20 @@ namespace AnalysisITC.Core.Numerics
             return withunit && !string.IsNullOrWhiteSpace(unit) ? value + " " + unit : value;
         }
 
-        static string ConfidenceIntervalString(FloatWithError value, FloatWithError source, string format) => $" [{FormatComponent(value.Lower, source.Lower, format)}, {FormatComponent(value.Upper, source.Upper, format)}]";
+        static string ConfidenceIntervalString(FloatWithError value, FloatWithError source, string format, IFormatProvider provider) => $" [{FormatComponent(value.Lower, source.Lower, format, provider)}, {FormatComponent(value.Upper, source.Upper, format, provider)}]";
 
         /// <summary>
         /// Formats one displayed component. Magnitudes at or above the compact threshold use up to six significant digits.
         /// A finite <paramref name="source"/> is used when display rounding produced a non-finite number.
         /// </summary>
-        static string FormatComponent(double display, double source, string format)
+        static string FormatComponent(double display, double source, string format, IFormatProvider provider = null)
         {
             if (double.IsPositiveInfinity(source)) return "∞";
             if (double.IsNegativeInfinity(source)) return "−∞";
-            if (double.IsNaN(source)) return display.ToString(format);
-            if (!FWEMath.IsFinite(display)) return source.ToString("G6");
+            if (double.IsNaN(source)) return display.ToString(format, provider);
+            if (!FWEMath.IsFinite(display)) return source.ToString("G6", provider);
 
-            return Math.Abs(display) >= compact_format_threshold ? display.ToString("G6") : display.ToString(format);
+            return Math.Abs(display) >= compact_format_threshold ? display.ToString("G6", provider) : display.ToString(format, provider);
         }
 
         public int CompareTo(object obj)

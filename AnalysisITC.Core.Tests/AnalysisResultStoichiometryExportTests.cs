@@ -13,6 +13,7 @@ using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
+using AnalysisITC.Platform;
 using Microsoft.VisualBasic.FileIO;
 using Xunit;
 
@@ -58,7 +59,7 @@ public sealed class AnalysisResultStoichiometryExportTests
         Assert.Equal(rows[0], reverse[0]);
         Assert.All(rows.Concat(reverse), row => Assert.Equal(rows[0].Length, row.Length));
         var loss = Array.IndexOf(rows[0], "Loss");
-        Assert.Equal(combination.headers.SelectMany(header => ExpandedHeader(header, options)), rows[0].Skip(4).Take(loss - 4).Select(WithoutConcentrationUnit));
+        Assert.Equal(combination.headers.SelectMany(header => ExpandedHeader(header, options)), rows[0].Skip(4).Take(loss - 4));
         foreach (var row in rows.Skip(1))
         {
             Assert.Equal(row, Assert.Single(reverse.Skip(1), candidate => candidate[0] == row[0]
@@ -91,7 +92,7 @@ public sealed class AnalysisResultStoichiometryExportTests
     [InlineData(AnalysisModel.OneSetOfSites)]
     [InlineData(AnalysisModel.TwoSetsOfSites)]
     [InlineData(AnalysisModel.CompetitiveBinding)]
-    public void CorrectedExportsAddOnlyScalarFixedInputs(AnalysisModel type)
+    public void CorrectedExportsAndQuickCopyAddOnlyScalarFixedInputs(AnalysisModel type)
     {
         var result = Cr019Fixtures.Create(type, true, "corrected");
         var headers = type == AnalysisModel.TwoSetsOfSites ? Combinations[1].headers
@@ -101,11 +102,29 @@ public sealed class AnalysisResultStoichiometryExportTests
         {
             var rows = Parse(AnalysisResultTableExporter.Build(new[] { result }, options), options.Delimiter);
             var loss = Array.IndexOf(rows[0], "Loss");
-            Assert.Equal(headers.SelectMany(header => ExpandedHeader(header, options)), rows[0].Skip(4).Take(loss - 4).Select(WithoutConcentrationUnit));
+            Assert.Equal(headers.SelectMany(header => ExpandedHeader(header, options)), rows[0].Skip(4).Take(loss - 4));
             Assert.All(rows, row => Assert.Equal(rows[0].Length, row.Length));
             var fixed1 = (type == AnalysisModel.TwoSetsOfSites ? "N1 fixed" : "N fixed")
                 + (options.ErrorStyle == AnalysisResultExportErrorStyle.SeparateColumns ? "_value" : "");
             Assert.All(rows.Skip(1), row => Assert.Equal("2", row[Array.IndexOf(rows[0], fixed1)]));
+        }
+        foreach (var style in Enum.GetValues<UncertaintyDisplayStyle>())
+        {
+            var rows = Parse(Cr019Fixtures.Copy(result, style), '\t');
+            Assert.Equal(3, rows.Count);
+            Assert.All(rows, row => Assert.Equal(rows[0].Length, row.Length));
+            Assert.DoesNotContain("N_value", rows[0]);
+            Assert.DoesNotContain("N1_value", rows[0]);
+            Assert.DoesNotContain("N2_value", rows[0]);
+            var fixed1 = type == AnalysisModel.TwoSetsOfSites ? "N1 fixed_value" : "N fixed_value";
+            Assert.All(rows.Skip(1), row => Assert.Equal("2", row[Array.IndexOf(rows[0], fixed1)]));
+            Assert.Equal(type == AnalysisModel.TwoSetsOfSites ? 2 : 1, rows[0].Count(h => h.Contains("fixed")));
+            if (type == AnalysisModel.TwoSetsOfSites)
+            {
+                Assert.All(rows.Skip(1), row => Assert.Equal("0.5", row[Array.IndexOf(rows[0], "N2 fixed_value")]));
+                Assert.All(result.Solution.Solutions, member => Assert.True(member.Parameters.ContainsKey(ParameterType.Nvalue2)));
+                Assert.All(result.Solution.Solutions, member => Assert.False(member.ReportParameters.ContainsKey(ParameterType.Nvalue2)));
+            }
         }
     }
 
@@ -179,23 +198,26 @@ public sealed class AnalysisResultStoichiometryExportTests
     }
 
     [Fact]
-    public void OrdinaryTablesAreByteIdenticalToPreChangeOutput()
+    public void OrdinaryTablesAndQuickCopyAreByteIdenticalToPreChangeOutput()
     {
         var one = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "ordinary one");
         var two = Cr019Fixtures.Create(AnalysisModel.TwoSetsOfSites, false, "ordinary two");
         var competitive = Cr019Fixtures.Create(AnalysisModel.CompetitiveBinding, false, "ordinary competitive");
-        // Committed-base UTF-8 baselines, joined with two LF characters. Normalize only
+        // Pre-CR-019 UTF-8 baselines, joined with two LF characters. Normalize only
         // platform line endings so these byte-content checks also run on Windows.
         var cases = new[]
         {
-            (new[] { one }, "929D07EFED564F26821F1B8D8A03E7AC7F54777181BD26A39A136A1C44FD1254"),
-            (new[] { two }, "2A5992E59BF0034D634105EBC6DD9829161C0E2A6B3AF36345FB71816978C1E7"),
-            (new[] { competitive }, "23104ACECF98C65A2B9E7A1160FADB4BE035779F7F9FF4E44B7A40BE9EC14F8A"),
-            (new[] { one, two }, "83635F76C0BF7F35AE1248C2AF8C4BF9E576CFC4F6F26E1FDACD40B03025439F"),
-            (new[] { two, one }, "9261C272052D30D47DD5F6340EB767A56162B8BAE38F326F8862DE0A886A2FC4"),
+            (new[] { one }, "3E9AE704B7BA550A909DA2CBC941298765BEAD97AFFF9206056798D83194DB87"),
+            (new[] { two }, "4FEC3E36ACD5339DA4DE8D59CC64107FB6CB7C1603643C177BC012637E0C5013"),
+            (new[] { competitive }, "8B8C4F7553A585A1BA54398ED7E34071595B949E6B7DF51CCAB497A9340E3EE8"),
+            (new[] { one, two }, "E11F4EF710CCABD4A27FAEAF5C8418E85ACBFEEDFC06FC9CC76B59F511C0E0D4"),
+            (new[] { two, one }, "BD68E523164E89D34448400B2D833A5A514FAA35E32D7D422DF0CFAC9AC37B85"),
         };
         foreach (var (results, expected) in cases)
             Assert.Equal(expected, Hash(Cr019Fixtures.Layouts().Select(options => AnalysisResultTableExporter.Build(results, options))));
+        Assert.Equal("F892B68FEAB6D0402A6B3DAD388823DD122090500281C5AE008DAF8EC9C17230", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(one, style))));
+        Assert.Equal("05F519D287D1A1DFF89CE4F5CF910E08755C7CEDCEA28E58F6CC363F75292577", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(two, style))));
+        Assert.Equal("1949C51D0A5A859DF5150538949CD46AE71E6258D16224775BBF29CF3D8A3CEE", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
     }
 
     static string Hash(IEnumerable<string> tables) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n\n", tables.Select(table => table.Replace(Environment.NewLine, "\n"))))));
@@ -207,26 +229,19 @@ public sealed class AnalysisResultStoichiometryExportTests
         {
             RowMode = mode, FileFormat = format, ErrorStyle = errors, UncertaintyDisplayStyle = style,
             EnergyUnitOverride = EnergyUnit.KiloJoule, EnergyUnitFamily = EnergyUnitFamily.Joules,
+            ConcentrationUnitOverride = ConcentrationUnit.µM,
         };
-
-    // Unit selection is automatic in the committed exporter. Reverse-order checks
-    // compare the full headings; these expectations check scientific column order.
-    static string WithoutConcentrationUnit(string header)
-    {
-        if (!header.StartsWith("Kd", StringComparison.Ordinal)) return header;
-        var start = header.IndexOf(" (", StringComparison.Ordinal);
-        return start < 0 ? header : header.Remove(start, header.IndexOf(')', start) - start + 1);
-    }
 
     static IEnumerable<string> ExpandedHeader(string header, AnalysisResultExportOptions options)
     {
-        var label = header.StartsWith("∆") || header.StartsWith("-T") ? header + " (kJ/mol)" : header;
+        var label = header.StartsWith("Kd") ? header + " (µM)"
+            : header.StartsWith("∆") || header.StartsWith("-T") ? header + " (kJ/mol)" : header;
         if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError) return new[] { label };
         if (header.Contains("fixed")) return new[] { label + "_value" };
         var interval = options.RowMode == AnalysisResultExportRowMode.Summary ? "_interval" : "_ci";
         return options.UncertaintyDisplayStyle switch
         {
-            UncertaintyDisplayStyle.None => new[] { label + "_value", label + "_sd" },
+            UncertaintyDisplayStyle.None => new[] { label + "_value" },
             UncertaintyDisplayStyle.StandardDeviation => new[] { label + "_value", label + "_sd" },
             UncertaintyDisplayStyle.ConfidenceInterval => new[] { label + "_value", label + interval + "_lower", label + interval + "_upper" },
             _ => new[] { label + "_value", label + "_sd", label + interval + "_lower", label + interval + "_upper" },
@@ -319,8 +334,31 @@ internal static class Cr019Fixtures
             {
                 RowMode = rows, FileFormat = format, ErrorStyle = errors,
                 UncertaintyDisplayStyle = style, EnergyUnitOverride = EnergyUnit.KiloJoule,
-                EnergyUnitFamily = EnergyUnitFamily.Joules,
+                EnergyUnitFamily = EnergyUnitFamily.Joules, ConcentrationUnitOverride = ConcentrationUnit.µM,
             };
     }
 
+    internal static string Copy(AnalysisResult result, UncertaintyDisplayStyle style)
+    {
+        var clipboard = new RecordingClipboard();
+        var previousStyle = AppSettings.UncertaintyDisplayStyle;
+        var previousClipboard = PlatformServices.ClipboardService;
+        try
+        {
+            PlatformServices.RegisterClipboardService(clipboard);
+            AppSettings.UncertaintyDisplayStyle = style;
+            Exporter.CopyToClipboard(result, ConcentrationUnit.µM, EnergyUnit.KiloJoule, false);
+            return clipboard.Value;
+        }
+        finally
+        {
+            AppSettings.UncertaintyDisplayStyle = previousStyle;
+            PlatformServices.RegisterClipboardService(previousClipboard);
+        }
+    }
+    sealed class RecordingClipboard : IClipboardService
+    {
+        public string Value { get; private set; }
+        public void SetString(string value) => Value = value;
+    }
 }

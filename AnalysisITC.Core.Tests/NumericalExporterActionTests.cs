@@ -96,6 +96,45 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task CancelledFolderChoiceDoesNotPersistEditedExportSettingsOrWriteFiles()
+        {
+            DataManager.AddData(Experiment("cancelled"));
+            AppSettings.DefaultExportType = ExportType.Data;
+            AppSettings.ExportOutputBaseName = "before";
+            AppSettings.ExportSelectionMode = ExportDataSelection.AllData;
+            AppSettings.UnifyTimeAxisForExport = false;
+            AppSettings.ExportBaselineCorrectedData = false;
+            AppSettings.ExportFitPointsWithPeaks = false;
+            AppSettings.ExportColumns = ExportColumns.MolarRatio;
+            PlatformServices.RegisterExportPromptService(new FakeExportPrompt
+            {
+                ChooseFolder = settings =>
+                {
+                    settings.Export = ExportType.InterchangeCsv;
+                    settings.OutputBaseName = "edited";
+                    settings.Selection = ExportDataSelection.SelectedData;
+                    settings.UnifyTimeAxis = true;
+                    settings.ExportBaselineCorrectDataPoints = true;
+                    settings.ExportFittedPeaks = true;
+                    settings.Columns = ExportColumns.Default;
+                    return Task.FromResult<string>(null);
+                },
+            });
+
+            await Exporter.ExportAsync();
+
+            Assert.Equal(ExportType.Data, AppSettings.DefaultExportType);
+            Assert.Equal("before", AppSettings.ExportOutputBaseName);
+            Assert.Equal(ExportDataSelection.AllData, AppSettings.ExportSelectionMode);
+            Assert.False(AppSettings.UnifyTimeAxisForExport);
+            Assert.False(AppSettings.ExportBaselineCorrectedData);
+            Assert.False(AppSettings.ExportFitPointsWithPeaks);
+            Assert.Equal(ExportColumns.MolarRatio, AppSettings.ExportColumns);
+            Assert.Empty(Directory.GetFiles(folder));
+            Assert.Empty(messages);
+        }
+
+        [Fact]
         public async Task DestinationCreatedDuringConfirmationIsPreservedAndReportedOnce()
         {
             DataManager.AddData(Experiment("single"));

@@ -41,6 +41,7 @@ namespace AnalysisITC.Core.Export
         public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
         public EnergyUnitFamily EnergyUnitFamily { get; set; } = AppSettings.EnergyUnitFamily;
         public EnergyUnit? EnergyUnitOverride { get; set; }
+        public ConcentrationUnit? ConcentrationUnitOverride { get; set; }
         public EnergyUnit ResolvedEnergyUnit { get; internal set; } = EnergyUnit.KiloJoule;
         public EnergyUnit ResolvedHeatCapacityUnit { get; internal set; } = EnergyUnit.KiloJoule;
 
@@ -276,9 +277,9 @@ namespace AnalysisITC.Core.Export
                         .Where(value => value > 0));
                 }
 
-                units[parameter] = values.Count > 0
+                units[parameter] = options.ConcentrationUnitOverride ?? (values.Count > 0
                     ? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(values.Average())
-                    : AppSettings.DefaultConcentrationUnit;
+                    : AppSettings.DefaultConcentrationUnit);
             }
 
             return units;
@@ -708,6 +709,8 @@ namespace AnalysisITC.Core.Export
 
             switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
             {
+                case UncertaintyDisplayStyle.None:
+                    break;
                 case UncertaintyDisplayStyle.ConfidenceInterval:
                     row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, energyUnits, options));
                     row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, energyUnits, options));
@@ -761,6 +764,8 @@ namespace AnalysisITC.Core.Export
             var intervalPrefix = options.RowMode == AnalysisResultExportRowMode.Summary ? "_interval" : "_ci";
             switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
             {
+                case UncertaintyDisplayStyle.None:
+                    return new[] { "_value" };
                 case UncertaintyDisplayStyle.ConfidenceInterval:
                     return new[] { "_value", intervalPrefix + "_lower", intervalPrefix + "_upper" };
                 case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:

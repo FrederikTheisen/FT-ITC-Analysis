@@ -4879,7 +4879,7 @@ Gw
         <!--Data Processor-->
         <scene sceneID="F7w-dn-ZHc">
             <objects>
-                <viewController title="Data Processor" id="HbJ-1n-Qa7" customClass="DataProcessingViewControllet" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="DataProcessingViewControllet" title="Data Processor" id="HbJ-1n-Qa7" customClass="DataProcessingViewControllet" sceneMemberID="viewController">
                     <view key="view" translatesAutoresizingMaskIntoConstraints="NO" id="57E-wD-KjL">
                         <rect key="frame" x="0.0" y="0.0" width="1011" height="857"/>
                         <subviews>
@@ -5599,26 +5599,35 @@ Gw
                                                     <stackView distribution="fillEqually" orientation="horizontal" alignment="top" spacing="5" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fmo-aQ-7AV">
                                                         <rect key="frame" x="10" y="404" width="280" height="20"/>
                                                         <subviews>
-                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rzv-Fl-DXh">
+                                                            <button horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rzv-Fl-DXh">
                                                                 <rect key="frame" x="-7" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="All" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="UV1-wl-5ki">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
+                                                                <connections>
+                                                                    <action selector="CopySettingsToAllClicked:" target="HbJ-1n-Qa7" id="processing-copy-all-action"/>
+                                                                </connections>
                                                             </button>
-                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Gh1-JB-mxm">
+                                                            <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Gh1-JB-mxm">
                                                                 <rect key="frame" x="88" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="Active" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="lK1-4n-xl0">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
+                                                                <connections>
+                                                                    <action selector="CopySettingsToActiveClicked:" target="HbJ-1n-Qa7" id="processing-copy-active-action"/>
+                                                                </connections>
                                                             </button>
-                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="seg-zP-Rji">
+                                                            <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="seg-zP-Rji">
                                                                 <rect key="frame" x="183" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="New" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zKL-an-Q8G">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
+                                                                <connections>
+                                                                    <action selector="CopySettingsToNewClicked:" target="HbJ-1n-Qa7" id="processing-copy-new-action"/>
+                                                                </connections>
                                                             </button>
                                                         </subviews>
                                                         <visibilityPriorities>
@@ -5803,6 +5812,9 @@ Gw
                         <outlet property="ConvertToLinearSplineButton" destination="qXY-Ty-ejI" id="processing-convert-linear-outlet"/>
                         <outlet property="ConvertToSmoothSplineButton" destination="2ll-Nw-kUZ" id="processing-convert-smooth-outlet"/>
                         <outlet property="CopyToNextButton" destination="DsM-fd-kuP" id="khY-gF-V2N"/>
+                        <outlet property="CopyProcessingToAllButton" destination="rzv-Fl-DXh" id="processing-copy-all-outlet"/>
+                        <outlet property="CopyProcessingToActiveButton" destination="Gh1-JB-mxm" id="processing-copy-active-outlet"/>
+                        <outlet property="CopyProcessingToNewButton" destination="seg-zP-Rji" id="processing-copy-new-outlet"/>
                         <outlet property="CorrectedScopeButton" destination="N9L-IG-uVF" id="rQ1-eb-qLq"/>
                         <outlet property="DataZoomSegControl" destination="5Cm-nV-CpP" id="h1f-Rn-6eB"/>
                         <outlet property="FitPeaksButton" destination="iFp-Cr-N1Z" id="processing-fit-peaks-button-outlet"/>

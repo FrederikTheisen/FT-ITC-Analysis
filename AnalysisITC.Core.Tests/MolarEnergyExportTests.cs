@@ -73,6 +73,46 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void CombinedDataTraceAndPeaksDoNotDependOnAccessoryCorrectionFlags()
+        {
+            var data = CreateExperiment();
+            data.DataPoints = new[] { new DataPoint(0, 1.25f), new DataPoint(0.5f, -2.5f) }.ToList();
+            data.BaseLineCorrectedDataPoints = new[] { new DataPoint(0, 0.25f), new DataPoint(0.5f, -0.5f) }.ToList();
+            var settings = new ExportAccessoryViewSettings
+            {
+                Export = ExportType.InterchangeCsv,
+                ExportEnergyUnit = EnergyUnit.KiloJoule,
+            };
+            const string expectedHeader = "time_s,raw_power_w,corrected_power_w,molar_ratio,integrated_enthalpy_kj_per_mol,sd_kj_per_mol,model_kj_per_mol,residual_kj_per_mol";
+            string[] referenceLines = null;
+
+            foreach (var baselineCorrected in new[] { false, true })
+            foreach (var offsetCorrected in new[] { false, true })
+            foreach (var fittedPeaks in new[] { false, true })
+            {
+                settings.ExportBaselineCorrectDataPoints = baselineCorrected;
+                settings.ExportOffsetCorrected = offsetCorrected;
+                settings.ExportFittedPeaks = fittedPeaks;
+                var lines = Exporter.BuildInterchangeLines(data, settings);
+                referenceLines ??= lines.ToArray();
+                Assert.Equal(referenceLines, lines);
+                Assert.Equal(expectedHeader, lines[0]);
+                var first = lines[1].Split(',');
+                Assert.Equal(8, first.Length);
+                Assert.Equal(new[] { "0", "1.25", "0.25", "1.25" }, first.Take(4));
+                AssertClose(-12.3456789012345, Parse(first[4]));
+                AssertClose(0.000987654321, Parse(first[5]));
+                AssertClose(-12.000123456789, Parse(first[6]));
+                var independentlyCalculatedResidual = (PeakAreaJoules / InjectionMoles - FitJoulesPerMole) / 1000.0;
+                AssertClose(independentlyCalculatedResidual, Parse(first[7]));
+                var second = lines[2].Split(',');
+                Assert.Equal(new[] { "0.5", "-2.5", "-0.5" }, second.Take(3));
+                Assert.Equal(8, second.Length);
+                Assert.All(second.Skip(3), value => Assert.Equal(string.Empty, value));
+            }
+        }
+
+        [Fact]
         public void EnergyChoiceDefaultsFromPreferenceEachTime()
         {
             var original = AppSettings.EnergyUnitFamily;
@@ -147,6 +187,8 @@ namespace AnalysisITC.Core.Tests
             };
             injection.SetPeakArea(new FloatWithError(PeakAreaJoules, PeakAreaSdJoules));
             data.Injections.Add(injection);
+            data.DataPoints = new[] { new DataPoint(0, 1), new DataPoint(0.5f, -2) }.ToList();
+            data.BaseLineCorrectedDataPoints = new[] { new DataPoint(0, 0.25f), new DataPoint(0.5f, -0.5f) }.ToList();
 
             var model = new FixedMolarHeatModel(data);
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, OffsetJoulesPerMole);

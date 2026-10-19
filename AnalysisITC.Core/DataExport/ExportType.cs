@@ -41,7 +41,7 @@ namespace AnalysisITC.Core.Export
         PYTC,
         [ExportType("MicroCal", "Export a MicroCal style table containing columns such as DH, INJV, Xt, Mt, XMt and so forth. The format is compatible with SEDPHAT analysis.", "dat")]
         MicroCal,
-        [ExportType("Combined Data", "Export thermogram samples and integrated peaks side by side in one CSV file.", "csv")]
+        [ExportType("Combined Data", "Export thermogram samples and integrated peaks side by side in one CSV file. Raw and baseline-corrected traces are included when available. Peaks and fitted values are exported without fitted-offset correction.", "csv")]
         InterchangeCsv
     }
 

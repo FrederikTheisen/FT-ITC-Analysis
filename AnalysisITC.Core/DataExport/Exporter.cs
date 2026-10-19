@@ -468,48 +468,17 @@ namespace AnalysisITC.Core.Export
 
         public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdunit, EnergyUnit eunit, bool usekelvin)
         {
-            CopyToClipboard(analysis, _ => kdunit, eunit, usekelvin);
+            CopyToClipboard(analysis, FamilyForEnergyUnit(eunit), eunit, usekelvin, kdunit);
         }
 
         public static void CopyToClipboard(AnalysisResult analysis, EnergyUnit eunit, bool usekelvin)
         {
-            if (analysis == null) throw new ArgumentNullException(nameof(analysis));
-            CopyToClipboard(analysis, analysis.GetAppropriateAffinityUnit, eunit, usekelvin);
+            CopyToClipboard(analysis, FamilyForEnergyUnit(eunit), eunit, usekelvin);
         }
 
         public static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family, EnergyUnit? energyUnitOverride, bool usekelvin)
         {
-            if (analysis == null) throw new ArgumentNullException(nameof(analysis));
-            if (ResultOutputPolicy.SuppressBindingOutputs(analysis))
-            {
-                CopyNoBindingAssessment(analysis, family, energyUnitOverride, usekelvin);
-                return;
-            }
-
-            var energyValues = analysis.Solution?.Solutions
-                ?.SelectMany(solution => solution.ReportParameters
-                    .Where(item => ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)))
-                .ToList() ?? new List<KeyValuePair<ParameterType, FloatWithError>>();
-            var molarValues = energyValues
-                .Where(item => !IsHeatCapacityParameter(item.Key))
-                .Select(item => item.Value.Value)
-                .ToList();
-            var heatCapacityValues = energyValues
-                .Where(item => IsHeatCapacityParameter(item.Key))
-                .Select(item => item.Value.Value)
-                .ToList();
-            heatCapacityValues.AddRange(analysis.Solution?.TemperatureDependence?.Values
-                .Select(dependence => dependence.Slope.Value)
-                ?? Enumerable.Empty<double>());
-            if (analysis.IsProtonationAnalysisEnabled)
-            {
-                molarValues.AddRange(analysis.Solution.Solutions
-                    .Select(solution => BufferAttribute.TryGetProtonationEnthalpy(solution.Data, out var value) ? value.Value : double.NaN));
-            }
-
-            var molar = EnergyUnitResolver.Resolve(family, energyUnitOverride, molarValues);
-            var heatCapacity = EnergyUnitResolver.Resolve(family, energyUnitOverride, heatCapacityValues);
-            CopyToClipboard(analysis, analysis.GetAppropriateAffinityUnit, molar, heatCapacity, usekelvin);
+            CopyToClipboard(analysis, family, energyUnitOverride, usekelvin, null);
         }
 
         public static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family, bool usekelvin)
@@ -517,252 +486,28 @@ namespace AnalysisITC.Core.Export
             CopyToClipboard(analysis, family, null, usekelvin);
         }
 
-        static void CopyToClipboard(
-            AnalysisResult analysis,
-            Func<ParameterType, ConcentrationUnit> affinityUnit,
-            EnergyUnit eunit,
-            bool usekelvin)
+        static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride, bool usekelvin, ConcentrationUnit? concentrationUnitOverride)
         {
-            CopyToClipboard(analysis, affinityUnit, eunit, eunit, usekelvin);
-        }
-
-        static void CopyToClipboard(
-            AnalysisResult analysis,
-            Func<ParameterType, ConcentrationUnit> affinityUnit,
-            EnergyUnit molarEnergyUnit,
-            EnergyUnit heatCapacityUnit,
-            bool usekelvin)
-        {
-            if (ResultOutputPolicy.SuppressBindingOutputs(analysis))
-            {
-                CopyNoBindingAssessment(analysis, FamilyForEnergyUnit(molarEnergyUnit), molarEnergyUnit, usekelvin);
-                return;
-            }
-            var solution = analysis.Solution;
-            var delimiter = ",";
-            var summaryParameters = solution.IndividualModelReportParameters.ToList();
-            var additionalSummaryParameters = new List<ParameterType>();
-            if (analysis.IsTemperatureDependenceEnabled)
-            {
-                var calculator = new AnalysisResultAggregateSummaryCalculator(analysis);
-                foreach (var slot in ThermodynamicParameterSlots.Active(analysis.Model.Models.First()))
-                {
-                    var heatCapacity = calculator.EvaluateHeatCapacity(slot)?.Value;
-                    if (heatCapacity != null && SummaryUncertainty.IsFinite(heatCapacity.Value)
-                        && Math.Abs(heatCapacity.Value) > 0
-                        && !summaryParameters.Contains(slot.HeatCapacity))
-                    {
-                        summaryParameters.Add(slot.HeatCapacity);
-                        additionalSummaryParameters.Add(slot.HeatCapacity);
-                    }
-                }
-            }
-            var lines = new List<string>()
-            {
-                string.Join(delimiter, Header())
-            };
-
-            foreach (var sol in solution.Solutions)
-            {
-                var line = new List<string>
-                {
-                    sol.Data.Name,
-                    (usekelvin ? sol.TempKelvin : sol.Temp).ToString("F2")
-                };
-
-                if (analysis.IsElectrostaticsAnalysisDependenceEnabled)
-                    line.Add((1000 * analysis.GetSaltAnalysisIonicStrength(sol.Data)).ToString("F2"));
-
-                if (analysis.IsProtonationAnalysisEnabled)
-                    line.Add(BufferAttribute.TryGetProtonationEnthalpy(sol.Data, out var enthalpy)
-                        ? enthalpy.ToString(molarEnergyUnit, "F1", withunit: false)
-                        : "");
-
-                foreach (var par in sol.ReportParameters)
-                {
-                    if (par.Key == ParameterType.Nvalue1 || par.Key == ParameterType.Nvalue2)
-                    {
-                        line.Add(par.Value.ToString("F3"));
-                    }
-                    else if (IsAffinityParameter(par.Key))
-                    {
-                        line.Add(par.Value.AsConcentration(affinityUnit(par.Key), withunit: false));
-                    }
-                    else
-                    {
-                        line.Add(new Energy(par.Value).ToString(IsHeatCapacityParameter(par.Key) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
-                    }
-                }
-                // ∆Cp is a summary evaluation. Member rows deliberately remain
-                // empty in those new columns so their fitted values are not implied.
-                foreach (var _ in additionalSummaryParameters)
-                {
-                    line.Add("");
-                    line.Add("");
-                }
-                line.AddRange(ClipboardAssessmentValues(analysis, sol, molarEnergyUnit).Select(Csv));
-                lines.Add(string.Join(delimiter, line).Replace("±", delimiter));
-            }
-
-            // Add line with averages
-            var averageline = new List<string>
-            {
-                "mean (Combined SD; Approximate propagated interval for local aggregates)",
-                (usekelvin
-                    ? AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(analysis) + 273.15
-                    : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(analysis)).ToString("F2"),
-            };
-            if (analysis.IsElectrostaticsAnalysisDependenceEnabled)
-                averageline.Add("-");
-
-            if (analysis.IsProtonationAnalysisEnabled)
-                averageline.Add("-");
-
-            foreach (var parameter in summaryParameters)
-            {
-                var avg = AnalysisResultTableExporter.SummaryValue(analysis, parameter);
-
-                if (parameter == ParameterType.Nvalue1 || parameter == ParameterType.Nvalue2)
-                {
-                    averageline.Add(avg.ToString("F3"));
-                }
-                else if (IsAffinityParameter(parameter))
-                {
-                    averageline.Add(avg.AsConcentration(affinityUnit(parameter), withunit: false));
-                }
-                else
-                {
-                    averageline.Add(new Energy(avg).ToString(IsHeatCapacityParameter(parameter) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
-                }
-            }
-            averageline.AddRange(ClipboardAssessmentValues(analysis, null, molarEnergyUnit).Select(Csv));
-
-            lines.Add(string.Join(delimiter, averageline).Replace("±", delimiter));
-
-            var paste = string.Join(Environment.NewLine, lines);
-
-            PlatformServices.ClipboardService.SetString(paste);
-
-            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
-
-            List<string> Header()
-            {
-                List<string> header = new() { "exp", "temperature" };
-
-                if (analysis.IsElectrostaticsAnalysisDependenceEnabled) header.Add("IS(mM)");
-                if (analysis.IsProtonationAnalysisEnabled) header.Add("∆Hbufferprotonation(" + molarEnergyUnit.GetUnit() + ")");
-
-                var options = solution.Solutions[0].ModelOptions;
-
-                foreach (var par in summaryParameters)
-                {
-                    var unit = IsAffinityParameter(par)
-                        ? affinityUnit(par)
-                        : AppSettings.DefaultConcentrationUnit;
-                    var containsMultiple = ThermodynamicParameterSlots.TryResolve(par, out _, out _)
-                        ? ThermodynamicParameterSlots.FamilyMemberCount(
-                            solution.IndividualModelReportParameters,
-                            par) > 1
-                        : solution.Solutions[0].ParametersConformingToKey(par).Count > 1;
-                    var s = ParameterTypeAttribute.TableHeader(
-                        options,
-                        par,
-                        containsMultiple,
-                        IsHeatCapacityParameter(par) ? heatCapacityUnit : molarEnergyUnit,
-                        unit.GetName());
-
-                    header.Add(s + "_value");
-                    header.Add(s + "_sd");
-                }
-
-                header.AddRange(new[] { "Output purpose", "Binding assessment", "Assessment mode", "Null model", "Null fit", "Comparison scope",
-                    "Null model parameters", "Null RMSD", "Binding AICc", "Null AICc", "ΔAICc", "Comparison reason" });
-
-                return header;
-            }
-
-            static bool IsAffinityParameter(ParameterType key)
-            {
-                return key == ParameterType.ApparentAffinity
-                    || key.GetProperties().ParentType == ParameterType.Affinity1;
-            }
-
-        }
-
-        static void CopyNoBindingAssessment(AnalysisResult result, EnergyUnitFamily family,
-            EnergyUnit? energyUnitOverride, bool usekelvin)
-        {
-            var table = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+            if (analysis == null) throw new ArgumentNullException(nameof(analysis));
+            var table = AnalysisResultTableExporter.Build(new[] { analysis }, new AnalysisResultExportOptions
             {
                 RowMode = AnalysisResultExportRowMode.AllRows,
-                ErrorStyle = AnalysisResultExportErrorStyle.ValueWithError,
-                FileFormat = AnalysisResultExportFileFormat.CSV,
+                ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+                FileFormat = AnalysisResultExportFileFormat.TSV,
+                UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle,
                 EnergyUnitFamily = family,
                 EnergyUnitOverride = energyUnitOverride,
+                ConcentrationUnitOverride = concentrationUnitOverride,
                 UseKelvin = usekelvin,
             });
             PlatformServices.ClipboardService.SetString(table);
-            StatusBarManager.SetStatus("Binding assessment copied to clipboard", 3333);
+            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
         }
 
         static EnergyUnitFamily FamilyForEnergyUnit(EnergyUnit unit)
             => unit == EnergyUnit.MicroCal || unit == EnergyUnit.Cal || unit == EnergyUnit.KCal
                 ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
-
-        static List<string> ClipboardAssessmentValues(AnalysisResult result, SolutionInterface onlyMember,
-            EnergyUnit energyUnit)
-        {
-            var family = energyUnit == EnergyUnit.MicroCal || energyUnit == EnergyUnit.Cal || energyUnit == EnergyUnit.KCal
-                ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
-            var independent = result?.IsIndependentAssessmentCollection == true;
-            if (independent && onlyMember == null)
-            {
-                return new List<string>
-                {
-                    "Standard",
-                    NullModelComparisonPresentation.CollectionAssessmentSummary(result),
-                    "Derived from member assessments",
-                    "", "", "", "", "", "", "", "", "",
-                };
-            }
-            var comparison = independent && onlyMember != null
-                ? result.GetMemberNullComparison(onlyMember) : result?.NullComparison;
-            var assessment = independent && onlyMember != null
-                ? result.GetMemberBindingAssessment(onlyMember) : result?.BindingAssessment;
-            var parameterText = NullModelComparisonPresentation.FormatNullParameters(result, comparison, family,
-                energyUnit, onlyMember?.Data?.UniqueID);
-            var reason = comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
-                : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)
-                : !comparison.NullFitSucceeded ? NullModelComparisonPresentation.NullFitReason(comparison)
-                : comparison.DeltaAicc.HasValue ? "Saved binding and Null model comparison."
-                : NullModelComparisonPresentation.ComparisonReason(comparison);
-            return new List<string>
-            {
-                "Standard",
-                NullModelComparisonPresentation.OutcomeText(assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed),
-                NullModelComparisonPresentation.Mode(assessment),
-                NullModelComparisonPresentation.NullModel(comparison),
-                NullModelComparisonPresentation.NullStatus(comparison),
-                independent ? "Independent member comparison"
-                    : result?.Solution?.Solutions?.Count > 1
-                    ? "Pooled result-level comparison; not a member classification"
-                    : "Result-level comparison",
-                parameterText,
-                NullModelComparisonPresentation.NullRmsd(comparison, family) + " " + ThermogramUnits.IntegratedHeatUnit(family),
-                NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria),
-                NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria),
-                NullModelComparisonPresentation.Delta(comparison),
-                reason
-            };
-        }
-
-
-        static string Csv(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
-
-        static bool IsHeatCapacityParameter(ParameterType key)
-        {
-            return key.GetProperties().ParentType == ParameterType.HeatCapacity1;
-        }
 
         class ExportColumnHandler
         {

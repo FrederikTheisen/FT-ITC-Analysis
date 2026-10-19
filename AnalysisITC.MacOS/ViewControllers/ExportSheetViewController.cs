@@ -134,12 +134,18 @@ namespace AnalysisITC
             selectionControl.SetLabel("Selected", 0);
             selectionControl.SetLabel("Active", 1);
             selectionControl.SetLabel("All", 2);
-            selectionControl.SelectSegment((int)settings.Selection);
+            selectionControl.SelectedSegment = (int)settings.Selection;
             selectionControl.Activated += (_, _) => RefreshControls();
             AddFormRow("Data", selectionControl);
 
             correctedDataCheck = CheckBox("Baseline-corrected trace");
+            correctedDataCheck.State = settings.ExportBaselineCorrectDataPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            correctedDataCheck.Activated += (_, _) =>
+                settings.ExportBaselineCorrectDataPoints = correctedDataCheck.State == NSCellStateValue.On;
             offsetCorrectedCheck = CheckBox("Offset-corrected peaks");
+            offsetCorrectedCheck.State = settings.ExportOffsetCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
+            offsetCorrectedCheck.Activated += (_, _) =>
+                settings.ExportOffsetCorrected = offsetCorrectedCheck.State == NSCellStateValue.On;
             noOptionsLabel = Label("No additional options", NSFont.SmallSystemFontSize, false);
             noOptionsLabel.TextColor = NSColor.SecondaryLabel;
             optionsContent = CreateVerticalStack(5);
@@ -195,26 +201,28 @@ namespace AnalysisITC
         void RefreshControls()
         {
             var format = SelectedFormat;
+            var baselineCorrectionDraft = settings.ExportBaselineCorrectDataPoints;
+            var offsetCorrectionDraft = settings.ExportOffsetCorrected;
             settings.Selection = (ExportDataSelection)(int)selectionControl.SelectedSegment;
             settings.SetData();
+            settings.ExportBaselineCorrectDataPoints = baselineCorrectionDraft;
+            settings.ExportOffsetCorrected = offsetCorrectionDraft;
 
             descriptionLabel.StringValue = format.GetProperties().Description;
             unitsLabel.StringValue = ExportFormatDescription.GetOutputUnits(format, settings.Data, settings.ExportEnergyUnit);
             descriptionHeightConstraint.Constant = MeasureWrappedHeight(descriptionLabel, 430, 34);
             unitsHeightConstraint.Constant = MeasureWrappedHeight(unitsLabel, 430, 34);
 
-            var traceOptions = format == ExportType.Data || format == ExportType.InterchangeCsv;
-            var offsetOptions = format == ExportType.Peaks || format == ExportType.ITCsim || format == ExportType.InterchangeCsv;
-            var hasEnergyUnit = offsetOptions;
+            var traceOptions = format == ExportType.Data;
+            var offsetOptions = format == ExportType.Peaks || format == ExportType.ITCsim;
+            var hasEnergyUnit = offsetOptions || format == ExportType.InterchangeCsv;
             energyUnitRow.Hidden = !hasEnergyUnit;
 
             correctedDataCheck.Hidden = !traceOptions;
             offsetCorrectedCheck.Hidden = !offsetOptions;
             noOptionsLabel.Hidden = traceOptions || offsetOptions;
 
-            correctedDataCheck.State = settings.ExportBaselineCorrectDataPoints ? NSCellStateValue.On : NSCellStateValue.Off;
             correctedDataCheck.Enabled = settings.BaselineCorrectionEnabled;
-            offsetCorrectedCheck.State = settings.ExportOffsetCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
             offsetCorrectedCheck.Enabled = settings.FittedPeakExportEnabled;
             SetError(null);
         }
@@ -241,6 +249,8 @@ namespace AnalysisITC
             settings.SetData();
             if (settings.Data.Count == 0)
             {
+                settings.ExportBaselineCorrectDataPoints = correctedDataCheck.State == NSCellStateValue.On;
+                settings.ExportOffsetCorrected = offsetCorrectedCheck.State == NSCellStateValue.On;
                 SetError("Select an experiment or choose Active or All data.");
                 return;
             }
