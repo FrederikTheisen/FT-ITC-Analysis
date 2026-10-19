@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using AnalysisITC.Core.Application;
@@ -34,6 +36,85 @@ namespace AnalysisITC.Core.Tests
             StatusBarManager.StatusUpdated -= OnStatusUpdated;
             StatusBarManager.ClearAppStatus();
             StatusBarManager.SetDefaultSecondaryStatus("");
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void TenThousandPermanentUpdatesRetainOnlyTheLatestMessage(bool changingText)
+        {
+            for (int i = 1; i <= 10000; i++)
+                StatusBarManager.SetStatus(changingText ? $"Bootstrap {i}/10000" : "Estimating uncertainty…", 0, priority: 1);
+
+            var expected = changingText ? "Bootstrap 10000/10000" : "Estimating uncertainty…";
+            Assert.Equal(new[] { expected }, StoredMessages(timed: false));
+            Assert.Equal(expected, statuses.Last());
+            Assert.Empty(StoredMessages(timed: true));
+        }
+
+        [Fact]
+        public void PermanentReplacementRemovesLowerAndEqualPrioritiesButRetainsHigherPriority()
+        {
+            StatusBarManager.SetStatus("higher", 0, priority: 3);
+            StatusBarManager.SetStatus("lower", 0, priority: 0);
+            StatusBarManager.SetStatus("middle-old", 0, priority: 1);
+            StatusBarManager.SetStatus("middle-new", 0, priority: 1);
+
+            Assert.Equal(new[] { "higher", "middle-new" }, StoredMessages(timed: false));
+            Assert.Equal("higher", statuses.Last());
+
+            StatusBarManager.SetStatus("higher-new", 0, priority: 3);
+            Assert.Equal(new[] { "higher-new" }, StoredMessages(timed: false));
+            Assert.Equal("higher-new", statuses.Last());
+        }
+
+        [Fact]
+        public async Task EqualPriorityTimedStatusRevealsPriorPermanentStatusOnExpiry()
+        {
+            StatusBarManager.SetStatus("permanent", 0, priority: 1);
+            StatusBarManager.SetStatus("timed", 100, priority: 1);
+
+            Assert.Equal("timed", statuses.Last());
+            Assert.Equal(new[] { "permanent" }, StoredMessages(timed: false));
+            await WaitUntilAsync(() => statuses.Count(message => message == "permanent") == 2);
+            Assert.Equal("permanent", statuses.Last());
+            Assert.Empty(StoredMessages(timed: true));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task PermanentReplacementPreservesTimedOverlayAndRevealsLatestText(bool queued)
+        {
+            StatusBarManager.SetStatus("permanent-old", 0, priority: 1);
+            if (queued) StatusBarManager.QueueStatus("overlay", 200, priority: 2);
+            else StatusBarManager.SetStatus("overlay", 200, priority: 2);
+
+            // Direct timed statuses still remove lower-priority permanent entries;
+            // queued statuses retain them, as before.
+            Assert.Equal(queued ? new[] { "permanent-old" } : Array.Empty<string>(), StoredMessages(timed: false));
+            for (int i = 1; i <= 3; i++)
+                StatusBarManager.SetStatus($"permanent-{i}", 0, priority: 1);
+
+            Assert.Equal(new[] { "permanent-3" }, StoredMessages(timed: false));
+            Assert.Equal(new[] { "overlay" }, StoredMessages(timed: true));
+            Assert.Equal("overlay", statuses.Last());
+            await WaitUntilAsync(() => statuses.Last() == "permanent-3");
+            Assert.Empty(StoredMessages(timed: true));
+        }
+
+        private static string[] StoredMessages(bool timed)
+        {
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+            var gate = typeof(StatusBarManager).GetField("statusLock", flags).GetValue(null);
+            lock (gate)
+            {
+                return ((IEnumerable)typeof(StatusBarManager).GetField("status", flags).GetValue(null))
+                    .Cast<object>()
+                    .Where(message => (bool)message.GetType().GetProperty("Timed").GetValue(message) == timed)
+                    .Select(message => (string)message.GetType().GetProperty("Message").GetValue(message))
+                    .ToArray();
+            }
         }
 
         [Fact]

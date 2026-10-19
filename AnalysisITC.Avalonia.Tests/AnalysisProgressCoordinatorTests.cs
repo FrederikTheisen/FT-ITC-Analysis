@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
@@ -38,6 +40,42 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         coordinator = new AnalysisProgressCoordinator();
         StatusBarManager.SetDefaultSecondaryStatus("Example project");
         Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void TenThousandBootstrapUpdatesRetainOnePermanentStatusAndCompleteNormally()
+    {
+        var solver = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals, BootstrapIterations = 10000 };
+        solver.Analyze();
+        Task.Run(() =>
+        {
+            for (int i = 1; i <= 10000; i++) solver.ReportBootstrapProgress(i);
+        }).GetAwaiter().GetResult();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1, StoredPermanentStatusCount());
+        Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
+        Assert.Equal("Bootstrap 10000/10000", secondary.Text);
+        Assert.Equal(1, StatusBarManager.Progress);
+
+        solver.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, StoredPermanentStatusCount());
+        Assert.Equal("Example project", secondary.Text);
+        Assert.Equal(-1, StatusBarManager.Progress);
+    }
+
+    static int StoredPermanentStatusCount()
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+        var gate = typeof(StatusBarManager).GetField("statusLock", flags)!.GetValue(null)!;
+        lock (gate)
+        {
+            var count = 0;
+            foreach (var message in (IEnumerable)typeof(StatusBarManager).GetField("status", flags)!.GetValue(null)!)
+                if (!(bool)message.GetType().GetProperty("Timed")!.GetValue(message)!) count++;
+            return count;
+        }
     }
 
     [AvaloniaTheory]

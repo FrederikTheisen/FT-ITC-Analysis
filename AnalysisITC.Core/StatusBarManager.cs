@@ -410,7 +410,8 @@ namespace AnalysisITC.Core.Application
             string message;
             lock (statusLock)
             {
-                status.RemoveAll(o => o.Timed == false && o.Priority < value.Priority);
+                status.RemoveAll(o => !o.Timed && (o.Priority < value.Priority
+                    || (!value.Timed && o.Priority == value.Priority)));
                 status.Add(value);
                 stateChanged = MarkStatusStateChangedLocked();
                 message = GetStatusLocked().Message;

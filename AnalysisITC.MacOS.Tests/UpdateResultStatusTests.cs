@@ -43,6 +43,7 @@ static class UpdateResultStatusTests
                 var progress = Outlet<NSProgressIndicator>(status, "ProgressIndicator");
 
                 CheckProgress(primary, secondary, progress);
+                CheckTenThousandBootstrapUpdates(primary, secondary, progress);
                 CheckMemberNames(primary);
                 CheckAdmission(analysis, primary);
                 CheckStaleProgress(primary, secondary);
@@ -126,6 +127,47 @@ static class UpdateResultStatusTests
             Pump();
             Check(indicator.Hidden && primary.StringValue.StartsWith("Analysis failed:"),
                 "Missing completion did not produce a descriptive failure");
+        }
+    }
+
+    static void CheckTenThousandBootstrapUpdates(NSTextField primary, NSTextField secondary, NSProgressIndicator indicator)
+    {
+        using (var activity = ProcessingActivity.TryBegin())
+        using (activity.Enter())
+        {
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetDefaultSecondaryStatus("Example project");
+            var solver = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals, BootstrapIterations = 10000 };
+            solver.Analyze();
+            Wait(Task.Run(() =>
+            {
+                for (int i = 1; i <= 10000; i++) solver.ReportBootstrapProgress(i);
+            }));
+            Pump();
+
+            Check(StoredPermanentStatusCount() == 1, "10,000 bootstrap updates retained more than one permanent status");
+            Check(primary.StringValue == "Estimating uncertainty…" && secondary.StringValue == "Bootstrap 10000/10000",
+                "10,000 bootstrap updates lost their phase or final counter");
+            Check(StatusBarManager.Progress == 1
+                && Math.Abs(indicator.DoubleValue - 100) < 0.00001, "10,000 bootstrap updates lost their active final fraction");
+
+            solver.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
+            Pump();
+            Check(StoredPermanentStatusCount() == 0 && secondary.StringValue == "Example project" && indicator.Hidden,
+                "Completion after 10,000 bootstrap updates did not clear the operation status");
+        }
+    }
+
+    static int StoredPermanentStatusCount()
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+        var gate = typeof(StatusBarManager).GetField("statusLock", flags).GetValue(null);
+        lock (gate)
+        {
+            var count = 0;
+            foreach (var message in (System.Collections.IEnumerable)typeof(StatusBarManager).GetField("status", flags).GetValue(null))
+                if (!(bool)message.GetType().GetProperty("Timed").GetValue(message)) count++;
+            return count;
         }
     }
 
