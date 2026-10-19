@@ -53,11 +53,11 @@ class ReportEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Recorded acceptance disagrees"):
             self.check_modified()
 
-    def test_readme_counts_percentages_and_benchmarks_match_frozen_evidence(self):
-        readme = (DIRECTORY/"README.md").read_text()
+    def test_historical_notes_counts_percentages_and_benchmarks_match_frozen_evidence(self):
+        notes = (DIRECTORY/"DEFAULT_TOLERANCE_NOTES.md").read_text()
         results = {r["Id"]: r for r in self.comparisons["Results"]}
         passed = sum(r["Passed"] for r in results.values())
-        self.assertIn(f"{passed}/{len(results)} cases meet the practical limit", readme)
+        self.assertIn(f"{passed}/{len(results)} cases meet the practical limit", notes)
         for model, label in (("one-site", "One-site"), ("two-site", "Two independent sites, one of each"),
                              ("competitive", "Competitive"), ("sequential", "Sequential, 2-4 steps")):
             rows = [results[c["id"]] for c in self.reference["cases"] if c["model"] == model]
@@ -66,13 +66,13 @@ class ReportEvidenceTests(unittest.TestCase):
             expected = (f"| {label} | {count} | {maximum_percent:.6g} | "
                         f"{sum(r['Passed'] for r in rows)}/{count} | "
                         f"{sum(r['RoundoffGoalMet'] for r in rows)}/{count} |")
-            self.assertIn(expected, readme)
+            self.assertIn(expected, notes)
         for filename, label in (("one-exothermic-performance.json", "One-site"),
                                 ("sequential-2-performance.json", "Sequential 2")):
             data = json.loads((DIRECTORY/filename).read_text())
             for row in data["Measurements"]:
                 self.assertIn(f"| {label} / {row['Method']} | {row['ObjectiveMilliseconds']:g} | "
-                              f"{row['FitMilliseconds']:g} |", readme)
+                              f"{row['FitMilliseconds']:g} |", notes)
 
     def test_overview_includes_all_discrepancies_and_acceptance_line(self):
         results = {r["Id"]: r for r in self.comparisons["Results"]}
@@ -142,11 +142,14 @@ class ReportEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "FT-ITC base curve differs"):
             self.check_sensitivity(data)
 
-    def test_generation_preserves_other_figures_and_includes_sensitivity_in_both_reports(self):
+    def test_generation_preserves_redirects_and_other_figures_and_includes_sensitivity_in_both_reports(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)/"report"
             shutil.copytree(DIRECTORY, directory,
                             ignore=shutil.ignore_patterns("figures", "*.png", "__pycache__"))
+            redirects = {name: (directory/name).read_bytes() for name in ("README.md", "REPORT.md")}
+            markdown = directory/"DEFAULT_TOLERANCE_REPORT.md"
+            markdown.unlink()
             figures = directory/"figures"
             figures.mkdir()
             sentinel = figures/"two-site-user-diagnostic.png"
@@ -163,7 +166,9 @@ class ReportEvidenceTests(unittest.TestCase):
                 report.generate(directory, pdf, "2026-09-16", None, None)
             self.assertEqual(sentinel.read_bytes(), b"Keep this separately authored diagnostic.")
             self.assertTrue((figures/"two-site-3-solver-sensitivity.png").is_file())
-            md = (directory/"REPORT.md").read_text()
+            for name, content in redirects.items():
+                self.assertEqual((directory/name).read_bytes(), content)
+            md = markdown.read_text()
             text = "\n".join(page.extract_text() for page in report.PdfReader(pdf).pages)
             for content in (md, text):
                 normalized = " ".join(content.split())

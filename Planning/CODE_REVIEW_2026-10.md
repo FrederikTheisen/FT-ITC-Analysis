@@ -1126,6 +1126,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-083 — Historical reporting tests assert retired document contents and filenames
 
 - Priority: Low
+- Status: Resolved (2026-10-19).
 - Confidence: Confirmed
 - Category: Test quality
 - Location: `AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/test_generate_report.py:56`; `AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/test_generate_report.py:145`; `AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/generate_report.py:579`
@@ -1134,6 +1135,8 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Run the historical documented unittest command. The README assertion fails; the lifecycle test reads the unchanged copied redirect instead of the newly generated report.
 - Consequence: Intended current artifact layout causes false regression failures in historical reporting maintenance. This was established from source, not a suite execution.
 - Suggested direction: Target retained historical documents and the actual generated filename while keeping the current precision redirects intact.
+- Resolution: The frozen-count/percentage/benchmark assertions now read `DEFAULT_TOLERANCE_NOTES.md`, and the generation lifecycle test reads `DEFAULT_TOLERANCE_REPORT.md`. The lifecycle test removes the copied historical report before generation to require fresh output and verifies that both precision redirects (`README.md` and `REPORT.md`) remain byte-for-byte unchanged. The generator, scientific fixtures and current precision documents are unchanged.
+- Validation: The documented unittest discovery command reproduced both stale-document failures (14 passed, two failed) before the change; all 16 reporting tests pass afterward using the pinned `report-requirements.txt` dependencies in a temporary Python 3.12 environment. The lifecycle test generates and checks Markdown, a 22-page PDF and report evidence in a temporary copy, with existing plot placeholders retained. `git diff --check` passes for the changed files. Logs: `/private/tmp/cr083-before.log` and `/private/tmp/cr083-after.log`.
 
 ## CR-084 — Correcting a tandem-import option requires restarting the import
 
