@@ -33,6 +33,7 @@ static class AnalysisParameterDraftTests
             var viewType = assembly.GetType("AnalysisITC.UI.MacOS.CustomViews.AnalysisParameterItemView", true);
 
             ControllerRunFitClampsAcceptedGuess(assembly);
+            ModelSwitchResetsCachedConstraints(assembly);
 
             var pendingText = FormatParameter(assembly, 60000);
             var pending = CreateDraft(draftType, pendingText, false, false);
@@ -211,6 +212,107 @@ static class AnalysisParameterDraftTests
         }
         finally { SolverInterface.AnalysisFinished -= handler; }
         Console.WriteLine("PASS: native DataAnalysisViewController.RunFit launches with a clamped accepted guess");
+    }
+
+    static void ModelSwitchResetsCachedConstraints(Assembly assembly)
+    {
+        DataManager.Init();
+        var first = CreateConstraintExperiment("native-switch-first.itc", 20);
+        DataManager.AddData(new[] { first, CreateConstraintExperiment("native-switch-second.itc", 30) });
+        var type = assembly.GetType("AnalysisITC.DataAnalysisViewController", true);
+        var controller = Create<DataAnalysisViewController>();
+        var workspace = controller.Workspace;
+        var mode = Create<NSSegmentedControl>();
+        mode.SegmentCount = 2;
+        mode.SelectedSegment = 1;
+        SetOutlet(type, controller, "AnalysisModeControl", mode);
+        SetOutlet(type, controller, "ParameterStackView", Create<NSStackView>());
+        SetOutlet(type, controller, "ConstraintStackView", Create<NSStackView>());
+        SetOutlet(type, controller, "ModelOptionsStackView", Create<NSStackView>());
+        SetOutlet(type, controller, "FitSimplexButton", Create<NSButton>());
+        SetOutlet(type, controller, "ErrorMethodControl", Popup("None"));
+        var menu = Popup("One Site", "Sequential");
+        menu.ItemAtIndex(0).Tag = (int)AnalysisModel.OneSetOfSites;
+        menu.ItemAtIndex(1).Tag = (int)AnalysisModel.SequentialBindingSites;
+        SetOutlet(type, controller, "ModelTypeControl", menu);
+        try
+        {
+            workspace.SetGlobalMode(true);
+            workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            type.GetMethod("RebuildInspectorEditorViews", PrivateInstance).Invoke(controller, null);
+            var draft = type.GetField("inspectorDraft", PrivateInstance).GetValue(controller);
+            var draftType = draft.GetType();
+            var constraints = (IDictionary)draftType.GetProperty("Constraints").GetValue(draft);
+            var parameters = (IDictionary)draftType.GetProperty("Parameters").GetValue(draft);
+            var options = (IDictionary)draftType.GetProperty("Options").GetValue(draft);
+            var parameter = parameters[ParameterType.Affinity1];
+            var parameterCount = parameters.Count;
+            var optionCount = options.Count;
+            Check((VariableConstraint)constraints[ParameterType.Affinity1] == VariableConstraint.SameForAll,
+                "native precondition: the cached One Site draft contains shared affinity");
+
+            menu.SelectItem(1);
+            type.GetMethod("AnalysisModelClicked", PrivateInstance).Invoke(controller, new object[] { menu });
+            Check(workspace.IsReady && workspace.Session.Global.Constraints.Count == 0,
+                "native switch to Sequential leaves a ready independent context");
+            Check(constraints.Count == 0, "native model switch clears cached sharing");
+            Check(parameters.Count == parameterCount && ReferenceEquals(parameter, parameters[ParameterType.Affinity1])
+                && options.Count == optionCount, "native model switch preserves cached parameter and option drafts");
+            Check(((IList)type.GetField("constraintControls", PrivateInstance).GetValue(controller)).Count > 0,
+                "native Sequential constraint controls remain available");
+
+            menu.SelectItem(0);
+            type.GetMethod("AnalysisModelClicked", PrivateInstance).Invoke(controller, new object[] { menu });
+            Check(workspace.IsReady, "native return to One Site remains ready");
+            var restored = type.GetField("inspectorDraft", PrivateInstance).GetValue(controller);
+            Check(ReferenceEquals(draft, restored), "native revisit reuses the parameter draft cache");
+            constraints = (IDictionary)draftType.GetProperty("Constraints").GetValue(restored);
+            foreach (VariableConstraint constraint in constraints.Values)
+                Check(constraint == VariableConstraint.None, "native revisit must not restore old sharing");
+
+            // A pending, unapplied sharing edit is retained on a no-op selection,
+            // but discarded when the model actually changes.
+            constraints[ParameterType.Affinity1] = VariableConstraint.SameForAll;
+            type.GetMethod("AnalysisModelClicked", PrivateInstance).Invoke(controller, new object[] { menu });
+            Check((VariableConstraint)constraints[ParameterType.Affinity1] == VariableConstraint.SameForAll,
+                "native same-model selection preserves the sharing draft");
+            menu.SelectItem(1);
+            type.GetMethod("AnalysisModelClicked", PrivateInstance).Invoke(controller, new object[] { menu });
+            Check(workspace.IsReady && constraints.Count == 0,
+                "native subsequent model change discards pending sharing and remains ready");
+            Console.WriteLine("PASS: native model switches reset sharing without losing parameter or option drafts");
+        }
+        finally
+        {
+            type.GetMethod("ClearInspectorRows", PrivateInstance).Invoke(controller, null);
+            controller.Dispose();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    static ExperimentData CreateConstraintExperiment(string name, double temperature)
+    {
+        var data = new ExperimentData(name)
+        {
+            CellConcentration = new FloatWithError(35e-6),
+            SyringeConcentration = new FloatWithError(420e-6),
+            CellVolume = 1.4e-3,
+            MeasuredTemperature = temperature,
+            TargetTemperature = temperature,
+        };
+        for (var index = 0; index < 5; index++)
+        {
+            var injection = new InjectionData(data, index, 2e-6,
+                data.SyringeConcentration * 2e-6, include: true)
+            {
+                ActualCellConcentration = data.CellConcentration * 0.99,
+                ActualTitrantConcentration = (index + 1) * 5e-6,
+                Ratio = (index + 1) * 5e-6 / (data.CellConcentration * 0.99),
+            };
+            injection.SetPeakArea(new FloatWithError(-2e-6 + index * 1e-7));
+            data.Injections.Add(injection);
+        }
+        return data;
     }
 
     static bool WaitForIdle()

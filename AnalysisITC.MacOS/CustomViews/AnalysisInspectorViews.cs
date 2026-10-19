@@ -43,6 +43,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public ExperimentAttribute Option { get; set; }
         public string ValueText { get; set; }
         public string ErrorText { get; set; }
+        // Retained text must keep the unit in which it was entered across rebuilds.
+        public EnergyUnit? CapturedEnergyUnit { get; set; }
+        public EnergyUnit DisplayEnergyUnit => CapturedEnergyUnit ??=
+            EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, Option.ParameterValue.Value);
         public bool IsValid { get; set; } = true;
         public bool IsApplicable { get; set; } = true;
     }
@@ -207,6 +211,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     Option = refreshedOption,
                     ValueText = retained.ValueText,
                     ErrorText = retained.ErrorText,
+                    CapturedEnergyUnit = retained.CapturedEnergyUnit,
                     IsValid = retained.IsValid,
                     IsApplicable = retained.IsApplicable,
                 };
@@ -416,6 +421,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 || InitialParameterLimitViolationDetector.IsWithinLimits(parameter, internalValue);
         }
 
+        public static string OptionUnit(AnalysisOptionDraft draft)
+        {
+            return OptionUnit(draft.Option.Key, draft.DisplayEnergyUnit);
+        }
+
         public static string OptionUnit(AttributeKey key)
         {
             return OptionUnit(key, EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily));
@@ -453,7 +463,18 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             };
         }
 
+        public static (double value, double error) OptionDisplayValue(AnalysisOptionDraft draft)
+        {
+            return OptionDisplayValue(draft.Option, draft.DisplayEnergyUnit);
+        }
+
         public static (double value, double error) OptionDisplayValue(ExperimentAttribute option)
+        {
+            return OptionDisplayValue(option,
+                EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value));
+        }
+
+        static (double value, double error) OptionDisplayValue(ExperimentAttribute option, EnergyUnit energyUnit)
         {
             var value = option.ParameterValue;
             switch (option.Key)
@@ -470,9 +491,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         kd.Value * AppSettings.DefaultConcentrationUnit.GetProperties().Mod,
                         kd.SD * AppSettings.DefaultConcentrationUnit.GetProperties().Mod);
                 case AttributeKey.PreboundLigandEnthalpy:
-                    var energyUnit = EnergyUnitResolver.Resolve(
-                        AppSettings.EnergyUnitFamily,
-                        value.Value);
                     return (
                         Energy.ConvertFromJoule(value.Value, energyUnit),
                         Math.Abs(Energy.ConvertFromJoule(value.SD, energyUnit)));
@@ -516,9 +534,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     stored = FWEMath.Log10(new FloatWithError(association, associationError));
                     break;
                 case AttributeKey.PreboundLigandEnthalpy:
-                    var energyUnit = EnergyUnitResolver.Resolve(
-                        AppSettings.EnergyUnitFamily,
-                        draft.Option.ParameterValue.Value);
+                    var energyUnit = draft.DisplayEnergyUnit;
                     stored = new Energy(
                         new FloatWithError(value, error),
                         energyUnit).FloatWithError;
@@ -1222,23 +1238,18 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             this.parameter = parameter;
             this.draft = draft;
 
-            var correctionFactor =
-                parameter.Key == ParameterType.Nvalue1
-                && options.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringe)
-                && syringe.Option.BoolValue;
+            var presentation = AnalysisParameterLabelPresentation.Create(parameter.Key,
+                options.ToDictionary(option => option.Key, option => option.Value.Option), showSiteIndex);
             var enabled = AnalysisInspectorDisplayCatalog.IsParameterEnabled(parameter.Key, options);
             draft.IsApplicable = enabled;
             draft.AutomaticValue = parameter.Value;
 
             AddVerticalPadding(2);
             var header = CreateHorizontalRow();
-            var title = correctionFactor
-                ? "Correction Factor"
-                : parameter.Key.GetProperties().Description;
-            var symbol = MacStrings.ParameterSymbol(
-                parameter.Key,
-                showSiteIndex,
-                correctionFactor);
+            var title = presentation.Title;
+            var symbol = parameter.Key.GetProperties().ParentType == ParameterType.Nvalue1
+                ? presentation.Symbol
+                : MacStrings.ParameterSymbol(parameter.Key, showSiteIndex);
             var unit = AnalysisInspectorDisplayCatalog.ParameterUnit(
                 parameter.Key,
                 parameter.Value);
@@ -1247,7 +1258,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 null,
                 enabled,
                 medium: true);
-            label.ToolTip = "Initial value for "
+            label.ToolTip = presentation.ToolTip ?? "Initial value for "
                 + parameter.Key.GetProperties().Description + ".";
             label.SetContentHuggingPriorityForOrientation(
                 1000,
@@ -1313,7 +1324,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 + AnalysisInspectorDisplayCatalog.FormatParameter(
                     parameter.Key,
                     parameter.Value);
-            input.ToolTip =
+            input.ToolTip = presentation.ToolTip ??
                 "Enter an initial value for fitting. Leave this field empty "
                 + "to calculate one automatically.";
             input.Changed += InputChanged;
@@ -1479,7 +1490,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 ConstraintLabel(descriptor),
                 null,
                 medium: true);
-            label.ToolTip = "Choose how this parameter varies between experiments.";
+            label.ToolTip = AnalysisParameterLabelPresentation.Create(key,
+                draft.Options.ToDictionary(option => option.Key, option => option.Value.Option)).ToolTip
+                ?? "Choose how this parameter varies between experiments.";
             row.AddArrangedSubview(label);
 
             popup = new NSPopUpButton(CGRect.Empty, false)
@@ -1528,8 +1541,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             StructureChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        static string ConstraintLabel(GlobalConstraintFamilyDescriptor descriptor)
+        string ConstraintLabel(GlobalConstraintFamilyDescriptor descriptor)
         {
+            if (descriptor.Key.GetProperties().ParentType == ParameterType.Nvalue1)
+                return AnalysisParameterLabelPresentation.Create(descriptor.Key,
+                    draft.Options.ToDictionary(option => option.Key, option => option.Value.Option)).Title;
             if (!descriptor.IsFamily) return descriptor.Key.GetProperties().Name;
             if (ThermodynamicParameterSlots.TryResolve(descriptor.Key, out _, out var family))
             {
@@ -1658,9 +1674,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
                 var metadata = CreateParameterMetadata(
                     AnalysisInspectorDisplayCatalog.OptionSymbol(draft.Option.Key),
-                    AnalysisInspectorDisplayCatalog.OptionUnit(
-                        draft.Option.Key,
-                        draft.Option.ParameterValue.Value),
+                    AnalysisInspectorDisplayCatalog.OptionUnit(draft),
                     enabled);
                 metadata.ToolTip = label.ToolTip;
                 row.AddArrangedSubview(metadata);
@@ -1903,7 +1917,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 usesParameterStyle: true);
             errorField = CreateNumericField(82, usesParameterStyle: true);
 
-            var display = AnalysisInspectorDisplayCatalog.OptionDisplayValue(draft.Option);
+            var display = AnalysisInspectorDisplayCatalog.OptionDisplayValue(draft);
             if (draft.ValueText == null)
                 draft.ValueText = AnalysisInspectorDisplayCatalog.FormatNumber(display.value);
             if (draft.ErrorText == null)
@@ -2067,9 +2081,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             var symbol = AnalysisInspectorDisplayCatalog.OptionSymbol(
                 draft.Option.Key);
-            var unit = AnalysisInspectorDisplayCatalog.OptionUnit(
-                draft.Option.Key,
-                draft.Option.ParameterValue.Value);
+            var unit = AnalysisInspectorDisplayCatalog.OptionUnit(draft);
             if (!string.IsNullOrWhiteSpace(symbol)
                 || !string.IsNullOrWhiteSpace(unit))
             {

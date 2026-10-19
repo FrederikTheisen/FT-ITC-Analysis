@@ -44,6 +44,8 @@ static class ExperimentDesignerTests
             ArchivedVolumeControlsMatchSchedule(args[1]);
             SetupAndModelChangesKeepEnteredValues(autoRun: true);
             SetupAndModelChangesKeepEnteredValues(autoRun: false);
+            EnergyEditsKeepTheirScale(true);
+            EnergyEditsKeepTheirScale(false);
             SequentialSelectorRetainsInputs(true);
             SequentialSelectorRetainsInputs(false);
             FitLocksControlsAndRestoresTheirStates();
@@ -175,6 +177,47 @@ static class ExperimentDesignerTests
 
     static void Dispatch(NSControl control) =>
         Check(NSApplication.SharedApplication.SendAction(control.Action, control.Target, control), "archived control action dispatches");
+
+    static void EnergyEditsKeepTheirScale(bool autoRun)
+    {
+        var previousAuto = ExperimentDesignerViewController2.AutoRunExperimentSimulation;
+        var previousFamily = AppSettings.EnergyUnitFamily;
+        ExperimentDesignerViewController2.AutoRunExperimentSimulation = autoRun;
+        AppSettings.EnergyUnitFamily = AnalysisITC.Core.Units.EnergyUnitFamily.Joules;
+        try
+        {
+            using (var controller = CreateController())
+            {
+                Enter(controller, ParameterType.Enthalpy1, "-0.05");
+                if (!autoRun) Invoke(controller, "UpdateSyntheticData");
+                Check(Value(Factory(controller), ParameterType.Enthalpy1) == -50,
+                    "enthalpy uses kJ/mol after simulation, autoRun=" + autoRun);
+                Check(Control(controller, ParameterType.Enthalpy1).Value == -50,
+                    "enthalpy text reread retains its unit");
+
+                SelectModel(controller, AnalysisModel.CompetitiveBinding);
+                var options = (List<OptionAdjustmentView>)controller.GetType().GetField("OptionControls", Instance).GetValue(controller);
+                var option = options.Single(item => item.Key == AttributeKey.PreboundLigandEnthalpy);
+                var field = (ValueWithErrorTextField)option.GetType().GetField("InputValueWithErrorField", Instance).GetValue(option);
+                field.ValueText = "-0.05";
+                field.ErrorText = "0.01";
+                Invoke(option, "InputChanged", field, EventArgs.Empty);
+                var stored = Factory(controller).GetExposedModelOptions()[AttributeKey.PreboundLigandEnthalpy];
+                Check(stored.ParameterValue.Value == -50 && stored.ParameterValue.SD == 10,
+                    "option application and automatic simulation agree on kJ/mol, autoRun=" + autoRun);
+                field.ErrorText = "0.02";
+                Invoke(option, "InputChanged", field, EventArgs.Empty);
+                if (!autoRun) Invoke(controller, "UpdateSyntheticData");
+                Check(stored.ParameterValue.Value == -50 && stored.ParameterValue.SD == 20,
+                    "SD edit preserves option central value, autoRun=" + autoRun);
+            }
+        }
+        finally
+        {
+            ExperimentDesignerViewController2.AutoRunExperimentSimulation = previousAuto;
+            AppSettings.EnergyUnitFamily = previousFamily;
+        }
+    }
 
     static NSPopUpButton SiteCountSelector(ExperimentDesignerViewController2 controller)
     {

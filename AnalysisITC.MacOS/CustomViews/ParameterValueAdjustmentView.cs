@@ -47,9 +47,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
 
         public ParameterType Key => Parameter.Key;
-        EnergyUnit DisplayEnergyUnit => EnergyUnitResolver.Resolve(
-            AppSettings.EnergyUnitFamily,
-            Parameter?.Value ?? 0);
+        EnergyUnit DisplayEnergyUnit { get; }
         string InputString
         {
             get
@@ -118,6 +116,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             Frame = frameRect;
             Parameter = par;
+            DisplayEnergyUnit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, par.Value);
             Mode = mode;
             ShowSiteIndex = showSiteIndex;
             ShowsDivider = showsDivider;
@@ -142,6 +141,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (Mode == AdjustmentViewMode.Analysis) SetupAnalysisUnitLabel();
             if (Mode == AdjustmentViewMode.Analysis && ShowsDivider) SetupDivider();
             SyncSliderFromValue();
+            UpdateParameterTitle();
 
             SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
         }
@@ -350,17 +350,15 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             switch (this.Parameter.Key)
             {
-                case ParameterType.Nvalue1 when attributes.ContainsKey(AttributeKey.UseSyringeActiveFraction):
-                    bool syrfactor = attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
-
-                    UpdateAnalysisTitle(syrfactor);
+                case ParameterType.Nvalue1:
+                    UpdateParameterTitle(attributes);
                     break;
                 case ParameterType.Nvalue2: // If shared N value or if using syringe correction, disable second N-value field
                     bool disable = (attributes[AttributeKey.LockDuplicateParameter]?.BoolValue ?? false) || (attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false);
                     Input.Enabled = !disable;
                     if (Slider != null) Slider.Enabled = !disable;
                     if (Lock != null) Lock.Enabled = !disable;
-                    UpdateAnalysisTitle(false, !disable);
+                    UpdateParameterTitle(attributes, !disable);
                     break;
             }
             //Layout();
@@ -403,7 +401,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             {
                 Label.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
                 HeaderRow.AddArrangedSubview(Label);
-                UpdateAnalysisTitle(false);
             }
             else
             {
@@ -517,15 +514,28 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             AddArrangedSubview(DividerContainer);
         }
 
-        void UpdateAnalysisTitle(bool correctionFactor, bool enabled = true)
+        void UpdateParameterTitle(
+            IDictionary<AttributeKey, ExperimentAttribute> options = null,
+            bool enabled = true)
         {
-            if (Label == null || Mode != AdjustmentViewMode.Analysis) return;
+            if (Label == null) return;
+            var isConcentrationParameter = Parameter.Key.GetProperties().ParentType == ParameterType.Nvalue1;
+            if (Mode != AdjustmentViewMode.Analysis && !isConcentrationParameter) return;
 
-            var title = correctionFactor ? "Correction Factor" : Parameter.Key.GetProperties().Description;
-            var symbol = AnalysisITC.UI.MacOS.MacStrings.ParameterSymbol(
-                Parameter.Key, ShowSiteIndex, correctionFactor);
-            Label.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.AnalysisItemTitle(
-                title, symbol, (float)NSFont.SystemFontSize, enabled);
+            var presentation = AnalysisParameterLabelPresentation.Create(Parameter.Key, options,
+                ShowSiteIndex || options?.ContainsKey(AttributeKey.NumberOfSites2) == true);
+            var symbol = isConcentrationParameter
+                ? presentation.Symbol
+                : AnalysisITC.UI.MacOS.MacStrings.ParameterSymbol(Parameter.Key, ShowSiteIndex);
+            Label.AttributedStringValue = Mode == AdjustmentViewMode.Analysis
+                ? AnalysisITC.UI.MacOS.MacStrings.AnalysisItemTitle(
+                    presentation.Title, symbol, (float)NSFont.SystemFontSize, enabled)
+                : AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(
+                    presentation.Title + " (" + symbol + ")", Label.Font);
+            Label.ToolTip = presentation.ToolTip;
+            if (Input != null) Input.ToolTip = presentation.ToolTip;
+            if (Slider != null) Slider.ToolTip = presentation.ToolTip;
+            if (UnitLabel != null) UnitLabel.ToolTip = presentation.ToolTip;
         }
 
         static bool UsesEnergyScale(ParameterType key) =>

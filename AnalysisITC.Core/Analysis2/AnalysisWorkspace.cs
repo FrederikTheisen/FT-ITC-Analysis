@@ -71,6 +71,8 @@ namespace AnalysisITC.Core.Analysis
             // Single and Global keep separate AnalysisState objects, so only the
             // currently-active one needs clearing.
             Session.Active.ParameterOverrides.Clear();
+            // Constraints belong to the selected model, even while in Single mode.
+            Session.Global.Constraints.Clear();
             Session.ModelType = model;
             TryRebuild();
         }

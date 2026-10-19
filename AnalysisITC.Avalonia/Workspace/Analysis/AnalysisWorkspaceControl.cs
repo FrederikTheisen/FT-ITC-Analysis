@@ -719,15 +719,27 @@ namespace AnalysisITC.Avalonia.Analysis
                     workspace.SetSequentialConstraintFamily(key, constraint);
                 else
                     workspace.SetConstraint(key, constraint);
-                fitStatusText.Text = $"{key.GetProperties().Name}: {ConstraintPresentation.Description(key, constraint)}";
+                fitStatusText.Text = $"{ConstraintFamilyLabel(descriptor)}: {ConstraintPresentation.Description(key, constraint)}";
                 FittingChanged?.Invoke(this, EventArgs.Empty);
             };
 
-            return Labeled(ConstraintFamilyLabel(descriptor), combo);
+            var row = Labeled(ConstraintFamilyLabel(descriptor), combo);
+            var label = AnalysisParameterLabelPresentation.Create(key, workspace.GetEditableModelOptions());
+            if (label.ToolTip != null)
+            {
+                ToolTip.SetTip(row, label.ToolTip);
+                if (row.Child is Grid grid)
+                    foreach (var text in grid.Children.OfType<TextBlock>())
+                        ToolTip.SetTip(text, label.ToolTip);
+            }
+            return row;
         }
 
-        static string ConstraintFamilyLabel(GlobalConstraintFamilyDescriptor descriptor)
+        string ConstraintFamilyLabel(GlobalConstraintFamilyDescriptor descriptor)
         {
+            if (descriptor.Key.GetProperties().ParentType == ParameterType.Nvalue1)
+                return AnalysisParameterLabelPresentation.Create(descriptor.Key,
+                    workspace.GetEditableModelOptions()).Title;
             if (!descriptor.IsFamily) return descriptor.Key.GetProperties().Name;
             if (ThermodynamicParameterSlots.TryResolve(descriptor.Key, out _, out var family))
             {
@@ -754,7 +766,8 @@ namespace AnalysisITC.Avalonia.Analysis
                     FittingChanged?.Invoke(this, EventArgs.Empty);
                 },
                 setStatus: message => fitStatusText.Text = message,
-                isUpdating: () => isUpdatingControls);
+                isUpdating: () => isUpdatingControls,
+                options: workspace.Context.ExposedModelOptions);
         }
 
         void RebuildOptionRows()

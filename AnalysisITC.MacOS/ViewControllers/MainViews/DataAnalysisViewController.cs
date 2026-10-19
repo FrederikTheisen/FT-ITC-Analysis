@@ -167,6 +167,9 @@ namespace AnalysisITC
         partial void AnalysisModelClicked(NSPopUpButton sender)
         {
             if (isFitting) return;
+            if (Workspace.Session.ModelType != ModelFromControl)
+                foreach (var draft in inspectorDraftCache.Values)
+                    draft.Constraints.Clear();
             Workspace.SetModelType(ModelFromControl);
             RebuildInspectorEditorViews();
             RefreshModelAvailability();

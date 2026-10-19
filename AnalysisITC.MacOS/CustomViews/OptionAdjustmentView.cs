@@ -24,9 +24,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public ExperimentAttribute Option { get; private set; }
         public AttributeKey Key => Option.Key;
-        EnergyUnit DisplayEnergyUnit => EnergyUnitResolver.Resolve(
-            AppSettings.EnergyUnitFamily,
-            Option?.ParameterValue.Value ?? 0);
+        EnergyUnit DisplayEnergyUnit { get; }
 
         bool tmpbool;
 
@@ -105,6 +103,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             Frame = frameRect;
             Option = option;
+            DisplayEnergyUnit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value);
             Mode = mode;
             ShowsDivider = showsDivider;
             IsCompactAnalysis = Mode == AdjustmentViewMode.Analysis

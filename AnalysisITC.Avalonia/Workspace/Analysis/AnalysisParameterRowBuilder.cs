@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
@@ -12,6 +13,7 @@ using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -38,13 +40,15 @@ namespace AnalysisITC.Avalonia.Analysis
             return $"{display.FormatParameterValue(value)} [{displayedLower}, {displayedUpper}]";
         }
 
-        internal static (string Name, string Value) ReadOnlyPresentation(Parameter parameter)
+        internal static (string Name, string Value, string? ToolTip) ReadOnlyPresentation(
+            Parameter parameter,
+            IDictionary<AttributeKey, ExperimentAttribute>? options = null)
         {
-            var display = ParameterDisplay.From(parameter);
+            var display = ParameterDisplay.From(parameter, options);
             var value = display.UnitLabel == "unitless"
                 ? display.TextValue
                 : $"{display.TextValue} {display.UnitLabel}";
-            return (display.Title, value);
+            return (display.Title, value, display.ToolTip);
         }
 
         public static Control Build(
@@ -52,12 +56,14 @@ namespace AnalysisITC.Avalonia.Analysis
             Action<ParameterType, double, bool> apply,
             Action<ParameterType> reset,
             Action<string> setStatus,
-            Func<bool> isUpdating)
+            Func<bool> isUpdating,
+            IDictionary<AttributeKey, ExperimentAttribute>? options = null)
         {
-            var display = ParameterDisplay.From(parameter);
+            var display = ParameterDisplay.From(parameter, options);
             var valueBox = WorkspaceControlBuilder.TextBox(display.TextValue);
             valueBox.Width = ValueWidth;
             valueBox.Tag = parameter.Key;
+            ToolTip.SetTip(valueBox, display.ToolTip);
 
             var lockCheck = WorkspaceControlBuilder.Check(
                 "Locked",
@@ -123,6 +129,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 VerticalAlignment = VerticalAlignment.Center
             };
             AppTheme.Bind(unitLabel, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            ToolTip.SetTip(unitLabel, display.ToolTip);
             var editor = WorkspaceControlBuilder.Row(valueBox, unitLabel);
 
             var panel = new StackPanel { Spacing = 1 };
@@ -159,11 +166,13 @@ namespace AnalysisITC.Avalonia.Analysis
             Parameter parameter,
             Action<ParameterType, double> apply,
             Action<string> setStatus,
-            Func<bool> isUpdating)
+            Func<bool> isUpdating,
+            IDictionary<AttributeKey, ExperimentAttribute>? options = null)
         {
-            var display = ParameterDisplay.From(parameter);
+            var display = ParameterDisplay.From(parameter, options);
             var valueBox = WorkspaceControlBuilder.TextBox(display.TextValue);
             valueBox.Width = ValueWidth;
+            ToolTip.SetTip(valueBox, display.ToolTip);
 
             var slider = WorkspaceControlBuilder.Slider(0, 1, 0.01);
             var sliderLimits = display.DesignerSliderLimits(parameter, parameter.Value);
@@ -171,6 +180,7 @@ namespace AnalysisITC.Avalonia.Analysis
             slider.HorizontalAlignment = HorizontalAlignment.Stretch;
             slider.Margin = WorkspaceControlBuilder.ControlMargin;
             slider.Value = display.SliderPosition(parameter.Value, sliderLimits);
+            ToolTip.SetTip(slider, display.ToolTip);
 
             var unitLabel = new TextBlock
             {
@@ -178,6 +188,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 VerticalAlignment = VerticalAlignment.Center
             };
             AppTheme.Bind(unitLabel, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            ToolTip.SetTip(unitLabel, display.ToolTip);
 
             var isUpdatingEditor = false;
 
@@ -245,6 +256,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 TextWrapping = TextWrapping.Wrap
             };
             AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            ToolTip.SetTip(title, display.ToolTip);
             panel.Children.Add(title);
 
             if (!string.IsNullOrWhiteSpace(display.SymbolLabel))
@@ -257,6 +269,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     TextWrapping = TextWrapping.Wrap
                 };
                 AppTheme.Bind(symbol, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                ToolTip.SetTip(symbol, display.ToolTip);
                 panel.Children.Add(symbol);
             }
 
@@ -280,12 +293,14 @@ namespace AnalysisITC.Avalonia.Analysis
                 Func<double, double?> convertToParameter,
                 Func<double, double> convertFromParameter,
                 bool reverseSlider = false,
-                bool logarithmicSlider = false)
+                bool logarithmicSlider = false,
+                string? toolTip = null)
             {
                 Title = title;
                 SymbolLabel = symbolLabel;
                 UnitLabel = unitLabel;
                 TextValue = textValue;
+                ToolTip = toolTip;
                 this.convertToParameter = convertToParameter;
                 this.convertFromParameter = convertFromParameter;
                 this.reverseSlider = reverseSlider;
@@ -301,6 +316,7 @@ namespace AnalysisITC.Avalonia.Analysis
             public string SymbolLabel { get; }
             public string UnitLabel { get; }
             public string TextValue { get; }
+            public string? ToolTip { get; }
 
             public bool TryToParameterValue(double editorValue, out double parameterValue)
             {
@@ -345,7 +361,9 @@ namespace AnalysisITC.Avalonia.Analysis
                 return limits.Minimum + position * (limits.Maximum - limits.Minimum);
             }
 
-            public static ParameterDisplay From(Parameter parameter)
+            public static ParameterDisplay From(
+                Parameter parameter,
+                IDictionary<AttributeKey, ExperimentAttribute>? options = null)
             {
                 var properties = parameter.Key.GetProperties();
                 var parent = properties.ParentType;
@@ -382,16 +400,19 @@ namespace AnalysisITC.Avalonia.Analysis
                         convertFromParameter: value => Energy.ConvertFromJoule(value, unit));
                 }
 
+                var label = AnalysisParameterLabelPresentation.Create(parameter.Key, options,
+                    includeSiteIndex: options?.ContainsKey(AttributeKey.NumberOfSites2) == true);
                 return new ParameterDisplay(
-                    title: ScalarTitle(parameter.Key, properties.Name),
-                    symbolLabel: CleanSymbol(properties.SymbolName),
+                    title: ScalarTitle(parameter.Key, label.Title),
+                    symbolLabel: CleanSymbol(label.Symbol),
                     unitLabel: "unitless",
                     textValue: Format(parameter.Value),
                     convertToParameter: value => value,
                     convertFromParameter: value => value,
                     logarithmicSlider: parent is ParameterType.Nvalue1
                         or ParameterType.IsomerizationEquilibriumConstant
-                        or ParameterType.IsomerizationRate);
+                        or ParameterType.IsomerizationRate,
+                    toolTip: label.ToolTip);
             }
 
             public (double Minimum, double Maximum) DesignerSliderLimits(Parameter parameter, double center)
@@ -464,8 +485,6 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 return key switch
                 {
-                    ParameterType.Nvalue1 => "N-value",
-                    ParameterType.Nvalue2 => "N-value 2",
                     ParameterType.IsomerizationEquilibriumConstant => "Equilibrium constant",
                     ParameterType.IsomerizationRate => "Isomerization rate",
                     ParameterType.CisIsomerPopulationPercentage => "Cis population",

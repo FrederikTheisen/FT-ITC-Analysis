@@ -303,7 +303,8 @@ namespace AnalysisITC.Avalonia.Tools
                     parameter,
                     apply: ApplyUserParameter,
                     setStatus: SetStatus,
-                    isUpdating: () => isUpdating));
+                    isUpdating: () => isUpdating,
+                    options: factory.GetExposedModelOptions()));
             }
         }
 
@@ -323,7 +324,8 @@ namespace AnalysisITC.Avalonia.Tools
             var parameterKeys = factory.GetExposedParameters().Select(parameter => parameter.Key).ToList();
             state.RememberOption(option);
             factory.SetModelOption(option);
-            if (!parameterKeys.SequenceEqual(factory.GetExposedParameters().Select(parameter => parameter.Key)))
+            if (option.Key == AttributeKey.UseSyringeActiveFraction
+                || !parameterKeys.SequenceEqual(factory.GetExposedParameters().Select(parameter => parameter.Key)))
             {
                 state.ApplyParameters(factory);
                 RebuildParameterRows();
@@ -348,7 +350,13 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var properties = key.GetProperties();
             var optionType = properties?.Type ?? ExperimentAttribute.AttributeType.String;
-            var title = WorkspaceControlBuilder.MarkdownText(option.GetDisplayName());
+            var title = WorkspaceControlBuilder.MarkdownText(key switch
+            {
+                AttributeKey.PreboundLigandConc => "Total competitor concentration",
+                AttributeKey.PreboundLigandAffinity => "Ligand affinity",
+                AttributeKey.PreboundLigandEnthalpy => "Ligand enthalpy",
+                _ => option.GetDisplayName()
+            });
             title.FontWeight = FontWeight.SemiBold;
             AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             if (!string.IsNullOrWhiteSpace(properties?.ToolTip))
@@ -356,6 +364,8 @@ namespace AnalysisITC.Avalonia.Tools
 
             Control editor = key switch
             {
+                AttributeKey.PreboundLigandConc or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy =>
+                    ModelOptionRowBuilder.BuildDesignerCompetitorEditor(option, (_, copy) => ApplyUserOption(copy), SetStatus),
                 AttributeKey.SequentialSiteCount =>
                     ModelOptionRowBuilder.BuildDesignerSequentialSiteCountEditor(option, (_, copy) => ApplyUserOption(copy), SetStatus),
                 AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 => StoichiometryOptionEditor(option),

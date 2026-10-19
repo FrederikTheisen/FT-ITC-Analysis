@@ -25,6 +25,22 @@ namespace AnalysisITC.Avalonia.Analysis
         const double NumericWidth = 132;
         const double ErrorNumericWidth = 82;
 
+        // The Designer uses the analysis editor's units and conversions, with
+        // one simulated value and no experiment-attribute source controls.
+        public static Control BuildDesignerCompetitorEditor(
+            ExperimentAttribute option,
+            Action<AttributeKey, ExperimentAttribute> apply,
+            Action<string> setStatus) => option.Key switch
+            {
+                AttributeKey.PreboundLigandConc =>
+                    ConcentrationEditor(option.Key, option, apply, setStatus, allowFromAttributes: false, valueOnly: true),
+                AttributeKey.PreboundLigandAffinity =>
+                    AffinityEditor(option.Key, option, apply, setStatus, valueOnly: true),
+                AttributeKey.PreboundLigandEnthalpy =>
+                    EnergyEditor(option.Key, option, apply, setStatus, valueOnly: true),
+                _ => throw new ArgumentOutOfRangeException(nameof(option))
+            };
+
         public static Control BuildDesignerSequentialSiteCountEditor(
             ExperimentAttribute option,
             Action<AttributeKey, ExperimentAttribute> apply,
@@ -317,7 +333,8 @@ namespace AnalysisITC.Avalonia.Analysis
             ExperimentAttribute option,
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus,
-            bool allowFromAttributes)
+            bool allowFromAttributes,
+            bool valueOnly = false)
         {
             var unit = AppSettings.DefaultConcentrationUnit;
             var manualInputEnabled = !allowFromAttributes || !option.BoolValue;
@@ -337,7 +354,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 (value, error) => value >= 0 && error >= 0,
                 apply,
                 setStatus,
-                canApply: () => manualInputEnabled);
+                canApply: () => manualInputEnabled,
+                valueOnly: valueOnly);
             textEditor.IsEnabled = manualInputEnabled;
 
             if (!allowFromAttributes)
@@ -366,7 +384,8 @@ namespace AnalysisITC.Avalonia.Analysis
             AttributeKey key,
             ExperimentAttribute option,
             Action<AttributeKey, ExperimentAttribute> apply,
-            Action<string> setStatus)
+            Action<string> setStatus,
+            bool valueOnly = false)
         {
             var unit = AppSettings.DefaultConcentrationUnit;
             var kd = 1.0 / FWEMath.Pow(10.0, option.ParameterValue);
@@ -387,14 +406,16 @@ namespace AnalysisITC.Avalonia.Analysis
                 },
                 (value, error) => value > 0 && error >= 0,
                 apply,
-                setStatus);
+                setStatus,
+                valueOnly: valueOnly);
         }
 
         static Control EnergyEditor(
             AttributeKey key,
             ExperimentAttribute option,
             Action<AttributeKey, ExperimentAttribute> apply,
-            Action<string> setStatus)
+            Action<string> setStatus,
+            bool valueOnly = false)
         {
             var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value);
 
@@ -415,7 +436,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 },
                 (_, error) => error >= 0,
                 apply,
-                setStatus);
+                setStatus,
+                valueOnly: valueOnly);
         }
 
         static Control StringEditor(
@@ -500,11 +522,16 @@ namespace AnalysisITC.Avalonia.Analysis
             Func<double, double, bool> validate,
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus,
-            Func<bool>? canApply = null)
+            Func<bool>? canApply = null,
+            bool valueOnly = false)
         {
             var valueBox = WorkspaceControlBuilder.TextBox(valueText);
-            valueBox.Width = ErrorNumericWidth;
+            valueBox.Width = valueOnly ? NumericWidth : ErrorNumericWidth;
             valueBox.IsEnabled = enabled;
+            if (valueOnly)
+                ToolTip.SetTip(valueBox, key.GetProperties().ToolTip + $" ({unitLabel})");
+
+            var acceptedText = valueText;
 
             var errorBox = WorkspaceControlBuilder.TextBox(errorText);
             errorBox.Width = ErrorNumericWidth;
@@ -514,17 +541,31 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 if (!valueBox.IsEnabled) return;
                 if (canApply?.Invoke() == false) return;
+                if (valueOnly && valueBox.Text == acceptedText) return;
 
+                var error = 0.0;
                 if (!TryParseDouble(valueBox.Text, out var value)
-                    || !TryParseDouble(errorBox.Text, out var error)
+                    || (!valueOnly && !TryParseDouble(errorBox.Text, out error))
+                    || (valueOnly && !double.IsFinite(value))
                     || !validate(value, error))
                 {
-                    setStatus($"Invalid value or error for {CleanTitle(option.GetDisplayName())}");
+                    setStatus(valueOnly
+                        ? $"Invalid value for {CleanTitle(option.GetDisplayName())}"
+                        : $"Invalid value or error for {CleanTitle(option.GetDisplayName())}");
                     return;
                 }
 
-                apply(key, copyWithValue(value, error));
-                setStatus($"{CleanTitle(option.GetDisplayName())} updated");
+                var copy = copyWithValue(value, error);
+                if (valueOnly && !double.IsFinite(copy.ParameterValue.Value))
+                {
+                    setStatus($"Invalid value for {CleanTitle(option.GetDisplayName())}");
+                    return;
+                }
+
+                apply(key, copy);
+                acceptedText = valueBox.Text ?? "";
+                if (!valueOnly)
+                    setStatus($"{CleanTitle(option.GetDisplayName())} updated");
             }
 
             valueBox.LostFocus += (_, _) => ApplyValue();
@@ -545,7 +586,9 @@ namespace AnalysisITC.Avalonia.Analysis
             };
             AppTheme.Bind(errorSeparator, TextBlock.ForegroundProperty, AppTheme.MutedText);
 
-            var controls = new List<Control> { valueBox, errorSeparator, errorBox };
+            var controls = valueOnly
+                ? new List<Control> { valueBox }
+                : new List<Control> { valueBox, errorSeparator, errorBox };
 
             if (!string.IsNullOrWhiteSpace(unitLabel))
             {

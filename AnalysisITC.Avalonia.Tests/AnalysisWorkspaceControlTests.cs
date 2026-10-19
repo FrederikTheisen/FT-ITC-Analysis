@@ -2056,6 +2056,79 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ModelSwitchResetsSharingAndKeepsSequentialEditable(bool switchInGlobalMode)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var first = CreateReadyExperiment("switch-first.itc", 20);
+            DataManager.AddData(new[] { first, CreateReadyExperiment("switch-second.itc", 30) });
+            var workspace = new AnalysisWorkspaceControl { Experiment = first };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+                var affinity = Assert.Single(ConstraintCombos(), combo => combo.Items.OfType<ComboBoxItem>()
+                    .Any(item => Equals(item.Content, "Shared Kd")));
+                affinity.SelectedItem = affinity.Items.OfType<ComboBoxItem>()
+                    .Single(item => Equals(item.Tag, VariableConstraint.SameForAll));
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(workspace.CanRunFit);
+
+                if (!switchInGlobalMode)
+                {
+                    workspace.ModeSelectorForTesting.SelectedIndex = 0;
+                    Dispatcher.UIThread.RunJobs();
+                }
+                SelectModel(AnalysisModel.SequentialBindingSites);
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+                AssertIndependentAndReady();
+
+                affinity = Assert.Single(ConstraintCombos(), combo => combo.Items.OfType<ComboBoxItem>()
+                    .Any(item => Equals(item.Content, "Shared Kd")));
+                affinity.SelectedItem = affinity.Items.OfType<ComboBoxItem>()
+                    .Single(item => Equals(item.Tag, VariableConstraint.SameForAll));
+                Dispatcher.UIThread.RunJobs();
+                SelectModel(AnalysisModel.OneSetOfSites);
+                AssertIndependentAndReady();
+                SelectModel(AnalysisModel.SequentialBindingSites);
+                AssertIndependentAndReady();
+
+                void SelectModel(AnalysisModel model)
+                {
+                    workspace.ModelComboForTesting.SelectedItem = workspace.ModelComboForTesting.Items
+                        .OfType<ComboBoxItem>().Single(item => Equals(item.Tag, model));
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                List<ComboBox> ConstraintCombos() => workspace.ParameterPanelForTesting.GetVisualDescendants()
+                    .OfType<ComboBox>().Where(combo => combo.Items.OfType<ComboBoxItem>()
+                        .Any(item => item.Tag is VariableConstraint)).ToList();
+
+                void AssertIndependentAndReady()
+                {
+                    Assert.NotNull(workspace.ContextForTesting);
+                    Assert.True(workspace.CanRunFit);
+                    var combos = ConstraintCombos();
+                    Assert.NotEmpty(combos);
+                    Assert.All(combos, combo => Assert.Equal(VariableConstraint.None,
+                        Assert.IsType<ComboBoxItem>(combo.SelectedItem).Tag));
+                }
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
     [AvaloniaFact]
     public void SequentialGlobalModeRendersOneConstraintControlPerFamily()
     {
