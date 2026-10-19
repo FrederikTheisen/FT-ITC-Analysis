@@ -84,17 +84,6 @@ public partial class MainWindow : Window
             WorkspaceTabs.Classes.Add("mac-workflow-tabs");
             MacWorkflowSelector.SetOptions(new[] { "Overview", "Process Data", "Analyze Data", "Final Figure" },
                 Math.Clamp(WorkspaceTabs.SelectedIndex, 0, 3));
-            for (var i = 0; i < MacWorkflowSelector.ChoiceButtons.Count; i++)
-            {
-                var tooltip = i switch
-                {
-                    0 => WorkflowNavigationPresentation.OverviewTooltip,
-                    1 => WorkflowNavigationPresentation.ProcessingTooltip,
-                    2 => WorkflowNavigationPresentation.AnalysisTooltip,
-                    _ => WorkflowNavigationPresentation.FinalFigureTooltip
-                };
-                ToolTip.SetTip(MacWorkflowSelector.ChoiceButtons[i], tooltip);
-            }
             MacWorkflowSelector.SelectionChanged += (_, _) =>
             {
                 if (WorkspaceTabs.SelectedIndex != MacWorkflowSelector.SelectedIndex)
@@ -395,7 +384,6 @@ public partial class MainWindow : Window
     internal Task CopyAttributesToAllAsync()
     {
         DataManager.CopySelectedAttributesToAll();
-        StatusBarManager.SetStatus("Attributes copied to all experiments", 3000);
         RefreshMenuState();
         return Task.CompletedTask;
     }
@@ -1804,9 +1792,8 @@ public partial class MainWindow : Window
 
     void OnProgressUpdated(object? sender, ProgressIndicatorEventData progress)
     {
-        var value = progress.Progress;
-        if (Dispatcher.UIThread.CheckAccess()) SetProgressState(value);
-        else Dispatcher.UIThread.Post(() => SetProgressState(value));
+        if (Dispatcher.UIThread.CheckAccess()) SetProgressState(progress);
+        else Dispatcher.UIThread.Post(() => SetProgressState(progress));
     }
 
     void OnAppMessage(object? sender, HandledException message)
@@ -1975,24 +1962,21 @@ public partial class MainWindow : Window
         StatusText.Text = status ?? "";
     }
 
-    void SetProgressState(double progress)
+    void SetProgressState(ProgressIndicatorEventData progressState)
     {
+        var progress = progressState.Progress;
         if (progress < 0)
         {
             var isActiveIndeterminate = Math.Abs(Math.Abs(progress) - 1) > double.Epsilon;
             StatusProgressBar.IsVisible = isActiveIndeterminate;
             StatusProgressBar.IsIndeterminate = isActiveIndeterminate;
-            StatusProgressText.IsVisible = false;
-            StatusProgressText.Text = "";
             return;
         }
 
-        if (progress >= 1)
+        if (progress >= 1 && !progressState.KeepVisibleAtOne)
         {
             StatusProgressBar.IsVisible = false;
             StatusProgressBar.IsIndeterminate = false;
-            StatusProgressText.IsVisible = false;
-            StatusProgressText.Text = "";
             return;
         }
 
@@ -2000,8 +1984,6 @@ public partial class MainWindow : Window
         StatusProgressBar.IsVisible = true;
         StatusProgressBar.IsIndeterminate = false;
         StatusProgressBar.Value = percent * 100;
-        StatusProgressText.IsVisible = true;
-        StatusProgressText.Text = percent.ToString("P0");
     }
 
     async Task CloseWithDirtyPromptAsync(SavePromptReason reason)

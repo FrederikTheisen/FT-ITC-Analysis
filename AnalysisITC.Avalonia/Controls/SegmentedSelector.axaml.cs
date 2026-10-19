@@ -141,6 +141,8 @@ public partial class SegmentedSelector : UserControl
                 var isSelected = index == value;
                 choices[index].IsChecked = isSelected;
                 choices[index].IsTabStop = isSelected;
+                // The macOS workflow highlight replaces both adjacent dividers.
+                choices[index].Classes.Set("hide-leading-divider", index == 0 || isSelected || index == value + 1);
             }
         }
         finally

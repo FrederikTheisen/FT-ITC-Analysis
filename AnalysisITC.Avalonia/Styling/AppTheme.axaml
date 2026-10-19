@@ -25,6 +25,11 @@
             <SolidColorBrush x:Key="ActiveToggleTrackInactive" Color="#C7CED6" />
             <SolidColorBrush x:Key="ActiveToggleTrackInactiveHover" Color="#B3B9C1" />
             <SolidColorBrush x:Key="ActiveToggleThumb" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="MacWorkflowForeground" Color="#333333" />
+            <SolidColorBrush x:Key="MacWorkflowSecondaryForeground" Color="#626262" />
+            <SolidColorBrush x:Key="MacWorkflowHoverBackground" Color="#E9E9E9" />
+            <SolidColorBrush x:Key="MacWorkflowSelectionBackground" Color="#E2E2E2" />
+            <SolidColorBrush x:Key="MacWorkflowDividerBrush" Color="#D4D4D4" />
             <SolidColorBrush x:Key="ListRowHoverBackground" Color="#DDE2E6" />
             <SolidColorBrush x:Key="ListActionHoverBackground" Color="#000000" Opacity="0.10" />
         </ResourceDictionary>
@@ -52,6 +57,11 @@
             <SolidColorBrush x:Key="ActiveToggleTrackInactive" Color="#465462" />
             <SolidColorBrush x:Key="ActiveToggleTrackInactiveHover" Color="#596571" />
             <SolidColorBrush x:Key="ActiveToggleThumb" Color="#E7EDF4" />
+            <SolidColorBrush x:Key="MacWorkflowForeground" Color="#EEEEEE" />
+            <SolidColorBrush x:Key="MacWorkflowSecondaryForeground" Color="#BABABA" />
+            <SolidColorBrush x:Key="MacWorkflowHoverBackground" Color="#363636" />
+            <SolidColorBrush x:Key="MacWorkflowSelectionBackground" Color="#484848" />
+            <SolidColorBrush x:Key="MacWorkflowDividerBrush" Color="#494949" />
             <SolidColorBrush x:Key="ListRowHoverBackground" Color="#1D2A35" />
             <SolidColorBrush x:Key="ListActionHoverBackground" Color="#FFFFFF" Opacity="0.10" />
         </ResourceDictionary>

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:AnalysisITC.Avalonia.Controls"
              x:Class="AnalysisITC.Avalonia.Controls.SegmentedSelector"
              Focusable="False"
              Height="32"
@@ -20,6 +21,32 @@
                                           VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Foreground="{TemplateBinding Foreground}" />
                     </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="MacWorkflowChoiceTheme" TargetType="RadioButton">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <Border x:Name="MacDivider"
+                                Width="1" Height="16"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Background="{DynamicResource MacWorkflowDividerBrush}"
+                                IsHitTestVisible="False" />
+                        <Border x:Name="MacFocusRing"
+                                BorderBrush="{DynamicResource TextControlBorderBrushFocused}"
+                                BorderThickness="1" CornerRadius="6"
+                                IsHitTestVisible="False" />
+                    </Grid>
                 </ControlTemplate>
             </Setter>
         </ControlTheme>
@@ -58,6 +85,38 @@
         </Style>
         <Style Selector="RadioButton.segmented-choice:disabled">
             <Setter Property="Opacity" Value="0.45" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow Border.segmented-backing">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow Border.segmented-frame">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice">
+            <Setter Property="Theme" Value="{StaticResource MacWorkflowChoiceTheme}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource MacWorkflowSecondaryForeground}" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice:pointerover">
+            <Setter Property="Background" Value="{DynamicResource MacWorkflowHoverBackground}" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice:checked">
+            <Setter Property="Background" Value="{DynamicResource MacWorkflowSelectionBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource MacWorkflowForeground}" />
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice:checked:pointerover">
+            <Setter Property="Background" Value="{DynamicResource MacWorkflowSelectionBackground}" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice.hide-leading-divider /template/ Border#MacDivider">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice /template/ Border#MacFocusRing">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="controls|SegmentedSelector.mac-workflow RadioButton.segmented-choice:focus-visible /template/ Border#MacFocusRing">
+            <Setter Property="IsVisible" Value="True" />
         </Style>
     </UserControl.Styles>
 

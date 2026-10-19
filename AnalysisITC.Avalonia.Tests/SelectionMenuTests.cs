@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using AnalysisITC.Core.Analysis;
@@ -212,6 +213,65 @@ public sealed class SelectionMenuTests
                 Assert.False(Item(menu, "Active").IsChecked);
                 AssertWellFormed(menu);
             });
+    }
+
+    [AvaloniaFact]
+    public void QuickCopyActionsUseSpreadsheetColumnsAndCurrentUncertaintyPreference()
+    {
+        var result = CreateResult(CreateExperiment("clipboard, sample ±.itc", integrated: true));
+        RunWithWindow(result, window =>
+        {
+            var savedClipboard = AnalysisITC.Platform.PlatformServices.ClipboardService;
+            var savedStyle = AppSettings.UncertaintyDisplayStyle;
+            var clipboard = new RecordingClipboard();
+            AnalysisITC.Platform.PlatformServices.RegisterClipboardService(clipboard);
+            try
+            {
+                AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.None;
+                window.CreateDataListItemMenu(window.DataListEntries[0]);
+                window.CopyResultTableAsync().GetAwaiter().GetResult();
+                AssertSpreadsheetTable(clipboard.Value);
+                var menuTable = clipboard.Value;
+                var details = new AnalysisITC.Avalonia.Details.AnalysisResultDetailsWindow(result);
+                details.Show();
+                try
+                {
+                    var tabs = global::Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(details)
+                        .OfType<TabControl>().Single();
+                    tabs.SelectedIndex = 2;
+                    details.UpdateLayout();
+                    var actions = (Control)((TabItem)tabs.Items[2]!).Content!;
+                    var copy = actions.GetLogicalDescendants()
+                        .OfType<Button>().Single(button => Equals(button.Content, "Copy result table"));
+                    clipboard.SetString("");
+                    copy.RaiseEvent(new global::Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(menuTable, clipboard.Value);
+                }
+                finally { details.Close(); }
+            }
+            finally
+            {
+                AppSettings.UncertaintyDisplayStyle = savedStyle;
+                AnalysisITC.Platform.PlatformServices.RegisterClipboardService(savedClipboard);
+            }
+        });
+    }
+
+    static void AssertSpreadsheetTable(string table)
+    {
+        var rows = table.Split(new[] { Environment.NewLine }, StringSplitOptions.None)
+            .Select(line => line.Split('\t')).ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(rows[0].Length, rows[1].Length);
+        Assert.Contains("N_value", rows[0]);
+        Assert.DoesNotContain("N_sd", rows[0]);
+        Assert.Contains("Binding assessment", rows[0]);
+    }
+
+    sealed class RecordingClipboard : AnalysisITC.Platform.IClipboardService
+    {
+        public string Value { get; private set; } = "";
+        public void SetString(string value) => Value = value;
     }
 
     static void RunWithWindow(ITCDataContainer item, Action<MainWindow> assertion) =>

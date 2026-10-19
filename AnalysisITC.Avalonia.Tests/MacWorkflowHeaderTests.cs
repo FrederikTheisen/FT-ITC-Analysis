@@ -11,7 +11,6 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
-using AnalysisITC.Core.Presentation;
 
 using Avalonia;
 using Avalonia.Automation;
@@ -67,13 +66,8 @@ public sealed class MacWorkflowHeaderTests
                 Assert.Equal(52, window.ExtendClientAreaTitleBarHeightHint);
                 Assert.Equal(0, window.MenuContainer.Bounds.Height);
                 Assert.Equal("Experiment workflow", AutomationProperties.GetName(selector));
-                Assert.Equal(new[]
-                {
-                    WorkflowNavigationPresentation.OverviewTooltip,
-                    WorkflowNavigationPresentation.ProcessingTooltip,
-                    WorkflowNavigationPresentation.AnalysisTooltip,
-                    WorkflowNavigationPresentation.FinalFigureTooltip,
-                }, selector.ChoiceButtons.Select(choice => ToolTip.GetTip(choice)));
+                Assert.Null(ToolTip.GetTip(selector));
+                Assert.All(selector.ChoiceButtons, choice => Assert.Null(ToolTip.GetTip(choice)));
 
                 foreach (var width in new[] { 1000, 1200 })
                 {

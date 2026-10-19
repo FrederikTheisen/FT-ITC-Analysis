@@ -2,7 +2,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:AnalysisITC.Avalonia"
         xmlns:controls="using:AnalysisITC.Avalonia.Controls"
-        xmlns:presentation="using:AnalysisITC.Core.Presentation"
         xmlns:processing="using:AnalysisITC.Avalonia.Processing"
         xmlns:analysis="using:AnalysisITC.Avalonia.Analysis"
         xmlns:finalfigure="using:AnalysisITC.Avalonia.FinalFigure"
@@ -27,9 +26,9 @@
         <Grid x:Name="MacTitleBar" Grid.Row="1" Height="52" Background="{DynamicResource PanelBackground}" IsVisible="False"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <controls:SegmentedSelector x:Name="MacWorkflowSelector"
+                                     Classes="mac-workflow"
                                      Width="440" Height="28" MinHeight="28"
                                      VerticalAlignment="Center" HorizontalAlignment="Center"
-                                     ToolTip.Tip="{x:Static presentation:WorkflowNavigationPresentation.HeaderTooltip}"
                                      AutomationProperties.Name="Experiment workflow"
                                      chrome:WindowDecorationProperties.ElementRole="User" />
             <TextBlock x:Name="MacResultTitle"
@@ -432,7 +431,7 @@
         </Grid>
 
         <Border Grid.Row="3" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">
-            <Grid ColumnDefinitions="2*,*,Auto,Auto" RowDefinitions="20">
+            <Grid ColumnDefinitions="2*,*,Auto" RowDefinitions="20">
                 <TextBlock x:Name="StatusText"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource SecondaryText}"
@@ -454,15 +453,6 @@
                              Margin="16,0,0,0"
                              VerticalAlignment="Center"
                              IsVisible="False" />
-                <TextBlock x:Name="StatusProgressText"
-                           Grid.Column="3"
-                           Width="38"
-                           Margin="6,0,0,0"
-                           Foreground="{DynamicResource MutedText}"
-                           FontSize="11"
-                           TextAlignment="Right"
-                           VerticalAlignment="Center"
-                           IsVisible="False" />
             </Grid>
         </Border>
     </Grid>
