@@ -418,7 +418,7 @@ namespace AnalysisITC.Avalonia.Results
                             new GraphSeries(
                                 "Counter Ion Release",
                                 points,
-                                BuildLinearFit(points, analysis.CounterIonReleaseFit, 1))
+                                BuildLinearFit(points, analysis.HasCounterIonResult ? analysis.CounterIonReleaseFit : null, 1))
                         };
                     }
                 default:
@@ -427,11 +427,11 @@ namespace AnalysisITC.Avalonia.Results
                         yLabel = "Log(Kd)";
                         // The salt view may be opened before its advanced analysis is run.
                         // In that state the data points are useful, but no fitted curve exists yet.
-                        var fit = analysis.IonicStrengthDependenceFit;
+                        var fit = analysis.HasIonicStrengthResult ? analysis.IonicStrengthDependenceFit : null;
                         var points = members
                             .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
                             .Select(member => PointFrom(
-                                Math.Sqrt(Math.Max(0, BufferAttribute.GetIonicStrength(member.Solution.Data))),
+                                Math.Sqrt(Math.Max(0, analysis.GetPlotIonicStrength(member.Solution.Data))),
                                 FWEMath.Log10(member.Parameters[ParameterType.Affinity1]),
                                 member.Solution,
                                 1))

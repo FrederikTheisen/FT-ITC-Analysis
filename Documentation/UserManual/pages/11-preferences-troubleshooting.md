@@ -33,7 +33,7 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 | **Uncertainty display** | Shared uncertainty presentation: **Automatic**, **Standard deviation**, **Confidence interval**, **SD + confidence interval**, or **None**. Automatic uses the confidence interval for a quantity whose stored 95% interval is materially asymmetric around its best-fit value; otherwise it uses SD. This changes presentation, not the underlying fit or calculated uncertainty. |
 | **Reference temperature (°C)** | Temperature used where a result or derived quantity is evaluated at a reference temperature. It is also the proposed experiment temperature when importing `.dat` and `.aff` files, which do not record one. |
 | **Minimum temperature span (°C)** | Minimum temperature variation required for temperature-dependent result analyses. |
-| **Minimum salt span (mM)** | Minimum ionic-strength variation required for salt-dependent result analyses. |
+| **Minimum ionic-strength span (mM)** | Salt analysis requires three ionic strengths, selected in increasing order with each more than half this span above the previous selected value. |
 | **Include buffer in ionic-strength calculation** | Includes buffer contribution when ionic strength is calculated. |
 | **Check for updates and online resources on launch** | Controls launch-time online checks; it does not disable local analysis. |
 | **Confirm remove/delete actions** | Controls confirmation before remove or delete commands. |

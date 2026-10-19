@@ -15,6 +15,7 @@ namespace AnalysisITC.Core.Analysis
     public class ElectrostaticsAnalysis : AdvancedAnalysis
     {
         public bool Calculated { get; private set; } = false;
+        public bool CompletedIncludeBufferInIonicStrengthCalc { get; private set; }
         public Energy ElectrostaticStrength { get; private set; } = new(0);
         public FloatWithError CounterIonRelease { get; private set; } = FloatWithError.NaN;
         public FloatWithError Kd0 => IonicStrengthDependenceFit?.Kd0 ?? FloatWithError.NaN;
@@ -24,9 +25,35 @@ namespace AnalysisITC.Core.Analysis
         public LinearFitWithError CounterIonReleaseFit { get; private set; } = null;
         public int CounterIonReleaseIterations { get; private set; }
 
+        public bool HasIonicStrengthResult => Calculated && IonicStrengthDependenceFit != null
+            && ElectrostaticsAnalysisAvailability.IsUsable(IonicStrengthDependenceFit.Kd0)
+            && IonicStrengthDependenceFit.Kd0.Value > 0
+            && ElectrostaticsAnalysisAvailability.IsUsable(IonicStrengthDependenceFit.SaltSensitivity)
+            && (!IonicStrengthDependenceFit.UsesCurvature || ElectrostaticsAnalysisAvailability.IsUsable(IonicStrengthDependenceFit.Curvature));
+        public bool HasCounterIonResult => Calculated && CounterIonReleaseFit != null
+            && ElectrostaticsAnalysisAvailability.IsUsable(CounterIonReleaseFit.Slope)
+            && ElectrostaticsAnalysisAvailability.IsUsable(CounterIonReleaseFit.Intercept);
+
+        public string IonicStrengthUnavailableReason => HasIonicStrengthResult ? string.Empty
+            : !Data.IsElectrostaticsAnalysisDependenceEnabled ? Data.ElectrostaticsAnalysisUnavailableReason
+            : (Calculated ? "No usable ionic-strength fit was obtained. " : string.Empty)
+                + ElectrostaticsAnalysisAvailability.IonicStrengthRequirement(Data.SaltAnalysisMinimumSpan);
+        public string CounterIonUnavailableReason => HasCounterIonResult ? string.Empty
+            : (Calculated && DistinctCounterIonActivities() >= 3
+                ? "No usable counter-ion fit was obtained. " : string.Empty)
+                + ElectrostaticsAnalysisAvailability.CounterIonRequirement;
+
+        public override Task<bool> PerformAnalysisAsync()
+            => Data.IsElectrostaticsAnalysisDependenceEnabled ? base.PerformAnalysisAsync() : Task.FromResult(false);
+
         public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
         {
         }
+
+        public double GetPlotIonicStrength(ExperimentData data)
+            => HasIonicStrengthResult
+                ? BufferAttribute.GetIonicStrength(data, CompletedIncludeBufferInIonicStrengthCalc)
+                : Data.GetSaltAnalysisIonicStrength(data);
 
         public List<Tuple<double, FloatWithError>> GetDataPoints(DissocFitMode mode)
         {
@@ -58,7 +85,7 @@ namespace AnalysisITC.Core.Analysis
                     foreach (var sol in Data.Solution.Solutions)
                     {
                         dataPoints.Add(new Tuple<double, FloatWithError>(
-                            BufferAttribute.GetIonicStrength(sol.Data),
+                            GetPlotIonicStrength(sol.Data),
                             sol.ReportParameters[ParameterType.Affinity1]));
                     }
                     break;
@@ -81,13 +108,17 @@ namespace AnalysisITC.Core.Analysis
             IonicStrengthDependenceFit = ionicStrength.Fit;
             CompletedIterations = ionicStrength.Iterations;
 
+            CompletedIncludeBufferInIonicStrengthCalc = Data.SaltAnalysisIncludesBuffer;
             Calculated = true;
         }
 
-        IonTransferResult CalculateIonTransfer()
-        {
-            AppEventHandler.PrintAndLog("Performing Ion Release Analysis...");
+        int DistinctCounterIonActivities() => Data.Solution.Solutions
+            .Where(ElectrostaticsAnalysisAvailability.HasUsableAffinity)
+            .Select(solution => SaltAttribute.GetIonActivity(solution.Data))
+            .Where(activity => FWEMath.IsFinite(activity) && activity > 0).Distinct().Count();
 
+        List<(double x, FloatWithError y)> GetCounterIonData()
+        {
             var dps = new List<(double x, FloatWithError y)>();
 
             foreach (var sol in Data.Solution.Solutions)
@@ -96,7 +127,7 @@ namespace AnalysisITC.Core.Analysis
                 var affinity = sol.ReportParameters[ParameterType.Affinity1];
 
                 if (!FWEMath.IsFinite(activity) || activity <= 0) continue;
-                if (!FWEMath.IsFinite(affinity.Value) || affinity.Value <= 0) continue;
+                if (!ElectrostaticsAnalysisAvailability.IsUsable(affinity) || affinity.Value <= 0) continue;
 
                 var x = Math.Log(activity);
                 var y = FWEMath.Log(affinity);
@@ -106,12 +137,19 @@ namespace AnalysisITC.Core.Analysis
                 dps.Add((x, y));
             }
 
-            if (dps.Count < 3)
-            {
+            return dps;
+        }
+
+        IonTransferResult CalculateIonTransfer()
+        {
+            AppEventHandler.PrintAndLog("Performing Ion Release Analysis...");
+
+            var dps = GetCounterIonData();
+            if (DistinctCounterIonActivities() < 3)
                 return new IonTransferResult(FloatWithError.NaN, null, 0);
-            }
 
             var result = FitLinear(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray());
+            if (result == null) return new IonTransferResult(FloatWithError.NaN, null, 0);
             var results = new List<LinearFit>();
 
             for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
@@ -139,9 +177,10 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var sol in Data.Solution.Solutions)
             {
-                double ionicStrength = BufferAttribute.GetIonicStrength(sol.Data);
+                double ionicStrength = Data.GetSaltAnalysisIonicStrength(sol.Data);
+                if (!FWEMath.IsFinite(ionicStrength) || ionicStrength < 0
+                    || !ElectrostaticsAnalysisAvailability.HasUsableAffinity(sol)) continue;
                 var affinity = sol.ReportParameters[ParameterType.Affinity1];
-
                 dps.Add((ionicStrength, affinity));
             }
 
@@ -199,6 +238,7 @@ namespace AnalysisITC.Core.Analysis
         protected override object CaptureCommittedState() => new CommittedState
         {
             Calculated = Calculated,
+            IncludeBuffer = CompletedIncludeBufferInIonicStrengthCalc,
             CounterIonRelease = CounterIonRelease,
             CounterIonReleaseFit = CounterIonReleaseFit,
             CounterIonReleaseIterations = CounterIonReleaseIterations,
@@ -209,6 +249,7 @@ namespace AnalysisITC.Core.Analysis
         {
             var previous = state as CommittedState;
             Calculated = previous?.Calculated == true;
+            CompletedIncludeBufferInIonicStrengthCalc = previous?.IncludeBuffer == true;
             CounterIonRelease = previous?.CounterIonRelease ?? FloatWithError.NaN;
             CounterIonReleaseFit = previous?.CounterIonReleaseFit;
             CounterIonReleaseIterations = previous?.CounterIonReleaseIterations ?? 0;
@@ -221,12 +262,14 @@ namespace AnalysisITC.Core.Analysis
             int ionicStrengthIterations,
             int counterIonReleaseIterations,
             DateTime? completedAtUtc,
-            ErrorEstimationMethod errorMethod)
+            ErrorEstimationMethod errorMethod,
+            bool includeBufferInIonicStrengthCalc)
         {
             IonicStrengthDependenceFit = ionicStrengthFit;
             CounterIonReleaseFit = counterIonReleaseFit;
             CounterIonRelease = counterIonReleaseFit?.Slope ?? FloatWithError.NaN;
             CounterIonReleaseIterations = counterIonReleaseIterations;
+            CompletedIncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCalc;
             Calculated = true;
             RestoreRunMetadata(ionicStrengthIterations, completedAtUtc, errorMethod);
         }
@@ -234,6 +277,7 @@ namespace AnalysisITC.Core.Analysis
         sealed class CommittedState
         {
             public bool Calculated { get; set; }
+            public bool IncludeBuffer { get; set; }
             public FloatWithError CounterIonRelease { get; set; }
             public LinearFitWithError CounterIonReleaseFit { get; set; }
             public int CounterIonReleaseIterations { get; set; }
@@ -263,7 +307,8 @@ namespace AnalysisITC.Core.Analysis
             {
                 var fit = MathNet.Numerics.Fit.Line(x, y);
 
-                return new LinearFit(fit.B, fit.A, 0);
+                return FWEMath.IsFinite(fit.A) && FWEMath.IsFinite(fit.B)
+                    ? new LinearFit(fit.B, fit.A, 0) : null;
             }
             catch
             {

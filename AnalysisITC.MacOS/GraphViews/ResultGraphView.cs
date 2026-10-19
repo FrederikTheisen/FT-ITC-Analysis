@@ -212,7 +212,7 @@ namespace AnalysisITC
                             YValues = y.ToArray(),
                             XScaleFactor = 1,
                             YScaleFactor = 1,
-                            Fit = analysis.CounterIonReleaseFit,
+                            Fit = analysis.HasCounterIonResult ? analysis.CounterIonReleaseFit : null,
                         };
 
                         (Graph as ParameterDependenceGraph).Setup();
@@ -236,7 +236,7 @@ namespace AnalysisITC
                             YValues = y.ToArray(),
                             XScaleFactor = ConcentrationUnit.mM.GetMod(),
                             YScaleFactor = 1,
-                            Fit = analysis.IonicStrengthDependenceFit,
+                            Fit = analysis.HasIonicStrengthResult ? analysis.IonicStrengthDependenceFit : null,
                         };
 
                         (Graph as ParameterDependenceGraph).Setup();

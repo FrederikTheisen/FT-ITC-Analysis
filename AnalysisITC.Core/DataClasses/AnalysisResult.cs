@@ -102,11 +102,29 @@ namespace AnalysisITC.Core.Data
             : IsTemperatureDependenceEnabled ? string.Empty : "Structuring analysis requires a sufficient temperature span.";
         public string ElectrostaticsAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
-            : IsElectrostaticsAnalysisDependenceEnabled ? string.Empty : "Electrostatics analysis requires varying ionic strength and salt metadata for every experiment.";
+            : electrostaticsAnalysisUnavailableReason;
         public string ProtonationAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
             : protonationAnalysisUnavailableReason;
         string protonationAnalysisUnavailableReason = string.Empty;
+        string electrostaticsAnalysisUnavailableReason = string.Empty;
+        internal double SaltAnalysisMinimumSpan { get; private set; }
+        bool saltAnalysisIncludesBuffer;
+        internal bool SaltAnalysisIncludesBuffer => saltAnalysisIncludesBuffer;
+
+        public double GetSaltAnalysisIonicStrength(ExperimentData data)
+            => BufferAttribute.GetIonicStrength(data, saltAnalysisIncludesBuffer);
+
+        internal bool CanRestoreElectrostaticsAnalysis => IsAdvancedAnalysisAvailable
+            && ElectrostaticsAnalysisAvailability.GetMissingSaltReason(Solution.Solutions).Length == 0;
+
+        internal bool EnsureElectrostaticsAnalysisForRestore()
+        {
+            if (!CanRestoreElectrostaticsAnalysis)
+                return false;
+            ElectrostaticsAnalysis ??= new ElectrostaticsAnalysis(this);
+            return true;
+        }
 
         public FTSRMethod SpolarRecordAnalysis { get; private set; }
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
@@ -524,16 +542,12 @@ namespace AnalysisITC.Core.Data
             // Check temperature variation is great enough
             IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
 
-            // Check if data has an ionic strength more than half the minimum span from the average
-            var averageIonicStrength = Solution.Solutions.Average(sol => BufferAttribute.GetIonicStrength(sol.Data));
-            bool variable_is = Solution.Solutions
-                .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
-                .Any(ionicStrength => Math.Abs(ionicStrength - averageIonicStrength) > AppSettings.MinimumIonSpanForFitting / 2.0);
-
-            // Check if all have salt attribute
-            bool allsalt = Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt));
-
-            IsElectrostaticsAnalysisDependenceEnabled = IsAdvancedAnalysisAvailable && variable_is && allsalt;
+            SaltAnalysisMinimumSpan = AppSettings.MinimumIonSpanForFitting;
+            saltAnalysisIncludesBuffer = AppSettings.IncludeBufferInIonicStrengthCalc;
+            electrostaticsAnalysisUnavailableReason = ElectrostaticsAnalysisAvailability.GetUnavailableReason(
+                Solution.Solutions, SaltAnalysisMinimumSpan, saltAnalysisIncludesBuffer);
+            IsElectrostaticsAnalysisDependenceEnabled = IsAdvancedAnalysisAvailable
+                && string.IsNullOrEmpty(electrostaticsAnalysisUnavailableReason);
 
             protonationAnalysisUnavailableReason = ProtonationAnalysisAvailability.GetUnavailableReason(Solution.Solutions);
             IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && string.IsNullOrEmpty(protonationAnalysisUnavailableReason);

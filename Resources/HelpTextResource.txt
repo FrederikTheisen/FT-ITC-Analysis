@@ -351,7 +351,9 @@ For one-set-of-sites results, open the additional analysis tabs when the experim
 
 **Temperature:** inspect temperature dependence and run Spolar–Record structuring analysis when the temperature span is sufficient.
 
-**Ionic strength:** compare experiments with varied ionic strength and recorded salt metadata.
+**Ionic strength:** requires salt metadata for every experiment and three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** above the previous selected condition. Counter-ion analysis requires three distinct positive ion activities with usable affinities. Repeated observations remain part of each fit.
+
+Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
 
 **Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection.
 

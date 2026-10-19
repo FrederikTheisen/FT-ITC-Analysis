@@ -212,9 +212,11 @@ The stored temperature-analysis output includes evaluation temperature, hydratio
 
 ### Salt
 
-The **Salt** view requires a **Salt** attribute for every member and sufficient ionic-strength span across the member set. Its **Graph mode** values are **Affinity vs Salt**, **Debye-Huckel**, and **Counter Ion Release**. Counter-ion release is a salt analysis mode and is presented in the Salt view rather than as a separate advanced analysis.
+The **Salt** view requires a **Salt** attribute for every member and at least three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** preference above the previous selected condition. Repeated conditions remain part of the fit. Its **Graph mode** values are **Affinity vs Salt**, **Debye-Huckel**, and **Counter Ion Release**. Counter-ion release is a salt analysis mode and is presented in the Salt view rather than as a separate advanced analysis.
 
-The Salt output includes the extrapolated **Kd0** and **Counter ion** result when the analysis has a calculated fit. The graph mode determines whether the displayed dependence is expressed against salt, ionic strength using Debye-Huckel behavior, or ion activity for counter-ion release. The result is limited by the recorded salt identities, ionic-strength values, and the quality and span of the member affinity values.
+The Salt output includes the extrapolated **Kd0** and **Counter ion** result. Counter-ion analysis requires at least three distinct positive ion activities with usable affinities; repeated observations remain part of the fit. The graph mode determines whether the displayed dependence is expressed against salt, ionic strength using Debye-Huckel behavior, or ion activity for counter-ion release. The result is limited by the recorded salt identities, ionic-strength values, and the quality and span of the member affinity values.
+
+Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
 
 > **Calculation:**
 >

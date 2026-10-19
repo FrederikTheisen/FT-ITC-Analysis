@@ -749,22 +749,25 @@ namespace AnalysisITC
 
         NSView BuildAvailabilitySection()
         {
-            NSTextField reason = null;
-            if (!string.IsNullOrWhiteSpace(analysisResult.ProtonationAnalysisUnavailableReason))
+            var rows = new List<NSView>
             {
-                reason = NSTextField.CreateWrappingLabel(analysisResult.ProtonationAnalysisUnavailableReason);
-                reason.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
-                reason.TextColor = NSColor.SecondaryLabel;
-                reason.Selectable = true;
-                reason.TranslatesAutoresizingMaskIntoConstraints = false;
-            }
-            return Section("Available analyses",
                 Pair("Temperature presentation", analysisResult.IsTemperatureDependenceEnabled ? "Available" : "Unavailable"),
                 Pair(StructuringPresentation.Title, analysisResult.IsSpolarRecordAnalysisEnabled ? "Available" : "Unavailable",
                     StructuringPresentation.TitleToolTip),
                 Pair("Electrostatics", analysisResult.IsElectrostaticsAnalysisDependenceEnabled ? "Available" : "Unavailable"),
                 Pair("Protonation", analysisResult.IsProtonationAnalysisEnabled ? "Available" : "Unavailable"),
-                reason);
+            };
+            foreach (var text in new[] { analysisResult.ElectrostaticsAnalysisUnavailableReason, analysisResult.ProtonationAnalysisUnavailableReason }
+                .Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
+            {
+                var reason = NSTextField.CreateWrappingLabel(text);
+                reason.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+                reason.TextColor = NSColor.SecondaryLabel;
+                reason.Selectable = true;
+                reason.TranslatesAutoresizingMaskIntoConstraints = false;
+                rows.Add(reason);
+            }
+            return Section("Available analyses", rows.ToArray());
         }
 
         NSView BuildAnalysisNullComparisonSection()
@@ -1117,11 +1120,12 @@ namespace AnalysisITC
                 "Output",
                 Pair(
                     "Kd0",
-                    analysis.Kd0.AsFormattedConcentration(
-                        withunit: true)),
+                    analysis.HasIonicStrengthResult ? analysis.Kd0.AsFormattedConcentration(withunit: true) : "Unavailable",
+                    analysis.HasIonicStrengthResult ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : analysis.IonicStrengthUnavailableReason),
                 Pair(
                     "Counter ion",
-                    analysis.CounterIonRelease.AsNumber())));
+                    analysis.HasCounterIonResult ? analysis.CounterIonRelease.AsNumber() : "Unavailable",
+                    analysis.HasCounterIonResult ? null : analysis.CounterIonUnavailableReason)));
         }
 
         void AddProtonationAnalysisSections()

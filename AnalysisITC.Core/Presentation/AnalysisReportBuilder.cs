@@ -429,7 +429,7 @@ namespace AnalysisITC.Core.Presentation
             }
 
             if (result.ElectrostaticsAnalysis?.Calculated == true
-                && result.ElectrostaticsAnalysis.IonicStrengthDependenceFit != null)
+                && result.ElectrostaticsAnalysis.HasIonicStrengthResult)
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.DebyeHuckel,
@@ -438,7 +438,7 @@ namespace AnalysisITC.Core.Presentation
             }
 
             if (result.ElectrostaticsAnalysis?.Calculated == true
-                && result.ElectrostaticsAnalysis.CounterIonReleaseFit != null)
+                && result.ElectrostaticsAnalysis.HasCounterIonResult)
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.CounterIonRelease,
@@ -2781,7 +2781,7 @@ namespace AnalysisITC.Core.Presentation
                     && solution.ReportParameters[ParameterType.Affinity1].Value > 0)
                 .Select(solution =>
                 {
-                    var x = Math.Sqrt(Math.Max(0, BufferAttribute.GetIonicStrength(solution.Data)));
+                    var x = Math.Sqrt(Math.Max(0, analysis.GetPlotIonicStrength(solution.Data)));
                     var kd = FWEMath.Log10(solution.ReportParameters[ParameterType.Affinity1]);
                     return PlotPoint(x, kd, 1, solution.Data.Name);
                 })
@@ -2791,7 +2791,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 new AnalysisReportPlotSeries("Saved observations", AnalysisReportPlotSeriesKind.Points, points)
             };
-            if (points.Count > 0 && analysis.IonicStrengthDependenceFit != null)
+            if (points.Count > 0 && analysis.HasIonicStrengthResult)
             {
                 var domain = PlotDomain(points.Select(point => point.X));
                 series.Add(SampledSeries(
@@ -2829,7 +2829,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 new AnalysisReportPlotSeries("Saved observations", AnalysisReportPlotSeriesKind.Points, points)
             };
-            if (points.Count > 0 && analysis.CounterIonReleaseFit != null)
+            if (points.Count > 0 && analysis.HasCounterIonResult)
             {
                 var domain = PlotDomain(points.Select(point => point.X));
                 series.Add(LinearSeries("Fitted line", analysis.CounterIonReleaseFit,
@@ -2879,7 +2879,7 @@ namespace AnalysisITC.Core.Presentation
             var unit = result.AppropriateAffinityUnit;
             var fit = analysis.IonicStrengthDependenceFit;
             var items = new List<AnalysisReportKeyValueItem>();
-            if (fit != null)
+            if (analysis.HasIonicStrengthResult)
             {
                 items.Add(Item("Kd at zero ionic strength", fit.Kd0.AsFormattedConcentration(
                     unit, withunit: true, style: options.UncertaintyDisplayStyle)));
@@ -2887,7 +2887,7 @@ namespace AnalysisITC.Core.Presentation
                 if (fit.UsesCurvature)
                     items.Add(Item("Curvature", fit.Curvature.ToString("G5", options.UncertaintyDisplayStyle)));
             }
-            if (!FloatWithError.IsNaN(analysis.CounterIonRelease))
+            if (analysis.HasCounterIonResult)
                 items.Add(Item("Counter-ion release", analysis.CounterIonRelease.ToString("G5", options.UncertaintyDisplayStyle)));
             items.Add(Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()));
             items.Add(Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)));

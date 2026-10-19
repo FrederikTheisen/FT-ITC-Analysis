@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
+using System.Linq;
+using System.Reflection;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -18,7 +22,7 @@ public sealed class SaltDependenceGraphTests
         var result = CreateSaltResult();
         result.ElectrostaticsAnalysis.RestoreResult(
             new IonicStrengthDependenceFit(new(1e-6), new(10), new(0)),
-            null, 100, 0, DateTime.UtcNow, ErrorEstimationMethod.None);
+            null, 100, 0, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         var graph = new ResultDependenceGraphControl
         {
             Result = result,
@@ -36,7 +40,49 @@ public sealed class SaltDependenceGraphTests
         });
     }
 
-    static AnalysisResult CreateSaltResult()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SavedObservationsUseCompletedPolicyWhileUncalculatedObservationsUseRunPolicy(bool savedPolicy)
+    {
+        var previous = AppSettings.IncludeBufferInIonicStrengthCalc;
+        try
+        {
+            AppSettings.IncludeBufferInIonicStrengthCalc = !savedPolicy;
+            var result = CreateSaltResult();
+            foreach (var member in result.Solution.Solutions)
+            {
+                var buffer = ExperimentAttribute.FromKey(AttributeKey.Buffer);
+                buffer.IntValue = (int)AnalysisITC.Core.Data.Buffer.Hepes;
+                buffer.DoubleValue = 7.4; buffer.ParameterValue = new(.01);
+                member.Data.Attributes.Add(buffer);
+            }
+            result.UpdateSolution(result.Solution);
+            var graph = new ResultDependenceGraphControl { Result = result, Mode = ResultAnalysisViewMode.Salt,
+                SaltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel };
+            CheckPoints(!savedPolicy);
+            result.ElectrostaticsAnalysis.RestoreResult(new(new(1e-6), new(10), new(0)), null,
+                100, 0, DateTime.UtcNow, ErrorEstimationMethod.None, savedPolicy);
+            graph.Rebuild();
+            CheckPoints(savedPolicy);
+            Assert.All(graph.FitPointsForTesting, point => Assert.Equal(-6 + 10 * point.X / Math.Log(10), point.Y, 10));
+
+            void CheckPoints(bool policy)
+            {
+                var series = (IEnumerable)typeof(ResultDependenceGraphControl)
+                    .GetField("cachedSeries", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(graph)!;
+                var item = Assert.Single(series.Cast<object>());
+                var points = ((IEnumerable)item.GetType().GetProperty("Points")!.GetValue(item)!).Cast<object>().ToArray();
+                Assert.Equal(3, points.Length);
+                for (var i = 0; i < points.Length; i++)
+                    Assert.Equal(Math.Sqrt(new[] { .04, .16, .36 }[i] + (policy ? .0037005197012182495 : 0)),
+                        (double)points[i].GetType().GetProperty("X")!.GetValue(points[i])!, 12);
+            }
+        }
+        finally { AppSettings.IncludeBufferInIonicStrengthCalc = previous; }
+    }
+
+    internal static AnalysisResult CreateSaltResult(double[]? strengths = null)
     {
         var models = new List<Model>();
         var solutions = new List<SolutionInterface>();
@@ -46,7 +92,7 @@ public sealed class SaltDependenceGraphTests
             Termination = SolverTermination.Converged,
             Loss = 1,
         });
-        foreach (var ionicStrength in new[] { 0.04, 0.16 })
+        foreach (var ionicStrength in strengths ?? new[] { 0.04, 0.16, 0.36 })
         {
             var data = new ExperimentData("salt.itc")
             {

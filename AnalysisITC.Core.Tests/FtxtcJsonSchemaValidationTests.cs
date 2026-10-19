@@ -24,6 +24,26 @@ namespace AnalysisITC.Core.Tests
     public sealed class FtxtcJsonSchemaValidationTests
     {
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task CompletedSaltPolicyIsOptionalOnWireAndMustBeBooleanWhenPresent(bool policy)
+        {
+            var result = SaltAnalysisTests.Create(new[] { .04, .16, .36 });
+            result.ElectrostaticsAnalysis.RestoreResult(new(new(1e-6), new(2), new(0)), null,
+                8, 0, DateTime.UtcNow, ErrorEstimationMethod.None, policy);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, result.Solution.Solutions.Select(s => s.Data), new[] { result });
+            AssertPackageJsonValidates(package);
+            var json = ReadJson(package, "results/000000/result.json");
+            var salt = json["advancedAnalyses"]["electrostatics"].AsObject();
+            Assert.Equal(policy, salt["includeBufferInIonicStrengthCalc"].GetValue<bool>());
+            salt["includeBufferInIonicStrengthCalc"] = "true";
+            AssertInvalid("component.schema.json", json);
+            salt.Remove("includeBufferInIonicStrengthCalc");
+            AssertValid("component.schema.json", JsonSerializer.SerializeToElement(json), "older optional salt policy");
+        }
+
+        [Theory]
         [InlineData(-5)]
         [InlineData(0)]
         public async Task ValidityTemperatureFieldsAreOptionalAndTyped(double temperature)

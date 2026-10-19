@@ -1267,10 +1267,10 @@ public sealed class AnalysisReportBuilderTests
     [Fact]
     public void DebyeHuckelReportPlotsLogKdAgainstSquareRootOfIonicStrength()
     {
-        var result = CreateResult(2, includeSalt: true);
+        var result = CreateResult(3, includeSalt: true);
         result.ElectrostaticsAnalysis.RestoreResult(
             new IonicStrengthDependenceFit(new(1e-6), new(10), new(0)),
-            null, 100, 0, DateTime.UtcNow, ErrorEstimationMethod.None);
+            null, 100, 0, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         var options = new AnalysisReportOptions();
         options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
             AnalysisReportAdvancedSectionKind.DebyeHuckel));
@@ -3060,7 +3060,7 @@ public sealed class AnalysisReportBuilderTests
     [Fact]
     public void StandardRowExportKeepsIonicStrengthForNoBindingMember()
     {
-        var result = CreateResult(2, includeSalt: true);
+        var result = CreateResult(3, includeSalt: true);
         Assert.True(result.IsElectrostaticsAnalysisDependenceEnabled);
         RestoreAutomaticAssessment(result, result.Solution.Solutions[0], -2);
         RestoreAutomaticAssessment(result, result.Solution.Solutions[1], 15);
@@ -3074,9 +3074,10 @@ public sealed class AnalysisReportBuilderTests
         var ions = Array.IndexOf(headers, "IS (mM)");
         var n = Array.IndexOf(headers, "N");
         Assert.True(ions >= 0);
-        // NaCl at 0.04 M and 0.16 M contributes I = c, written in mM with dot decimals.
+        // Three spaced NaCl conditions contribute I = c, written in mM with dot decimals.
         Assert.Equal("40.00", lines[1][ions]);
         Assert.Equal("160.00", lines[2][ions]);
+        Assert.Equal("360.00", lines[3][ions]);
         Assert.Equal("", lines[1][n]);
         Assert.NotEqual("", lines[2][n]);
     }
@@ -3182,7 +3183,7 @@ public sealed class AnalysisReportBuilderTests
             {
                 var salt = ExperimentAttribute.FromKey(AttributeKey.Salt);
                 salt.IntValue = (int)Salt.NaCl;
-                salt.ParameterValue = new FloatWithError(index == 0 ? 0.04 : 0.16);
+                salt.ParameterValue = new FloatWithError(0.04 * (index + 1) * (index + 1));
                 data.Attributes.Add(salt);
             }
             var model = CreateModel(data, affinity: 6, enthalpy: -25_000 - index * 1_000);

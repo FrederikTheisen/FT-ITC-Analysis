@@ -1475,15 +1475,27 @@ namespace AnalysisITC.Core.DataReaders
             {
                 var value = state.Electrostatics;
                 if (value.SchemaVersion != 1 || value.IonicStrengthIterations < 0 || value.CounterIonReleaseIterations < 0
-                    || result.ElectrostaticsAnalysis == null)
+                    || !result.CanRestoreElectrostaticsAnalysis)
                     throw new InvalidDataException("The saved electrostatics analysis has an invalid schema or is unavailable for this result.");
+                var errorMethod = ParseErrorMethod(value.ErrorMethod);
+                // Optional saved analyses are omitted when their payload is incomplete.
+                // Null component fits are complete partial results.
+                if (!value.IncludeBufferInIonicStrengthCalc.HasValue
+                    || (value.IonicStrengthFit != null && (value.IonicStrengthFit.Kd0 == null
+                        || value.IonicStrengthFit.Sensitivity == null || value.IonicStrengthFit.Curvature == null
+                        || !value.IonicStrengthFit.UsesCurvature.HasValue))
+                    || (value.CounterIonReleaseFit != null && (value.CounterIonReleaseFit.Slope == null
+                        || value.CounterIonReleaseFit.Intercept == null || !value.CounterIonReleaseFit.ReferenceX.HasValue)))
+                    return;
+                result.EnsureElectrostaticsAnalysisForRestore();
                 result.ElectrostaticsAnalysis.RestoreResult(
                     RestoreIonicStrengthFit(value.IonicStrengthFit),
                     RestoreLinearFit(value.CounterIonReleaseFit),
                     value.IonicStrengthIterations,
                     value.CounterIonReleaseIterations,
                     value.CompletedAtUtc,
-                    ParseErrorMethod(value.ErrorMethod));
+                    errorMethod,
+                    value.IncludeBufferInIonicStrengthCalc.Value);
             });
 
             RestoreOne("protonation", state.Protonation != null, () =>
@@ -1520,18 +1532,18 @@ namespace AnalysisITC.Core.DataReaders
         static IonicStrengthDependenceFit RestoreIonicStrengthFit(FtxtcIonicStrengthFitState state)
         {
             if (state == null) return null;
-            if (state.Kd0 == null || state.Sensitivity == null || state.Curvature == null)
+            if (state.Kd0 == null || state.Sensitivity == null || state.Curvature == null || !state.UsesCurvature.HasValue)
                 throw new InvalidDataException("The saved ionic-strength fit is incomplete.");
             return new IonicStrengthDependenceFit(
-                state.Kd0.Restore(), state.Sensitivity.Restore(), state.Curvature.Restore(), state.UsesCurvature);
+                state.Kd0.Restore(), state.Sensitivity.Restore(), state.Curvature.Restore(), state.UsesCurvature.Value);
         }
 
         static LinearFitWithError RestoreLinearFit(FtxtcLinearFitState state)
         {
             if (state == null) return null;
-            if (state.Slope == null || state.Intercept == null)
+            if (state.Slope == null || state.Intercept == null || !state.ReferenceX.HasValue)
                 throw new InvalidDataException("The saved linear fit is incomplete.");
-            return new LinearFitWithError(state.Slope.Restore(), state.Intercept.Restore(), state.ReferenceX);
+            return new LinearFitWithError(state.Slope.Restore(), state.Intercept.Restore(), state.ReferenceX.Value);
         }
 
         static InjectionData RestoreInjection(ExperimentData experiment, FtxtcInjectionState state)

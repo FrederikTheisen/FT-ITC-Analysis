@@ -819,7 +819,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
             if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))
             {
-                output.Add(new("[I]", new FloatWithError(BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
+                output.Add(new("[I]", new FloatWithError(DataManager.Results.Find(result => result.Solution == ParentSolution)?.GetSaltAnalysisIonicStrength(Model.Data)
+                    ?? BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy)

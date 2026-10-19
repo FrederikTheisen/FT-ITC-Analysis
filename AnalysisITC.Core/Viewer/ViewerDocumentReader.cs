@@ -830,11 +830,12 @@ namespace AnalysisITC.Core.Viewer
             {
                 Metadata = BuildAdvancedMetadata(analysis),
                 CounterIonReleaseIterations = analysis.CounterIonReleaseIterations,
-                Kd0Micromolar = fit == null ? null : BuildValueWithError(fit.Kd0, 1e6),
-                SaltSensitivity = fit == null ? null : BuildValueWithError(fit.SaltSensitivity, 1),
-                Curvature = fit == null ? null : BuildValueWithError(fit.Curvature, 1),
-                UsesCurvature = fit?.UsesCurvature == true,
-                CounterIonRelease = analysis.CounterIonReleaseFit == null ? null : BuildValueWithError(analysis.CounterIonReleaseFit.Slope, 1),
+                Kd0Micromolar = !analysis.HasIonicStrengthResult ? null : BuildValueWithError(fit.Kd0, 1e6),
+                SaltSensitivity = !analysis.HasIonicStrengthResult ? null : BuildValueWithError(fit.SaltSensitivity, 1),
+                Curvature = !analysis.HasIonicStrengthResult || !ElectrostaticsAnalysisAvailability.IsUsable(fit.Curvature)
+                    ? null : BuildValueWithError(fit.Curvature, 1),
+                UsesCurvature = analysis.HasIonicStrengthResult && fit.UsesCurvature,
+                CounterIonRelease = !analysis.HasCounterIonResult ? null : BuildValueWithError(analysis.CounterIonReleaseFit.Slope, 1),
             };
 
             viewer.Plots.Add(BuildPointPlot(
@@ -845,7 +846,7 @@ namespace AnalysisITC.Core.Viewer
                 .Where(point => point.Item1 >= 0 && point.Item2.Value > 0)
                 .Select(point => Tuple.Create(Math.Sqrt(point.Item1), FWEMath.Log10(point.Item2))).ToList();
             var debye = BuildPointPlot("debye-huckel", "Debye–Hückel", "sqrt(Ionic strength / M)", "log10(Kd / M)", debyePoints, 1, 1);
-            if (fit != null && debyePoints.Count > 0)
+            if (analysis.HasIonicStrengthResult && debyePoints.Count > 0)
             {
                 var domain = PlotDomain(debyePoints.Select(point => point.Item1), 0);
                 var xs = Sample(domain.min, domain.max, 81);
@@ -855,7 +856,7 @@ namespace AnalysisITC.Core.Viewer
 
             var counterPoints = analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease);
             var counter = BuildPointPlot("counter-ion-release", "Counter-ion release", "ln(Salt activity)", "ln(Kd / M)", counterPoints, 1, 1);
-            if (analysis.CounterIonReleaseFit != null && counterPoints.Count > 0)
+            if (analysis.HasCounterIonResult && counterPoints.Count > 0)
             {
                 var domain = PlotDomain(counterPoints.Select(point => point.Item1), 0);
                 var xs = Sample(domain.min, domain.max, 81);

@@ -367,7 +367,7 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 - Status: Resolved (2026-10-08).
 - Problem: Standard reports needed consistent suppression of no-binding parameter values, summary labels, fit warnings, and combined output.
-- Resolution: In `AnalysisReportBuilder` (`ANALYSIS_REPORT_MAP.md`): A06 leaves no-binding parameter/RMSD cells blank (distinct from non-finite “—”), retaining AICc/conditions; Standard labels only No binding detected/Inconclusive. E05 omits their parameter table, E08 omits RMSD, and P03 omits their fit warnings (ITC-056/ITC-053). Diagnostic values/labels, Inconclusive/Not assessed, and A08 remain unchanged; combined parameters are omitted if any member is no-binding, without subset recombination. Shared assessment formatting marks manual overrides when `ShowAssessmentProvenance` is on or Traceability Mode forces it; E08 always marks them, and collection summaries mark any member override. The hidden/unsaved option remains ITC-076. Standard Individual exports retain ionic strength/protonation enthalpy. Core and both report renderers were checked.
+- Resolution: In `AnalysisReportBuilder` (`ANALYSIS_REPORT_MAP.md`): A06 leaves no-binding parameter/RMSD cells blank (distinct from non-finite “—”), retaining AICc/conditions; Standard labels only No binding detected/Inconclusive. E05 omits their parameter table, E08 omits RMSD, and P03 omits their fit warnings (ITC-056/ITC-053). Diagnostic values/labels, Inconclusive/Not assessed, and A08 remain unchanged; combined parameters are omitted if any member is no-binding, without subset recombination. Shared assessment formatting marks manual overrides when `ShowAssessmentProvenance` is on or Traceability Mode forces it; E08 always marks them, and collection summaries mark any member override. The hidden/unsaved option remains ITC-076. Standard Individual exports retain ionic strength when electrostatics analysis is eligible, and protonation enthalpy when protonation analysis is eligible. CR-020 narrows electrostatics eligibility to three spaced usable ionic strengths; no-binding suppression does not remove those eligible condition values. Core and both report renderers were checked.
 
 ## ITC-052 - Skip uncertainty estimation for results assessed as no binding
 
@@ -899,6 +899,14 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: Reading a missing or malformed mail configuration can throw `IOException` or `JsonException`. `ProcessOneAsync` does not catch either, so the worker retries without recording an attempt or advancing the delivery's next-attempt time. The five-attempt retry cycle therefore never exhausts for these configuration failures.
 - Consequence: A pending delivery can remain at the front of the queue indefinitely while its retry count and delivery failure summary do not describe the configuration failure.
 - Boundary: Preserve the ITC-113 distinction between a provisioned credential and failed email delivery. Decide and test how configuration failures should affect retry scheduling and administrative diagnostics before changing the sender.
+
+## ITC-122 - FloatWithError formatting loses the missing-value marker
+
+- Priority: Medium
+- Status: Open; discovered while implementing CR-020.
+- Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `WithMod`.
+- Problem: `WithMod` multiplies `mod * this`; scalar multiplication drops the `FloatWithError.NaN` marker, so a missing quantity can format as scientific zero. This affects more than salt analysis.
+- Scope: CR-020 gates salt outputs by shared component availability. The general formatter issue is deliberately deferred; preserve missing markers through arithmetic/formatting with focused regression coverage when addressed.
 
 ## ITC-123 - No-binding interpretation restriction overwritten when traces are absent
 

@@ -571,7 +571,7 @@ namespace AnalysisITC.Core.Export
                 };
 
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled)
-                    line.Add((1000 * BufferAttribute.GetIonicStrength(sol.Data)).ToString("F2"));
+                    line.Add((1000 * analysis.GetSaltAnalysisIonicStrength(sol.Data)).ToString("F2"));
 
                 if (analysis.IsProtonationAnalysisEnabled)
                     line.Add(BufferAttribute.TryGetProtonationEnthalpy(sol.Data, out var enthalpy)

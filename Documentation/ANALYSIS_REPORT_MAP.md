@@ -218,7 +218,7 @@ between Std. and Diag.
 | --- | --- |
 | Experiment | "1A. Name", with assessment on a second line when applicable. |
 | Temperature (°C) | Temperature dependence enabled. |
-| [Ions] (mM) | Electrostatics enabled. |
+| [Ions] (mM) | Uses the captured run buffer policy. Electrostatics enabled: one-set-of-sites model, salt metadata for every member, and three usable ionic strengths selected by the strict greedy half-minimum-span spacing rule. |
 | ∆H,prot (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
 | One column per model parameter | "(fixed)" for fixed values; "—" for non-finite values. |
 | RMSD (µJ) | Member fit RMSD. |
@@ -325,18 +325,18 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Uncertainty: "Repeated random sampling of saved input uncertainties." | |
 | | · Completed | |
 | | · [Info] Reading structuring estimates: how entropy is split; Theisen et al. (J. Am. Chem. Soc. 2021) coefficients; model-based, not structural measurements | expanded explanations only |
-| **X03** | **Affinity versus salt** | |
+| **X03** | **Affinity versus salt** | electrostatics enabled (same condition as A06 [Ions]); omitted when the spacing rule fails |
 | | · [Plot] Kd vs salt concentration (mM), saved 95% CI, no fitted line | |
-| **X04** | **Debye-Huckel dependence** | |
-| | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve (legend: "Fitted curve") | |
+| **X04** | **Debye-Huckel dependence** | requested and completed ionic-strength component has usable parameter centers; saved outputs remain eligible when current spacing fails |
+| | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve (legend: "Fitted curve") | Observations use the completed fit's saved buffer-inclusion policy, independently of current eligibility and the next run's captured preferences. Incomplete saved electrostatics payloads are omitted. |
 | | · Saved result heading | |
-| | · Kd at zero ionic strength | |
-| | · Salt sensitivity | |
-| | · Curvature | only when used |
-| | · Counter-ion release | only when calculated |
+| | · Kd at zero ionic strength | only when the ionic-strength component is available |
+| | · Salt sensitivity | only when the ionic-strength component is available |
+| | · Curvature | only when the ionic-strength component is available and curvature is used |
+| | · Counter-ion release | only when the shared Core component-availability check passes |
 | | · Uncertainty | |
 | | · Completed | |
-| **X05** | **Counter-ion release** | |
+| **X05** | **Counter-ion release** | requested and completed counter-ion component has usable slope/intercept centers; saved outputs remain eligible when current spacing fails |
 | | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line (legend: "Fitted line") | |
 | | · Saved result: same lines as X04 | |
 | **X06** | **Protonation dependence** | |

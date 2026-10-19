@@ -746,6 +746,7 @@ namespace AnalysisITC.Core.Export
 
     internal sealed class FtxtcElectrostaticsState
     {
+        public bool? IncludeBufferInIonicStrengthCalc { get; set; }
         public int SchemaVersion { get; set; } = 1;
         public FtxtcIonicStrengthFitState IonicStrengthFit { get; set; }
         public FtxtcLinearFitState CounterIonReleaseFit { get; set; }
@@ -760,14 +761,14 @@ namespace AnalysisITC.Core.Export
         public FtxtcFloatWithError Kd0 { get; set; }
         public FtxtcFloatWithError Sensitivity { get; set; }
         public FtxtcFloatWithError Curvature { get; set; }
-        public bool UsesCurvature { get; set; }
+        public bool? UsesCurvature { get; set; }
     }
 
     internal sealed class FtxtcLinearFitState
     {
         public FtxtcFloatWithError Slope { get; set; }
         public FtxtcFloatWithError Intercept { get; set; }
-        public double ReferenceX { get; set; }
+        public double? ReferenceX { get; set; }
     }
 
     internal sealed class FtxtcProtonationState
@@ -2008,6 +2009,7 @@ namespace AnalysisITC.Core.Export
             {
                 state.Electrostatics = new FtxtcElectrostaticsState
                 {
+                    IncludeBufferInIonicStrengthCalc = electrostatics.CompletedIncludeBufferInIonicStrengthCalc,
                     IonicStrengthFit = CaptureIonicStrengthFit(electrostatics.IonicStrengthDependenceFit),
                     CounterIonReleaseFit = CaptureLinearFit(electrostatics.CounterIonReleaseFit),
                     ErrorMethod = ErrorMethodId(electrostatics.CompletedErrorEstimationMethod ?? ErrorEstimationMethod.None),

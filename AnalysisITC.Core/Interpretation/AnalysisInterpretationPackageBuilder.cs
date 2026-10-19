@@ -831,19 +831,20 @@ namespace AnalysisITC.Core.Interpretation
                     CompletedAtUtc = analysis.CompletedAtUtc.HasValue ? Utc(analysis.CompletedAtUtc.Value) : null,
                     UncertaintyMethod = analysis.CompletedErrorEstimationMethod?.ToString(),
                     UncertaintyPropagation = "random-input-sampling",
-                    UsesCurvature = analysis.IonicStrengthDependenceFit?.UsesCurvature,
-                    IonicStrengthAvailable = analysis.IonicStrengthDependenceFit != null,
-                    CounterIonReleaseAvailable = analysis.CounterIonReleaseFit != null,
-                    IonicStrengthCompletedIterations = analysis.IonicStrengthDependenceFit != null ? analysis.CompletedIterations : (int?)null,
-                    CounterIonReleaseCompletedIterations = analysis.CounterIonReleaseFit != null ? analysis.CounterIonReleaseIterations : (int?)null,
+                    UsesCurvature = analysis.HasIonicStrengthResult ? analysis.IonicStrengthDependenceFit.UsesCurvature : (bool?)null,
+                    IonicStrengthAvailable = analysis.HasIonicStrengthResult,
+                    CounterIonReleaseAvailable = analysis.HasCounterIonResult,
+                    IonicStrengthCompletedIterations = analysis.HasIonicStrengthResult ? analysis.CompletedIterations : (int?)null,
+                    CounterIonReleaseCompletedIterations = analysis.HasCounterIonResult ? analysis.CounterIonReleaseIterations : (int?)null,
                 };
-                if (analysis.IonicStrengthDependenceFit != null)
+                if (analysis.HasIonicStrengthResult)
                 {
                     AddAdvancedValue(value, "kd-zero-ionic-strength", "mol/L", analysis.IonicStrengthDependenceFit.Kd0);
                     AddAdvancedValue(value, "salt-sensitivity", "(mol/L)^-0.5", analysis.IonicStrengthDependenceFit.SaltSensitivity);
-                    AddAdvancedValue(value, "curvature", "(mol/L)^-1", analysis.IonicStrengthDependenceFit.Curvature);
+                    if (ElectrostaticsAnalysisAvailability.IsUsable(analysis.IonicStrengthDependenceFit.Curvature))
+                        AddAdvancedValue(value, "curvature", "(mol/L)^-1", analysis.IonicStrengthDependenceFit.Curvature);
                 }
-                if (!AnalysisITC.Core.Numerics.FloatWithError.IsNaN(analysis.CounterIonRelease))
+                if (analysis.HasCounterIonResult)
                     AddAdvancedValue(value, "counter-ion-release", "1", analysis.CounterIonRelease);
                 output.Add(value);
             }

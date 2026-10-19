@@ -374,7 +374,7 @@ internal sealed class PreferencesWindow : Window
         {
             Row("Reference temperature (°C)", referenceTemperatureBox),
             Row("Minimum temperature span (°C)", minimumTemperatureSpanBox),
-            Row("Minimum salt span (mM)", minimumIonSpanBox),
+            Row("Minimum ionic-strength span (mM)", minimumIonSpanBox),
             includeBufferInIonicStrengthCheck
         }));
         panel.Children.Add(Section("Behavior", new Control[]
@@ -531,6 +531,7 @@ internal sealed class PreferencesWindow : Window
         promptForIdentifiersCheck.IsChecked = state.PromptForIdentifiersOnImport;
         minimumTemperatureSpanBox.Text = Format(state.MinimumTemperatureSpanForFitting);
         minimumIonSpanBox.Text = Format(state.MinimumIonSpanForFitting * 1000);
+        ToolTip.SetTip(minimumIonSpanBox, ElectrostaticsAnalysisAvailability.MinimumSpanToolTip);
         SetCombo(numberPrecisionCombo, state.NumberPrecision);
         SetCombo(uncertaintyStyleCombo, state.UncertaintyDisplayStyle);
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;

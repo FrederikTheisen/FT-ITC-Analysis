@@ -522,7 +522,7 @@ namespace AnalysisITC.Core.Export
             var suppressBinding = !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose);
             // Ionic strength and protonation enthalpy are experimental conditions, kept for no-binding members.
             if (includeIonicStrength)
-                row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
+                row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * result.GetSaltAnalysisIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
                 row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");

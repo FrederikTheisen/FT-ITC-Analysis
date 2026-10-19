@@ -41,7 +41,7 @@ public sealed class AdvancedAnalysisInterpretationTests
                 new FloatWithError(1.2, 0.1, 1.0, 1.4), new FloatWithError(0.3, 0.05, 0.2, 0.4), true),
             new LinearFitWithError(new FloatWithError(1.5, 0.1, 1.3, 1.7),
                 new FloatWithError(-12, 0.2, -12.4, -11.6), 0),
-            15, 16, completed, ErrorEstimationMethod.BootstrapResiduals);
+            15, 16, completed, ErrorEstimationMethod.BootstrapResiduals, false);
         result.ProtonationAnalysis.RestoreResult(
             new FloatWithError(-25000, 500, -26000, -24000),
             new FloatWithError(0.8, 0.05, 0.7, 0.9), 18, completed,
@@ -88,7 +88,7 @@ public sealed class AdvancedAnalysisInterpretationTests
         var result = await LoadAdvancedResult();
         result.ElectrostaticsAnalysis.RestoreResult(
             new IonicStrengthDependenceFit(new FloatWithError(2e-6), new FloatWithError(1.2), new FloatWithError(0), false),
-            null, 0, 0, DateTime.UtcNow, ErrorEstimationMethod.None);
+            null, 0, 0, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         var report = new AnalysisReport { Name = "Advanced interpretation" };
         report.SetResultIds(new[] { result.UniqueID });
         var electrostatics = Assert.Single(AnalysisInterpretationPackageBuilder.Build(report, result).Result.AdvancedAnalyses,
@@ -109,7 +109,7 @@ public sealed class AdvancedAnalysisInterpretationTests
         result.ElectrostaticsAnalysis.RestoreResult(
             null,
             new LinearFitWithError(new FloatWithError(1.5, 0.1), new FloatWithError(-12, 0.2), 0),
-            0, 16, DateTime.UtcNow, ErrorEstimationMethod.None);
+            0, 16, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         var report = new AnalysisReport { Name = "Advanced interpretation" };
         report.SetResultIds(new[] { result.UniqueID });
         var electrostatics = Assert.Single(AnalysisInterpretationPackageBuilder.Build(report, result).Result.AdvancedAnalyses,
@@ -152,7 +152,7 @@ public sealed class AdvancedAnalysisInterpretationTests
             10, DateTime.UtcNow);
         result.ElectrostaticsAnalysis.RestoreResult(
             new IonicStrengthDependenceFit(new FloatWithError(2e-6), new FloatWithError(1.2), new FloatWithError(0), false), null,
-            4, 0, DateTime.UtcNow, ErrorEstimationMethod.None);
+            4, 0, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         var report = CreateReport(result);
         var package = AnalysisInterpretationPackageBuilder.Build(report, result);
         var copied = AnalysisInterpretationThermograms.Copy(package);

@@ -70,7 +70,7 @@ public sealed class LinearDependenceEnvelopeTests
             new IonicStrengthDependenceFit(new(1e-6), new(2), new(0)),
             new LinearFitWithError(new FloatWithError(0.5, 0.1, 0.4, 0.6),
                 new FloatWithError(-10, 0.2, -10.4, -9.6), 0),
-            100, 100, DateTime.UtcNow, ErrorEstimationMethod.BootstrapResiduals);
+            100, 100, DateTime.UtcNow, ErrorEstimationMethod.BootstrapResiduals, false);
         var graph = new ResultDependenceGraphControl
         {
             Result = result, Mode = ResultAnalysisViewMode.Salt,

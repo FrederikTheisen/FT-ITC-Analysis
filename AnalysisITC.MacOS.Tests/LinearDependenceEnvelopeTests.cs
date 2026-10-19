@@ -90,7 +90,7 @@ static class LinearDependenceEnvelopeTests
             new FloatWithError(-10, 0.2, -10.4, -9.6), 0);
         typeof(ElectrostaticsAnalysis).GetMethod("RestoreResult", Instance).Invoke(analysis, new object[] {
             new IonicStrengthDependenceFit(new FloatWithError(1e-6), new FloatWithError(2), new FloatWithError(0)),
-            fit, 100, 100, CompletedAt, ErrorEstimationMethod.BootstrapResiduals });
+            fit, 100, 100, CompletedAt, ErrorEstimationMethod.BootstrapResiduals, false });
         var savedAffinities = result.Solution.Solutions.Select(member => member.Parameters[ParameterType.Affinity1]).ToArray();
         List<Coordinate> firstCalls = null;
         using (var view = CreateView())

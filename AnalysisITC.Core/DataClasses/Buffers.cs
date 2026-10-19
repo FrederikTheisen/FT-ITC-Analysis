@@ -529,6 +529,9 @@ namespace AnalysisITC.Core.Data
 			return FWEMath.IsFinite(ionicStrength) ? ionicStrength : double.NaN;
         }
         public static double GetIonicStrength(ExperimentData data)
+            => GetIonicStrength(data, AppSettings.IncludeBufferInIonicStrengthCalc);
+
+        public static double GetIonicStrength(ExperimentData data, bool includeBuffer)
 		{
 			//Check if ionicstrength is specifically stated
 			if (data.Attributes.Exists(opt => opt.Key == AttributeKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == AttributeKey.IonicStrength).ParameterValue.Value;
@@ -543,7 +546,7 @@ namespace AnalysisITC.Core.Data
 				i += ((Salt)salt.IntValue).GetProperties().IonicStrength * salt.ParameterValue;
 			}
 
-			if (AppSettings.IncludeBufferInIonicStrengthCalc)
+			if (includeBuffer)
                 foreach (var buffer in buffers)
 				{
 					i += ((Buffer)buffer.IntValue).GetProperties().GetBufferIonicStrength(buffer.DoubleValue, buffer.ParameterValue, data.MeasuredTemperature);

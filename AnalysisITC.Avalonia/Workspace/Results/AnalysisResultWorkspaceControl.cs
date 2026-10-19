@@ -1195,8 +1195,9 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
             };
-            if (!string.IsNullOrWhiteSpace(result?.ProtonationAnalysisUnavailableReason))
-                rows.Add(Message(result.ProtonationAnalysisUnavailableReason));
+            foreach (var reason in new[] { result?.ElectrostaticsAnalysisUnavailableReason, result?.ProtonationAnalysisUnavailableReason }
+                .OfType<string>().Where(reason => !string.IsNullOrWhiteSpace(reason)).Distinct())
+                rows.Add(Message(reason));
             return Section("Available analyses", rows.ToArray());
         }
 
@@ -1343,8 +1344,10 @@ namespace AnalysisITC.Avalonia.Results
 
             analysisPanel.Children.Add(Section("Output", new Control[]
             {
-                Pair("*K*{d} at *I* = 0 M", analysis.Kd0.AsFormattedConcentration(withunit: true), labelContainsMarkdown: true),
-                Pair("Counter ion", analysis.CounterIonRelease.AsNumber()),
+                Pair("Kd0", analysis.HasIonicStrengthResult ? analysis.Kd0.AsFormattedConcentration(withunit: true) : "Unavailable",
+                    rowTooltip: analysis.HasIonicStrengthResult ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : analysis.IonicStrengthUnavailableReason),
+                Pair("Counter ion", analysis.HasCounterIonResult ? analysis.CounterIonRelease.AsNumber() : "Unavailable",
+                    rowTooltip: analysis.HasCounterIonResult ? null : analysis.CounterIonUnavailableReason),
             }));
         }
 

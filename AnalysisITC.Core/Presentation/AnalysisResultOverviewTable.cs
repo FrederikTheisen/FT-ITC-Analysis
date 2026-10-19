@@ -184,7 +184,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 ["Experiment"] = member?.Solution?.Data?.Name ?? "",
                 ["Temp"] = member == null ? "" : (member.TemperatureCelsius + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
-                ["IS"] = member?.Solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(member.Solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
+                ["IS"] = member?.Solution?.Data == null ? "" : (1000 * result.GetSaltAnalysisIonicStrength(member.Solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
                 ["HPROT"] = FormatProtonationEnthalpy(member?.Solution?.Data, molarEnergyUnit),
                 ["Loss"] = member?.Solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
                 ["InformationCriteria"] = member?.Solution == null ? ""

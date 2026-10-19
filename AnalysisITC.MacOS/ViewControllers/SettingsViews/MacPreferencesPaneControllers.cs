@@ -63,6 +63,7 @@ namespace AnalysisITC
             ReferenceTemperatureField.StringValue = Format(state.ReferenceTemperature);
             MinimumTemperatureSpanField.StringValue = Format(state.MinimumTemperatureSpanForFitting);
             MinimumIonSpanField.StringValue = Format(state.MinimumIonSpanForFitting * 1000);
+            MinimumIonSpanField.ToolTip = ElectrostaticsAnalysisAvailability.MinimumSpanToolTip;
             Set(IncludeBufferCheck, state.IncludeBufferInIonicStrengthCalc);
             Set(OnlineChecksCheck, state.PerformOnlineChecksOnLaunch);
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
