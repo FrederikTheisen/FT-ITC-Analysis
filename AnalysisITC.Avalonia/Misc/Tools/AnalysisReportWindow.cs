@@ -1523,6 +1523,7 @@ namespace AnalysisITC.Avalonia.Tools
             uncertaintyCombo.IsEnabled = !value;
             outputPurposeCombo.IsEnabled = !value;
             injectionTablesCheck.IsEnabled = !value && selectedResults.Count > 0;
+            expandedExplanationsCheck.IsEnabled = !value && selectedResults.Count > 0;
             condenseRepeatedCheck.IsEnabled = !value
                 && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
             ApplyTraceabilityCheckboxState();

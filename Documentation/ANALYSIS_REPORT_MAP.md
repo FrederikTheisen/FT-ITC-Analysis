@@ -524,6 +524,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 - Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
 - RMSD is always µJ, molar RMSD kJ/mol, whatever the energy unit.
 - Defaults: injection tables on, condense repeats on, expanded explanations off, advanced analyses off.
+- Both desktop report builders disable Expanded explanations while busy and restore it only when results are selected. A later change invalidates the preview; PDF export rebuilds stale content using the selected option (CR-034).
 
 ## Known issues
 
@@ -537,6 +538,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportRenderer.cs` (Avalonia).
 
 ## Revision notes
+
+- 2026-10-19 (CR-034): Avalonia now includes Expanded explanations in its existing busy policy, matching native macOS. The option remains fixed during construction; later changes still invalidate the preview and rebuild on export. A09/A12/A14 explanation content and triggers are unchanged.
 
 - 2026-10-16: Both builders use detached report drafts with explicit Save Report and Save Report As. Project save, autosave, preview, and PDF export do not commit drafts. Saved names follow the title, and Project Information Rename changes both. Result/supporting selections apply together and edit the current draft without automatically opening another report. A builder-only review warning covers changed result scope or results updated since the text was approved/confirmed, for both manual and AI text. Confirm persists review time/scope without changing fingerprints or I01. Save As preserves original fingerprint identity/date for v1 and v2, avoiding a freshness warning from copying alone. Printed I01 and interpretation provenance rows are unchanged.
 

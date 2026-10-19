@@ -225,6 +225,98 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ExpandedExplanationsStayDisabledDuringBuildAndRefreshExportAfterward()
+    {
+        ResetData();
+        GatedReportModel? gatedModel = null;
+        var fixture = CreateResult("Weighted explanation", data => gatedModel = new GatedReportModel(data));
+        fixture.Result.Solution.UseWeightedFitting = true;
+        fixture.Result.Solution.Solutions.Single().UseWeightedFitting = true;
+        DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+        var window = new AnalysisReportWindow(fixture.Result);
+        window.LeavePromptOverride = () => Task.FromResult(1);
+        var explanations = Field<CheckBox>(window, "expandedExplanationsCheck");
+        Task<bool>? construction = null;
+        try
+        {
+            Assert.False(explanations.IsChecked);
+            gatedModel!.HoldBackgroundEvaluation = true;
+            construction = (Task<bool>)typeof(AnalysisReportWindow)
+                .GetMethod("BuildAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(window, new object[] { true })!;
+            await gatedModel.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.False(construction.IsCompleted);
+            Assert.True(FieldValue<bool>(window, "busy"));
+            Assert.False(explanations.IsEnabled);
+            Assert.False(explanations.IsChecked);
+            gatedModel.Release();
+            Assert.True(await construction.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(explanations.IsEnabled);
+            Assert.False(explanations.IsChecked);
+            Assert.False(FieldValue<bool>(window, "previewStale"));
+            var original = Field<AnalysisReportDocument>(window, "currentDocument");
+            Assert.DoesNotContain(original.Sections.SelectMany(section => section.Blocks),
+                block => block.Title == "Reading fit diagnostics");
+
+            foreach (var expanded in new[] { true, false })
+            {
+                explanations.IsChecked = expanded;
+                Assert.True(FieldValue<bool>(window, "previewStale"));
+                Assert.Null(FieldValue<AnalysisReportDocument?>(window, "currentDocument"));
+                Assert.Null(FieldValue<AnalysisReportLayoutPlan?>(window, "currentPlan"));
+                Assert.Equal(expanded, Field<AnalysisReport>(window, "report").PresentationSettings.ExpandedExplanations);
+
+                Assert.True(await window.EnsureExportDocumentAsync());
+                var document = Field<AnalysisReportDocument>(window, "currentDocument");
+                var plan = Field<AnalysisReportLayoutPlan>(window, "currentPlan");
+                Assert.NotSame(original, document);
+                Assert.False(FieldValue<bool>(window, "previewStale"));
+                Assert.True(explanations.IsEnabled);
+                Assert.Equal(expanded, explanations.IsChecked);
+                Assert.Equal(expanded, document.Sections.SelectMany(section => section.Blocks)
+                    .OfType<AnalysisReportNoticeBlock>().Any(block => block.Title == "Reading fit diagnostics"));
+                Assert.Equal(expanded, plan.Pages.SelectMany(page => page.Fragments)
+                    .Any(fragment => fragment.Block?.Title == "Reading fit diagnostics"));
+                using var pdf = new MemoryStream();
+                Field<SkiaAnalysisReportRenderer>(window, "renderer").WritePdf(document, plan, pdf);
+                Assert.True(pdf.Length > 0);
+                var output = Environment.GetEnvironmentVariable("FTITC_CR034_QA_DIRECTORY");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output);
+                    File.WriteAllBytes(Path.Combine(output, expanded ? "expanded.pdf" : "concise.pdf"), pdf.ToArray());
+                }
+                original = document;
+            }
+        }
+        finally
+        {
+            gatedModel!.Release();
+            if (construction != null) await construction.WaitAsync(TimeSpan.FromSeconds(10));
+            await window.RequestCloseAsync();
+            gatedModel.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ExpandedExplanationsRemainDisabledAfterBusyWithoutSelectedResults()
+    {
+        ResetData();
+        var window = new AnalysisReportWindow();
+        try
+        {
+            var explanations = Field<CheckBox>(window, "expandedExplanationsCheck");
+            var setBusy = typeof(AnalysisReportWindow).GetMethod("SetBusy", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            setBusy.Invoke(window, new object?[] { true, null });
+            Assert.False(explanations.IsEnabled);
+            setBusy.Invoke(window, new object?[] { false, null });
+            Assert.False(explanations.IsEnabled);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void TraceabilityModeShowsReportIdAndPreservesItWhenDisabledAndReopened()
     {
         var fixture = CreateResult("Traceability report ID");
@@ -1021,7 +1113,29 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     static T FieldValue<T>(AnalysisReportWindow window, string name) =>
         (T)typeof(AnalysisReportWindow).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 
-    static (ExperimentData Data, AnalysisResult Result) CreateResult(string name)
+    sealed class GatedReportModel(ExperimentData data) : OneSetOfSites(data), IDisposable
+    {
+        readonly ManualResetEventSlim released = new(false);
+        public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool HoldBackgroundEvaluation;
+
+        public override double Evaluate(int injectionindex, bool withoffset = true)
+        {
+            if (HoldBackgroundEvaluation && !Dispatcher.UIThread.CheckAccess())
+            {
+                Entered.TrySetResult();
+                if (!released.Wait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("The report construction gate was not released.");
+            }
+            return base.Evaluate(injectionindex, withoffset);
+        }
+
+        public void Release() => released.Set();
+        public void Dispose() => released.Dispose();
+    }
+
+    static (ExperimentData Data, AnalysisResult Result) CreateResult(string name,
+        Func<ExperimentData, OneSetOfSites>? modelFactory = null)
     {
         var data = new ExperimentData(name + ".itc")
         {
@@ -1048,10 +1162,14 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             injection.SetPeakArea(new FloatWithError(-2e-6 + index * 1e-7, 1e-8));
             data.Injections.Add(injection);
         }
-        return (data, CreateResult(name, data));
+        return (data, CreateResult(name, modelFactory ?? (experiment => new OneSetOfSites(experiment)), data));
     }
 
-    static AnalysisResult CreateResult(string name, params ExperimentData[] experiments)
+    static AnalysisResult CreateResult(string name, params ExperimentData[] experiments) =>
+        CreateResult(name, experiment => new OneSetOfSites(experiment), experiments);
+
+    static AnalysisResult CreateResult(string name, Func<ExperimentData, OneSetOfSites> modelFactory,
+        params ExperimentData[] experiments)
     {
         var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
         {
@@ -1062,7 +1180,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         });
         var models = experiments.Select(data =>
         {
-            var model = new OneSetOfSites(data);
+            var model = modelFactory(data);
             model.InitializeParameters(data);
             model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
             model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6);
