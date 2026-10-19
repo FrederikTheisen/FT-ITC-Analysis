@@ -174,7 +174,8 @@ namespace AnalysisITC.UI.MacOS
             if (paths.Length == 0) return;
 
             var containsProjectFile = paths.Any(DataReader.IsProjectFile);
-            if (containsProjectFile && DataManager.SourceItems != null && DataManager.SourceItems.Count > 0)
+            if (containsProjectFile && ((DataManager.SourceItems != null && DataManager.SourceItems.Count > 0)
+                || DataManager.Reports.Count > 0))
             {
                 switch (AppDelegate.PromptProjectLoadAction())
                 {

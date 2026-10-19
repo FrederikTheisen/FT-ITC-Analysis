@@ -841,6 +841,10 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Consequence: A subsequent Save includes both projects' reports without an Append choice. The combined document is dirty, and Clear All remains available; immediate loss or a falsely clean document is not claimed.
 - Suggested direction: Include retained reports in the native document-content predicate used for project-open decisions.
 
+- Recheck: **2026-10-19; FIXED**. Native project-open content detection now includes retained reports, matching Avalonia's content predicate. Reports remain independently retained under ITC-032; the existing Replace/Append/Cancel prompt and `CloseAllDataAsync` save handling are reused. Raw imports, empty-document opening, Core readers, serialization and read-only `.ftitc` support are unchanged.
+- Validation: `bash AnalysisITC.MacOS.Tests/run-analysis-null-graph-tests.sh ProjectOpenReportOnlyTests` passed. The production native open queue and real AppKit alerts cover Cancel, Replace/Cancel at the dirty-save prompt, Replace/Clear All, Replace/Save and Append from a report-only state created by removing the final experiment. Checks cover report identity/text, save destination, dirty state, document identity, unchanged original files when appropriate, and strict saved/reopened report sets. Empty-document project open and a real raw `.itc` import also passed. The same regression failed before the predicate change with "Expected native project-open/save prompt was skipped". The harness substitutes only recent-document registration to avoid the system recent-items service.
+- Avalonia comparison: `HasDocumentContent` already includes reports; no Avalonia change required. Focused Project Information and decision-dialog tests passed (38 passed, one opt-in visual QA skipped).
+
 ## CR-059 — Public quota checks race with durable request admission
 
 - Priority: Medium
