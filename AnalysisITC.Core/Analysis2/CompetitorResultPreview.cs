@@ -123,7 +123,11 @@ namespace AnalysisITC.Core.Analysis
             && first.Value == second.Value && first.SD == second.SD && first.Lower == second.Lower && first.Upper == second.Upper;
 
         static string FormatValues(FloatWithError kd, FloatWithError enthalpy, EnergyUnit energyUnit) =>
-            $"Kd {FormatKd(kd)} · ΔH {FormatEnthalpy(enthalpy, energyUnit)}";
+            FormatValues(kd, enthalpy, FormatKd, value => FormatEnthalpy(value, energyUnit));
+
+        internal static string FormatValues(FloatWithError kd, FloatWithError enthalpy,
+            Func<FloatWithError, string> formatKd, Func<FloatWithError, string> formatEnthalpy) =>
+            $"Kd {formatKd(kd)} · ΔH {formatEnthalpy(enthalpy)}";
 
         static string FormatKd(FloatWithError value) => Usable(value)
             ? value.AsFormattedConcentration(withunit: true, style: UncertaintyDisplayStyle.StandardDeviation)

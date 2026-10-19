@@ -41,7 +41,8 @@ namespace AnalysisITC
                 if (!ReferenceEquals(sender, solver) || progress.OperationId != operationId
                     || !ProcessingActivity.IsCurrentOperation(progress.OperationId)) return;
                 stopping |= progress.Phase == FittingPhase.Stopping || SolverInterface.TerminateAnalysisFlag.Up;
-                if (progress.Fraction.HasValue) StatusBarManager.SetProgress(progress.Fraction.Value);
+                StatusBarManager.SetProgress(
+                    FittingStatusPresentation.IndicatorProgress(progress, stopping), keepVisibleAtOne: true);
                 StatusBarManager.SetStatus(stopping ? FittingStatusPresentation.StoppingAnalysis
                     : FittingStatusPresentation.Message(progress), 0, priority: 1);
                 StatusBarManager.SetSecondaryStatus(stopping ? "" : FittingStatusPresentation.Counter(progress), 0);

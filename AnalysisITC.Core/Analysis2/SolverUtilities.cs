@@ -1284,13 +1284,6 @@ namespace AnalysisITC.Core.Analysis
                 Progress = stepsize * (float)counter / bootiterations + (float)Step / TotalSteps,
             };
         }
-
-        internal SolverUpdate CopyWithProgress(float progress) => new SolverUpdate
-        {
-            Message = Message,
-            Progress = progress,
-            Time = Time,
-        };
     }
 
     [Description]

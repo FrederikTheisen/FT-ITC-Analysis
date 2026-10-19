@@ -190,9 +190,20 @@ namespace AnalysisITC.Core.Analysis.Models
         public FloatWithError EvaluateBootstrap(int inj, bool withoff = true)
         {
             if (Solution?.BootstrapSolutions == null || Solution.BootstrapSolutions.Count == 0) return new (EvaluateEnthalpy(inj, withoff));
-            if (BootstrappedEvaluationStorage != null && BootstrappedEvaluationStorage.IsValid(this, inj, withoff)) return BootstrappedEvaluationStorage.GetDataPoint(inj, withoff);
             if (BootstrappedEvaluationStorage == null || !BootstrappedEvaluationStorage.Matches(this))
-                BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
+            {
+                try
+                {
+                    BootstrappedEvaluationStorage = BuildBootstrapEvaluationStorage();
+                }
+                catch
+                {
+                    // A failure at another injection must not prevent this request from succeeding.
+                    // Keep a per-injection cache so the failed whole curve is not retried until invalidation.
+                    BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
+                }
+            }
+            if (BootstrappedEvaluationStorage.IsValid(this, inj, withoff)) return BootstrappedEvaluationStorage.GetDataPoint(inj, withoff);
 
             var results = new List<double>();
 
@@ -222,9 +233,46 @@ namespace AnalysisITC.Core.Analysis.Models
 
             return val;
 
-            //var val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
+        }
 
-            //return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
+        BootstrappedEvaluationStorage BuildBootstrapEvaluationStorage()
+        {
+            var storage = new BootstrappedEvaluationStorage(this);
+            var count = Data.InjectionCount;
+            var primary = new double[count];
+            var predictions = new List<double>[count];
+            for (var i = 0; i < count; i++)
+            {
+                primary[i] = EvaluateEnthalpy(i, withoffset: true);
+                predictions[i] = new List<double>(Solution.BootstrapSolutions.Count);
+            }
+
+            foreach (var solution in Solution.BootstrapSolutions)
+            {
+                var model = solution?.Model;
+                if (model == null) continue;
+                try
+                {
+                    // The objective scope also reuses adjacent heat states in a saved replicate curve.
+                    model.BeginObjectiveEvaluation();
+                    for (var i = 0; i < count; i++)
+                        predictions[i].Add(model.EvaluateEnthalpy(i, withoffset: true));
+                }
+                finally
+                {
+                    model.EndObjectiveEvaluation();
+                }
+            }
+
+            for (var i = 0; i < count; i++)
+            {
+                var values = predictions[i];
+                if (values.Count == 0) values.Add(primary[i]);
+                storage.SetDataPoint(i, true, Solution.SummarizeBootstrapDistribution(values, primary[i]));
+                storage.SetDataPoint(i, false, Solution.SummarizeBootstrapDistribution(
+                    values.Select(value => value - Solution.Offset), primary[i] - Solution.Offset));
+            }
+            return storage;
         }
 
         protected virtual void BeginObjectiveEvaluation() { }
@@ -746,10 +794,12 @@ namespace AnalysisITC.Core.Analysis.Models
                     Math.Min(lower, upper), Math.Max(lower, upper));
                 return new FloatWithError(fallback.Value, sd, Math.Min(lower, upper), Math.Max(lower, upper));
             }
-            var coordinate = ProfileLikelihoodRun?.Coordinates.FirstOrDefault(c =>
+            var localRun = ProfileLikelihoodRun;
+            var coordinate = localRun?.CanUseIntervals == true ? localRun.Coordinates.FirstOrDefault(c =>
                 c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Local
-                && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal));
+                && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal)) : null;
             var parentRun = ParentSolution?.ProfileLikelihoodRun;
+            if (parentRun?.CanUseIntervals != true) parentRun = null;
             var parentLocal = parentRun?.Coordinates.FirstOrDefault(c =>
                 c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Local
                 && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal));
@@ -949,6 +999,10 @@ namespace AnalysisITC.Core.Analysis.Models
     {
         readonly InjectionHeatMethod heatMethod;
         readonly int processingRevision;
+        readonly SolutionInterface solution;
+        readonly List<SolutionInterface> bootstrapSolutions;
+        readonly bool[] offsetReady;
+        readonly bool[] subtractedReady;
         public int BootstrapIterations { get; set; } = -1;
 
         public FloatWithError[] OffsetDataPoint { get; set; }
@@ -958,8 +1012,12 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             heatMethod = model.HeatMethod;
             processingRevision = model.Data.ProcessingRevision;
+            solution = model.Solution;
+            bootstrapSolutions = solution.BootstrapSolutions;
             OffsetDataPoint = new FloatWithError[model.Data.InjectionCount];
             SubtractedDataPoint = new FloatWithError[model.Data.InjectionCount];
+            offsetReady = new bool[model.Data.InjectionCount];
+            subtractedReady = new bool[model.Data.InjectionCount];
 
             BootstrapIterations = model.Solution.BootstrapSolutions.Count;
         }
@@ -967,17 +1025,15 @@ namespace AnalysisITC.Core.Analysis.Models
         public bool IsValid(Model model, int inj, bool withoffset)
         {
             if (!Matches(model)) return false;
-            if (model.Solution == null) return false;
-            if (model.Solution.BootstrapSolutions.Count != BootstrapIterations) return false;
-            if (withoffset && (OffsetDataPoint == null || OffsetDataPoint[inj].Value == 0)) return false;
-            if (!withoffset && (SubtractedDataPoint == null || SubtractedDataPoint[inj].Value == 0)) return false;
-
-            return true;
+            return withoffset ? OffsetDataPoint != null && offsetReady[inj]
+                : SubtractedDataPoint != null && subtractedReady[inj];
         }
 
         internal bool Matches(Model model) => heatMethod == model.HeatMethod
             && processingRevision == model.Data.ProcessingRevision
             && OffsetDataPoint.Length == model.Data.InjectionCount
+            && ReferenceEquals(solution, model.Solution)
+            && ReferenceEquals(bootstrapSolutions, model.Solution?.BootstrapSolutions)
             && model.Solution?.BootstrapSolutions.Count == BootstrapIterations;
 
         public void Evaluate(Model model)
@@ -987,8 +1043,16 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public void SetDataPoint(int inj, bool withoffset, FloatWithError dp)
         {
-            if (!withoffset) SubtractedDataPoint[inj] = dp;
-            else OffsetDataPoint[inj] = dp;
+            if (!withoffset)
+            {
+                SubtractedDataPoint[inj] = dp;
+                subtractedReady[inj] = true;
+            }
+            else
+            {
+                OffsetDataPoint[inj] = dp;
+                offsetReady[inj] = true;
+            }
         }
 
         public FloatWithError GetDataPoint(int inj, bool withoffset)

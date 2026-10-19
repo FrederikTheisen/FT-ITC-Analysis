@@ -201,6 +201,12 @@ namespace AnalysisITC.Core.Analysis
         public string CalibrationDescription { get; }
         public bool HasCompleteIntervals => Coordinates.Any(c => c.HasCompleteInterval);
 
+        /// <summary>
+        /// Whether completed coordinates can supply numerical uncertainty.
+        /// Completely failed runs retain their intervals for diagnostics only.
+        /// </summary>
+        public bool CanUseIntervals => Outcome != ErrorEstimationOutcome.CompleteFailure;
+
         public ProfileLikelihoodRunResult(double confidenceLevel, ProfileLikelihoodCalibration calibration,
             int n, int p, int q, int df, double baselineObjective, double targetIncrement,
             SolverAlgorithm algorithm, bool weighted, double tolerance, int candidateIterationLimit,

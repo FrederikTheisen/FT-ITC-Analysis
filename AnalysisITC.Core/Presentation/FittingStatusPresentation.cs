@@ -85,6 +85,14 @@ namespace AnalysisITC.Core.Presentation
             return new FittingStatusParts(action, position, name);
         }
         public static string Message(FittingProgress progress) => Parts(progress).Text;
+        public static double IndicatorProgress(FittingProgress progress, bool stopping = false)
+        {
+            if (stopping || progress.Phase != FittingPhase.EstimatingUncertainty
+                || !progress.Fraction.HasValue || progress.Fraction.Value < 0)
+                return -0.5;
+            return Math.Max(0, Math.Min(1, progress.Fraction.Value));
+        }
+
         public static string Counter(FittingProgress progress)
         {
             if (progress.Phase != FittingPhase.EstimatingUncertainty || !progress.Completed.HasValue || !progress.Total.HasValue) return "";

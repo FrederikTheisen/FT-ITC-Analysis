@@ -23,6 +23,7 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
     readonly MainWindow window;
     readonly AnalysisProgressCoordinator coordinator;
     readonly TextBlock secondary;
+    readonly ProgressBar progressBar;
     readonly IMainThreadDispatcher previousDispatcher;
     readonly int previousStep = SolverUpdate.Step;
     readonly int previousTotal = SolverUpdate.TotalSteps;
@@ -37,6 +38,7 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         window = new MainWindow();
         window.Show();
         secondary = window.FindControl<TextBlock>("SecondaryStatusText")!;
+        progressBar = window.FindControl<ProgressBar>("StatusProgressBar")!;
         coordinator = new AnalysisProgressCoordinator();
         StatusBarManager.SetDefaultSecondaryStatus("Example project");
         Dispatcher.UIThread.RunJobs();
@@ -78,6 +80,85 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         }
     }
 
+    [AvaloniaFact]
+    public void StatusBarShowsOnlyTheProgressBarAndKeepsAnalysisPhasesIndeterminate()
+    {
+        Assert.Null(window.FindControl<TextBlock>("StatusProgressText"));
+
+        var solver = new SolverInterface();
+        solver.Analyze();
+        solver.PublishProgress(FittingPhase.Fitting, fraction: 0.4f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsVisible);
+        Assert.True(progressBar.IsIndeterminate);
+
+        solver.PublishProgress(FittingPhase.AssessingBinding, fraction: 0.4f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsVisible);
+        Assert.True(progressBar.IsIndeterminate);
+
+        solver.ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood;
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 4, 0.4f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsVisible);
+        Assert.False(progressBar.IsIndeterminate);
+        Assert.Equal(40, progressBar.Value, precision: 5);
+
+        solver.PublishProgress(FittingPhase.AssessingBinding, fraction: 0.4f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsIndeterminate);
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 2, 4, 0.4f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(progressBar.IsIndeterminate);
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 2, 4);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsIndeterminate);
+
+        // Generic progress still treats one as completion and hides the bar.
+        StatusBarManager.SetProgress(1);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(progressBar.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void AdvancedAnalysisProgressKeepsItsExistingCompletionBehavior()
+    {
+        ResultAnalysisController.ReportCalculationStarted();
+        ResultAnalysisController.ReportCalculationProgress(1, 1);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(progressBar.IsVisible);
+
+        ResultAnalysisController.ReportAnalysisFinished(new AdvancedAnalysis(null!), 1, TimeSpan.Zero);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(progressBar.IsVisible);
+        Assert.Equal("Example project", secondary.Text);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(SolverTermination.Converged)]
+    [InlineData(SolverTermination.Cancelled)]
+    [InlineData(SolverTermination.Failed)]
+    public void CompletedUncertaintyAtOneRemainsVisibleUntilItsOwnerCompletes(SolverTermination termination)
+    {
+        var solver = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+        solver.Analyze();
+        solver.PublishProgress(FittingPhase.EstimatingUncertainty, 100, 100, 1f);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(progressBar.IsVisible);
+        Assert.False(progressBar.IsIndeterminate);
+        Assert.Equal(100, progressBar.Value);
+
+        new SolverInterface().ReportAnalysisFinished(Convergence(termination));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(progressBar.IsVisible);
+        Assert.Equal(100, progressBar.Value);
+
+        solver.ReportAnalysisFinished(Convergence(termination));
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(progressBar.IsVisible);
+    }
+
     [AvaloniaTheory]
     [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
     [InlineData(ErrorEstimationMethod.LeaveOneOut)]
@@ -102,6 +183,17 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
         Assert.Equal(method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap 40/100" : "Leave-one-out 2/5", secondary.Text);
         Assert.Equal(0.4, StatusBarManager.Progress, precision: 6);
+        Assert.True(progressBar.IsVisible);
+        Assert.False(progressBar.IsIndeterminate);
+        Assert.Equal(40, progressBar.Value, precision: 5);
+
+        if (method == ErrorEstimationMethod.BootstrapResiduals)
+            solver.ReportBootstrapProgress(20);
+        else
+            solver.ReportLeaveOneOutProgress(1, 5);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0.4, StatusBarManager.Progress, precision: 6);
+        Assert.Equal(method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap 40/100" : "Leave-one-out 2/5", secondary.Text);
     }
 
     [AvaloniaTheory]
@@ -118,6 +210,8 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         Assert.Equal("Estimating uncertainty…", window.StatusText.Text);
         Assert.Equal("Profile searches 2/8", secondary.Text);
         Assert.Equal(progress >= 0 ? 0.25 : -0.5, StatusBarManager.Progress);
+        Assert.True(progressBar.IsVisible);
+        Assert.Equal(progress >= 0, !progressBar.IsIndeterminate);
     }
 
     [AvaloniaTheory]
@@ -185,6 +279,7 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         Assert.Equal("Example project", secondary.Text);
         Assert.Equal("Analysis result updated", window.StatusText.Text);
         Assert.Equal(-1, StatusBarManager.Progress);
+        Assert.False(progressBar.IsVisible);
     }
 
     [AvaloniaFact]
@@ -206,6 +301,8 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("Assessing binding…", window.StatusText.Text);
         Assert.DoesNotContain("9/10", secondary.Text ?? "");
+        Assert.True(progressBar.IsVisible);
+        Assert.True(progressBar.IsIndeterminate);
     }
 
     [AvaloniaFact]
@@ -245,15 +342,27 @@ public sealed class AnalysisProgressCoordinatorTests : IDisposable
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(FittingStatusPresentation.StoppingAnalysis, window.StatusText.Text);
             Assert.Equal("Example project", secondary.Text);
-            Assert.Equal(0.5, StatusBarManager.Progress, precision: 6);
+            Assert.Equal(-0.5, StatusBarManager.Progress, precision: 6);
+            Assert.True(progressBar.IsVisible);
+            Assert.True(progressBar.IsIndeterminate);
+
+            foreach (var completed in new[] { 8, 3 })
+            {
+                solver.PublishProgress(FittingPhase.EstimatingUncertainty, completed, 10, completed / 10f);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(progressBar.IsIndeterminate);
+                Assert.Equal(FittingStatusPresentation.StoppingAnalysis, window.StatusText.Text);
+                Assert.Equal("Example project", secondary.Text);
+            }
 
             // Once observed, stopping stays latched for this operation.
             SolverInterface.TerminateAnalysisFlag.Lower();
-            solver.PublishProgress(FittingPhase.EstimatingUncertainty, 6, 10, 0.6f);
+            solver.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 10, 0.1f);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(FittingStatusPresentation.StoppingAnalysis, window.StatusText.Text);
             Assert.Equal("Example project", secondary.Text);
-            Assert.Equal(0.6, StatusBarManager.Progress, precision: 6);
+            Assert.Equal(-0.5, StatusBarManager.Progress, precision: 6);
+            Assert.True(progressBar.IsIndeterminate);
         }
         finally { SolverInterface.TerminateAnalysisFlag.Lower(); }
     }

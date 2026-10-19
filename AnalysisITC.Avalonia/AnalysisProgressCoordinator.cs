@@ -35,7 +35,6 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
     public AnalysisProgressCoordinator()
     {
         SolverInterface.AnalysisStarted += OnSolverStarted;
-        SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
         SolverInterface.ProgressChanged += OnFittingProgress;
         SolverInterface.FittingCompleted += OnSolverFinished;
 
@@ -53,14 +52,6 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         BeginOperation(OperationKind.Solver, sender);
     }
 
-    void OnAnalysisStepFinished(object? sender, EventArgs e)
-    {
-        // Preserve the existing indicator reset without inferring a phase.
-        lock (stateLock)
-            if (!ReferenceEquals(activeSolver, sender)) return;
-        UpdateProgress(OperationKind.Solver, 0);
-    }
-
     void OnFittingProgress(object? sender, FittingProgress progress)
     {
         lock (stateLock)
@@ -69,7 +60,7 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
             if (progress.Phase == FittingPhase.Stopping) stopping = true;
         }
         UpdateProgress(OperationKind.Solver, progress.Fraction ?? -1,
-            FittingStatusPresentation.Message(progress), FittingStatusPresentation.Counter(progress));
+            FittingStatusPresentation.Message(progress), FittingStatusPresentation.Counter(progress), progress);
     }
 
     void OnSolverFinished(object? sender, FittingCompletion completion)
@@ -133,7 +124,8 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         Dispatch(token, kind, () => StatusBarManager.StartInderminateProgress());
     }
 
-    void UpdateProgress(OperationKind kind, double progress, string? message = null, string? counter = null)
+    void UpdateProgress(OperationKind kind, double progress, string? message = null, string? counter = null,
+        FittingProgress? fittingProgress = null)
     {
         long token;
 
@@ -152,7 +144,12 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
                 if (kind == OperationKind.Solver && SolverInterface.TerminateAnalysisFlag.Up) stopping = true;
                 showStopping = kind == OperationKind.Solver && stopping;
             }
-            if (progress >= 0) StatusBarManager.SetProgress(Math.Clamp(progress, 0, 1));
+            var indicatorProgress = fittingProgress == null ? progress
+                : FittingStatusPresentation.IndicatorProgress(fittingProgress, showStopping);
+            if (fittingProgress != null)
+                StatusBarManager.SetProgress(indicatorProgress, keepVisibleAtOne: true);
+            else if (indicatorProgress >= 0)
+                StatusBarManager.SetProgress(Math.Clamp(indicatorProgress, 0, 1));
             if (showStopping)
             {
                 StatusBarManager.SetStatus(FittingStatusPresentation.StoppingAnalysis, 0, priority: 1);
@@ -230,7 +227,6 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
         }
 
         SolverInterface.AnalysisStarted -= OnSolverStarted;
-        SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
         SolverInterface.ProgressChanged -= OnFittingProgress;
         SolverInterface.FittingCompleted -= OnSolverFinished;
 

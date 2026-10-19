@@ -643,8 +643,8 @@ namespace AnalysisITC.Core.Interpretation
                     || family == ParameterType.Entropy1 || family == ParameterType.EntropyContribution1) continue;
                 if (family != ParameterType.Affinity1) { output[item.Key] = item.Value; continue; }
                 var kd = 1.0 / AnalysisITC.Core.Numerics.FWEMath.Pow(10.0, item.Value);
-                var coordinates = (solution.ProfileLikelihood?.Coordinates ?? Array.Empty<ProfileCoordinateResult>())
-                    .Concat(global?.ProfileLikelihood?.Coordinates ?? Array.Empty<ProfileCoordinateResult>());
+                var coordinates = new[] { solution.ProfileLikelihood, global?.ProfileLikelihood }
+                    .Where(run => run?.CanUseIntervals == true).SelectMany(run => run.Coordinates);
                 var coordinate = coordinates.FirstOrDefault(value => value.Id.Parameter == item.Key
                     && (value.Id.Scope == ParameterBoundaryScope.Shared || value.Id.ExperimentIdentity == solution.Data.UniqueID));
                 if (coordinate?.HasCompleteInterval == true)
@@ -690,10 +690,11 @@ namespace AnalysisITC.Core.Interpretation
                 && key.GetProperties().ParentType != ParameterType.Gibbs1
                 && key.GetProperties().ParentType != ParameterType.Entropy1
                 && key.GetProperties().ParentType != ParameterType.EntropyContribution1;
-            var uncertaintyComputed = !omitUncomputedUncertainty ||
+            var profile = solution.ProfileLikelihood ?? global?.ProfileLikelihood;
+            var uncertaintyComputed = profile?.CanUseIntervals != false && (!omitUncomputedUncertainty ||
                 (coordinate?.IsLocked != true && solution.ErrorMethod != ErrorEstimationMethod.None
                     && (solution.BootstrapSolutions?.Count > 0 || solution.ProfileLikelihood != null)
-                    && (reported.SD > 0 || reported.HasConfidenceInterval));
+                    && (reported.SD > 0 || reported.HasConfidenceInterval)));
             var lower = uncertaintyComputed ? Confidence95(reported, 0) : null;
             var upper = uncertaintyComputed ? Confidence95(reported, 1) : null;
             return new InterpretationParameterEvidence

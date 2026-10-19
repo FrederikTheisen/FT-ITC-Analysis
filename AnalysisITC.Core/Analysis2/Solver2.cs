@@ -77,10 +77,8 @@ namespace AnalysisITC.Core.Analysis
         internal Action<ProfileLikelihoodProgress> ProfileProgressObserver { get; set; }
 
         public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> ErrorEstimationIterationCompleted;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
         public static event EventHandler AnalysisStepFinished;
-        public static event EventHandler<SolverUpdate> SolverUpdated;
         public static event EventHandler<FittingProgress> ProgressChanged;
         public static event EventHandler<FittingCompletion> FittingCompleted;
         public ProcessingOperation Operation { get; private set; }
@@ -99,7 +97,7 @@ namespace AnalysisITC.Core.Analysis
         FittingProgress deliveredProgress;
         SolverInterface progressOwner;
         ProgressDeliveryState progressDelivery = new();
-        internal Action<FittingPhase, int?, int?, float?, ProgressIdentity?> ProgressObserver { get; set; }
+        internal Action<FittingPhase, int?, int?, float?> ProgressObserver { get; set; }
 
         bool HasMonotonicRefitProgress => ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
             || ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut;
@@ -109,40 +107,14 @@ namespace AnalysisITC.Core.Analysis
             progressOwner = owner;
             progressDelivery = owner.progressDelivery;
             var delivery = progressDelivery;
-            ProgressObserver = (phase, completed, total, fraction, identity) =>
+            ProgressObserver = (phase, completed, total, fraction) =>
             {
                 if (ReferenceEquals(owner.progressDelivery, delivery))
-                    owner.PublishProgress(phase, completed, total, fraction, position, name, identity);
+                    owner.PublishProgress(phase, completed, total, fraction, position, name);
             };
         }
 
-        internal void BeginUncertaintyProgressPass()
-        {
-            if (progressOwner != null || !HasMonotonicRefitProgress) return;
-            lock (progressGate)
-            {
-                currentCompleted = currentTotal = null;
-                deliveredProgress = null;
-                lock (progressDelivery.Gate)
-                {
-                    progressDelivery.Pass++;
-                    progressDelivery.HighestFraction = null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Captures the operation and uncertainty pass a report belongs to, so notifications
-        /// submitted separately for one report cannot be attributed to different passes.
-        /// </summary>
-        ProgressIdentity CaptureProgressIdentity()
-        {
-            var owner = progressOwner ?? this;
-            var delivery = progressDelivery;
-            lock (delivery.Gate) return new ProgressIdentity(delivery, owner.OperationId, delivery.Pass);
-        }
-
-        void DispatchProgress(float? fraction, bool uncertainty, Action<float?> notify, ProgressIdentity? identity = null)
+        void DispatchProgress(float? fraction, bool uncertainty, Action<float?> notify)
         {
             var owner = progressOwner ?? this;
             if (!owner.HasMonotonicRefitProgress)
@@ -151,12 +123,11 @@ namespace AnalysisITC.Core.Analysis
                 return;
             }
 
-            var delivery = identity?.Delivery ?? progressDelivery;
+            var delivery = progressDelivery;
             lock (delivery.Gate)
             {
                 if (!ReferenceEquals(owner.progressDelivery, delivery)) return;
-                delivery.Pending.Enqueue(new ProgressNotification(identity?.OperationId ?? owner.OperationId,
-                    identity?.Pass ?? delivery.Pass, uncertainty, fraction, notify));
+                delivery.Pending.Enqueue(new ProgressNotification(owner.OperationId, uncertainty, fraction, notify));
                 if (delivery.Draining) return;
                 delivery.Draining = true;
             }
@@ -200,8 +171,7 @@ namespace AnalysisITC.Core.Analysis
                             break;
                         }
                         notification = delivery.Pending.Dequeue();
-                        if (notification.OperationId != OperationId
-                            || notification.Uncertainty && notification.Pass != delivery.Pass) continue;
+                        if (notification.OperationId != OperationId) continue;
                         fraction = notification.Fraction;
                         if (notification.Uncertainty && fraction.HasValue && fraction.Value >= 0)
                         {
@@ -228,34 +198,23 @@ namespace AnalysisITC.Core.Analysis
             internal readonly object Gate = new();
             internal readonly Queue<ProgressNotification> Pending = new();
             internal bool Draining;
-            internal long Pass;
             internal float? HighestFraction;
-        }
-
-        internal readonly struct ProgressIdentity
-        {
-            internal ProgressIdentity(ProgressDeliveryState delivery, Guid operationId, long pass)
-            { Delivery = delivery; OperationId = operationId; Pass = pass; }
-            internal ProgressDeliveryState Delivery { get; }
-            internal Guid OperationId { get; }
-            internal long Pass { get; }
         }
 
         internal sealed class ProgressNotification
         {
             internal readonly Guid OperationId;
-            internal readonly long Pass;
             internal readonly bool Uncertainty;
             internal readonly float? Fraction;
             internal readonly Action<float?> Notify;
-            internal ProgressNotification(Guid operationId, long pass, bool uncertainty, float? fraction, Action<float?> notify)
-            { OperationId = operationId; Pass = pass; Uncertainty = uncertainty; Fraction = fraction; Notify = notify; }
+            internal ProgressNotification(Guid operationId, bool uncertainty, float? fraction, Action<float?> notify)
+            { OperationId = operationId; Uncertainty = uncertainty; Fraction = fraction; Notify = notify; }
         }
 
         internal void PublishProgress(FittingPhase phase, int? completed = null, int? total = null, float? fraction = null,
-            int memberPosition = 0, string memberName = null, ProgressIdentity? identity = null)
+            int memberPosition = 0, string memberName = null)
         {
-            if (ProgressObserver != null) { ProgressObserver(phase, completed, total, fraction, identity); return; }
+            if (ProgressObserver != null) { ProgressObserver(phase, completed, total, fraction); return; }
             if (Silent) return;
             FittingProgress snapshot;
             long sequence;
@@ -288,7 +247,7 @@ namespace AnalysisITC.Core.Analysis
                 sequence = ++progressSequence;
             }
             DispatchProgress(snapshot.Fraction, snapshot.Phase == FittingPhase.EstimatingUncertainty,
-                fraction => DeliverProgress(snapshot, sequence, fraction), identity);
+                fraction => DeliverProgress(snapshot, sequence, fraction));
         }
 
         void DeliverProgress(FittingProgress snapshot, long sequence, float? fraction)
@@ -546,17 +505,9 @@ namespace AnalysisITC.Core.Analysis
 
         void ReportErrorEstimationProgress(int iteration, int total)
         {
-            // Capture the member step now; a posted dispatch could otherwise read the next member's step.
             var background = Silent ? SolverUpdate.BackgroundBootstrapUpdate(iteration, total) : null;
-            // Both notifications belong to the pass current when the report was made.
-            var identity = CaptureProgressIdentity();
             PublishProgress(FittingPhase.EstimatingUncertainty, iteration, total,
-                background?.Progress ?? iteration / (float)total, identity: identity);
-            DispatchProgress(background?.Progress ?? iteration / (float)total, uncertainty: true, fraction =>
-            {
-                if (background == null) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, total, fraction.Value));
-                else SolverUpdated?.Invoke(null, background.CopyWithProgress(fraction.Value));
-            }, identity);
+                background?.Progress ?? iteration / (float)total);
         }
 
         public void ReportAnalysisStepFinished()
@@ -584,19 +535,10 @@ namespace AnalysisITC.Core.Analysis
         public void ReportSolverUpdate(SolverUpdate update)
         {
             if (Silent) return;
-            var snapshot = update.CopyWithProgress(update.Progress);
+            var progress = update.Progress;
             FittingPhase phase;
             lock (progressGate) phase = currentPhase;
-            // Both notifications belong to the pass current when the update was made.
-            var identity = CaptureProgressIdentity();
-            if (snapshot.Progress >= 0)
-            {
-                PublishProgress(phase, fraction: snapshot.Progress, identity: identity);
-            }
-            DispatchProgress(snapshot.Progress, phase == FittingPhase.EstimatingUncertainty, fraction =>
-            {
-                SolverUpdated?.Invoke(null, snapshot.CopyWithProgress(fraction.Value));
-            }, identity);
+            if (progress >= 0) PublishProgress(phase, fraction: progress);
         }
 
         public virtual void Analyze()
@@ -743,7 +685,6 @@ namespace AnalysisITC.Core.Analysis
 
         internal void EstimateUncertainty(SolverConvergence convergence)
         {
-            BeginUncertaintyProgressPass();
             switch (ErrorEstimationMethod)
             {
                 case ErrorEstimationMethod.BootstrapResiduals:
@@ -1529,7 +1470,7 @@ namespace AnalysisITC.Core.Analysis
             Model.Solution.ErrorMethod = ErrorEstimationMethod.ProfileLikelihood;
             Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
             Model.Solution.SetBootstrapSolutions(new List<SolutionInterface>());
-            if (run.Outcome != ErrorEstimationOutcome.CompleteFailure)
+            if (run.CanUseIntervals)
                 foreach (var result in run.Coordinates.Where(r => r.HasCompleteInterval))
                     Model.Solution.Parameters[result.Id.Parameter] = result.ToFloatWithError();
             Model.Solution.Convergence.ApplyErrorEstimationResult(
@@ -1633,6 +1574,8 @@ namespace AnalysisITC.Core.Analysis
                             solver.ErrorEstimationMethod = ErrorEstimationMethod;
                             solver.BootstrapIterations = BootstrapIterations;
                             solver.SolverAlgorithm = SolverAlgorithm;
+                            solver.MaxOptimizerIterations = MaxOptimizerIterations;
+                            solver.SolverToleranceModifier = SolverToleranceModifier;
                             solver.UseErrorWeightedFitting = this.UseErrorWeightedFitting;
                             solver.Silent = true;
                             if (deferEstimation) solver.UncertaintyGate = _ => UncertaintyDecision.Defer;
@@ -2093,7 +2036,7 @@ namespace AnalysisITC.Core.Analysis
                 }
                 member.Solution?.SetBootstrapSolutions(new List<SolutionInterface>());
             }
-            if (run.Outcome != ErrorEstimationOutcome.CompleteFailure)
+            if (run.CanUseIntervals)
             foreach (var result in run.Coordinates.Where(r => r.HasCompleteInterval))
             {
                 var fwe = result.ToFloatWithError();

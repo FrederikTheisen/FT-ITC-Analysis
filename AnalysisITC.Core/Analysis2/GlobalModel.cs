@@ -627,7 +627,7 @@ namespace AnalysisITC.Core.Analysis
 
         internal void ApplyProfileTemperatureCoordinates(ProfileLikelihoodRunResult run)
         {
-            if (run == null || run.Outcome == ErrorEstimationOutcome.CompleteFailure) return;
+            if (run?.CanUseIntervals != true) return;
 
             var changed = false;
             foreach (var slot in ThermodynamicParameterSlots.All)

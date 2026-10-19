@@ -180,6 +180,67 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains("Couldn’t save file", statuses);
         }
 
+        [Fact]
+        public void ProgressUpdatesCaptureKeepVisibleAtOneAndOrdinaryUpdatesResetIt()
+        {
+            var updates = new ConcurrentQueue<ProgressIndicatorEventData>();
+            EventHandler<ProgressIndicatorEventData> handler = (_, update) => updates.Enqueue(update);
+            StatusBarManager.ProgressUpdate += handler;
+            try
+            {
+                StatusBarManager.SetProgress(1, keepVisibleAtOne: true);
+                StatusBarManager.SetProgress(0.5);
+                StatusBarManager.SetProgress(1);
+
+                var snapshots = updates.ToArray();
+                Assert.Equal(3, snapshots.Length);
+                Assert.Equal(1, snapshots[0].Progress);
+                Assert.True(snapshots[0].KeepVisibleAtOne);
+                Assert.True(snapshots[0].IsProgressFinished);
+                Assert.Equal(0.5, snapshots[1].Progress);
+                Assert.False(snapshots[1].KeepVisibleAtOne);
+                Assert.Equal(1, snapshots[2].Progress);
+                Assert.False(snapshots[2].KeepVisibleAtOne);
+                Assert.True(snapshots[0].KeepVisibleAtOne);
+            }
+            finally
+            {
+                StatusBarManager.ProgressUpdate -= handler;
+                StatusBarManager.SetProgress(1);
+            }
+        }
+
+        [Fact]
+        public void IndeterminateProgressAndClearResetKeepVisibleAtOne()
+        {
+            var updates = new ConcurrentQueue<ProgressIndicatorEventData>();
+            EventHandler<ProgressIndicatorEventData> handler = (_, update) => updates.Enqueue(update);
+            StatusBarManager.ProgressUpdate += handler;
+            try
+            {
+                foreach (var reset in new Action[]
+                {
+                    StatusBarManager.StartInderminateProgress,
+                    StatusBarManager.StopIndeterminateProgress,
+                    StatusBarManager.ClearAppStatus,
+                })
+                {
+                    StatusBarManager.SetProgress(1, keepVisibleAtOne: true);
+                    var beforeReset = updates.Count;
+                    reset();
+                    var snapshots = updates.ToArray();
+
+                    Assert.True(snapshots[beforeReset - 1].KeepVisibleAtOne);
+                    Assert.False(snapshots[^1].KeepVisibleAtOne);
+                }
+            }
+            finally
+            {
+                StatusBarManager.ProgressUpdate -= handler;
+                StatusBarManager.SetProgress(1);
+            }
+        }
+
         [Theory]
         [InlineData("Résumé Δ.ftxtc")]
         [InlineData("A very long project filename used to verify status trimming behavior.ftxtc")]

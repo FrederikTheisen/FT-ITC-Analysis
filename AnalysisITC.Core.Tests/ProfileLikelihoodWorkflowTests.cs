@@ -211,6 +211,7 @@ public sealed class ProfileLikelihoodWorkflowTests
         Assert.All(global.Solution.Solutions, member => Assert.NotNull(member.ProfileLikelihoodRun));
         Assert.All(global.Solution.Solutions, member =>
         {
+            Assert.Equal(30, member.ProfileLikelihoodRun.CandidateIterationLimit);
             Assert.Equal(4, member.ProfileLikelihoodRun.N);
             Assert.Equal(1, member.ProfileLikelihoodRun.P);
             Assert.Equal(3, member.ProfileLikelihoodRun.Df);

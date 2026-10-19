@@ -145,12 +145,16 @@ public sealed class ClassifiedOutputPolicyTests
         Assert.Contains("Binding assessment", clipboard.Value);
         Assert.Contains(data.Name, clipboard.Value);
         Assert.Contains("cal/mol", clipboard.Value);
-        Assert.DoesNotContain("N_value", ParseCsvLine(clipboard.Value.Split(new[] { "\r\n", "\n" },
-            System.StringSplitOptions.RemoveEmptyEntries)[0]));
+        using var parser = new Microsoft.VisualBasic.FileIO.TextFieldParser(new System.IO.StringReader(clipboard.Value));
+        parser.SetDelimiters("\t");
+        var headers = parser.ReadFields();
+        Assert.DoesNotContain("N_value", headers);
+        Assert.Equal(headers.Length, parser.ReadFields().Length);
+        Assert.True(parser.EndOfData);
     }
 
     [Fact]
-    public void MixedIndependentClipboardShowsMixedLabelAndMemberCounts()
+    public void MixedIndependentClipboardShowsEachMemberAssessment()
     {
         var result = IndependentAssessmentTests.CreateIndependentResult(out var members);
         result.RestoreMemberAssessment(members[0].Guid, BindingAssessmentState.Restore(
@@ -168,7 +172,14 @@ public sealed class ClassifiedOutputPolicyTests
             PlatformServices.RegisterClipboardService(null);
         }
 
-        Assert.Contains("Mixed assessments; 1 of 2 binding detected, 1 of 2 inconclusive", clipboard.Value);
+        using var parser = new Microsoft.VisualBasic.FileIO.TextFieldParser(new System.IO.StringReader(clipboard.Value));
+        parser.SetDelimiters("\t");
+        var headers = parser.ReadFields();
+        var assessmentIndex = System.Array.IndexOf(headers, "Binding assessment");
+        Assert.True(assessmentIndex >= 0);
+        Assert.Equal("Binding detected", parser.ReadFields()[assessmentIndex]);
+        Assert.Equal("Inconclusive", parser.ReadFields()[assessmentIndex]);
+        Assert.True(parser.EndOfData);
     }
 
     [Fact]

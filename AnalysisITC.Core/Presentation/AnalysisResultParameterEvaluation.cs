@@ -123,11 +123,9 @@ namespace AnalysisITC.Core.Presentation
             var kelvin = temperatureCelsius + 273.15;
             if (dependence == null || kelvin <= 0) return null;
             var gibbs = dependence.Evaluate(temperatureCelsius);
-            var affinity = dependence.Replicates.Count > 0
-                ? FloatWithError.FromDistributionInPlace(
-                    dependence.Replicates.Select(curve => Math.Exp(curve.EvaluateScalar(temperatureCelsius) / (kelvin * Energy.R))).ToList(),
-                    Math.Exp(gibbs.Value / (kelvin * Energy.R)))
-                : FWEMath.Exp(gibbs / (kelvin * Energy.R));
+            // Summary affinity follows the selected Gibbs-based convention, including
+            // bootstrap summaries: propagate SD and transform the interval endpoints.
+            var affinity = FWEMath.Exp(gibbs / (kelvin * Energy.R));
             return new AggregateParameterSummary(affinity, dependence.Kind, dependence.Count);
         }
 
@@ -428,16 +426,13 @@ namespace AnalysisITC.Core.Presentation
                     && HasDirectSharedProfileCoordinate(result, gibbsKey);
                 rows.Add(EnergyRow(ParameterName(gibbsKey), "∆G", gibbs, gibbsSummary, energyUnit, uncertaintyStyle, profile, directProfile));
 
-                var kelvin = temperatureCelsius + 273.15;
-
-                if (kelvin <= 0) return;
-
-                var kdExponent = gibbs / (kelvin * Energy.R);
-                var kd = FWEMath.Exp(kdExponent.FloatWithError);
+                var affinitySummary = summaries.EvaluateSummaryParameter(affinityKey, temperatureCelsius);
+                if (affinitySummary == null) return;
+                var kd = affinitySummary.Value;
                 rows.Add(new AnalysisResultParameterEvaluationRow(
                     ParameterName(affinityKey),
                     kd.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
-                    ConcentrationTooltip("Kd", kd, gibbsSummary, profile)));
+                    ConcentrationTooltip("Kd", kd, affinitySummary, profile)));
             }
         }
 
@@ -570,7 +565,7 @@ namespace AnalysisITC.Core.Presentation
 
         static bool HasDirectSharedProfileCoordinate(AnalysisResult result, ParameterType parameter) =>
             result?.Solution?.ProfileLikelihoodRun is ProfileLikelihoodRunResult run
-            && run.Outcome != ErrorEstimationOutcome.CompleteFailure
+            && run.CanUseIntervals
             && run.Coordinates?.Any(coordinate =>
                 coordinate.Id.Scope == ParameterBoundaryScope.Shared
                 && coordinate.Id.Parameter == parameter

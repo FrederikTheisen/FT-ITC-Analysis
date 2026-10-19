@@ -367,7 +367,7 @@ public class LinkedThermodynamicUncertaintyTests
     }
 
     [Fact]
-    public void BootstrapAffinitySummaryTransformsSamplesBeforeComputingSpread()
+    public void BootstrapAffinitySummaryPropagatesSummarizedGibbsUncertainty()
     {
         var solution = Create(VariableConstraint.SameForAll);
         solution.RestoreGlobalBootstrapSolutions(new List<GlobalSolution> {
@@ -377,7 +377,9 @@ public class LinkedThermodynamicUncertaintyTests
         var first = Math.Exp(-24000 / (300 * Energy.R));
         var second = Math.Exp(-27000 / (300 * Energy.R));
         Assert.Equal(center, actual.Value, 12);
-        Assert.Equal(Math.Sqrt(((first - center) * (first - center) + (second - center) * (second - center)) / 2), actual.SD, 12);
+        // Gibbs deviations from the primary fit are +1000 and -2000 J/mol.
+        var gibbsSd = Math.Sqrt((1000.0 * 1000 + 2000.0 * 2000) / 2);
+        Assert.Equal(center * gibbsSd / (300 * Energy.R), actual.SD, 12);
         Assert.Equal(second, actual.Lower, 12);
         Assert.Equal(first, actual.Upper, 12);
     }

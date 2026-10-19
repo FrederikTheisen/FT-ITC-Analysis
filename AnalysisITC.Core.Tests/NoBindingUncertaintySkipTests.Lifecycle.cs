@@ -9,6 +9,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Presentation;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests;
@@ -203,37 +204,37 @@ public sealed partial class NoBindingUncertaintySkipTests
         SolverConvergence finishedConvergence = null;
         var cancellationRaised = false;
         var finishedRefits = 0;
-        var fittingUpdates = 0;
-        float? backgroundStart = null;
-        EventHandler<SolverUpdate> updates = (_, update) =>
+        SolverInterface updaterSolver = null;
+        Guid? operationId = null;
+        EventHandler<TerminationFlag> started = (sender, _) =>
         {
-            // Skip the per-member primary-fit updates. The next empty-message update is
-            // the silent estimator's zero-refit progress; advancement means a refit finished.
-            if (scope != BindingAssessmentScope.Independent || update.Message.Length != 0) return;
-            if (fittingUpdates < models.Length) { fittingUpdates++; return; }
-            if (!backgroundStart.HasValue) { backgroundStart = update.Progress; return; }
-            if (update.Progress <= backgroundStart.Value) return;
+            if (updaterSolver == null && sender is SolverInterface { IsResultUpdate: true, Silent: false } solver)
+            {
+                updaterSolver = solver;
+                operationId = solver.OperationId;
+            }
+        };
+        EventHandler<FittingProgress> updates = (sender, update) =>
+        {
+            if (!ReferenceEquals(sender, updaterSolver) || update.OperationId != operationId
+                || update.Method != method || update.Phase != FittingPhase.EstimatingUncertainty
+                || !update.Completed.HasValue || !update.Total.HasValue || update.Completed.Value <= 0
+                || update.Completed.Value >= update.Total.Value) return;
             if (!cancellationRaised)
             {
-                finishedRefits++;
+                finishedRefits = update.Completed.Value;
                 cancellationRaised = true;
                 SolverInterface.TerminateAnalysisFlag.Raise();
             }
         };
-        EventHandler<Tuple<int, int, float>> iterations = (_, update) =>
-        {
-            if (scope != BindingAssessmentScope.Pooled || update.Item1 < 1 || cancellationRaised) return;
-            finishedRefits = update.Item1;
-            cancellationRaised = true;
-            SolverInterface.TerminateAnalysisFlag.Raise();
-        };
         EventHandler<SolverConvergence> finished = (sender, value) =>
         {
+            if (!ReferenceEquals(sender, updaterSolver)) return;
             running = sender as SolverInterface;
             finishedConvergence = value;
         };
-        SolverInterface.SolverUpdated += updates;
-        SolverInterface.ErrorEstimationIterationCompleted += iterations;
+        SolverInterface.AnalysisStarted += started;
+        SolverInterface.ProgressChanged += updates;
         SolverInterface.AnalysisFinished += finished;
         try
         {
@@ -260,8 +261,8 @@ public sealed partial class NoBindingUncertaintySkipTests
         }
         finally
         {
-            SolverInterface.SolverUpdated -= updates;
-            SolverInterface.ErrorEstimationIterationCompleted -= iterations;
+            SolverInterface.AnalysisStarted -= started;
+            SolverInterface.ProgressChanged -= updates;
             SolverInterface.AnalysisFinished -= finished;
             SolverInterface.TerminateAnalysisFlag.Lower();
         }
@@ -338,14 +339,27 @@ public sealed partial class NoBindingUncertaintySkipTests
         var date = result.Date;
         var attachments = models.Select(model => model.Data.Model).ToArray();
         var cancelled = false;
-        EventHandler<SolverUpdate> handler = (_, update) =>
+        SolverInterface updaterSolver = null;
+        Guid? operationId = null;
+        EventHandler<TerminationFlag> started = (sender, _) =>
         {
-            if (cancelled || !update.Message.StartsWith("Profile likelihood:", StringComparison.Ordinal)
-                || update.Progress <= 0 || update.Progress >= 1) return;
+            if (updaterSolver == null && sender is SolverInterface { IsResultUpdate: true, Silent: false } active)
+            {
+                updaterSolver = active;
+                operationId = active.OperationId;
+            }
+        };
+        EventHandler<FittingProgress> handler = (sender, update) =>
+        {
+            if (cancelled || !ReferenceEquals(sender, updaterSolver) || update.OperationId != operationId
+                || update.Method != ErrorEstimationMethod.ProfileLikelihood
+                || update.Phase != FittingPhase.EstimatingUncertainty || !update.Completed.HasValue
+                || !update.Total.HasValue || update.Completed.Value <= 0 || update.Completed.Value >= update.Total.Value) return;
             cancelled = true;
             SolverInterface.TerminateAnalysisFlag.Raise();
         };
-        SolverInterface.SolverUpdated += handler;
+        SolverInterface.AnalysisStarted += started;
+        SolverInterface.ProgressChanged += handler;
         try
         {
             var convergence = await AnalysisResultUpdater.UpdateAsync(result).WaitAsync(TimeSpan.FromSeconds(60));
@@ -361,7 +375,8 @@ public sealed partial class NoBindingUncertaintySkipTests
         }
         finally
         {
-            SolverInterface.SolverUpdated -= handler;
+            SolverInterface.AnalysisStarted -= started;
+            SolverInterface.ProgressChanged -= handler;
             SolverInterface.TerminateAnalysisFlag.Lower();
         }
     }

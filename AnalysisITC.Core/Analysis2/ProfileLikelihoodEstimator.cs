@@ -137,7 +137,8 @@ namespace AnalysisITC.Core.Analysis
             var expectedFittedCoordinates = totalSides / 2;
             var missing = solution?.ProfileLikelihoodRun == null && solution?.Solutions != null
                 && members.Where(member => member?.Model?.Parameters.GetFittedParameters().Length > 0).Count(member => member?.ProfileLikelihoodRun == null) > 0;
-            var completeIntervals = runs.Sum(run => run.Coordinates.Count(c => c.HasCompleteInterval));
+            var completeIntervals = runs.Where(run => run.CanUseIntervals)
+                .Sum(run => run.Coordinates.Count(c => c.HasCompleteInterval));
             // A represented zero-coordinate NotRun is the expected result for a
             // member with nothing to profile. It must not downgrade completed
             // fitted members in an independent global analysis.

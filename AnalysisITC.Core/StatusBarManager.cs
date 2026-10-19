@@ -58,7 +58,7 @@ namespace AnalysisITC.Core.Application
         {
             private set
             {
-                progressstate.Progress = value;
+                progressstate = new ProgressIndicatorEventData(value);
 
                 ProgressUpdate?.Invoke(null, progressstate);
             }
@@ -157,9 +157,10 @@ namespace AnalysisITC.Core.Application
             PublishSecondaryStatus();
         }
 
-        public static void SetProgress(double progress)
+        public static void SetProgress(double progress, bool keepVisibleAtOne = false)
         {
-            Progress = progress;
+            progressstate = new ProgressIndicatorEventData(progress, keepVisibleAtOne);
+            ProgressUpdate?.Invoke(null, progressstate);
         }
 
         public static async void SetStatusScrolling(string status, int scrollcount = 2, int scrollspeed = 10)
@@ -469,6 +470,7 @@ namespace AnalysisITC.Core.Application
     public struct ProgressIndicatorEventData
     {
         public double Progress { get; set; }
+        public bool KeepVisibleAtOne { get; set; }
 
         public bool Indeterminate => this.Progress < 0;
         public bool IsDeterminate => !Indeterminate;
@@ -476,9 +478,10 @@ namespace AnalysisITC.Core.Application
         public bool IsProgressFinished => Math.Abs(Math.Abs(Progress) - 1) < double.Epsilon;
         
 
-        public ProgressIndicatorEventData(double progress)
+        public ProgressIndicatorEventData(double progress, bool keepVisibleAtOne = false)
         {
             Progress = progress;
+            KeepVisibleAtOne = keepVisibleAtOne;
         }
 
         public enum Response

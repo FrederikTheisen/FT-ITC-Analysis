@@ -171,17 +171,35 @@ public sealed partial class NoBindingUncertaintySkipTests
         var originalConvergence = original.Convergence;
         var originalSummary = originalConvergence.ErrorEstimationSummary;
         var cancelled = false;
-        EventHandler<SolverUpdate> handler = (_, progress) =>
+        SolverInterface updaterSolver = null;
+        Guid? operationId = null;
+        EventHandler<TerminationFlag> started = (sender, _) =>
         {
-            if (cancelled || !progress.Message.StartsWith("Profile likelihood:", StringComparison.Ordinal)
-                || progress.Progress <= 0 || progress.Progress >= 1) return;
+            if (updaterSolver == null && sender is SolverInterface { IsResultUpdate: true, Silent: false } active)
+            {
+                updaterSolver = active;
+                operationId = active.OperationId;
+            }
+        };
+        EventHandler<FittingProgress> handler = (sender, progress) =>
+        {
+            if (cancelled || !ReferenceEquals(sender, updaterSolver) || progress.OperationId != operationId
+                || progress.Method != ErrorEstimationMethod.ProfileLikelihood
+                || progress.Phase != FittingPhase.EstimatingUncertainty || !progress.Completed.HasValue
+                || !progress.Total.HasValue || progress.Completed.Value <= 0 || progress.Completed.Value >= progress.Total.Value) return;
             cancelled = true;
             SolverInterface.TerminateAnalysisFlag.Raise();
         };
         SolverConvergence returned;
-        SolverInterface.SolverUpdated += handler;
+        SolverInterface.AnalysisStarted += started;
+        SolverInterface.ProgressChanged += handler;
         try { returned = await AnalysisResultUpdater.UpdateAsync(result); }
-        finally { SolverInterface.SolverUpdated -= handler; SolverInterface.TerminateAnalysisFlag.Lower(); }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= started;
+            SolverInterface.ProgressChanged -= handler;
+            SolverInterface.TerminateAnalysisFlag.Lower();
+        }
         Assert.True(cancelled);
         Assert.Same(original, result.Solution);
         Assert.Same(originalConvergence, result.Solution.Convergence);

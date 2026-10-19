@@ -202,12 +202,13 @@ namespace AnalysisITC.Core.Tests
             }
 
             var clipboardRows = clipboard.Value.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            var clipboardSummary = clipboardRows.Last();
+            Assert.Equal(members.Count + 1, clipboardRows.Length);
+            var clipboardHeaders = clipboardRows[0].Split('\t');
+            var enthalpyIndex = Array.IndexOf(clipboardHeaders, "∆H1 (J/mol)_value");
+            Assert.True(enthalpyIndex >= 0);
+            Assert.Equal("10", clipboardRows[1].Split('\t')[enthalpyIndex]);
+            Assert.Equal("30", clipboardRows[2].Split('\t')[enthalpyIndex]);
             var parameterOrder = members[0].ReportParameters.Keys.ToList();
-
-            Assert.StartsWith("mean (Combined SD; Approximate propagated interval for local aggregates),", clipboardSummary);
-            Assert.Contains("," + AnalysisResultParameterEvaluator
-                .DefaultEvaluationTemperatureCelsius(result).ToString("F2") + ",", clipboardSummary);
 
             var table = AnalysisResultTableExporter.Build(
                 new[] { result },
@@ -563,7 +564,7 @@ namespace AnalysisITC.Core.Tests
             return data;
         }
 
-        static (List<ExperimentData> experiments, AnalysisResult result) CreateGlobalResult(
+        internal static (List<ExperimentData> experiments, AnalysisResult result) CreateGlobalResult(
             int count,
             Action<List<SolutionInterface>> configureMembers = null,
             bool exposeTemperatureDependence = true)

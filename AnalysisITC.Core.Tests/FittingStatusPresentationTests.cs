@@ -15,6 +15,33 @@ namespace AnalysisITC.Core.Tests;
 [Collection(SolverEventCollectionDefinition.Name)]
 public sealed class FittingStatusPresentationTests
 {
+    [Theory]
+    [InlineData(FittingPhase.Fitting, 0.5f, false, -0.5)]
+    [InlineData(FittingPhase.AssessingBinding, 0.5f, false, -0.5)]
+    [InlineData(FittingPhase.Stopping, 0.5f, false, -0.5)]
+    [InlineData(FittingPhase.EstimatingUncertainty, null, false, -0.5)]
+    [InlineData(FittingPhase.EstimatingUncertainty, -0.1f, false, -0.5)]
+    [InlineData(FittingPhase.EstimatingUncertainty, 0.25f, false, 0.25)]
+    [InlineData(FittingPhase.EstimatingUncertainty, 1.5f, false, 1)]
+    [InlineData(FittingPhase.EstimatingUncertainty, 0.25f, true, -0.5)]
+    public void IndicatorProgressIsDeterminateOnlyForUncertaintyEstimation(
+        FittingPhase phase, float? fraction, bool stopping, double expected)
+    {
+        var progress = new FittingProgress(Guid.NewGuid(), phase, FittingScope.Single, fraction: fraction);
+        Assert.Equal(expected, FittingStatusPresentation.IndicatorProgress(progress, stopping));
+    }
+
+    [Fact]
+    public void StoppingProgressIgnoresTheUncertaintyFraction()
+    {
+        foreach (var fraction in new[] { 0.8f, 0.2f })
+        {
+            var progress = new FittingProgress(Guid.NewGuid(), FittingPhase.EstimatingUncertainty,
+                FittingScope.Single, fraction: fraction);
+            Assert.Equal(-0.5, FittingStatusPresentation.IndicatorProgress(progress, stopping: true));
+        }
+    }
+
     public static IEnumerable<object[]> RunningMessages()
     {
         yield return new object[] { FittingPhase.Fitting, FittingScope.Single, "Fitting: Sample B" };

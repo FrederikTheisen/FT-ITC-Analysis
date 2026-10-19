@@ -1,4 +1,6 @@
+using System.Globalization;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
@@ -6,8 +8,54 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
+    [Collection("AutoSaveManager")]
     public sealed class CompetitorResultPreviewTests
     {
+        [Theory]
+        [InlineData("", "Source result missing\nSaved: Kd 2 ± 0.2 µM · ΔH -32 ± 1.2 kJ/mol")]
+        [InlineData("da-DK", "Source result missing\nSaved: Kd 2 ± 0,2 µM · ΔH -32 ± 1,2 kJ/mol")]
+        public void DesktopSavedValueFormattingRetainsItsCultureAndSdOnlyStyle(string culture, string expected)
+        {
+            var previousCulture = CultureInfo.CurrentCulture;
+            var previousPrecision = AppSettings.NumberPrecision;
+            var previousFamily = AppSettings.EnergyUnitFamily;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+                AppSettings.NumberPrecision = NumberPrecision.AllDecimals;
+                AppSettings.EnergyUnitFamily = AnalysisITC.Core.Units.EnergyUnitFamily.Joules;
+                var attribute = ExperimentAttribute.CompetitorResultReference("missing");
+                attribute.CapturedAffinity = new FloatWithError(2e-6, 0.2e-6, 1.6e-6, 2.4e-6);
+                attribute.CapturedEnthalpy = new FloatWithError(-32000, 1200, -34500, -29500);
+
+                var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source: null);
+
+                Assert.Equal(expected, preview.Tooltip);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+                AppSettings.NumberPrecision = previousPrecision;
+                AppSettings.EnergyUnitFamily = previousFamily;
+            }
+        }
+
+        [Fact]
+        public void ExplicitNumericProviderDoesNotChangeExistingCultureDependentOverload()
+        {
+            var previousCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("da-DK");
+                var value = new FloatWithError(1.25, 0.1, 1.05, 1.5);
+                Assert.Equal("1.25 ± 0.1 [1.05, 1.5]", value.ToString("G6",
+                    UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, CultureInfo.InvariantCulture));
+                Assert.Equal("1,25 ± 0,1 [1,05, 1,5]", value.ToString("G6",
+                    UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval));
+            }
+            finally { CultureInfo.CurrentCulture = previousCulture; }
+        }
+
         [Fact]
         public void MissingSourceShowsCapturedValuesWithoutChangingAttribute()
         {

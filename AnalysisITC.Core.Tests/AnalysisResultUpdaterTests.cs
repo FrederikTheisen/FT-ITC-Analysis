@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -718,11 +719,23 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
             }
         }
 
-        var progress = new List<float>();
-        var statuses = new List<FittingProgress>();
-        EventHandler<SolverUpdate> onUpdate = (_, update) => { if (update.Progress >= 0) progress.Add(update.Progress); };
-        EventHandler<FittingProgress> onStatus = (_, status) => statuses.Add(status);
-        SolverInterface.SolverUpdated += onUpdate;
+        var statuses = new ConcurrentQueue<FittingProgress>();
+        SolverInterface updaterSolver = null;
+        Guid? operationId = null;
+        EventHandler<TerminationFlag> onStarted = (sender, _) =>
+        {
+            if (updaterSolver == null && sender is SolverInterface { IsResultUpdate: true, Silent: false } solver)
+            {
+                updaterSolver = solver;
+                operationId = solver.OperationId;
+            }
+        };
+        EventHandler<FittingProgress> onStatus = (sender, status) =>
+        {
+            if (ReferenceEquals(sender, updaterSolver) && status.OperationId == operationId)
+                statuses.Enqueue(status);
+        };
+        SolverInterface.AnalysisStarted += onStarted;
         SolverInterface.ProgressChanged += onStatus;
         try
         {
@@ -730,17 +743,18 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         }
         finally
         {
-            SolverInterface.SolverUpdated -= onUpdate;
+            SolverInterface.AnalysisStarted -= onStarted;
             SolverInterface.ProgressChanged -= onStatus;
         }
 
+        var progress = statuses.Where(status => status.Fraction.HasValue)
+            .Select(status => status.Fraction.Value).ToArray();
         Assert.All(result.Solution.Solutions, member => Assert.NotEmpty(member.BootstrapSolutions));
         // Refit progress is reported during the uncertainty pass, not only at its end.
         Assert.Contains(progress, value => value > 0 && value < 1);
         Assert.All(progress, value => Assert.InRange(value, 0f, 1f + 1e-6f));
-        // Parallel refits may report counts slightly out of order; a reset would drop much further.
-        for (var index = 1; index < progress.Count; index++)
-            Assert.True(progress[index] >= progress[index - 1] - 0.02f,
+        for (var index = 1; index < progress.Length; index++)
+            Assert.True(progress[index] >= progress[index - 1],
                 $"Progress fell from {progress[index - 1]} to {progress[index]} at update {index}.");
         Assert.Equal(1f, progress.Last(), 1e-6f);
         Assert.Contains(statuses, status => status.Phase == FittingPhase.Fitting);

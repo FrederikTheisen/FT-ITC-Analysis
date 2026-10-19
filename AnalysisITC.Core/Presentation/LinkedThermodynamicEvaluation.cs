@@ -36,7 +36,7 @@ namespace AnalysisITC.Core.Presentation
                     c.Id.Parameter == key && c.Id.Scope == (local == null ? ParameterBoundaryScope.Shared : ParameterBoundaryScope.Local)
                     && (local == null || c.Id.ExperimentIdentity == local.Data.UniqueID));
                 var error = parameter.IsLocked ? new FloatWithError(value)
-                    : coordinate?.HasCompleteInterval == true ? coordinate.ToFloatWithError()
+                    : solution.ProfileLikelihoodRun.CanUseIntervals && coordinate?.HasCompleteInterval == true ? coordinate.ToFloatWithError()
                     : SummaryUncertainty.Unavailable(value);
                 curve.Contributions.Add(new SummaryErrorContribution(weight, slope, error.SD,
                     error.LowerWidth, error.UpperWidth, basis));

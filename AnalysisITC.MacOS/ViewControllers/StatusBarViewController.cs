@@ -136,7 +136,7 @@ namespace AnalysisITC
             ProgressIndicator.DoubleValue = Math.Max(0, Math.Min(100, update.Progress * 100));
             ProgressIndicator.Hidden = false;
 
-            if (!update.IsProgressFinished) return;
+            if (!update.IsProgressFinished || update.KeepVisibleAtOne) return;
 
             await Task.Delay(500);
             if (generation != Volatile.Read(ref progressUpdateGeneration)) return;

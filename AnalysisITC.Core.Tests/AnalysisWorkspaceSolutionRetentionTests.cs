@@ -12,6 +12,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 using AnalysisITC.Core.Utilities;
 
@@ -22,6 +23,76 @@ namespace AnalysisITC.Core.Tests;
 [Collection(AnalysisBuilderConstraintCollectionDefinition.Name)]
 public sealed class AnalysisWorkspaceSolutionRetentionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ModelSwitchResetsGlobalConstraintsInEitherMode(bool switchInGlobalMode)
+    {
+        DataManager.Init();
+        try
+        {
+            DataManager.AddData(new[]
+            {
+                CreateReadyExperiment("switch-first.itc", 20),
+                CreateReadyExperiment("switch-second.itc", 30),
+            });
+            var workspace = new AnalysisWorkspace();
+            workspace.SetGlobalMode(true);
+            workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            workspace.SetConstraint(ParameterType.Enthalpy1, VariableConstraint.TemperatureDependent);
+            workspace.SetConstraint(ParameterType.Offset, VariableConstraint.SameForAll);
+            Assert.True(workspace.IsReady);
+
+            workspace.SetGlobalMode(switchInGlobalMode);
+            workspace.SetModelType(AnalysisModel.SequentialBindingSites);
+
+            Assert.True(workspace.IsReady);
+            Assert.Empty(workspace.Session.Global.Constraints);
+            workspace.SetGlobalMode(true);
+            Assert.True(workspace.IsReady);
+            Assert.All(workspace.Context.ExposedConstraintOptions.Keys, key =>
+                Assert.Equal(VariableConstraint.None,
+                    workspace.Context.GlobalModelParameters.GetConstraintForParameter(key)));
+
+            workspace.SetSequentialConstraintFamily(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            Assert.True(workspace.IsReady);
+            workspace.SetModelType(AnalysisModel.OneSetOfSites);
+            workspace.SetModelType(AnalysisModel.SequentialBindingSites);
+            Assert.True(workspace.IsReady);
+            Assert.Empty(workspace.Session.Global.Constraints);
+        }
+        finally { DataManager.Clear(DataClearMode.ResetSession); }
+    }
+
+    [Fact]
+    public void RebuildModeSwitchAndSameModelSelectionPreserveGlobalConstraints()
+    {
+        DataManager.Init();
+        try
+        {
+            DataManager.AddData(new[]
+            {
+                CreateReadyExperiment("preserve-first.itc", 20),
+                CreateReadyExperiment("preserve-second.itc", 30),
+            });
+            var workspace = new AnalysisWorkspace();
+            workspace.SetGlobalMode(true);
+            workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            var expected = workspace.Session.Global.Constraints.ToArray();
+
+            workspace.Rebuild();
+            workspace.SetModelType(AnalysisModel.OneSetOfSites);
+            workspace.SetGlobalMode(false);
+            workspace.SetGlobalMode(true);
+
+            Assert.True(workspace.IsReady);
+            Assert.Equal(expected, workspace.Session.Global.Constraints.ToArray());
+            Assert.Equal(VariableConstraint.SameForAll,
+                workspace.Context.GlobalModelParameters.GetConstraintForParameter(ParameterType.Affinity1));
+        }
+        finally { DataManager.Clear(DataClearMode.ResetSession); }
+    }
+
     [Fact]
     public void RepeatFitDoesNotMutateTheRetainedFit()
     {
@@ -226,9 +297,14 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             {
                 if (ReferenceEquals(sender, second)) finished.TrySetResult(value);
             };
-            EventHandler<Tuple<int, int, float>> cancel = (_, _) => SolverInterface.TerminateAnalysisFlag.Raise();
+            EventHandler<FittingProgress> cancel = (sender, progress) =>
+            {
+                if (ReferenceEquals(sender, second) && progress.OperationId == second.OperationId
+                    && progress.Phase == FittingPhase.EstimatingUncertainty && progress.Completed == 0)
+                    SolverInterface.TerminateAnalysisFlag.Raise();
+            };
             SolverInterface.AnalysisFinished += onFinished;
-            if (duringUncertainty) SolverInterface.ErrorEstimationIterationCompleted += cancel;
+            if (duringUncertainty) SolverInterface.ProgressChanged += cancel;
             try
             {
                 second.Analyze();
@@ -249,7 +325,7 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             finally
             {
                 SolverInterface.AnalysisFinished -= onFinished;
-                SolverInterface.ErrorEstimationIterationCompleted -= cancel;
+                SolverInterface.ProgressChanged -= cancel;
             }
         }
         finally

@@ -127,7 +127,8 @@ namespace AnalysisITC.Core.Analysis
                     && candidateCompleteCount >= previousCompleteCount;
 
         static int CompleteProfileCoordinates(GlobalSolution solution)
-            => ProfileRuns(solution).Sum(run => run.Coordinates.Count(c => c.HasCompleteInterval));
+            => ProfileRuns(solution).Where(run => run.CanUseIntervals)
+                .Sum(run => run.Coordinates.Count(c => c.HasCompleteInterval));
 
         static IReadOnlyList<ProfileLikelihoodRunResult> ProfileRuns(GlobalSolution solution)
         {

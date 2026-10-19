@@ -288,7 +288,7 @@ namespace AnalysisITC.Core.Tests
             var reportOverview = report.Sections
                 .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
                 .Blocks.OfType<AnalysisReportTableBlock>().Single();
-            Assert.Contains(reportOverview.Columns, item => item.Id == "InformationCriteria");
+            Assert.DoesNotContain(reportOverview.Columns, item => item.Id == "InformationCriteria");
         }
 
         [Fact]

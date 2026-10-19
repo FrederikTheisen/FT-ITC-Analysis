@@ -46,7 +46,7 @@ static class UpdateResultStatusTests
                 CheckTenThousandBootstrapUpdates(primary, secondary, progress);
                 CheckMemberNames(primary);
                 CheckAdmission(analysis, primary);
-                CheckStaleProgress(primary, secondary);
+                CheckStaleProgress(primary, secondary, progress);
                 CheckToolControls();
 
                 CheckResultFeedback(primary);
@@ -80,6 +80,8 @@ static class UpdateResultStatusTests
                     solver.Analyze();
                     Pump();
                     Check(primary.StringValue == "Fitting…", "The fitting phase was not presented");
+                    Check(!indicator.Hidden && indicator.Indeterminate,
+                        "Fitting did not show the indeterminate native indicator");
                     var initialFraction = StatusBarManager.Progress;
                     solver.ReportAnalysisStepFinished();
                     Pump();
@@ -89,6 +91,8 @@ static class UpdateResultStatusTests
                     Pump();
                     Check(primary.StringValue == "Assessing binding…" && StatusBarManager.Progress == initialFraction,
                         "Assessment text reset the native indicator");
+                    Check(!indicator.Hidden && indicator.Indeterminate,
+                        "Assessment did not retain the indeterminate native indicator");
                     Publish(solver, FittingPhase.EstimatingUncertainty, null, null, null);
                     var counter = method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap 40/100"
                         : method == ErrorEstimationMethod.LeaveOneOut ? "Leave-one-out 2/5" : "Profile searches 3/8";
@@ -100,6 +104,16 @@ static class UpdateResultStatusTests
                         method + " phase or counter missing");
                     Check(Math.Abs(indicator.DoubleValue - (method == ErrorEstimationMethod.ProfileLikelihood ? 37.5 : 40)) < 0.00001,
                         method + " progress fraction changed");
+                    Check(!indicator.Hidden && !indicator.Indeterminate,
+                        method + " uncertainty did not show a determinate native indicator");
+                    Publish(solver, FittingPhase.EstimatingUncertainty, null, null, null);
+                    Pump();
+                    Check(!indicator.Hidden && indicator.Indeterminate && StatusBarManager.Progress == -0.5,
+                        method + " uncertainty without a fraction did not return to the spinner");
+                    if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(40);
+                    else if (method == ErrorEstimationMethod.LeaveOneOut) solver.ReportLeaveOneOutProgress(2, 5);
+                    else Publish(solver, FittingPhase.EstimatingUncertainty, 3, 8, 0.375f);
+                    Pump();
                     if (method != ErrorEstimationMethod.ProfileLikelihood)
                     {
                         if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(20);
@@ -110,6 +124,14 @@ static class UpdateResultStatusTests
                     }
                     StatusBarManager.SetDefaultSecondaryStatus("Example project [M]");
                     Check(secondary.StringValue == counter, "Project name replaced the active counter");
+
+                    if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(100);
+                    else if (method == ErrorEstimationMethod.LeaveOneOut) solver.ReportLeaveOneOutProgress(5, 5);
+                    else Publish(solver, FittingPhase.EstimatingUncertainty, 8, 8, 1);
+                    Pump();
+                    PumpFor(TimeSpan.FromMilliseconds(650));
+                    Check(!indicator.Hidden && !indicator.Indeterminate && Math.Abs(indicator.DoubleValue - 100) < 0.00001,
+                        method + " hid or changed its active 100% indicator before completion");
                     solver.ReportAnalysisFinished(Convergence(termination));
                     Pump();
                     Check(secondary.StringValue == "Example project [M]" && indicator.Hidden,
@@ -128,6 +150,10 @@ static class UpdateResultStatusTests
             Check(indicator.Hidden && primary.StringValue.StartsWith("Analysis failed:"),
                 "Missing completion did not produce a descriptive failure");
         }
+
+        StatusBarManager.SetProgress(1);
+        PumpFor(TimeSpan.FromMilliseconds(650));
+        Check(indicator.Hidden, "Ordinary generic progress completion lost its delayed hide behavior");
     }
 
     static void CheckTenThousandBootstrapUpdates(NSTextField primary, NSTextField secondary, NSProgressIndicator indicator)
@@ -174,7 +200,7 @@ static class UpdateResultStatusTests
     static void Publish(SolverInterface solver, FittingPhase phase, int? completed, int? total, float? fraction)
     {
         typeof(SolverInterface).GetMethod("PublishProgress", Instance).Invoke(solver,
-            new object[] { phase, completed, total, fraction, 0, null, null });
+            new object[] { phase, completed, total, fraction, 0, null });
     }
 
     static void CheckAdmission(DataAnalysisViewController analysis, NSTextField primary)
@@ -296,10 +322,11 @@ static class UpdateResultStatusTests
         }
     }
 
-    static void CheckStaleProgress(NSTextField primary, NSTextField secondary)
+    static void CheckStaleProgress(NSTextField primary, NSTextField secondary, NSProgressIndicator indicator)
     {
         var dispatcher = PlatformServices.MainThreadDispatcher;
         var queued = new QueuedDispatcher();
+        var terminationFlag = SolverInterface.TerminateAnalysisFlag;
         try
         {
             PlatformServices.RegisterMainThreadDispatcher(queued);
@@ -319,22 +346,47 @@ static class UpdateResultStatusTests
                 queued.Drain();
                 Pump();
                 Check(primary.StringValue == "Fitting…", "A queued older operation replaced the current status");
+                Check(!indicator.Hidden && indicator.Indeterminate,
+                    "A queued older operation hid the new operation's indicator");
                 current.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
                 current.ReportBootstrapProgress(40);
-                SolverInterface.TerminateAnalysisFlag.Raise();
+                terminationFlag.Raise();
                 Publish(current, FittingPhase.Stopping, null, null, null);
                 queued.Drain();
                 Pump();
                 Check(primary.StringValue == FittingStatusPresentation.StoppingAnalysis,
                     "A queued pre-Stop snapshot restored an earlier phase");
                 Check(!secondary.StringValue.StartsWith("Bootstrap "), "A queued pre-Stop counter was restored");
-                Check(Math.Abs(StatusBarManager.Progress - 0.4) < 0.00001,
-                    "Stop changed an existing numeric progress fraction");
+                Check(StatusBarManager.Progress == -0.5 && indicator.Indeterminate && !indicator.Hidden,
+                    "Stop did not reset the progress state to indeterminate");
+                current.ReportBootstrapProgress(90);
+                queued.Drain();
+                Pump();
+                Check(StatusBarManager.Progress == -0.5 && indicator.Indeterminate && !indicator.Hidden
+                    && primary.StringValue == FittingStatusPresentation.StoppingAnalysis,
+                    "A late uncertainty fraction restored determinate progress after Stop");
+                current.ReportBootstrapProgress(20);
+                queued.Drain();
+                Pump();
+                Check(StatusBarManager.Progress == -0.5 && indicator.Indeterminate && !indicator.Hidden,
+                    "A lower out-of-order Stop fraction restored determinate progress");
+                terminationFlag.Lower();
+                current.ReportBootstrapProgress(30);
+                queued.Drain();
+                Pump();
+                Check(StatusBarManager.Progress == -0.5 && indicator.Indeterminate && !indicator.Hidden
+                    && primary.StringValue == FittingStatusPresentation.StoppingAnalysis
+                    && !secondary.StringValue.StartsWith("Bootstrap "),
+                    "A lower late uncertainty fraction escaped the Stop latch after the flag was lowered");
                 current.ReportAnalysisFinished(Convergence(SolverTermination.Converged));
                 queued.Drain();
             }
         }
-        finally { PlatformServices.RegisterMainThreadDispatcher(dispatcher); }
+        finally
+        {
+            terminationFlag.Lower();
+            PlatformServices.RegisterMainThreadDispatcher(dispatcher);
+        }
     }
 
     sealed class QueuedDispatcher : IMainThreadDispatcher
@@ -527,6 +579,12 @@ static class UpdateResultStatusTests
         SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot { Termination = termination });
 
     static void Pump() => NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.15));
+
+    static void PumpFor(TimeSpan duration)
+    {
+        var timer = Stopwatch.StartNew();
+        while (timer.Elapsed < duration) Pump();
+    }
 
     static void Check(bool condition, string message)
     {

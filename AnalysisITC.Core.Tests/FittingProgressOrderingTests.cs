@@ -55,18 +55,15 @@ public sealed class FittingProgressOrderingTests
     [Theory]
     [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
     [InlineData(ErrorEstimationMethod.LeaveOneOut)]
-    public void StandaloneRefitsKeepRawCountsButNormalizeBothFractionEvents(ErrorEstimationMethod method)
+    public void StandaloneRefitsKeepMonotonicStructuredCountersAndFractions(ErrorEstimationMethod method)
     {
         using var capture = new ProgressCapture(method, 1);
         var solver = new Solver { ErrorEstimationMethod = method, BootstrapIterations = 10 };
-        var legacy = new List<Tuple<int, int, float>>();
         var structured = new List<FittingProgress>();
-        EventHandler<Tuple<int, int, float>> onLegacy = (_, update) => legacy.Add(update);
         EventHandler<FittingProgress> onStructured = (sender, update) =>
         {
             if (ReferenceEquals(sender, solver)) structured.Add(update);
         };
-        SolverInterface.ErrorEstimationIterationCompleted += onLegacy;
         SolverInterface.ProgressChanged += onStructured;
         try
         {
@@ -76,13 +73,11 @@ public sealed class FittingProgressOrderingTests
             { solver.ReportLeaveOneOutProgress(2, 10); solver.ReportLeaveOneOutProgress(1, 10); }
             capture.Drain();
 
-            Assert.Equal(new[] { 2, 1 }, legacy.Select(update => update.Item1));
-            Assert.Equal(new[] { .2f, .2f }, legacy.Select(update => update.Item3));
+            Assert.Equal(new int?[] { 2, 2 }, structured.Select(update => update.Completed));
             Assert.Equal(new float?[] { .2f, .2f }, structured.Select(update => update.Fraction));
         }
         finally
         {
-            SolverInterface.ErrorEstimationIterationCompleted -= onLegacy;
             SolverInterface.ProgressChanged -= onStructured;
         }
     }
@@ -132,133 +127,79 @@ public sealed class FittingProgressOrderingTests
     [Theory]
     [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
     [InlineData(ErrorEstimationMethod.LeaveOneOut)]
-    public void MembersShareLegacyAndStructuredProgressAcrossSkippedMembers(ErrorEstimationMethod method)
+    public void MembersShareStructuredProgressAcrossSkippedMembers(ErrorEstimationMethod method)
     {
         using var capture = new ProgressCapture(method);
         var first = new Solver { Silent = true, BootstrapIterations = 10 };
         var last = new Solver { Silent = true, BootstrapIterations = 10 };
         first.SetProgressOwner(capture.Owner, 1, "Sample A");
         last.SetProgressOwner(capture.Owner, 3, "Sample C");
-        var legacy = new List<SolverUpdate>();
-        EventHandler<SolverUpdate> handler = (_, update) => legacy.Add(update);
-        SolverInterface.SolverUpdated += handler;
         void Report(Solver solver, int completed)
         {
             if (method == ErrorEstimationMethod.BootstrapResiduals) solver.ReportBootstrapProgress(completed);
             else solver.ReportLeaveOneOutProgress(completed, 10);
         }
-        try
-        {
-            SolverUpdate.TotalSteps = 3;
-            Report(first, 6);
-            capture.Owner.ReportSolverUpdate(new SolverUpdate(1, 3) { Progress = 1f / 3 });
-            SolverUpdate.Step = 2; // The second member needs no refits.
-            last.BeginUncertaintyProgressPass(); // A member cannot reset its owner's overall pass.
-            Report(last, 2);
-            Report(last, 1);
-            capture.Owner.ReportSolverUpdate(new SolverUpdate(3, 3) { Progress = 1 });
-            SolverUpdate.Step = 8;
-            SolverUpdate.TotalSteps = 9;
-            capture.Drain(reverse: true);
+        SolverUpdate.TotalSteps = 3;
+        Report(first, 6);
+        capture.Owner.ReportSolverUpdate(new SolverUpdate(1, 3) { Progress = 1f / 3 });
+        SolverUpdate.Step = 2; // The second member needs no refits.
+        Report(last, 2);
+        Report(last, 1);
+        capture.Owner.ReportSolverUpdate(new SolverUpdate(3, 3) { Progress = 1 });
+        SolverUpdate.Step = 8;
+        SolverUpdate.TotalSteps = 9;
+        capture.Drain(reverse: true);
 
-            Assert.Equal(5, legacy.Count);
-            foreach (var (actual, expected) in legacy.Zip(new[] { .2, 1d / 3, 11d / 15, 11d / 15, 1 }))
-                Assert.Equal(expected, actual.Progress, 6);
-            Assert.Equal(8, SolverUpdate.Step);
-            Assert.Equal(9, SolverUpdate.TotalSteps);
-            Assert.Equal(3, capture.Received.Last().MemberPosition);
-            Assert.Equal(2, capture.Received.Last().Completed);
-            Assert.Equal(1, capture.Received.Last().Fraction);
-            for (var index = 1; index < capture.Received.Count; index++)
-                Assert.True(capture.Received[index].Fraction >= capture.Received[index - 1].Fraction);
-        }
-        finally { SolverInterface.SolverUpdated -= handler; }
+        var expectedFractions = new[] { .2f, 1f / 3, 11f / 15, 11f / 15, 1f };
+        Assert.Equal(expectedFractions.Length, capture.Received.Count);
+        foreach (var (actual, expected) in capture.Received.Select(progress => progress.Fraction.Value).Zip(expectedFractions))
+            Assert.Equal(expected, actual, 6);
+        Assert.Equal(8, SolverUpdate.Step);
+        Assert.Equal(9, SolverUpdate.TotalSteps);
+        Assert.Equal(3, capture.Received.Last().MemberPosition);
+        Assert.Equal(2, capture.Received.Last().Completed);
+        Assert.Equal(1, capture.Received.Last().Fraction);
+        for (var index = 1; index < capture.Received.Count; index++)
+            Assert.True(capture.Received[index].Fraction >= capture.Received[index - 1].Fraction);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void NewPassResetsTheFractionAndDiscardsQueuedOldPassReports(bool queuedOldReport)
+    public void NewRunResetsTheFractionAndDiscardsQueuedOldRunReports(bool queuedOldReport)
     {
         using var capture = new ProgressCapture();
-        capture.Owner.PublishProgress(FittingPhase.EstimatingUncertainty, 8, 10, .8f);
-        if (!queuedOldReport) capture.Drain();
-        capture.Owner.BeginUncertaintyProgressPass();
-        capture.Owner.PublishProgress(FittingPhase.EstimatingUncertainty, 0, 10, 0);
-        capture.Owner.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 10, .1f);
-        capture.Drain();
-
-        Assert.Equal(queuedOldReport ? new float?[] { 0, .1f } : new float?[] { .8f, 0, .1f },
-            capture.Received.Select(progress => progress.Fraction));
-        Assert.Equal(1, capture.Received.Last().Completed);
-    }
-
-    [Theory]
-    [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
-    [InlineData(ErrorEstimationMethod.LeaveOneOut)]
-    public void PassResetBetweenAReportsNotificationsDiscardsBothOfThem(ErrorEstimationMethod method)
-    {
-        using var capture = new ProgressCapture(method, 1);
-        var child = new Solver { Silent = true, BootstrapIterations = 10 };
-        child.SetProgressOwner(capture.Owner, 1, "Sample A");
-        var forward = child.ProgressObserver;
-        var resetPending = true;
-        // Reset the owner's pass after the structured notification but before the legacy one.
-        child.ProgressObserver = (phase, completed, total, fraction, identity) =>
-        {
-            forward(phase, completed, total, fraction, identity);
-            if (!resetPending) return;
-            resetPending = false;
-            capture.Owner.BeginUncertaintyProgressPass();
-        };
-        var legacy = new List<float>();
-        EventHandler<SolverUpdate> onLegacy = (_, update) => legacy.Add(update.Progress);
-        SolverInterface.SolverUpdated += onLegacy;
+        var owner = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+        var received = new List<FittingProgress>();
+        EventHandler<FittingProgress> onProgress = (sender, update) =>
+        { if (ReferenceEquals(sender, owner)) received.Add(update); };
+        SolverInterface.ProgressChanged += onProgress;
         try
         {
-            if (method == ErrorEstimationMethod.BootstrapResiduals)
-            { child.ReportBootstrapProgress(8); child.ReportBootstrapProgress(1); }
-            else
-            { child.ReportLeaveOneOutProgress(8, 10); child.ReportLeaveOneOutProgress(1, 10); }
+            owner.Analyze();
+            capture.Drain();
+            received.Clear();
+            owner.PublishProgress(FittingPhase.EstimatingUncertainty, 8, 10, .8f);
+            if (!queuedOldReport) capture.Drain();
+            owner.Analyze();
+            owner.PublishProgress(FittingPhase.EstimatingUncertainty, 0, 10, 0);
+            owner.PublishProgress(FittingPhase.EstimatingUncertainty, 1, 10, .1f);
             capture.Drain();
 
-            Assert.Equal(new[] { .1f }, legacy);
-            Assert.Equal(new float?[] { .1f }, capture.Received.Select(progress => progress.Fraction));
-            Assert.Equal(1, capture.Received.Single().Completed);
+            var uncertaintyProgress = received
+                .Where(progress => progress.Phase == FittingPhase.EstimatingUncertainty).ToArray();
+            Assert.Equal(queuedOldReport ? new float?[] { 0, .1f } : new float?[] { .8f, 0, .1f },
+                uncertaintyProgress.Select(progress => progress.Fraction));
+            Assert.Equal(1, uncertaintyProgress.Last().Completed);
         }
-        finally { SolverInterface.SolverUpdated -= onLegacy; }
-    }
-
-    [Theory]
-    [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
-    [InlineData(ErrorEstimationMethod.LeaveOneOut)]
-    public void PassResetBetweenASolverUpdatesNotificationsDiscardsBothOfThem(ErrorEstimationMethod method)
-    {
-        using var capture = new ProgressCapture(method, 1);
-        var owner = capture.Owner;
-        owner.PublishProgress(FittingPhase.EstimatingUncertainty);
-        capture.Drain();
-        capture.Received.Clear();
-        // Reset the pass after the structured notification but before the legacy one, once.
-        owner.ProgressObserver = (phase, completed, total, fraction, identity) =>
+        finally
         {
-            owner.ProgressObserver = null;
-            owner.PublishProgress(phase, completed, total, fraction, identity: identity);
-            owner.BeginUncertaintyProgressPass();
-        };
-        var legacy = new List<float>();
-        EventHandler<SolverUpdate> onLegacy = (_, update) => legacy.Add(update.Progress);
-        SolverInterface.SolverUpdated += onLegacy;
-        try
-        {
-            owner.ReportSolverUpdate(new SolverUpdate(8, 10) { Progress = .8f });
-            owner.ReportSolverUpdate(new SolverUpdate(1, 10) { Progress = .1f });
+            owner.ReportAnalysisFinished(SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            { Termination = SolverTermination.Converged }));
             capture.Drain();
-
-            Assert.Equal(new[] { .1f }, legacy);
-            Assert.Equal(new float?[] { .1f }, capture.Received.Select(progress => progress.Fraction));
+            SolverInterface.ProgressChanged -= onProgress;
+            StatusBarManager.ClearAppStatus();
         }
-        finally { SolverInterface.SolverUpdated -= onLegacy; }
     }
 
     [Fact]
@@ -267,12 +208,9 @@ public sealed class FittingProgressOrderingTests
         using var capture = new ProgressCapture();
         var owner = new SolverInterface { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
         var received = new List<FittingProgress>();
-        var legacy = new List<SolverUpdate>();
         EventHandler<FittingProgress> onProgress = (sender, update) =>
         { if (ReferenceEquals(sender, owner)) received.Add(update); };
-        EventHandler<SolverUpdate> onLegacy = (_, update) => legacy.Add(update);
         SolverInterface.ProgressChanged += onProgress;
-        SolverInterface.SolverUpdated += onLegacy;
         try
         {
             owner.Analyze();
@@ -288,7 +226,6 @@ public sealed class FittingProgressOrderingTests
             Assert.NotEqual(previousId, owner.OperationId);
             Assert.All(received, update => Assert.Equal(owner.OperationId, update.OperationId));
             Assert.Equal(new float?[] { null, .1f }, received.Select(update => update.Fraction));
-            Assert.Empty(legacy);
         }
         finally
         {
@@ -296,7 +233,6 @@ public sealed class FittingProgressOrderingTests
             { Termination = SolverTermination.Converged }));
             capture.Drain();
             SolverInterface.ProgressChanged -= onProgress;
-            SolverInterface.SolverUpdated -= onLegacy;
             StatusBarManager.ClearAppStatus();
         }
     }
@@ -453,33 +389,33 @@ public sealed class FittingProgressOrderingTests
     }
 
     [Fact]
-    public void LegacyPayloadCopiesRetainCapturedValuesWithoutChangingInputsOrStaticSteps()
+    public void StructuredProgressCapturesValuesWithoutChangingInputsOrStaticSteps()
     {
         using var capture = new ProgressCapture();
         capture.Owner.PublishProgress(FittingPhase.EstimatingUncertainty);
-        var input = new SolverUpdate(1, 3) { Progress = .6f, Message = "first", Time = 8 };
-        var received = new List<SolverUpdate>();
-        EventHandler<SolverUpdate> handler = (_, update) => received.Add(update);
-        SolverInterface.SolverUpdated += handler;
+        var input = new SolverUpdate(1, 3) { Progress = .6f };
+        var received = new List<FittingProgress>();
+        EventHandler<FittingProgress> handler = (sender, update) =>
+        { if (ReferenceEquals(sender, capture.Owner)) received.Add(update); };
+        SolverInterface.ProgressChanged += handler;
         try
         {
             capture.Owner.ReportSolverUpdate(input);
             input.Progress = .2f;
-            input.Message = "second";
             capture.Owner.ReportSolverUpdate(input);
             input.Progress = .01f;
             SolverUpdate.Step = 4;
             SolverUpdate.TotalSteps = 7;
             capture.Drain();
 
-            Assert.Equal(new[] { .6f, .6f }, received.Select(update => update.Progress));
-            Assert.Equal(new[] { "first", "second" }, received.Select(update => update.Message));
-            Assert.All(received, update => { Assert.Equal(8, update.Time); Assert.NotSame(input, update); });
+            var capturedValues = received.Where(update => update.Fraction.HasValue).ToArray();
+            Assert.Equal(new float?[] { .6f, .6f }, capturedValues.Select(update => update.Fraction));
+            Assert.NotSame(capturedValues[0], capturedValues[1]);
             Assert.Equal(.01f, input.Progress);
             Assert.Equal(4, SolverUpdate.Step);
             Assert.Equal(7, SolverUpdate.TotalSteps);
         }
-        finally { SolverInterface.SolverUpdated -= handler; }
+        finally { SolverInterface.ProgressChanged -= handler; }
     }
 
     [Fact]
