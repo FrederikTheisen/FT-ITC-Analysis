@@ -401,6 +401,16 @@ public sealed class DailyStatusEmail
                 html.Append("<h1 style=\"margin:0 0 8px;font-size:22px;color:#17324d\">").Append(content).Append("</h1>");
                 continue;
             }
+            if (line.StartsWith("Overall status: ", StringComparison.Ordinal))
+            {
+                var healthy = line == "Overall status: OK";
+                html.Append("<p style=\"margin:16px 0;padding:12px 16px;border-left:4px solid ")
+                    .Append(healthy ? "#217346;background:#edf7f0" : "#b42318;background:#fff1f0")
+                    .Append(";font-size:17px\"><strong style=\"color:")
+                    .Append(healthy ? "#217346" : "#b42318")
+                    .Append("\">").Append(content).Append("</strong></p>");
+                continue;
+            }
             if (!char.IsWhiteSpace(line[0]) && !line.Contains(':'))
             {
                 html.Append("<h2 style=\"margin:24px 0 8px;padding-bottom:5px;border-bottom:1px solid #d8dee5;font-size:17px;color:#17324d\">")
@@ -408,9 +418,17 @@ public sealed class DailyStatusEmail
                 continue;
             }
 
+            var separator = line.IndexOf(':');
+            var value = separator >= 0 ? line[(separator + 1)..].Trim() : "";
+            if (value is "ok" or "active" or "HTTP 200; interpretation available")
+            {
+                content = WebUtility.HtmlEncode(line[..(separator + 1)].Trim())
+                    + " <strong style=\"color:#217346\">" + WebUtility.HtmlEncode(value) + "</strong>";
+            }
             content = content.Replace("PASS", "<strong style=\"color:#217346\">PASS</strong>", StringComparison.Ordinal)
                 .Replace("FAIL", "<strong style=\"color:#b42318\">FAIL</strong>", StringComparison.Ordinal)
                 .Replace("ATTENTION", "<strong style=\"color:#b42318\">ATTENTION</strong>", StringComparison.Ordinal)
+                .Replace("WARNING", "<strong style=\"color:#9a6700\">WARNING</strong>", StringComparison.Ordinal)
                 .Replace("SKIPPED", "<strong style=\"color:#9a6700\">SKIPPED</strong>", StringComparison.Ordinal)
                 .Replace("check unavailable", "<strong style=\"color:#b42318\">check unavailable</strong>", StringComparison.OrdinalIgnoreCase);
             html.Append("<p style=\"margin:5px 0\">").Append(content).Append("</p>");
