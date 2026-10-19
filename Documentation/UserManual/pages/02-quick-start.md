@@ -19,22 +19,13 @@ This walkthrough takes a compatible file from measured heats to a fitted result.
 
 ## Before you begin
 
-Have one of these inputs available:
-
-- A raw thermogram from a MicroCal-style file (`.itc`), native TA Instruments NanoITC file (`.nitc`), NanoAnalyze export (`.ta`), or PEAQ-ITC project (`.apj`).
-- An Origin project file (`.opj`). When a recognized ITC worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
-- Injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
-- An FT-ITC project (`.ftxtc`).
-
-Supported formats and project behavior are described in [Installation, files, and projects](03-installation-files-projects.md).
-
-> **Note:** Integrated-heat files and Origin projects without an original time/power trace skip baseline correction and peak integration; begin with experiment details and fitting.
+Use a compatible raw thermogram, integrated-heats file, Origin project, or `.ftxtc` project; see [Supported input formats](03-installation-files-projects.md#supported-input-formats). Integrated heats and Origin projects without a usable time/power trace skip thermogram processing.
 
 ## 1. Open your data
 
 Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and choose **Open**.
 
-The experiment appears in the data list. Select it and open **Overview** to review the imported experiment. You can drag data or result rows to change their order. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
+Select the imported experiment in the data list and open **Overview**. See [Workspace](04-workspace-experiments.md) for selection, Active experiments, and list ordering.
 
 ## 2. Edit experiment details
 
@@ -54,7 +45,7 @@ If the import contains a thermogram, open **Process Data**.
 
 These baseline alternatives are explained in [Processing](05-processing-thermograms.md).
 
-> **Recommendation:** Zoom to a single peak by double-clicking it, copy the integration region to the next peak using **Space**.
+> **Recommendation:** Double-click a peak to zoom in, then press **Space** to copy its integration end-point offset to the next injection.
 
 > **Interpretation:** A visually smooth baseline is generally desired. As a rough rule of thumb, aim for at least 20% of the data points to be baseline data; this is guidance, not a hard threshold. Apparent jumps in the baseline may indicate insufficient equilibration time between injections. Major spikes may require advanced baseline editing; the **Spline** baseline type provides more flexibility.
 
@@ -84,8 +75,6 @@ Inspect the fitted curve together with the residuals (observed heat minus predic
 - whether weighting and uncertainty estimation match your intention;
 - parameter uncertainty or confidence intervals, when calculated;
 - parameter correlations.
-
-When **Create analysis result** is disabled, the fitted solution remains available in **Analyze Data** rather than as a stored Analysis Result.
 
 > **Interpretation:** Parameter precision does not establish model adequacy. Look for structured residuals, sensitivity to initial values, values at limits, excessive parameter correlation, or disagreement with known stoichiometry and experimental conditions.
 

@@ -13,7 +13,7 @@ _verification:
 
 Use **Experiment Designer...** to explore a simulated experiment before collecting data, **Buffer Subtraction...** to account for heat seen in a reference experiment, and **Experiment Merger...** to join consecutive parts of a titration. The sections below explain what each tool takes as input and what it changes in your project.
 
-The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. Each tool handles its output differently: Experiment Designer keeps simulation and fitting inside its window, Buffer Subtraction stores a correction on target experiments, and Experiment Merger creates a new processed Experiment Data item. Source and target selection uses the project state described in [Workspace](04-workspace-experiments.md).
+Open these tools from **Tools**. Designer simulations stay in their window; Buffer Subtraction stores corrections on targets; Experiment Merger creates a new processed Experiment Data item. See [Workspace](04-workspace-experiments.md) for selecting project items.
 
 ## Experiment Designer
 
@@ -27,13 +27,15 @@ The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injectio
 
 The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. Parameter sliders use practical editing ranges; enter a value in the text field to set a value beyond a slider's range. 
 
+For Competitive Binding, enter the total competitor concentration and its dissociation constant (**Kd**) in the displayed concentration unit. Enter competitor binding enthalpy in the displayed energy unit per mole. For example, Kd = 1 µM and enthalpy = −40 kJ/mol are entered as **1** and **−40** when those units are shown.
+
 ![Experiment Designer Model controls showing One-Set-Of-Sites and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
 
 ## Buffer Subtraction
 
 > **Before you begin:** Buffer subtraction operates on integrated injection heats. Use experiments with available heats to inspect the correction in the preview; thermogram inputs need processing to supply those heats.
 
-**Buffer Subtraction...** models background heat from one reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and supports multiple targets. The correction uses the reference's available integrated heats; if the reference is processed later, target corrections update. Processing is described in [Processing](05-processing-thermograms.md).
+**Buffer Subtraction...** models background heat from one reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and tandem experiments, and supports multiple targets. Buffer subtraction is currently unavailable for tandem experiments, including through Experiment Details. The correction uses the reference's available integrated heats; if the reference is processed later, target corrections update. Processing is described in [Processing](05-processing-thermograms.md).
 
 The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
 
@@ -45,6 +47,12 @@ The preview graph shows reference and target heats and the selected subtraction 
 
 ![Buffer Subtraction window showing a processed reference, selected targets, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.](../assets/buffer-subtraction.png)
 
+**Apply** stores the reference and method on each target. The corrected heats are then used for subsequent fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
+
+When a target is saved without its reference experiment, for example with **Save Selected...**, the reference's included integrated heats are stored with the target. The target's attribute then shows **Missing reference (stored values retained)**. The correction stays in effect when the target is reintegrated, but the stored reference heats cannot be reprocessed. Opening the reference experiment again, or applying another reference, replaces the stored values.
+
+### Corrected heat and uncertainty
+
 > **Calculation:**
 >
 > *q*<sub>i,corr</sub> = *q*<sub>i,target</sub> − *q*<sub>i,ref</sub>
@@ -55,13 +63,11 @@ The preview graph shows reference and target heats and the selected subtraction 
 >
 > With **Matched**, the reference SD comes from the matched injection. If the method uses the average of the nearest included injections on either side, its SD is half the square root of the sum of their squared SDs. With **Linear** or **Exp. decay**, the subtracted reference value is the fitted line or curve, so the reference SD is the uncertainty of that fitted value at injection *i*, not the scatter of single reference heats. It is calculated from the scatter of included reference heats around the fit (not their individual error bars) and from how well the included injections determine the fit at injection *i*. Because the fit averages over many injections, this SD is usually much smaller than the scatter and is largest near the ends of the reference range. The same fitted curve corrects every injection, so this part of the error is shared between injections rather than independent. If the fit has no degrees of freedom left to estimate that scatter, the model assigns a reference SD of zero; this does not establish that the correction is exact.
 
-**Apply** stores the reference and method on each target. The corrected heats are then used for subsequent fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
-
-When a target is saved without its reference experiment, for example with **Save Selected...**, the reference's included integrated heats are stored with the target. The target's attribute then shows **Missing reference (stored values retained)**. The correction stays in effect when the target is reintegrated, but the stored reference heats cannot be reprocessed. Opening the reference experiment again, or applying another reference, replaces the stored values.
-
 ## Experiment Merger
 
 > **Before you begin:** Select at least two source experiments with thermograms. The merger uses a source's baseline-corrected trace when available and its raw trace otherwise. It processes the newly merged Experiment Data automatically.
+
+Source experiments must have no buffer subtraction. Remove any buffer-subtraction attribute in **Experiment Details** before merging or scanning. This restriction applies to every merger mode.
 
 **Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
@@ -73,7 +79,13 @@ The merge **Mode** selector contains:
 
 Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the shared slider supplies the fraction. With three or four experiments selected, enable the individual-fractions option to set **Reload 1**, **Reload 2**, and, for four experiments, **Reload 3** separately. Auto mode estimates the values from the selected data; these are inferred corrections rather than direct measurements of mixing.
 
-The **One-site** auto criterion chooses the fractions that give the lowest one-set-of-sites RMSD for the combined titration. The **Model-free** auto criterion does not fit a binding model. It treats each reload in turn: it fits a smooth polynomial curve of injection heat against molar ratio through the injections just before and just after the reload, and chooses the fraction for which both sides lie closest to that one curve. Excluded injections are left out, and each side of a reload needs at least three included injections among the six nearest to it; otherwise the estimate fails. Where the heats barely change with the fraction, for example far into saturation, the estimate leans towards a typical fraction of 5%. Because each reload is judged from only about a dozen injections, model-free estimates scatter more than One-site estimates when the data are noisy; compare the two criteria.
+Choose **One-site** when a one-set-of-sites model is appropriate, or **Model-free** to match the two sides of each reload without a binding model. Model-free needs at least three included injections among the six nearest on each side. Compare criteria for noisy data or reloads near saturation.
+
+**Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments retain the first source’s notes and append the selected tandem mode, the auto criterion when used, the back-mixing settings, and the selected fractions in reload order. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. It is a snapshot and does not update if its source experiments are subsequently edited. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
+
+When the first source experiment has an external experiment ID, the merged experiment's ID is that value followed by `-concat`; if its ID is blank, the merged ID stays blank. The cell and syringe sample/batch IDs are copied only when every source has the same nonblank value; otherwise the merged IDs are blank. The merger does not open the import review, so select the merged experiment and open **Details > Identifiers** to add or change IDs.
+
+The new experiment uses the **Injection bookkeeping** method selected in **Preferences > Processing** for dilution during each injection. That choice is separate from the merger’s between-segment back-mixing setting. See [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas) for the methods and their limits.
 
 ### What happens at a reload
 
@@ -89,10 +101,10 @@ In **Fixed back-mixing** and **Auto back-mixing**, the model tracks the active c
 
 ![Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.](../assets/experiment-merger-auto.png)
 
-**Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments retain the first source’s notes and append the selected tandem mode, the auto criterion when used, the back-mixing settings, and the selected fractions in reload order. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. It is a snapshot and does not update if its source experiments are subsequently edited. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
-
-When the first source experiment has an external experiment ID, the merged experiment's ID is that value followed by `-concat`; if its ID is blank, the merged ID stays blank. The cell and syringe sample/batch IDs are copied only when every source has the same nonblank value; otherwise the merged IDs are blank. The merger does not open the import review, so select the merged experiment and open **Details > Identifiers** to add or change IDs.
-
-The new experiment uses the **Injection bookkeeping** method selected in **Preferences > Processing** for dilution during each injection. That choice is separate from the merger’s between-segment back-mixing setting. See [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas) for the methods and their limits.
-
 > **Interpretation:** A configured or automatically fitted back-mixing fraction is a model-based correction, not a direct measurement of liquid mixing that occurred between runs.
+
+### Automatic back-mixing calculation
+
+One-site minimizes the combined titration's one-set-of-sites RMSD. Model-free solves reloads in order, keeping earlier fractions. Each candidate recalculates concentrations and fits one unweighted, monotonic cubic to heat per mole of injectant against midpoint molar ratio, using included injections among the six nearest positions on each side. Excluded injections still contribute their delivered volume to bookkeeping.
+
+The cubic must keep rising or falling across the window, so it assumes the local isotherm does not turn. Where fractions are poorly distinguished, a weak, chosen preference favors 5%; this is not measured mixing information. The small local window makes model-free estimates less precise with noise or near saturation.

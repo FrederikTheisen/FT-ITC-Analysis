@@ -11,9 +11,9 @@ _verification:
 
 # Single-experiment fitting
 
-After processing a thermogram or importing integrated heats, you have one heat value per injection. A binding model predicts those heats from quantities such as affinity and binding enthalpy. **Analyze Data** adjusts the model parameters to bring its predicted heats close to the observed heats. In **Single experiment** mode, it uses the included injections from the selected Experiment Data, along with the concentrations, injection volumes, cell volume, temperature, and any model-specific information.
+In **Analyze Data**, choose **Single experiment**, select a model, review starting values and options, select an uncertainty method, and choose **Run Fit**. Only included injections enter the fit. The concentrations, volumes, temperature, and model options define its scientific inputs.
 
-The fitted values describe this dataset under the selected model. Check the pattern of differences between prediction and observation (**residuals**) and whether the fitted values make scientific sense; a successful optimizer stop alone is not a model check.
+Review residuals and parameter plausibility afterward. Successful optimizer termination alone does not establish that the model explains the chemistry.
 
 The inspector has four tabs:
 
@@ -29,18 +29,6 @@ In the native macOS Analysis view, the **Parameters** button above the graph sho
 *Analyze Data combines the fitted-heats graph and residuals with the controls for configuring and running the fit.*
 
 Multiple-experiment fitting uses additional experiment selection and parameter constraints; see [Multiple-experiment fitting](07-multiple-experiments.md).
-
-## Profile-likelihood uncertainty
-
-**Profile likelihood** estimates parameter uncertainty by asking how far a fitted parameter can be moved away from its best-fit value before the agreement with the experimental data becomes significantly worse. Profile likelihood does not create a refit ensemble or a confidence band.
-
-For each fitted parameter, FT-ITC first starts from the best-fit solution. The parameter of interest is then fixed at a different value, while all other fitted parameters are allowed to readjust. This is repeated in both directions from the best-fit value. The resulting profile therefore accounts for compensation between parameters: for example, a change in affinity may partly be compensated by changes in enthalpy, stoichiometry, or other fitted parameters.
-
-The 95% confidence limits are the parameter values at which the best achievable fit reaches a statistically defined 95% threshold. FT-ITC uses an F-calibrated threshold based on the number of observations and fitted parameters. The confidence interval is therefore determined by the shape of the fit surface rather than by assuming that parameter uncertainty is symmetric or normally distributed.
-
-
-
-A complete interval is reported only when the threshold is crossed on both sides of the best-fit value. If the search reaches a parameter limit first, that side is recorded as censored and has no confidence endpoint. For a complete interval, the displayed `value ± SD` uses a symmetric display equivalent calculated from the asymmetric interval; it is not a sample standard deviation. Save the result in an `.ftxtc` project to preserve the profile diagnostics.
 
 ## Injection inclusion
 
@@ -78,7 +66,7 @@ For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ 
 >
 > The first line estimates how much macromolecule remains; the second estimates how much injected ligand is in the cell.
 
-These equations estimate the macromolecule concentration remaining in the cell (*M*) and the ligand concentration from the syringe (*X*) after the injections. They describe the **MicroCal** bookkeeping choice; they are not measured curves or a separate tool.
+These are approximate concentration curves for the **MicroCal** bookkeeping method. They describe calculated concentrations, not measured curves.
 
 Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The displaced-volume assumptions remain approximate. For a tandem experiment, this calculation stops when cumulative injected volume reaches twice the active cell volume; ideal continuous mixing has no corresponding cumulative-volume limit. Existing projects retain saved concentrations and fits until concentration reprocessing.
 
@@ -125,167 +113,6 @@ For ideal continuous mixing, the midpoint is evaluated halfway through each inje
 The ideal continuous mixing heat calculation is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), but uses FT-ITC's finite-injection approximation rather than that paper's imperfect-mixing model. It does not model kinetic single-injection experiments. The calculation uses a fixed integration rule without adaptive refinement, so unusually large injections or sharp transitions need additional scrutiny.
 
 
-## Models
-
-Choose a model based on what is in the cell and syringe and what interactions are plausible. Adding parameters can improve a curve's fit even when the extra binding process is unsupported, so compare residuals and parameter uncertainty as well as the curve. The descriptions below state what each model assumes and reports.
-
-> **Interpretation:** When comparing fitted results from different programs, check the binding model, concentration and stoichiometry definitions, injection bookkeeping, and background-heat or offset treatment. Using the same injection convention does not necesarily make fitted parameters directly interchangeable.
-
-### One-Set-Of-Sites
-
-**One-Set-Of-Sites** represents one class of equivalent, independent binding sites. It fits stoichiometry, dissociation constant, binding enthalpy, and an injection-heat offset. The solution also reports thermodynamic quantities derived from the fitted affinity and enthalpy.
-
-Let *M* be the total macromolecule concentration, *N* the number of sites per macromolecule, *X* the total ligand concentration, *x* the free ligand concentration, and *K*<sub>d</sub> the dissociation constant. A smaller *K*<sub>d</sub> means stronger binding. The model finds *x* by balancing free and bound ligand, then calculates the heat content *Q* of the cell:
-
-> **Calculation:**
->
-> *f* = *x* / (*K*<sub>d</sub> + *x*)
->
-> *X* = *x* + *N M f*
->
-> *Q* = *V N M f* Δ*H*
->
-> The fraction *f* tells us how many sites are occupied. The middle line counts free ligand plus ligand on the sites. The last line multiplies the amount bound in cell volume *V* by the heat per mole bound, Δ*H*. Injection heat then follows the selected bookkeeping calculation above.
-
-The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted N-value represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and the fitted N parameter becomes the active syringe-concentration factor `alpha`.
-
-The model cannot by itself distinguish concentration uncertainty from other effects that change an apparent stoichiometry.
-
-### Two-Sets-Of-Sites
-
-**Two-Sets-Of-Sites** represents two independent classes of sites. It fits separate stoichiometries, dissociation constants, and enthalpies for the two classes, together with a shared injection-heat offset.
-
-Each class has its own site count *N*, affinity *K*<sub>d</sub>, and binding enthalpy Δ*H*. With free ligand concentration *x*, the two classes share the same supply of ligand:
-
-> **Calculation:**
->
-> *f*<sub>j</sub> = *x* / (*K*<sub>d,j</sub> + *x*), for *j* = 1 or 2
->
-> *X* = *x* + *M*(*N*₁*f*₁ + *N*₂*f*₂)
->
-> *Q* = *V M*(*N*₁*f*₁Δ*H*₁ + *N*₂*f*₂Δ*H*₂)
->
-> Each *f* is the occupied fraction for one site class. The ligand balance finds one free concentration that satisfies both classes. Their heat contributions add to give the cell heat content; injection bookkeeping converts its change to a predicted heat.
-
-**Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
-
-The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower RMSD or optimizer objective alone does not establish that two distinguishable binding processes are supported by the experiment.
-
-### Sequential Binding Sites
-
-**Sequential Binding Sites** represents two, three, or four ordered binding steps on a macromolecule in the cell. **Sequential binding steps** in the **Options** tab selects the number of steps. The model fits one macroscopic stepwise association constant and one molar step enthalpy for each transition, together with the ordinary molar injection-heat offset. It does not fit an N-value or syringe activity.
-
-For step count *n*, let β<sub>0</sub> = 1,
-β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be the free ligand concentration.
-The state weights and fractions are
-
-> **Calculation:**
->
-> *w*<sub>i</sub> = β<sub>i</sub>*x*<sup>i</sup>
->
-> *F*<sub>i</sub> = *w*<sub>i</sub> / Σ<sub>j=0…n</sub>*w*<sub>j</sub>
->
-> ν̄ = Σ<sub>i=0…n</sub>*iF*<sub>i</sub>
->
-> *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
->
-> Each state receives a weight from its binding steps and the available free ligand. Dividing by the total weight gives the fraction in that state. The average number of bound ligands, ν̄, then balances free and bound ligand against the total.
-
-Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
-concentrations in the cell. The model solves the ligand balance as part of the fit and
-calculates the cell heat content from the population of every sequential state:
-
-> **Calculation:**
->
-> *Q* = *V M*<sub>t</sub> Σ<sub>i=1…n</sub> *F*<sub>i</sub>
-> (Σ<sub>j=1…i</sub> Δ*H*<sub>j</sub>)
->
-> For each state, add the heats of all steps needed to reach it, multiply by the fraction in that state, and sum across states. Multiplying by the macromolecule amount in the cell gives its heat content.
-
-The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
-constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
-They are not microscopic intrinsic site constants. Step numbers therefore have
-a physical order, so fitted steps are never sorted or treated as interchangeable.
-
-The macromolecule must be in the cell and ligand in the syringe. Reverse
-titrations with macromolecule in the syringe are outside this model. Multi-step
-fits can be weakly identifiable, especially when the concentration window does
-not populate every transition. Inspect parameter bounds, residuals, bootstrap
-uncertainty, and parameter correlations; an improved RMSD does not by itself
-establish the selected number of sequential steps.
-
-### Competitive Binding
-
-**Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
-
-The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b* be their free concentrations, *K*<sub>a,A</sub> and *K*<sub>a,B</sub> their association constants, and *S* the total site concentration. The model solves for the two free concentrations so that the available ligand is accounted for:
-
-> **Calculation:**
->
-> *D* = 1 + *K*<sub>a,A</sub>*a* + *K*<sub>a,B</sub>*b*
->
-> *f*<sub>A</sub> = *K*<sub>a,A</sub>*a* / *D*
->
-> *f*<sub>B</sub> = *K*<sub>a,B</sub>*b* / *D*
->
-> *A*<sub>total</sub> = *a* + *S f*<sub>A</sub>; *B*<sub>total</sub> = *b* + *S f*<sub>B</sub>
->
-> *Q* = *V S*(*f*<sub>A</sub>Δ*H*<sub>A</sub> + *f*<sub>B</sub>Δ*H*<sub>B</sub>)
->
-> *D* counts the empty and occupied possibilities for a site; *f*<sub>A</sub> and *f*<sub>B</sub> are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
-
-The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** includes both free and bound competitor in the cell. Each option can use an experiment attribute instead of a manually entered value. For affinity and enthalpy, add a **Competitor properties** attribute and select a one-set-of-sites Analysis Result to supply *K*<sub>d</sub>, Δ*H*, and their uncertainty. Different experiments in a global fit can select different source results: eg if using a different competitor. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
-
-With **From attributes** selected, the next fit uses each experiment's attribute value; the manually entered option is used when **From attributes** is off. Every included experiment needs the required attributes, or the fit cannot start. The Analysis Result **Model** page identifies attribute-supplied options and the values used for each experiment. **Update Result** reads current attributes; an existing result does not update when attributes change and retains the values used in its earlier fit until updated.
-
-The **Total competitor** attribute also accepts an SD for its concentration.
-
-If the source result has temperature dependence, its values are evaluated at the experiment temperature. Otherwise its summary temperature is used, with a notice when the temperatures differ. Removing a source after fitting does not erase values already used by a result; a source removed before its values were used must be restored or replaced. Updating the source result marks dependent results out of date until they are fitted again. Residual bootstrap samples the supplied affinity and enthalpy uncertainties separately, as it does for manually entered model options.
-
-The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. The competitor properties are model inputs, not quantities independently determined by this fit.
-
-The reported apparent target *K*<sub>d</sub> includes a competition factor calculated from the initial free competitor concentration. This calculation accounts for competitor already bound to cell sites rather than substituting the total competitor concentration. The apparent target *K*<sub>d</sub> can therefore differ from its intrinsic value.
-
-### Dissociation
-
-**Dissociation** describes dimers in the syringe solution separating into free components when injected into a cell initially containing buffer. Dilution shifts the equilibrium toward free components. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The model fits an effective dissociation constant, the heat per mole of dimers formed, and an injection-heat offset.
-
-The integrated-heats and residual plots use the total titrant concentration in the cell after each injection, in µM. This concentration is calculated from the entered concentrations and injection bookkeeping.
-
-> **Calculation:**
->
-> *K*<sub>a,model</sub> = *P* / *F*<sup>2</sup>
->
-> *C* = *F* + 2*P*
->
-> *Q* = *V P* Δ*H*<sub>assoc</sub>
->
-> *F* is the concentration of free components counted together, *P* is the concentration of dimers, and *C* counts two components per dimer. The equilibrium determines how much remains dimerized at each dilution. The cell heat content is the amount of dimer times the heat of forming it. Dilution drives dimers apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
-
-With **MicroCal** bookkeeping, Dissociation uses MicroCal's own dimer-dissociation equation instead of the averaged displaced-heat formula used for the binding models. The displaced solution leaves with the cell content from before the injection, while concentrations still follow the MicroCal equations. With *v* the injection volume, *V* the active cell volume, and *P*<sub>syr</sub> the dimer concentration in the syringe:
-
-> **Calculation:**
->
-> *q* = Δ*H*<sub>assoc</sub>[*V P*<sub>end</sub> − (*V* − *v*)*P*<sub>start</sub> − *v P*<sub>syr</sub>]
->
-> The last term counts the dimers delivered by the injection as part of the starting amount, so heat comes only from the change in dimer amount, mainly dissociation of injected dimers as they are diluted. MicroCal's concentration and heat equations treat displaced solution differently, so they do not balance exactly. Use this combination to compare with MicroCal results.
-
-For an equimolar complex *A* + *B* ⇌ *AB*, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar *AB* preparation). Then *F* = [*A*] + [*B*] and *P* = [*AB*]. Because [*A*] = [*B*] = *F*/2, the usual heterodimer association constant *K*<sub>a,AB</sub> = [*AB*]/([*A*][*B*]) is **four times** the model's *K*<sub>a,model</sub>; the usual heterodimer *K*<sub>d</sub> is one quarter of the fitted *K*<sub>d</sub>. The fitted Δ*H*<sub>assoc</sub> is per mole of *AB* formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
-
-### Thermodynamic relationships
-
-The application derives thermodynamic quantities from the fitted affinity and enthalpy. Temperature <i>T</i> is expressed in kelvin.
-
-> **Calculation:**
->
-> <i>K</i><sub>d</sub> = 1 / <i>K</i><sub>a</sub>
->
-> Δ<i>G</i> = <i>R</i><i>T</i> ln(<i>K</i><sub>d</sub>) = −<i>R</i><i>T</i> ln(<i>K</i><sub>a</sub>)
->
-> −<i>T</i>Δ<i>S</i> = Δ<i>G</i> − Δ<i>H</i>
->
-> Here, <i>R</i> is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
-
 ## Parameters and model options
 
 ![Parameters and Options inspectors showing fitted values, Locked controls, syringe correction, and fixed stoichiometry.](../assets/fitting-parameters-options.png)
@@ -296,7 +123,9 @@ The application generates initial parameter values from the experiment and can r
 
 **Locked** holds a parameter at its displayed value during the primary fit. An unlocked parameter is adjusted by the optimizer. Locked values remain part of the model and affect every other fitted parameter even though they are not estimated by that fit.
 
-Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and reloads the fitting controls from the current preferences. It also resets the inspector's **Unlock parameters** setting. The action does not change preferences, including saved limits, result-output options, and display settings.
+Analysis choices are retained separately for the available fitting modes and models, except that changing models resets global constraints to **Independent**. **Restore defaults** clears the stored analysis inputs and reloads the fitting controls from the current preferences. It also resets the inspector's **Unlock parameters** setting. The action does not change preferences, including saved limits, result-output options, and display settings.
+
+Saving a project or applying Preferences preserves the solver and uncertainty choices in the Analysis inspector. Their saved defaults take effect at application startup or through **Restore defaults** in Analysis.
 
 The **Limits** control selects a common parameter-bound policy:
 
@@ -309,85 +138,6 @@ Negative log₁₀K values represent positive association constants below 1 in t
 A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 
 Initial guesses outside the selected limits are adjusted to the nearest limit when you choose **Run Fit**. Locked values are preserved, and globally determined values continue to follow their shared constraints.
-
-## Fitting calculation
-
-### Algorithm
-
-**Levenberg-Marquardt** uses local derivative information and can be efficient when the starting values describe a suitable region of the fitting surface.
-
-**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative when the derivative-based method has difficulty converging from the chosen starting values.
-
-### Weight by injection error
-
-**Weight by injection error** uses the integration uncertainty estimated during thermogram processing when calculating the fitting objective. An injection with a larger estimated error has less influence on the fitted parameters than one with a smaller estimated error. Choose this only when those processing-derived error estimates are suitable for the dataset.
-
-> **Calculation:**
->
-> <i>r</i><sub>i</sub> = <i>q</i><sub>i,obs</sub> − <i>q</i><sub>i,model</sub>
->
-> RMSD = √[(Σ<i>r</i><sub>i</sub><sup>2</sup>) / <i>N</i>]
->
-> weighted objective = Σ(<i>r</i><sub>i</sub> / <i>σ</i><sub>i</sub>)<sup>2</sup>
->
-> Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
-
-**RMSD** summarizes the typical size of the heat differences between the observed points and the fitted curve. It is always calculated from the unweighted residuals, including after a weighted fit. The result tooltip reports the optimizer objective separately: the raw residual sum of squares for unweighted fitting or the standardized residual sum of squares for weighted fitting. Weighting can change the fit even though the displayed RMSD remains an unweighted summary.
-
-For a multiple-experiment result, the displayed global RMSD is pooled across every included injection in every member experiment. Each member row retains its own local RMSD, so the global value remains comparable when members contain different numbers of included injections.
-
-**Weight by injection error** is available only when every included injection has a finite, positive peak-area SD. The application checks this again before fitting. An injection without an estimated SD can be excluded from the fit, or its thermogram can be reprocessed to obtain an estimate.
-
-The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.
-
-## Parameter uncertainty
-
-The reported parameter value comes from the best fit to the original data. The **Errors** control chooses how to estimate its uncertainty afterward; these methods do not replace that reported value with an average of refits:
-
-- **None** retains the primary fit without estimating parameter uncertainty.
-- **Bootstrap residuals** samples from the included injections' primary-fit residuals and adds each draw to a best-fit prediction. For an unweighted fit, it centers and samples the raw residuals. This assumes the residual errors have roughly equal spread across injections. For an error-weighted fit the residuals are standardized by dividing each by its peak-area SD before centering and sampling, then multiply each draw by the target injection's SD. Because the fit absorbs part of the measurement noise, fitted residuals are systematically smaller than the underlying errors. The centered residuals are therefore multiplied by √[*n* / (*n* − *p*)], where *n* is the number of included injections and *p* the number of fitted parameters (locked parameters are not counted), so the sampled noise matches the residual variance estimate RSS / (*n* − *p*), with RSS the residual sum of squares. Without this correction, intervals from small datasets would be too narrow. A fit with shared global parameters uses the total *n* and *p* of the whole fit; individually fitted experiments use their own. The data must contain more included injections than fitted parameters.
-- **Leave-one-out** performs one deterministic refit for each deletion: one refit per included injection in a single-experiment analysis, or one refit per omitted experiment in a globally fitted multiple-experiment analysis. Concentrations, uncertain model options, and parameter locks are held at their primary-fit values so the resulting spread isolates datapoint/dataset sensitivity.
-- **Profile likelihood** varies one fitted parameter at a time and refits the other free parameters at each trial value to construct a fitness profile for each fitted parameter. It uses the local objective for independently fitted experiments and the complete objective for shared global parameters. An interval requires threshold crossings on both sides; reaching a bound before a crossing is reported as censoring. See [Profile-likelihood uncertainty](#profile-likelihood-uncertainty).
-
-**Bootstrap** sets the requested number of residual-bootstrap iterations. It is enabled and used only for residual bootstrap; leave-one-out and profile likelihood have deterministic schedules and do not use this count. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
-
-Correlation diagnostics distinguish all attempted refits, those with usable optimizer results, and complete refits with finite values for every displayed parameter. If many refits fail, the retained set may not represent the full range of resampled outcomes. Increasing the requested count improves Monte Carlo precision but does not resolve systematic refit failures.
-
-Rerunning a bootstrap can give slightly different uncertainty estimates because it draws a new random sample.
-
-When **Update Result** is used on a stored residual-bootstrap Analysis Result, its dialog shows the retained usable-refit count and offers the stored iteration count plus larger supported presets up to 10,000 requested iterations. The update performs a fresh complete fit and bootstrap; it does not append samples to the saved distribution. Canceling the calculation or completing it without any usable bootstrap refits preserves the previous Analysis Result.
-
-The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
-
-> **Calculation:**
->
-> SD = √[Σ<sub>b</sub>(*θ*<sub>b</sub> − *θ̂*)<sup>2</sup> / *B*]
->
-> 95% CI = [*P*<sub>2.5</sub>({*θ*<sub>b</sub>}), *P*<sub>97.5</sub>({*θ*<sub>b</sub>})]
->
-> SD is the root-mean-square deviation of the retained refits from the primary best fit. The confidence limits are the 2.5th and 97.5th percentiles of the retained refit distribution itself, so they need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
-
-The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
-
-### Concentration uncertainty
-
-With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration.
-
-Bootstrap concentration variations use a positive lognormal multiplier with mean 1 and the entered fractional SD *c*. Specifically, σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. This chosen distribution keeps sampled concentrations positive while preserving the entered arithmetic mean and SD; it does not change the concentrations used for the primary best fit. If a concentration has no entered SD, that concentration remains fixed in bootstrap refits. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits.
-
-### Displayed parameter uncertainty
-
-Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but normally displayed as *K*<sub>d</sub>; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
-
-Standard and Strict precision round halfway values away from zero, so mirrored positive and negative estimates and interval limits round symmetrically.
-
-Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
-
-### Unlock parameters during error estimation
-
-**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked only for residual-bootstrap refits and can vary in the resampled solutions. Leave-one-out and profile likelihood always preserve the primary-fit locks.
-
-This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.
 
 ## Fit execution and diagnostics
 
@@ -418,3 +168,278 @@ With **Create analysis result** enabled, a usable completed fit also creates a s
 A single-experiment analysis requires processed or imported heats and at least three included injections with usable numerical values. The binding models also require nonzero cell and syringe concentrations. **Dissociation** uses the syringe concentration and does not require a macromolecule concentration in the initially buffered cell.
 
 An unavailable model, failed fit, solution at a parameter bound, or large number of failed refits can reflect missing or degenerate heat and concentration information, the supplied starting values, the selected limit policy, the optimizer's interaction with the fitting surface, model complexity, or weak parameter identifiability. Resampling can fail even when the primary fit succeeds because each refit presents a different or reduced dataset to the same model.
+## Models
+
+Choose a model based on what is in the cell and syringe and what interactions are plausible. Adding parameters can improve a curve's fit even when the extra binding process is unsupported, so compare residuals and parameter uncertainty as well as the curve. The descriptions below state what each model assumes and reports.
+
+> **Interpretation:** When comparing fitted results from different programs, check the binding model, concentration and stoichiometry definitions, injection bookkeeping, and background-heat or offset treatment. Using the same injection convention does not necessarily make fitted parameters directly interchangeable.
+
+### One-Set-Of-Sites
+
+**One-Set-Of-Sites** represents one class of equivalent, independent binding sites. It fits stoichiometry, dissociation constant, binding enthalpy, and an injection-heat offset. The solution also reports thermodynamic quantities derived from the fitted affinity and enthalpy.
+
+The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted **N-value** represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and **Correction factor** (α) scales the delivered titrant concentration. Enter or lock α in the parameter row; set the fixed site ratio under **Stoichiometry**.
+
+The model cannot by itself distinguish concentration uncertainty from other effects that change an apparent stoichiometry.
+
+#### Calculation and assumptions
+
+Let *M* be the total macromolecule concentration, *N* the number of sites per macromolecule, *X* the total ligand concentration, *x* the free ligand concentration, and *K*<sub>d</sub> the dissociation constant. A smaller *K*<sub>d</sub> means stronger binding. The model finds *x* by balancing free and bound ligand, then calculates the heat content *Q* of the cell:
+
+> **Calculation:**
+>
+> *f* = *x* / (*K*<sub>d</sub> + *x*)
+>
+> *X* = *x* + *N M f*
+>
+> *Q* = *V N M f* Δ*H*
+>
+> The fraction *f* tells us how many sites are occupied. The middle line counts free ligand plus ligand on the sites. The last line multiplies the amount bound in cell volume *V* by the heat per mole bound, Δ*H*. Injection heat then follows the selected bookkeeping calculation above.
+
+### Two-Sets-Of-Sites
+
+**Two-Sets-Of-Sites** represents two independent classes of sites. It fits separate stoichiometries, dissociation constants, and enthalpies for the two classes, together with a shared injection-heat offset.
+
+**Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
+
+The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower RMSD or optimizer objective alone does not establish that two distinguishable binding processes are supported by the experiment.
+
+#### Calculation and assumptions
+
+Each class has its own site count *N*, affinity *K*<sub>d</sub>, and binding enthalpy Δ*H*. With free ligand concentration *x*, the two classes share the same supply of ligand:
+
+> **Calculation:**
+>
+> *f*<sub>j</sub> = *x* / (*K*<sub>d,j</sub> + *x*), for *j* = 1 or 2
+>
+> *X* = *x* + *M*(*N*₁*f*₁ + *N*₂*f*₂)
+>
+> *Q* = *V M*(*N*₁*f*₁Δ*H*₁ + *N*₂*f*₂Δ*H*₂)
+>
+> Each *f* is the occupied fraction for one site class. The ligand balance finds one free concentration that satisfies both classes. Their heat contributions add to give the cell heat content; injection bookkeeping converts its change to a predicted heat.
+
+### Sequential Binding Sites
+
+**Sequential Binding Sites** represents two, three, or four ordered binding steps on a macromolecule in the cell. **Sequential binding steps** in the **Options** tab selects the number of steps. The model fits one macroscopic stepwise association constant and one molar step enthalpy for each transition, together with the ordinary molar injection-heat offset. It does not fit an N-value or syringe activity.
+
+The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
+constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
+They are not microscopic intrinsic site constants. Step numbers therefore have
+a physical order, so fitted steps are never sorted or treated as interchangeable.
+
+The macromolecule must be in the cell and ligand in the syringe. Reverse
+titrations with macromolecule in the syringe are outside this model. Multi-step
+fits can be weakly identifiable, especially when the concentration window does
+not populate every transition. Inspect parameter bounds, residuals, bootstrap
+uncertainty, and parameter correlations; an improved RMSD does not by itself
+establish the selected number of sequential steps.
+
+#### Sequential-state calculation
+
+For step count *n*, let β<sub>0</sub> = 1,
+β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be the free ligand concentration.
+The state weights and fractions are
+
+> **Calculation:**
+>
+> *w*<sub>i</sub> = β<sub>i</sub>*x*<sup>i</sup>
+>
+> *F*<sub>i</sub> = *w*<sub>i</sub> / Σ<sub>j=0…n</sub>*w*<sub>j</sub>
+>
+> ν̄ = Σ<sub>i=0…n</sub>*iF*<sub>i</sub>
+>
+> *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
+>
+> Each state receives a weight from its binding steps and the available free ligand. Dividing by the total weight gives the fraction in that state. The average number of bound ligands, ν̄, then balances free and bound ligand against the total.
+
+Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
+concentrations in the cell. The model solves the ligand balance as part of the fit and
+calculates the cell heat content from the population of every sequential state:
+
+> **Calculation:**
+>
+> *Q* = *V M*<sub>t</sub> Σ<sub>i=1…n</sub> *F*<sub>i</sub>
+> (Σ<sub>j=1…i</sub> Δ*H*<sub>j</sub>)
+>
+> For each state, add the heats of all steps needed to reach it, multiply by the fraction in that state, and sum across states. Multiplying by the macromolecule amount in the cell gives its heat content.
+
+### Competitive Binding
+
+**Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
+
+The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** includes both free and bound competitor in the cell. Each option can use an experiment attribute instead of a manually entered value. For affinity and enthalpy, add a **Competitor properties** attribute and select a one-set-of-sites Analysis Result to supply *K*<sub>d</sub>, Δ*H*, and their uncertainty. Different experiments in a global fit can select different source results: eg if using a different competitor. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
+
+With **From attributes** selected, the next fit uses each experiment's attribute value; the manually entered option is used when **From attributes** is off. Every included experiment needs the required attributes, or the fit cannot start. The Analysis Result **Model** page identifies attribute-supplied options and the values used for each experiment. **Update Result** reads current attributes; an existing result does not update when attributes change and retains the values used in its earlier fit until updated.
+
+The **Total competitor** attribute also accepts an SD for its concentration.
+
+If the source result has temperature dependence, its values are evaluated at the experiment temperature. Otherwise its summary temperature is used, with a notice when the temperatures differ. Removing a source after fitting does not erase values already used by a result; a source removed before its values were used must be restored or replaced. Updating the source result marks dependent results out of date until they are fitted again. Residual bootstrap samples the supplied affinity and enthalpy uncertainties separately, as it does for manually entered model options.
+
+The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. The competitor properties are model inputs, not quantities independently determined by this fit.
+
+The reported apparent target *K*<sub>d</sub> includes a competition factor calculated from the initial free competitor concentration. This calculation accounts for competitor already bound to cell sites rather than substituting the total competitor concentration. The apparent target *K*<sub>d</sub> can therefore differ from its intrinsic value.
+
+#### Calculation and assumptions
+
+The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b* be their free concentrations, *K*<sub>a,A</sub> and *K*<sub>a,B</sub> their association constants, and *S* the total site concentration. The model solves for the two free concentrations so that the available ligand is accounted for:
+
+> **Calculation:**
+>
+> *D* = 1 + *K*<sub>a,A</sub>*a* + *K*<sub>a,B</sub>*b*
+>
+> *f*<sub>A</sub> = *K*<sub>a,A</sub>*a* / *D*
+>
+> *f*<sub>B</sub> = *K*<sub>a,B</sub>*b* / *D*
+>
+> *A*<sub>total</sub> = *a* + *S f*<sub>A</sub>; *B*<sub>total</sub> = *b* + *S f*<sub>B</sub>
+>
+> *Q* = *V S*(*f*<sub>A</sub>Δ*H*<sub>A</sub> + *f*<sub>B</sub>Δ*H*<sub>B</sub>)
+>
+> *D* counts the empty and occupied possibilities for a site; *f*<sub>A</sub> and *f*<sub>B</sub> are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
+
+### Dissociation
+
+**Dissociation** describes dimers in the syringe solution separating into free components when injected into a cell initially containing buffer. Dilution shifts the equilibrium toward free components. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The model fits an effective dissociation constant, the heat per mole of dimers formed, and an injection-heat offset.
+
+The integrated-heats and residual plots use the total titrant concentration in the cell after each injection, in µM. This concentration is calculated from the entered concentrations and injection bookkeeping.
+
+For an equimolar complex *A* + *B* ⇌ *AB*, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar *AB* preparation). Then *F* = [*A*] + [*B*] and *P* = [*AB*]. Because [*A*] = [*B*] = *F*/2, the usual heterodimer association constant *K*<sub>a,AB</sub> = [*AB*]/([*A*][*B*]) is **four times** the model's *K*<sub>a,model</sub>; the usual heterodimer *K*<sub>d</sub> is one quarter of the fitted *K*<sub>d</sub>. The fitted Δ*H*<sub>assoc</sub> is per mole of *AB* formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
+
+#### Dissociation calculation
+
+> **Calculation:**
+>
+> *K*<sub>a,model</sub> = *P* / *F*<sup>2</sup>
+>
+> *C* = *F* + 2*P*
+>
+> *Q* = *V P* Δ*H*<sub>assoc</sub>
+>
+> *F* is the concentration of free components counted together, *P* is the concentration of dimers, and *C* counts two components per dimer. The equilibrium determines how much remains dimerized at each dilution. The cell heat content is the amount of dimer times the heat of forming it. Dilution drives dimers apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
+
+With **MicroCal** bookkeeping, Dissociation uses MicroCal's own dimer-dissociation equation instead of the averaged displaced-heat formula used for the binding models. The displaced solution leaves with the cell content from before the injection, while concentrations still follow the MicroCal equations. With *v* the injection volume, *V* the active cell volume, and *P*<sub>syr</sub> the dimer concentration in the syringe:
+
+> **Calculation:**
+>
+> *q* = Δ*H*<sub>assoc</sub>[*V P*<sub>end</sub> − (*V* − *v*)*P*<sub>start</sub> − *v P*<sub>syr</sub>]
+>
+> The last term counts the dimers delivered by the injection as part of the starting amount, so heat comes only from the change in dimer amount, mainly dissociation of injected dimers as they are diluted. MicroCal's concentration and heat equations treat displaced solution differently, so they do not balance exactly. Use this combination to compare with MicroCal results.
+
+### Thermodynamic relationships
+
+The application derives thermodynamic quantities from the fitted affinity and enthalpy. Temperature <i>T</i> is expressed in kelvin.
+
+> **Calculation:**
+>
+> <i>K</i><sub>d</sub> = 1 / <i>K</i><sub>a</sub>
+>
+> Δ<i>G</i> = <i>R</i><i>T</i> ln(<i>K</i><sub>d</sub>) = −<i>R</i><i>T</i> ln(<i>K</i><sub>a</sub>)
+>
+> −<i>T</i>Δ<i>S</i> = Δ<i>G</i> − Δ<i>H</i>
+>
+> Here, <i>R</i> is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
+
+## Fitting calculation
+
+### Algorithm
+
+**Levenberg-Marquardt** uses local derivative information and can be efficient when the starting values describe a suitable region of the fitting surface.
+
+**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative when the derivative-based method has difficulty converging from the chosen starting values.
+
+### Weight by injection error
+
+**Weight by injection error** uses the integration uncertainty estimated during thermogram processing when calculating the fitting objective. An injection with a larger estimated error has less influence on the fitted parameters than one with a smaller estimated error. Choose this only when those processing-derived error estimates are suitable for the dataset.
+
+
+**RMSD** summarizes the typical size of the heat differences between the observed points and the fitted curve. It is always calculated from the unweighted residuals, including after a weighted fit. The result tooltip reports the optimizer objective separately: the raw residual sum of squares for unweighted fitting or the standardized residual sum of squares for weighted fitting. Weighting can change the fit even though the displayed RMSD remains an unweighted summary.
+
+For a multiple-experiment result, the displayed global RMSD is pooled across every included injection in every member experiment. Each member row retains its own local RMSD, so the global value remains comparable when members contain different numbers of included injections.
+
+**Weight by injection error** is available only when every included injection has a finite, positive peak-area SD. The application checks this again before fitting. An injection without an estimated SD can be excluded from the fit, or its thermogram can be reprocessed to obtain an estimate.
+
+The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.
+
+#### Objective calculation
+
+> **Calculation:**
+>
+> <i>r</i><sub>i</sub> = <i>q</i><sub>i,obs</sub> − <i>q</i><sub>i,model</sub>
+>
+> RMSD = √[(Σ<i>r</i><sub>i</sub><sup>2</sup>) / <i>N</i>]
+>
+> weighted objective = Σ(<i>r</i><sub>i</sub> / <i>σ</i><sub>i</sub>)<sup>2</sup>
+>
+> Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
+
+## Parameter uncertainty
+
+The reported value is the best fit to the original data. Choose **Errors** to estimate uncertainty or sensitivity afterward:
+
+- **None:** keep the primary fit without parameter uncertainty.
+- **Bootstrap residuals:** estimate variation under resampled residual noise.
+- **Leave-one-out:** assess sensitivity to omitting an injection or, for a global fit, an experiment.
+- **Profile likelihood:** search for a 95% interval while refitting the remaining free parameters.
+
+**Bootstrap** sets the requested number of residual-bootstrap iterations. It is enabled and used only for residual bootstrap; leave-one-out and profile likelihood have deterministic schedules and do not use this count. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
+
+Correlation diagnostics distinguish all attempted refits, those with usable optimizer results, and complete refits with finite values for every displayed parameter. If many refits fail, the retained set may not represent the full range of resampled outcomes. Increasing the requested count improves Monte Carlo precision but does not resolve systematic refit failures.
+
+Rerunning a bootstrap can give slightly different uncertainty estimates because it draws a new random sample.
+
+For a stored bootstrap result, **Update Result** offers the stored request or another supported count. It creates a fresh fit and bootstrap rather than appending samples. Canceling or retaining no usable refits preserves the previous result.
+
+### Residual-bootstrap calculation
+
+Residual bootstrap samples from the included injections' primary-fit residuals and adds each draw to a best-fit prediction. An unweighted fit centers and samples raw residuals, assuming roughly equal residual spread across injections. A weighted fit divides by each injection's peak-area SD before centering and sampling, then multiplies each draw by the target injection's SD.
+
+Fitted residuals underestimate noise because fitting absorbs some variation. The centered residuals are therefore multiplied by √[*n* / (*n* − *p*)], where *n* is the number of included injections and *p* the number of free fitted parameters; locked parameters are not counted. This matches the residual variance estimate RSS / (*n* − *p*), where RSS is the residual sum of squares. Without the correction, small-dataset intervals would be too narrow. Shared global fits use pooled counts; independent experiments use their own. In either case, *n* must exceed *p*.
+
+The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
+
+> **Calculation:**
+>
+> SD = √[Σ<sub>b</sub>(*θ*<sub>b</sub> − *θ̂*)<sup>2</sup> / *B*]
+>
+> 95% CI = [*P*<sub>2.5</sub>({*θ*<sub>b</sub>}), *P*<sub>97.5</sub>({*θ*<sub>b</sub>})]
+>
+> SD is the root-mean-square deviation of the retained refits from the primary best fit. The confidence limits are the 2.5th and 97.5th percentiles of the retained refit distribution itself, so they need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
+
+The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
+
+### Leave-one-out calculation
+
+Leave-one-out performs one deterministic refit per included injection in a single-experiment analysis, or per omitted experiment in a global fit. Concentrations, uncertain model options, and parameter locks remain at their primary-fit values, so the spread measures sensitivity to omission under those fixed inputs.
+
+### Profile-likelihood uncertainty
+
+**Profile likelihood** estimates parameter uncertainty by asking how far a fitted parameter can be moved away from its best-fit value before agreement with the data crosses the chosen threshold. Profile likelihood does not create a refit ensemble or a confidence band.
+
+For each trial, the selected parameter is fixed while the other free parameters readjust. Searching both directions allows compensation between parameters. Independent fits use their local objective; shared global fits use the complete objective and its free coordinates.
+
+The 95% confidence limits are the parameter values at which the best achievable fit reaches a statistically defined 95% threshold. FT-ITC uses an F-calibrated threshold based on the number of observations and fitted parameters. The confidence interval is therefore determined by the shape of the fit surface rather than by assuming that parameter uncertainty is symmetric or normally distributed.
+
+
+A complete interval is reported only when the threshold is crossed on both sides of the best-fit value. If the search reaches a parameter limit first, that side is recorded as censored and has no confidence endpoint. For a complete interval, the displayed `value ± SD` uses a symmetric display equivalent calculated from the asymmetric interval; it is not a sample standard deviation. Save the result in an `.ftxtc` project to preserve the profile diagnostics.
+
+After **Update Result**, check whether the completion message says the previous profile result was retained rather than replaced.
+
+### Concentration uncertainty
+
+With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration.
+
+Bootstrap concentration variations use a positive lognormal multiplier with mean 1 and the entered fractional SD *c*. Specifically, σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. This chosen distribution keeps sampled concentrations positive while preserving the entered arithmetic mean and SD; it does not change the concentrations used for the primary best fit. If a concentration has no entered SD, that concentration remains fixed in bootstrap refits. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits.
+
+### Displayed parameter uncertainty
+
+Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but normally displayed as *K*<sub>d</sub>; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
+
+Standard and Strict precision round halfway values away from zero, so mirrored positive and negative estimates and interval limits round symmetrically.
+
+Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
+
+### Unlock parameters during error estimation
+
+**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked only for residual-bootstrap refits and can vary in the resampled solutions. Leave-one-out and profile likelihood always preserve the primary-fit locks.
+
+This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.

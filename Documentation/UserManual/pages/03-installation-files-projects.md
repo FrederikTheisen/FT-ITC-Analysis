@@ -44,7 +44,6 @@ Choose the input that matches the stage of your work. A **raw thermogram** conta
 | `.aff` | Integrated-heats table | Integrated heats and injections |
 | `.dh` | Fixed-layout integrated-heats file | Integrated heats, injections, and experiment metadata |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
-| `.ftitc` | Legacy FT-ITC project | Readable for migration; not written by current versions |
 
 Raw thermogram imports (`.itc`, `.nitc`, `.ta`, and `.apj`) open as unprocessed Experiment Data. Process and fit them in FT-ITC Analysis. A PEAQ-ITC `.apj` import uses only the first experiment; its existing processing and fits are not imported.
 
@@ -56,7 +55,7 @@ Integrated-heat files (`.dat`, `.aff`, and `.dh`) skip thermogram processing. Du
 
 The first injection is imported but excluded from fitting by default because its heat is often unreliable. You can include it manually; its volume still contributes to later concentration calculations.
 
-A recorded cell concentration of zero is kept, for example in a dissociation experiment with buffer in the cell; the injections are then plotted against titrant concentration instead of molar ratio. Raw files with non-numeric thermogram, injection, or concentration values are rejected. The import check asks you to review negative concentrations, a cell volume that is not positive, and injections that follow a gap of 10 s or more in the recorded thermogram, because such a gap affects the baseline and integration around that injection.
+A zero cell concentration is retained, for example for Dissociation into buffer; plots then use titrant concentration instead of molar ratio. Review import warnings about concentrations, cell volume, or gaps of 10 s or more in the thermogram, which can affect baseline fitting and integration.
 
 ## Open files
 
@@ -70,11 +69,13 @@ If an `.ftxtc` file contains experiments, Analysis Results, reports, or saved fi
 
 ### Traceability Mode at startup
 
-When Traceability Mode is enabled, each launch confirms the operator once before offering autosave recovery or opening files requested at launch. The confirmation starts with the current operator name filled in. **Continue** saves the entered operator name; **Quit** or closing the confirmation exits without changing the saved name or resolving recovery files. With Traceability Mode disabled, this confirmation is skipped.
+With Traceability Mode enabled, confirm the operator at launch before recovery or requested files are opened. **Continue** saves the name. **Quit** or closing the confirmation exits without changing it or resolving recovery files.
 
 ## Save projects
 
 Choose **File > Save** to update the current named project, or **File > Save As...** to choose a new name or location. Use the current `.ftxtc` format for ongoing work.
+
+Save after fitting or processing finishes. Save commands requested while busy are declined; choose the command again afterward. Autosave waits for the operation to finish.
 
 If a save finishes but newer changes remain unsaved, the document stays marked as changed. When this happens while closing, quitting, clearing, or replacing a project, the app keeps the current document open; save again to include those changes.
 
@@ -88,7 +89,7 @@ An `.ftxtc` project preserves the data and metadata needed to continue analysis,
 
 Autosave behavior is configured in **Preferences...**. An autosave due during fitting or processing waits and runs when the operation finishes. When recovery data is available after an interrupted session, the application offers a recovery path. Open the recovered document, inspect the data list and recent changes, then save it as a named `.ftxtc` project.
 
-Recovery mode is designed to salvage valid project components when possible. If an experiment is unavailable, its saved fit is omitted; Analysis Results that depend on that fit are also omitted rather than being restored with a scientifically different set of members. Unaffected experiments, fits, and results can still be recovered. When recovery was required, the application displays a warning and records the individual recovery issues in the application log. A recovered project can be detached from its former save location and marked as changed. Use **Save As...** rather than assuming the damaged or interrupted file was repaired in place.
+Recovery can restore unaffected experiments, fits, and results. If an experiment cannot be recovered, its fit and dependent results are omitted rather than reconstructed from a different set of members. Review the recovery warning and log, then use **Save As...**; the original file is not repaired in place.
 
 > **Caution:** Recovery cannot guarantee that every optional result or saved analysis survived. Confirm experiment counts, processing, fits, and result validity before continuing.
 
@@ -108,10 +109,6 @@ Processing, fitting, saving, recovery, export, and printing run locally. Optiona
 
 If **Check for updates and online resources on launch** is enabled, the application checks for release and citation updates; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control automated interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
 
-## Update safely
-
-Before installing a new application version, save important projects and retain the current installer when reproducibility policy requires it. After updating, open a copy of a representative project, confirm processing and results, and save only when you intend the project to be written by the new version.
-
 ### Online data flow and retention
 
 **Automated interpretation:** Choosing **Generate** sends the selected report evidence and your question or context to FT-ITC's online interpretation service at app.ft-itc.org. The service uses OpenAI to generate the interpretation. Sent evidence can include experiment and result names, comments, conditions, concentrations, saved fits, uncertainty summaries, diagnostics, and injection data. The selected **Evidence level** limits what is sent; Public access uses Results. Supporting experiments are included when selected. Compressed thermograms are off when the dialog opens and are sent only if you opt in. **Save package** saves the full local evidence and the exact payload for the selected level without sending them. Opening Preferences or the generation dialog can check service availability and account access without sending scientific evidence. A supplied access code is sent to verify access.
@@ -119,3 +116,7 @@ Before installing a new application version, save important projects and retain 
 **Project Viewer:** Opening a project in the browser-based Project Viewer uploads the complete `.ftxtc` file, including its embedded data and comments, to app.ft-itc.org for display. This does not submit the project for automated interpretation or send it to OpenAI. The viewer has a 50 MB upload limit. Closing the viewer does not retract an upload or guarantee that temporary processing copies or infrastructure records have been deleted; the full service has no verified end-to-end deletion schedule.
 
 **Retention:** FT-ITC's interpretation service retains usage metadata that can be linked to requests or accounts, without automatic expiry. These usage records do not contain the complete scientific report evidence or generated interpretation. There is no in-app control to delete service records. Canceling generation or deleting a local report does not retract information already sent. Data sent to OpenAI is subject to its applicable data controls and retention policies; see [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). No zero-retention or fixed-deletion guarantee is made for the complete service flow.
+
+## Update safely
+
+Before installing a new application version, save important projects and retain the current installer when reproducibility policy requires it. After updating, open a copy of a representative project, confirm processing and results, and save only when you intend the project to be written by the new version.

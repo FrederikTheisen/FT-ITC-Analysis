@@ -19,7 +19,7 @@ The model and model options apply across the active set. The resulting **Analysi
 
 ## Fit
 
-The **Fit** tab identifies the **Mode** as **Multiple experiments** and exposes the shared **Model** selection. The solver controls include **Algorithm**, **Errors**, **Bootstrap**, **Limits**, **Weight by injection error**, **Concentration uncertainty**, and **Unlock parameters**. The available **Algorithm** values are **Nelder-Mead** and **Levenberg-Marquardt**; the error-estimation values are **None**, **Bootstrap residuals**, **Leave-one-out**, and **Profile likelihood**.
+In **Fit**, select the shared model, optimizer, uncertainty method, limits, and weighting, then choose **Run Fit**. Enable result creation to retain the collection. The controls work as described in [Single-experiment fitting](06-fitting-models.md#fitting-calculation).
 
 For a global fit, **Leave-one-out** checks the effect of omitting each experiment in turn. **Profile likelihood** evaluates the complete global fit, including its shared and member-specific free parameters. Independently fitted members use their own data and parameters for these calculations. Bootstrap count, concentration uncertainty, and parameter unlocking are available only with **Bootstrap residuals**.
 
@@ -69,6 +69,11 @@ constraints; increasing it later creates new defaults for those steps.
 
 Offset is an energy-per-mole-of-injectant correction. For each injection, its absolute heat contribution scales with the injected amount—the injection volume multiplied by the syringe concentration. With **Offset: Independent**, each experiment has its own fitted molar offset. With **Offset: Shared**, the **Parameters** tab exposes one common molar offset for the complete set. That shared value has its own **Locked** control; locking it fixes the common value for every member.
 
+
+![Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.](../assets/multiple-experiment-constraints.png)
+
+### Linked temperature calculation
+
 > **Calculation:**
 >
 > *ΔH*(*T*) = *ΔH*<sub>ref</sub> + *ΔC*<sub>p</sub>(*T* − *T*<sub>ref</sub>)
@@ -81,11 +86,12 @@ Offset is an energy-per-mole-of-injectant correction. For each injection, its ab
 
 For independent enthalpies, the linked temperature relationship gives every experiment equal weight, including repeated temperatures and locked enthalpies. Linked Gibbs and entropy profile intervals propagate uncertainty through the enthalpy trend but do not account for correlations among fitted parameters; they are approximate. Bootstrap and leave-one-out recompute the relationship from their participating members. The reported best-fit values remain those from the original data.
 
-![Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.](../assets/multiple-experiment-constraints.png)
 
 ## Options
 
 The **Options** tab contains the options exposed by the selected model. In multiple-experiment mode, a model option applies to every member. This includes model-specific concentration, stoichiometry, syringe-correction, or prebound-species settings when those options are exposed. The option values are preserved with the combined Analysis Result.
+
+With **From attributes**, each member supplies its own attribute value under that common configuration. See [Competitive Binding](06-fitting-models.md#competitive-binding) for competitor sources and the values captured by a fit.
 
 An option that changes which parameters are exposed can also change the available parameter rows and constraint states. For example, model options that share or replace stoichiometry alter which N-values are independently represented. The available rows always describe the active model and option combination.
 
@@ -97,6 +103,6 @@ Display settings affect the graph presentation, not the model, the member data, 
 
 ## Combined Analysis Result
 
-The combined **Analysis Result** contains the exact member experiments, the shared model and options, member parameters, any shared or temperature-dependent parameters, active constraints, solver and weighting settings, convergence diagnostics, and uncertainty results. Its result table can represent both global values and member-specific values. A selected member retains its own fitted curve and residual information even when a parameter is common across the set.
+Open the combined **Analysis Result** to compare shared and member-specific values, then select members to inspect their fitted curves and residuals. The saved result retains the member set, model, constraints, solver and weighting settings, and uncertainty output.
 
 The status and diagnostics distinguish a successful solver termination from the quality and uncertainty of the fit. RMSD, iteration count, weighting, error-estimation method, and the number of successful uncertainty refits describe how the combined result was obtained. Wide or asymmetric uncertainty, a member with a markedly different residual pattern, or a member solution with an invalid status remains visible as member-level information rather than being hidden by a combined value. Result interpretation and validity are covered in [Results and advanced analyses](08-results-advanced-analysis.md).

@@ -15,6 +15,15 @@ Choose a figure when you want to show a graph, a data export when you need injec
 
 FT-ITC Analysis keeps publication figures, numerical data, and fitted result tables as separate output types. **Final Figure** is an Experiment Data workflow. An Analysis Result does not open directly as a Final Figure; **Export Associated Final Figures...** on a result exports figures for the experiment solutions associated with that result.
 
+## Choose the appropriate output tool
+
+The Analysis Report is distinct from the other output tools:
+
+- **Analysis Result Exporter** writes compact CSV or TSV tables for numerical reuse.
+- **Final Figure** writes a publication figure for an experiment, while **Export Associated Final Figures...** writes one figure per result member.
+- **Supporting Figure** composes selected figures into one multi-panel canvas.
+- **Analysis Report** assembles one or more saved results as self-contained chapters with figures, detailed tables, diagnostics, optional advanced plots, and source and analysis history.
+
 ## Final Figure
 
 The **Final Figure** workspace renders the selected Experiment Data as a publication figure. Its preview and PDF output reflect the selected experiment, processing state, fitted solution, and figure options. To export figures using the fits stored in an Analysis Result, use **Export Associated Final Figures...** on that result.
@@ -64,7 +73,7 @@ Null model figures show the full saved dilution-heat prediction against buffer-c
 
 **None** shows processed observations without a model curve, confidence band, residuals, fitted parameters, model information, parameter guides, or fitted offset correction. Inactive controls keep their settings for when you return to a compatible model.
 
-**Line width** sets the model curve thickness. **Smoothness** selects **Smooth**, **Spline**, or **Linear** interpolation. **Show residuals graph** adds the residual panel, and **Residual gap** separates it visually from the fit panel. The display controls include the zero enthalpy line, error bars, excluded points, and excluded error bars. **Confidence band** and **Offset correction** are in **Model**. Error bars use processed injection uncertainties; confidence bands require bootstrap uncertainty in the fitted solution; fit lines and residuals require a fitted solution.
+**Line width** sets the model curve thickness. **Smoothness** selects **Smooth**, **Spline**, or **Linear** interpolation. **Show residuals graph** adds the residual panel, and **Residual gap** separates it visually from the fit panel. The display controls include the zero enthalpy line, error bars, excluded points, and excluded error bars. **Confidence band** and **Offset correction** are in **Model**. Error bars use processed injection uncertainties; confidence bands require suitable stored resampling solutions and are unavailable for profile likelihood; fit lines and residuals require a fitted solution.
 
 Traceability Mode keeps excluded injections visible in figures and disables the excluded-point visibility control. This does not include those injections in the fit.
 
@@ -78,7 +87,7 @@ The format list contains:
 
 - **Thermogram Data** — a `.csv` file containing time and power samples, with the **Export baseline-corrected trace** option when baseline-corrected samples exist.
 - **Integrated Peaks** — a `.csv` file containing injection-axis values, molar heats, their SD, fitted values, and residuals when available, with **Export offset-corrected peaks** when a fitted solution is available.
-- **Combined Data** — a `.csv` file placing thermogram samples and integrated-peak columns side by side; raw, corrected, fitted, and residual columns are included when available.
+- **Combined Data** — a `.csv` file placing thermogram samples and integrated-peak columns side by side. It includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available.
 - **MicroCal / SEDPHAT** — a `.dat` file with MicroCal-style `DH`, `INJV`, `Xt`, `Mt`, `XMt`, `NDH`, `DY`, and `Fit` columns. `DH` is in µcal, `INJV` is in µL, concentrations are in mM, and `NDH`, `DY`, and `Fit` are in cal/mol. The first injection uses `--` for normalized heat and residual, following the conventional excluded-first-injection layout.
 - **pytc** — a `.dh` file containing the pytc-compatible injection and metadata fields.
 - **ITCsim** — a `.csv` file containing ITCsim-compatible injection data and metadata, with offset-corrected peaks available when a fitted solution exists.
@@ -91,7 +100,7 @@ These exports are not project backups. General `.csv` and `.tsv` exports cannot 
 
 ## Analysis Result Exporter
 
-Fitted N, α and fixed stoichiometry occupy separate columns; fixed stoichiometry is the value set under [Stoichiometry](06-fitting-models.md#one-set-of-sites).
+**Copy Result Table** copies one row per experiment as tab-separated text for pasting into a spreadsheet. Values and uncertainties occupy separate columns, following the uncertainty display preference; **None** copies values only. For combined summary rows or other table formats, use **Analysis Result Exporter...**.
 
 **Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** produces one row per result; **All replicate rows** produces one row per member fit. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. **Energy units** provides **Automatic**, **J**, **kJ**, **cal**, and **kcal**. Automatic chooses one stable molar-energy unit across all selected results and one independent unit for ΔCp columns; a fixed choice uses the selected energy unit consistently. Temperature presentation is **Celsius** or **Kelvin**.
 
@@ -105,6 +114,7 @@ exports one Kd, ΔH, ΔG, and −TΔS value for every active step, including ste
 and 4 when present. The fixed step
 count is included as model information. Exporting preserves the interpretation of these values: macroscopic sequential
 constants remain step constants, not microscopic site constants.
+Fitted N, α and fixed stoichiometry occupy separate columns; fixed stoichiometry is the value set under [Stoichiometry](06-fitting-models.md#one-set-of-sites).
 
 Each affinity column chooses its concentration unit independently from its own
 magnitude. For example, Kd1 may be shown in nM while Kd4 is shown in µM. The
@@ -121,45 +131,17 @@ Use the experiment rows to compare temperatures, cell and syringe concentrations
 
 Select a saved report to see its Analysis Results, experiment counts, result availability, whether interpretation text is saved, and any subtitle. **Open** restores its settings and interpretation; **Rename** changes its project entry. **Details** shows the full saved metadata and text, and **Copy All** copies its saved user-entered text. **Delete** removes the report after confirmation. Renaming changes both the saved name and the printed report title. Clear the name to use an automatic name based on its result. **Last saved** records the last save that changed the report; opening, previewing, exporting, and saving the project do not change this date. Older reports may have no recorded save date.
 
-Deleting a report removes its saved selections, settings, context, and interpretation from the project; experiments, Analysis Results, and exported PDFs remain. Reports with missing results can still be inspected, copied, and deleted through Project Information.
+Deleting a report keeps experiments, Analysis Results, and exported PDFs. Reports with missing results can still be inspected, copied, and deleted.
 
 ## Analysis Report
 
 **Tools > Analysis Report...** creates a complete, printable report from one or more saved Analysis Results. The same tool is available as **Export Analysis Report...** in result-specific menus, where that result is initially selected. Use **Select report contents...** to choose results and optional supporting experiments together. Opening the tool starts a new report draft. Use **Saved Reports…** in the inspector or **Project Information** to open a saved report and restore its selections, settings, study context, and interpretation. Changing the selected results edits the current draft and retains its interpretation text.
 
-### Report contents and layout
-
-The report is a printable A4 PDF. It starts with a front page that lists the included results and the contents, followed by a chapter for each result. An approved interpretation follows the front page. Results are referenced as **1**, **2**, and so on, and their experiments as **1A**, **1B**, **2A**, **2B**, and so on. Figures and interpretation use these same references. Results remain separate even when they use the same experiment.
-
-Headers on experiment pages identify the result and experiment, including on continuation pages.
-
-The conditions beneath each experiment heading show nominal initial concentrations in syringe ▸ cell order (for example, `100 µM ▸ 10 µM`) and the target temperature. Recorded buffers with pH, salts, competitor concentration, and explicitly entered ionic strength are also included; Experiment details retains available concentration uncertainties and measured temperature.
-
-The analysis summary includes the model, options, fitting scope, constraints, fixed values, and fit details, plus an overview of every member’s estimates and uncertainty. In Standard reports, **No binding detected** members have blank estimates and RMSD, and only **No binding detected** and **Inconclusive** appear under the experiment name; Diagnostic reports show every estimate and assessment. Non-finite estimates appear as **—**. If any member is effectively No binding detected, combined binding values and dependent analyses are omitted with a reason naming those members. Values are never recomputed from an eligible subset.
-
-**Combined parameters** lists the **Evaluation temperature** used to calculate the summary values. When the measured temperature span exceeds the configured minimum span, the report uses the current **Reference temperature** preference, including for independently fitted temperature series. Otherwise, it uses the mean experiment target temperature. The report chooses this temperature independently of the editable result-view temperature and the saved fitting reference temperature. Evaluation uses the stored temperature relationship; it does not refit the data.
-
-The thermodynamic chart includes each eligible result member and active binding step, identifying any omitted no-binding members. Its whiskers show available saved 95% confidence intervals independently of SD availability; SD values remain available in the tables. Fixed parameters have no uncertainty bars. Experiment sections include the thermogram where available, a final figure, any fit warnings for that experiment, fitted and derived parameters, and selected correlations. **Fit details** reports dimensionless c-values where the model defines them. For one- and two-site models, the Wiseman value is `c = N[cell]₀/Kd`; syringe correction uses the fixed site count. Sequential fits report `[cell]₀/Kd` for each active step, while competitive fits use the apparent `Kd_app`. When **Injection tables** is selected, the report includes each injection's inclusion state, volume, concentrations, heat, measurement SD, fitted heat, and residual. Fit and residual columns use the reported member’s saved solution; residual means observed heat minus predicted heat. Supporting-experiment tables show observations only, even if the experiment has an attached fit. An unavailable thermogram is identified in the report.
-
-Each experiment's processing or data-availability details include the injection bookkeeping saved with its fit. When experiments in one result use different bookkeeping methods, the result overview and the report warnings flag it. The analysis summary lists the buffer subtraction saved with each fit; experiment details show the experiment's current buffer subtraction among its attributes. Parameter tables identify fixed estimates and omit uncertainty intervals for them. Processing details, observations, and injection tables describe **Current experiment data**, while fitted parameter values come from the saved result. Supporting experiments have no saved fit settings, so their subtraction details are omitted; correction provenance remains available where relevant.
-
-**Competitor properties** shows source values captured for the reported fit when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
-
-**Baseline method** identifies the current spline interpolation and actual point count, or the polynomial degree or segmented baseline type. Spline density describes the current points, including manual edits and conversions.
-
-When an experiment has no raw thermogram, **Data availability** identifies its input as imported integrated heats. Baseline and integration details appear only for experiments with a thermogram.
-
-Directly selected experiments that are not represented by a selected result appear once in a report-level **Supporting experiments** chapter after the result chapters and are labeled **S1**, **S2**, and so on. The report uses only saved content: a raw thermogram with any saved baseline and integration boundaries, finite integrated heats explicitly labeled as having no fit, experiment metadata, notes about processing or correction exceptions, dates with a verified source (including filesystem dates in Traceability Mode), attributes, comments, and the report-wide optional injection table. Missing stages receive concise availability notices. Experiments already represented by a checked result remain visible but unavailable as supporting selections. Recorded buffer-subtraction references may be selected automatically according to the application setting, but remain ordinary optional selections; the report does not judge whether a reference is an appropriate blank. Report creation never fits, reintegrates, or performs subtraction.
-
 The source experiments of tandems in the selected results may also be selected automatically for a new report. Uncheck any you do not want; saved supporting selections are restored when the report reopens. The picker marks each as **Buffer reference**, **Tandem source**, or both. Choose results and supporting experiments together, then select **Apply**.
 
-Experiment details identify the source filename and recorded source format under **Source file**; an unknown format is identified explicitly.
-
-A single appendix at the end of the report lists every experiment once, with the labels it is reported under and any role as a buffer reference or tandem source (for example **Tandem source for 1A, 2B**), followed by report warnings and software details.
-
-Source links are recorded when the Experiment Merger creates a tandem. If any of those sources are no longer in the project, a **Tandem sources** item in the tandem's experiment details gives the count. Older tandems and files that already contain concatenated runs have no source links; add their source experiments manually if needed.
-
 ### Configure the report
+
+The experiment parameter overview focuses on binding model parameters (N or α, Kd, and ΔH, as applicable), relevant conditions, and RMSD. Full thermodynamic values appear in the detailed parameter tables.
 
 Choose a title, an optional subtitle, energy and temperature units, and an **Uncertainties** style. Reports default to **SD + 95% CI**. The selected style controls uncertainty in tables and applicable analysis plots; the thermodynamic summary chart shows available saved 95% confidence intervals. Combined spread, approximate propagated intervals, and model-estimated uncertainty keep their separate labels: an approximate combined interval does not have established 95% coverage. Presentation choices are stored when you save the report.
 
@@ -167,7 +149,7 @@ Choose a title, an optional subtitle, energy and temperature units, and an **Unc
 
 Each experiment’s parameter table labels values **Fixed**, **Fitted**, or **Derived** based on the saved solution and global constraints. Fixed estimates retain their values and units but do not show uncertainty decoration.
 
-**Optional content** includes **Injection tables**, **Condense repeated experiments**, **Expanded explanations**, **Parameter correlations**, and completed advanced analyses. Expanded explanations adds contextual notes for approximate summary uncertainty, weighted fit diagnostics, and others. 
+**Optional content** includes **Injection tables**, **Condense repeated experiments**, **Expanded explanations**, **Parameter correlations**, and completed advanced analyses. Expanded explanations adds contextual notes for approximate summary uncertainty, weighted fit diagnostics, and others.
 
 Condensing repeated experiments replaces repeated acquisition and processing details with a reference to the first occurrence, while retaining each result's figures, fit, and scientific context. The analyses you select are included from their saved results; report creation does not rerun them.
 
@@ -185,11 +167,43 @@ Editing an interpretation makes it user-written and current, including when it b
 
 If included results change after the interpretation was written or confirmed, the builder asks you to check that the text is still accurate. This includes changes to values, uncertainties, assessments, names, or comments, and changes to which results are included. Choose **Confirm**, or edit the text, then save the report. The notice applies to both user-written and generated text and returns after a later result change. **Confirm** preserves the text and its source; for generated text it does not change the separate **Current / Out of date / Cannot verify** status or printed freshness warning.
 
+### Report contents and layout
+
+The report is a printable A4 PDF. It starts with a front page that lists the included results and the contents, followed by a chapter for each result. An approved interpretation follows the front page. Results are referenced as **1**, **2**, and so on, and their experiments as **1A**, **1B**, **2A**, **2B**, and so on. Figures and interpretation use these same references. Results remain separate even when they use the same experiment.
+
+The conditions beneath each experiment heading show nominal initial concentrations in syringe ▸ cell order (for example, `100 µM ▸ 10 µM`) and the target temperature. Recorded buffers with pH, salts, competitor concentration, and explicitly entered ionic strength are also included; Experiment details retains available concentration uncertainties and measured temperature.
+
+The analysis summary identifies the model, options, scope, constraints, fixed settings, fit details, and member estimates. Standard and Diagnostic output follow the [binding-assessment policies](08-results-advanced-analysis.md#null-hypothesis-test): no-binding values are suppressed in Standard output, unavailable values use **—**, and combined values are never recomputed from an eligible subset.
+
+**Combined parameters** states its **Evaluation temperature**, using the [default Parameter Evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature). This is independent of an edited result-view temperature and the saved fitting reference. Evaluation uses stored relationships without refitting.
+
+The thermodynamic chart includes each eligible result member and active binding step, identifying any omitted no-binding members. Its whiskers show available saved 95% confidence intervals independently of SD availability; SD values remain available in the tables. Fixed parameters have no uncertainty bars. In warning summaries, “N of M experiments” counts affected eligible members against all members of that result; overview fit warnings exclude no-binding members, while Diagnostic appendix warnings retain them. Experiment sections include the thermogram where available, a final figure, any fit warnings for that experiment, fitted and derived parameters, and selected correlations. **Fit details** reports dimensionless c-values where the model defines them. For one- and two-site models, the Wiseman value is `c = N[cell]₀/Kd`; syringe correction uses the fixed site count. Sequential fits report `[cell]₀/Kd` for each active step, while competitive fits use the apparent `Kd_app`. When **Injection tables** is selected, the report includes each injection's inclusion state, volume, concentrations, heat, measurement SD, fitted heat, and residual. Fit and residual columns use the reported member’s saved solution; residual means observed heat minus predicted heat. Supporting-experiment tables show observations only, even if the experiment has an attached fit. An unavailable thermogram is identified in the report.
+
+Each experiment's processing or data-availability details include the injection bookkeeping saved with its fit. When experiments in one result use different bookkeeping methods, the result overview and the report warnings flag it. The analysis summary lists the buffer subtraction saved with each fit; experiment details show the experiment's current buffer subtraction among its attributes. Parameter tables identify fixed estimates and omit uncertainty intervals for them. Processing details, observations, and injection tables describe **Current experiment data**, while fitted parameter values come from the saved result. Supporting experiments have no saved fit settings, so their subtraction details are omitted; correction provenance remains available where relevant.
+
+**Competitor properties** shows source values captured for the reported fit when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
+
+**Baseline method** identifies the current spline interpolation and actual point count, or the polynomial degree or segmented baseline type. Spline density describes the current points, including manual edits and conversions.
+
+When an experiment has no raw thermogram, **Data availability** identifies its input as imported integrated heats. Baseline and integration details appear only for experiments with a thermogram.
+
+Selected experiments not already represented by a result appear once as **Supporting experiments**, labeled **S1**, **S2**, and so on. They contribute existing traces, processing, heats, metadata, dates with their source, attributes, comments, and optional injection tables; their heats are explicitly shown without a fit. Represented experiments cannot be selected again as supporting data. Automatically selected buffer references remain optional, and the report does not judge whether they are appropriate blanks. Creation does not fit, reintegrate, or perform subtraction.
+
+**Source file** identifies each experiment's source filename and format, or marks the format unknown.
+
+A single appendix at the end of the report lists every experiment once, with the labels it is reported under and any role as a buffer reference or tandem source (for example **Tandem source for 1A, 2B**), followed by report warnings and software details.
+
+Source links are recorded when the Experiment Merger creates a tandem. If any of those sources are no longer in the project, a **Tandem sources** item in the tandem's experiment details gives the count. Older tandems and files that already contain concatenated runs have no source links; add their source experiments manually if needed.
+
 ### Generate an automated interpretation
 
-**Online generation privacy:** Generate sends selected names, comments, conditions, fits and injection evidence, plus your question or context, to the FT-ITC online interpretation service, which uses OpenAI to generate a response. Thermograms start unchecked each time the generator opens and require an explicit opt-in. The service retains usage metadata without automatic expiry; full scientific evidence and generated prose are not included in that metadata. Provider and infrastructure retention are separate; no deletion deadline is guaranteed. Canceling does not retract sent data. Local processing, fitting, saving and export work without generation. [Data flow and retention](03-installation-files-projects.md#privacy-and-online-checks).
+Choose **Generate interpretation…**, enter a **Main question** and **Additional context**, and select **Interpretation depth**. Review the selected results and supporting experiments. **Evidence level** controls how much data is sent: **Results**, **Injection data**, **Processing details**, or **Thermograms**. Each level includes the lower levels. Injection data is the default where permitted; Public access uses Results. Standard access permits Injection data, and Advanced or Administrator access also permits Processing details and Thermograms. Thermograms requires a fresh selection each time the dialog opens. The inspector identifies user-written or generated text and its freshness.
 
-The inspector’s **Interpretation** section reports whether the text is user-written or generated and its freshness. **Edit** returns focus to the large editor. **Generate interpretation…** opens a dialog with optional **Main question** and **Additional context** fields. Use the question to focus the assessment and the context to explain the experiment. The cross-platform dialog labels its preset selector **Interpretation depth**. Requesting generation sends the selected report evidence and these inputs to the online interpretation service. **Evidence level** controls how much data is sent: **Results**, **Injection data**, **Processing details**, or **Thermograms**. Each level includes the lower levels. Injection data is the default where permitted; Public access uses Results. Standard access permits Injection data, and Advanced or Administrator access also permits Processing details and Thermograms. Thermograms requires a fresh selection each time the dialog opens.
+Review the returned draft, then choose **Use in report** to add it to the report. Edit it in the report builder if needed. Check its scientific claims and references against the underlying results.
+
+**Online generation privacy:** Generate sends selected names, comments, conditions, fits, injection evidence, and your question/context to the FT-ITC service, which uses OpenAI. Thermograms require opt-in. Usage metadata has no automatic expiry; full evidence and generated text are excluded from that metadata. Provider and infrastructure retention are separate, with no guaranteed deletion deadline. Canceling does not retract sent data. Read [Data flow and retention](03-installation-files-projects.md#online-data-flow-and-retention) before sending sensitive material.
+
+#### Evidence and interpretation limits
 
 Generation assesses all selected results and supporting experiments together, using the same references as the PDF. Results remain independent, including alternative fits of the same experiment. Supporting experiments contribute available observations and metadata without being assigned a fitted result or assumed control role. Generation uses existing processing, integration, residual, and uncertainty evidence where available; it does not rerun integration, baseline fitting, or model fitting. When compressed thermograms are included, they contain minimum and maximum power values for each 15-second interval, plus an aligned fitted baseline when available. Exact peak timing, the order of values within each interval, and the detailed waveform are unavailable. The dialog shows the compact package size against your current request limit and blocks generation when the estimated request is too large. An opted-in thermogram is retained in the request; a size or model-context error is shown instead of silently omitting it.
 
@@ -201,13 +215,9 @@ Completed structuring, electrostatics, and protonation analyses are included whe
 
 If the selection contains outdated or failed analyses, a warning gives you an opportunity to review them before continuing. The report distinguishes saved fit inputs and estimates from current observations; some comparisons are unavailable when the saved fit cannot be matched to the current data. An interpretation can identify potential concerns, but it does not certify the experiment or establish a mechanism. The service may suggest references from details such as a paper title, journal, or year, but it does not search the web.
 
-Review the returned draft, then choose **Use in report** to add it to the report. Edit it in the report builder if needed. Check its scientific claims and references against the underlying results.
-
 Markdown tables require a header and separator row. Use a few columns to keep them readable; unsupported formatting may appear as literal text in the report.
 
 The generated draft is read-only in the generation dialog. Choose **Use in report**, then edit it in the report builder if needed. Canceling, closing the dialog, or encountering a service error leaves previously approved text unchanged. Study context, evidence settings, approved text, and generation details are saved with the report. Changes to selected results, supporting evidence, context, or settings can mark an untouched generated interpretation as out of date. In Traceability Mode, user-written interpretations show their user source and writing time; untouched generated interpretations show their generation details.
-
-Local report editing and PDF export remain available if automated interpretation is unavailable.
 
 ### Save a local copy of interpretation evidence
 
@@ -216,15 +226,6 @@ Use **Save package** in the generation dialog to save a local ZIP of the evidenc
 ### Troubleshoot automated interpretation
 
 If generation fails, note the visible error and use **Copy Support Report** when contacting support. Local report editing and PDF export remain available if online generation is unavailable.
-
-### Choose the appropriate output tool
-
-The Analysis Report is distinct from the other output tools:
-
-- **Analysis Result Exporter** writes compact CSV or TSV tables for numerical reuse.
-- **Final Figure** writes a publication figure for an experiment, while **Export Associated Final Figures...** writes one figure per result member.
-- **Supporting Figure** composes selected figures into one multi-panel canvas.
-- **Analysis Report** assembles one or more saved results as self-contained chapters with figures, detailed tables, diagnostics, optional advanced plots, and source and analysis history.
 
 ## Supporting Figure
 

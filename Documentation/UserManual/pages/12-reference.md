@@ -11,7 +11,7 @@ _verification:
 
 # Glossary and equations
 
-Use this page to look up a term or symbol while reading the task chapters. The equations specify what the application calculates; you do not need them to follow the [Quick start](02-quick-start.md).
+Use the tables to look up terms and symbols, and the equation index to reach each calculation beside its workflow and assumptions. Start with [Quick start](02-quick-start.md) for instructions.
 
 ## Workspace terms
 
@@ -28,7 +28,7 @@ Use this page to look up a term or symbol while reading the task chapters. The e
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across residual-bootstrap refits that have finite values for every displayed parameter, with diagnostics for simulation precision. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
 | **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely the correlation coefficient *r* is estimated from the finite retained-refit ensemble; it is not uncertainty for either fitted parameter or a model-validity assessment. |
-| **AIC / AICc** | Analysis-level criteria for comparing saved fits with the same observations, response definition, weighting mode, and likelihood convention; smaller values are preferred. Both modes estimate one residual-variance parameter; weighted criteria use integration errors as relative uncertainties. AICc uses the standard small-sample approximation for nonlinear fits and is preferred when available. Independently fitted members also show a per-member AICc / AIC column for same-experiment comparisons. Neither criterion establishes model adequacy. |
+| **AIC / AICc** | Fit-comparison scores that account for parameter count; smaller is preferred only for comparable observations and likelihood conventions. They do not establish model adequacy. See [Information criteria](08-results-advanced-analysis.md#information-criteria) for weighting, variance estimation, member scope, and AICc's small-sample approximation. |
 
 ## Uncertainty terms
 
@@ -39,7 +39,7 @@ Use this page to look up a term or symbol while reading the task chapters. The e
 | **95% confidence interval (CI)** | For a residual-bootstrap parameter, the 2.5th and 97.5th percentiles of the retained refit distribution, transformed for display. Profile-likelihood intervals use likelihood-threshold endpoints. Derived quantities use the application's uncertainty-propagation rules. Intervals can be asymmetric around the best-fit value. |
 | **Automatic uncertainty display** | Shows CI for a materially asymmetric stored interval and SD otherwise. It selects a presentation separately for each reported quantity. |
 | **Displayed parameter uncertainty** | Fitted-parameter uncertainty after conversion or propagation into the quantity shown to the user. The Automatic display decision is applied to this displayed quantity. |
-| **Profile likelihood** | Conditional profiling at a fixed 95% confidence level. Unweighted and weighted intervals use an F-calibrated worsening relative to the best residual score. Weighted intervals retain processing-derived peak-area SDs as unchanged relative injection weights and estimate the overall residual scale separately. A parameter bound reached before crossing is censoring, not a confidence endpoint. The reported primary fit remains unchanged. |
+| **Profile likelihood** | A 95% interval search that holds one parameter at trial values while refitting the others. A bound reached before the threshold is censoring, not a confidence endpoint. See [Profile-likelihood uncertainty](06-fitting-models.md#profile-likelihood-uncertainty) for calibration and relative-weight assumptions. |
 | **Profile equivalent SD** | Symmetric `value ± SD` display scale computed from a complete asymmetric profile interval; it is a display equivalent, not a Gaussian sampling SD. |
 
 ## Keyboard conventions
@@ -57,7 +57,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Command/Ctrl + I | Invert the Active Experiment Data set. |
 | Command/Ctrl + comma | Open Preferences. |
 | Command/Ctrl + Q | Quit FT-ITC Analysis. |
-| F1 | Open **Help and Guide** on Windows and Linux. On macOS, open Help through the **?** menu command. |
+| F1 | Open **Help and Guide** on Windows and Linux. On native macOS, choose **Help > FT-ITC Analysis Help**. |
 | Enter | Open **Details** for the selected Data/Results item on Windows and Linux. |
 | Left / Right | Change the selected injection in **Process Data**. |
 | Space | Copy the selected integration end-point offset to the next injection in **Process Data**; the start is also copied when that processing option is enabled. |
@@ -110,16 +110,17 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 
 | Relationship | Local explanation |
 | --- | --- |
-| Integration and molar normalization | [Processing](05-processing-thermograms.md#processing) |
+| Integration and molar normalization | [Integration calculation](05-processing-thermograms.md#integration-calculation) |
+| Processing-derived injection heat SD | [Noise calculation and limits](05-processing-thermograms.md#noise-calculation-and-limits) |
 | Dilution-driven dissociation of an associated pair | [Dissociation](06-fitting-models.md#dissociation) |
 | Sequential binding polynomial and ligand balance | [Sequential Binding Sites](06-fitting-models.md#sequential-binding-sites) |
 | Thermodynamic conversion and **−TΔS** | [Thermodynamic relationships](06-fitting-models.md#thermodynamic-relationships) |
 | Fit residuals, RMSD, and weighting | [Weight by injection error](06-fitting-models.md#weight-by-injection-error) |
 | AIC, AICc, Gaussian likelihood, and parameter counting | [Information criteria](08-results-advanced-analysis.md#information-criteria) |
-| Temperature-dependent constraints | [Multiple-experiment fitting](07-multiple-experiments.md#parameters) |
+| Temperature-dependent constraints | [Linked temperature calculation](07-multiple-experiments.md#linked-temperature-calculation) |
 | Parameter correlation (Pearson residual bootstrap) | [Parameter correlation](08-results-advanced-analysis.md#parameter-correlation) |
-| Bootstrap SD and percentile confidence interval | [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty) |
-| Automatic uncertainty display | [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature) |
+| Bootstrap SD and percentile confidence interval | [Residual-bootstrap calculation](06-fitting-models.md#residual-bootstrap-calculation) |
+| Automatic uncertainty display | [Automatic display calculation](08-results-advanced-analysis.md#automatic-display-calculation) |
 | Salt dependence | [Salt](08-results-advanced-analysis.md#salt) |
 | Protonation dependence | [Protonation](08-results-advanced-analysis.md#protonation) |
 | Buffer correction | [Buffer Subtraction](10-additional-tools.md#buffer-subtraction) |

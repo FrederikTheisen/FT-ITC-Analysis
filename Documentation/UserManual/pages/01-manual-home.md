@@ -23,17 +23,9 @@ These instructions apply on macOS, Windows, and Linux. The manual treats the sup
 
 The workflow has two main questions: **How much heat did each injection produce?** and **What interaction could explain those heats?** Processing answers the first question from a raw power trace (a **thermogram**). Fitting compares the injection heats with the predictions of a chosen model. A close fit is useful evidence, but it does not prove that the model describes the chemistry.
 
-FT-ITC Analysis supports the complete workflow from compatible instrument data to a saved analysis project and publication figures:
+Start with [Quick start](02-quick-start.md): import data, check experiment details, process any thermogram, fit a model, review the result, then save and export. Use the task chapters below for setting choices, calculations, and interpretation limits.
 
-1. Import a raw thermogram, or integrated heat files from multiple different sources.
-2. Review and edit experiment details, concentrations, comments, and attributes.
-3. Process thermograms using baseline models, spline editing, and manual or automatic adjustment of integration regions.
-4. Fit one or more experiments with a supported model.
-5. Review fitted parameters, uncertainties, residuals, statistics, and perform further analysis.
-6. Save portable projects in the `.ftxtc` format.
-7. Export figures, numerical data, and reports.
-
-Raw input files are read, and never modified. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org, which uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not submit it for automated interpretation. Uploaded data is not retained on the server. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
+Raw input files are not modified. Ordinary desktop analysis runs locally. Optional online interpretation and the browser-based Project Viewer send data only through their respective workflows; review [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) before using them.
 
 ## Product tour
 
@@ -44,7 +36,7 @@ The data list contains loaded experiments and completed Analysis Results. Select
 - **Analyze Data** fits a single experiment or multiple experiments.
 - **Final Figure** presents the thermogram, heats, fitted curve, residuals, and annotations.
 
-Selecting an Analysis Result opens its result workspace, with a parameter summary, member fits, parameter correlation, uncertainty display, and any compatible advanced analyses. The menus provide project operations, experiment management, export commands, preferences, additional tools, citation information, and support links. The [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), and [software DOI](https://doi.org/10.5281/zenodo.14832177) provide project, installation, and citation context.
+Selecting an Analysis Result opens its saved fits, parameter summary, uncertainty, correlations, and supported advanced analyses. See [Workspace](04-workspace-experiments.md) for navigation and [Results and advanced analyses](08-results-advanced-analysis.md) for interpretation.
 
 ## Manual conventions
 

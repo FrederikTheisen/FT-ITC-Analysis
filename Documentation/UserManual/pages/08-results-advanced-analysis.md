@@ -13,7 +13,7 @@ _verification:
 
 An **Analysis Result** saves a fit so you can inspect and export it later. Start with the fitted values and graph, then check where the predicted heats differ from the measured heats. The uncertainty display describes how precisely the parameters were estimated under the chosen model; the validity indicator tells you whether the saved fit still matches the experiment data currently in the project.
 
-The result stores the model and options, constraints, solver state, weighting and uncertainty settings, member solutions, and a validity snapshot. The result workspace presents those values together with graph and analysis views. The fitting controls are described in [Single-experiment fitting](06-fitting-models.md), and multi-dataset constraints are described in [Multiple-experiment fitting](07-multiple-experiments.md).
+For fit setup, see [Single-experiment fitting](06-fitting-models.md) and [Multiple-experiment fitting](07-multiple-experiments.md). This chapter explains the saved result, its validity, and how to interpret its outputs.
 
 ## Result views
 
@@ -53,6 +53,14 @@ The **Summary** tab contains the result identity, model, member count, RMSD, val
 
 In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
 
+Competitor properties in viewer metadata show captures saved on the experiment; these may differ from the values used by a particular saved fit.
+
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy units are chosen consistently from the displayed central values and are also used for graph axes, errors, fitted bands, tooltips, and parameter lists.
+
+The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
+
+The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. Constraints with state **Independent** are not listed as active global constraints. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; other parameters use **Shared** and, where supported, **Temperature dependent**.
+
 ### Result validity
 
 Validity answers whether the saved fit still describes the experiment inputs currently in the project. FT-ITC compares the result's saved inputs with the current member experiments, including their temperature, concentrations, cell volume, injection bookkeeping, included injections and heats, relevant processing and attributes, and tandem segment layout. Changing a result name or attaching a different solution to an experiment does not by itself change this status. Validity does not say whether the model is scientifically appropriate or the fit is good.
@@ -62,15 +70,19 @@ Validity answers whether the saved fit still describes the experiment inputs cur
 - **Invalid** means the saved fit no longer matches the current inputs, or the set of member experiments has changed.
 - **Unknown status** means FT-ITC cannot make the comparison, for example because an older result has no validity snapshot.
 
-The status section combines input-validity reasons with analysis warnings. **Warning** can identify a fitted parameter at a boundary, limits reached during uncertainty estimation, or an effectively **Inconclusive** member. These warnings do not change input validity. A manual **Binding detected** assessment clears the Inconclusive warning for that member; other warnings remain. Boundary and uncertainty-limit warnings from an experiment assessed as **No binding detected** do not count toward the result status, because its fitted parameters are not expected to be meaningful; they are still listed with that experiment. The validity section gives reasons for a mismatch. Repeated desktop reasons affecting more than two experiments are summarized by category and count. If inputs changed, inspect those reasons and use **Update Result** to fit the current data. Until then, the stored fitted parameters still describe the earlier inputs. In the browser viewer, **Saved result has analysis warnings** is separate from validity: it flags issues such as a fit reaching a parameter boundary or an optimizer limit, even when the saved inputs still match.
+Check the listed validity reasons and use **Update Result** when inputs have changed. Stored fitted parameters continue to describe the earlier inputs until updated.
+
+Analysis warnings are separate from validity: a matching fit can still reach a parameter bound, encounter an uncertainty limit, or have an **Inconclusive** member. A manual **Binding detected** conclusion clears only that member's Inconclusive warning. No-binding members' boundary and uncertainty-limit warnings remain listed with the experiment but do not contribute to result status. Repeated desktop reasons are summarized by category and count; the browser likewise distinguishes saved analysis warnings from input validity.
 
 ### Information criteria
 
 **AIC** and **AICc** help compare candidate models fitted to the same observations. They balance agreement with the data against the number of fitted parameters; a smaller value is preferred within a comparable set. They do not tell you that any model is scientifically correct.
 
-The **Information criteria** section reports the analysis-level AICc when it is available, otherwise AIC, together with the included observation count *n* and likelihood parameter count *K*. Both weighted and unweighted criteria estimate one residual-variance parameter, so *K* = *p* + 1, where *p* is the number of free fitted parameters. Weighted criteria use the injection integration errors as relative uncertainties and estimate one common variance multiplier from the standardized residuals. AICc is unavailable when *n* ≤ *K* + 1, in which case AIC is shown instead. If the likelihood cannot be evaluated, the displayed criterion shows its diagnostic reason.
+Read **Information criteria** for the analysis-level AICc, or AIC when its small-sample correction is unavailable, plus observation and parameter counts. AICc requires *n* > *K* + 1. If the likelihood is unavailable, inspect the displayed reason.
 
-When members were fitted independently, the result table also includes an **AICc / AIC** column. It reports each member's own criterion and is intended for comparing alternative models fitted to the same experiment, observations, response definition, and weighting mode. Values in different experiment rows are not comparable because they use different observations. AICc is shown when available, with AIC as the fallback when the small-sample correction is undefined; **Unavailable** means that the member likelihood could not be evaluated. Shared-parameter global fits expose only the analysis-level criterion and omit this member column. Neither AIC nor AICc establishes model adequacy.
+For independent fits, the **AICc / AIC** column compares alternative models for the same experiment, observations, response definition, and weighting mode. Do not compare scores across different experiment rows. Shared-parameter fits show only the analysis-level criterion. Prefer AICc when available; neither criterion establishes model adequacy.
+
+#### Likelihood calculation
 
 The criteria use the saved result's included injections and response definition. At analysis level, residual statistics are pooled before estimating the variance, including when members were fitted independently. Unweighted criteria estimate one common variance across all members; weighted criteria estimate one common multiplier of the injection-error variances. Each independent member's own criterion estimates its variance separately. Consequently, neither pooled AIC nor pooled AICc is a sum of the member values.
 
@@ -96,17 +108,32 @@ Weighted criteria use the processing SDs as relative measures of injection uncer
 
 The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
-Smaller values are preferred only when comparing models that use the same observations, response definition, and weighting mode. AIC and AICc do not establish model adequacy or replace residual and scientific checks. Prefer AICc when it is available.
+<a id="null-hypothesis-test"></a>
 
-### Null hypothesis test
+### Binding assessment
+
+Review the automatic conclusion beside the fit and residuals. **No binding detected** means this experiment does not establish binding relative to the Null model; it does not establish that the molecules cannot bind. Use **Modify Assessment** to override the conclusion or restore automatic assessment. Updates recalculate the automatic outcome and retain manual overrides; reopening applies the current rule to saved comparison evidence without refitting. Assessments are saved in `.ftxtc` projects.
+
+**Null prediction** overlays the model fit on the integrated-heats graph; the original binding fit remains available. In the native macOS Analysis view, choose **Show Null Prediction** from the **Analysis** menu on the right side of the toolbar.
+
+Uncertainty estimation (bootstrap, leave-one-out or profile likelihood) is not run for a fit assessed as **No binding detected**, because its parameters are not expected to be meaningful; its uncertainty is shown as **Not estimated (no binding detected)**. In an independent collection this applies to each experiment separately, and combined uncertainty is then unavailable. Manual assessments count: if you mark such a fit **Binding detected**, the result is marked stale until **Update Result** estimates its uncertainty.
+
+Independent experiments have individual assessments. **Member assessments** shows a common conclusion or **Mixed assessments**, including manual overrides; it is not a joint statistical verdict. Inconclusive members retain binding values and uncertainty. **Not assessed** imposes no restriction and is not positive evidence. If any member is effectively **No binding detected**, combined binding values and dependent analyses are omitted, with those members named; values are never recomputed from a subset. A pooled comparison is diagnostic only. A shared global fit instead has one result-level assessment.
+
+**Standard reports** retain every member and its model, options, scope, constraints, fixed settings, and fit details. No-binding parameter and RMSD cells are blank; their parameter tables, c-values, correlations, and fit warnings are omitted. **No binding detected** and **Inconclusive** appear under the experiment name. Unavailable estimates use **—**, distinct from suppressed blank cells. Standard no-binding figures show the Null prediction against buffer-corrected observations without fitted offset correction. Manual conclusions are marked **(manual)**, including collection summaries with an overridden member. Thermodynamic summary plots omit no-binding members in both Standard and Diagnostic reports, name the omissions, and disappear if none remain. Inconclusive members retain binding output.
+
+Standard result-table exports continue to omit no-binding members' binding values and RMSD, while keeping their ionic strength and protonation enthalpy; Inconclusive values are included. **Diagnostic report** and **Diagnostic export** retain available attempted binding detail, including every member's estimates, labels, and fit warnings, and full comparison evidence. Diagnostic reports place pooled comparison evidence for independent collections in **Pooled Comparison Diagnostics**; Diagnostic Summary exports place it in separately labelled pooled-diagnostic columns. This evidence uses a pooled variance convention and does not determine member assessments.
+
+![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.webp)
+
+#### Null comparison calculation
 
 A null hypothesis is the simplest explanation of the data that you want to rule out before trusting a more detailed model. For a titration, the null hypothesis is that the measured heats can be explained without binding. A Null model represents that no-binding explanation, including heat from dilution and mixing. If a binding model does not describe the data clearly better than this background alone, its fitted affinity, enthalpy, and stoichiometry are not supported by the data.
 
-The comparison uses the Offset Null model, which predicts each injection heat as *q*<sub>i</sub> = *b m*<sub>i</sub>, where *m*<sub>i</sub> is the amount injected and *b* is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use **Modify Assessment** on the saved result to change it manually or return to automatic assessment. The Summary shows the Null model RMSD and the signed ΔAICc. **Null prediction** overlays the model fit on the integrated-heats graph; the original binding fit remains available. In the native macOS Analysis view, choose **Show Null Prediction** from the **Analysis** menu on the right side of the toolbar.
-
-For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model does not constrain these local Null model fits. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local null fits are combined under the pooled variance convention to calculate the result-level comparison.
+The comparison uses the Offset Null model, which predicts each injection heat as *q*<sub>i</sub> = *b m*<sub>i</sub>, where *m*<sub>i</sub> is the amount injected and *b* is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use **Modify Assessment** on the saved result to change it manually or return to automatic assessment. The Summary shows the Null model RMSD and the signed ΔAICc. For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model does not constrain these local Null model fits. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local null fits are combined under the pooled variance convention to calculate the result-level comparison.
 
 The two fits are compared with AICc (see [Information criteria](#information-criteria)), which balances fit quality against the number of fitted parameters:
+
 
 > **Calculation:**
 >
@@ -114,29 +141,19 @@ The two fits are compared with AICc (see [Information criteria](#information-cri
 >
 > A positive value favors binding because the Null model has the higher AICc. It does not establish that the selected binding model is adequate or correct. A negative ∆AICc value indicates that the Null model is favored.
 
-The automatic assessment is **No binding detected** when ΔAICc ≤ 0, **Inconclusive** when 0 < ΔAICc < 15, and **Binding detected** when ΔAICc ≥ 15. These are chosen cutoffs and have no calibrated false-positive guarantee. **No binding detected** means the data does not establish binding relative to the selected Null model; it does not establish that the molecules cannot bind. Use **Modify Assessment** to mark a manual conclusion or restore automatic assessment. A successful result update recalculates automatic outcomes and keeps manual overrides. Reopening recalculates the automatic assessment from the saved comparison using the current rule, retaining manual overrides and fitted values. Comparisons and assessments are saved in `.ftxtc` projects.
-
-Uncertainty estimation (bootstrap, leave-one-out or profile likelihood) is not run for a fit assessed as **No binding detected**, because its parameters are not expected to be meaningful; its uncertainty is shown as **Not estimated (no binding detected)**. In an independent collection this applies to each experiment separately, and combined uncertainty is then unavailable. Manual assessments count: if you mark such a fit **Binding detected**, the result is marked stale until **Update Result** estimates its uncertainty.
-
-For an independently fitted collection, each experiment has its own binding assessment. The **Member assessments** summary shows their common assessment when all members agree, or **Mixed assessments** when they differ, including differences involving Inconclusive. It uses each member’s effective assessment, including manual overrides. The summary describes the collection rather than a joint statistical verdict; counts show how its members are assessed. Inconclusive members retain their fitted values and uncertainty, with the assessment visible. Combined binding summaries are shown only when every member is Binding detected, Inconclusive, or Not assessed. If any member is effectively No binding detected, the report names those members and omits combined binding values and dependent analyses. A pooled comparison across independent fits is diagnostic evidence only; it does not determine member assessments. For a pooled binding fit, one result-level assessment applies to the combined fit.
-
-Analysis reports and result-table exports offer Standard output and a Diagnostic option. Reports retain the model, options, fitting scope, constraints, fixed values, and fit details for every assessment mix. In Standard reports, the parameter overview lists every member but leaves the parameter and RMSD cells of **No binding detected** members blank; their experiment chapters omit the parameter table, RMSD, c-values, and parameter correlations, and the report warnings omit their fit warnings. **No binding detected** and **Inconclusive** appear under the experiment name; other outcomes are not labelled there. Unavailable estimates appear as **—**, which differs from a blank cell. Standard member figures show the fitted Null model against the uncorrected integrated heats. Reports mark overridden assessments **(manual)** wherever shown; a collection summary is marked when any member has an override. Thermodynamic summary plots omit no-binding members in both Standard and Diagnostic reports, identify the omitted members, and are absent if none remain. **Inconclusive** members retain binding-model output with their assessment.
-
-Standard result-table exports continue to omit no-binding members' binding values and RMSD, while keeping their ionic strength and protonation enthalpy; Inconclusive values are included. **Diagnostic report** and **Diagnostic export** retain available attempted binding detail, including every member's estimates, labels, and fit warnings, and full comparison evidence. Diagnostic reports place pooled comparison evidence for independent collections in **Pooled Comparison Diagnostics**; Diagnostic Summary exports place it in separately labelled pooled-diagnostic columns. This evidence uses a pooled variance convention and does not determine member assessments.
-
-![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.webp)
-
-The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy units are chosen consistently from the displayed central values and are also used for graph axes, errors, fitted bands, tooltips, and parameter lists.
-
-The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
-
-The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. Constraints with state **Independent** are not listed as active global constraints. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; other parameters use **Shared** and, where supported, **Temperature dependent**.
+The chosen cutoffs are **No binding detected** at ΔAICc ≤ 0, **Inconclusive** at 0 < ΔAICc < 15, and **Binding detected** at ΔAICc ≥ 15. They have no calibrated false-positive guarantee; the comparison is not a significance test.
 
 ## Uncertainty and evaluation temperature
 
 The central value is the model's best fit to the original data. An uncertainty display gives a range or spread around that value under the selected estimation method. It does not include every possible experimental error or guarantee that the chosen model is correct.
 
 The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with its lower and upper confidence limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the SD display.
+
+The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Its default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
+
+Changing **Errors** changes only how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit, change the best-fit parameters, or turn one error-estimation method into another. Bootstrap construction, parameter transformation, and the SD and percentile calculations are described under [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty).
+
+### Automatic display calculation
 
 **Automatic** makes this choice separately for each reported quantity. Let *L* and *U* be its stored 95% confidence limits and *θ̂* its primary best-fit value:
 
@@ -150,10 +167,6 @@ The **Errors** display control provides **Automatic**, **Standard deviation**, *
 
 The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting log<sub>10</sub>(*K*<sub>a</sub>) and displaying *K*<sub>d</sub>—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
 
-Changing **Errors** changes only how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit, change the best-fit parameters, or turn one error-estimation method into another. Bootstrap construction, parameter transformation, and the SD and percentile calculations are described under [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty).
-
-The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Its default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
-
 ### Summary uncertainty
 
 Use **Combined SD** to describe combined spread and the **Approximate propagated interval** for the average or evaluated temperature trend. Neither replaces individual parameter uncertainty.
@@ -163,6 +176,8 @@ For local parameters, **Combined SD** is the square root of between-experiment s
 The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. ΔCp uses slope uncertainty.
 
 These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
+
+Summary Kd is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
 
 ## Parameter correlation
 
@@ -206,9 +221,11 @@ All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analy
 
 ### Temperature
 
-The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its **Structuring** section uses the Spolar–Record method to estimate the hydration entropy (−TΔS_HE), the conformational entropy (−TΔS_conf), and the number of residues folding upon binding. **Interaction** selects **Folded–folded** for two folded proteins or **Folded–disordered** for one folded and one disordered protein. Structuring analysis is evaluated at the **Isoentropic point**, where the model-estimated binding entropy is zero (ΔS = 0), following the published method. These are model-based estimates, not direct structural measurements. For a thermodynamically linked result, the isoentropic temperature is derived from the complete Gibbs, enthalpy, and heat-capacity relationship. Profile intervals are propagated approximately and omit fitted-coordinate correlations; bootstrap and leave-one-out uncertainty evaluates each saved relationship jointly, while the Spolar–Record Monte Carlo samples its linked inputs independently. Completed structuring outputs retain their saved estimates and evaluation temperature until the analysis is rerun.
+The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its **Structuring** section uses the Spolar–Record method to estimate the hydration entropy (−TΔS_HE), the conformational entropy (−TΔS_conf), and the number of residues folding upon binding. **Interaction** selects **Folded–folded** for two folded proteins or **Folded–disordered** for one folded and one disordered protein. Completed outputs retain their saved estimates and evaluation temperature until rerun.
 
-The stored temperature-analysis output includes evaluation temperature, hydration contribution, conformational contribution, and residue estimate. These values describe the saved interaction mode and evaluation temperature under the fitted temperature dependence. They remain conditional estimates of the stored model and member series rather than direct structural measurements.
+#### Structuring assumptions
+
+Structuring analysis is evaluated at the **Isoentropic point**, where the model-estimated binding entropy is zero (ΔS = 0), following the published method. These are model-based estimates, not direct structural measurements. For a thermodynamically linked result, the isoentropic temperature is derived from the complete Gibbs, enthalpy, and heat-capacity relationship. Profile intervals are propagated approximately and omit fitted-coordinate correlations; bootstrap and leave-one-out uncertainty evaluates each saved relationship jointly, while the Spolar–Record Monte Carlo samples its linked inputs independently.
 
 ### Salt
 
@@ -217,6 +234,8 @@ The **Salt** view requires a **Salt** attribute for every member and at least th
 The Salt output includes the extrapolated **Kd0** and **Counter ion** result. Counter-ion analysis requires at least three distinct positive ion activities with usable affinities; repeated observations remain part of the fit. The graph mode determines whether the displayed dependence is expressed against salt, ionic strength using Debye-Huckel behavior, or ion activity for counter-ion release. The result is limited by the recorded salt identities, ionic-strength values, and the quality and span of the member affinity values.
 
 Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
+
+Each point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Counter Ion Release views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
 
 > **Calculation:**
 >

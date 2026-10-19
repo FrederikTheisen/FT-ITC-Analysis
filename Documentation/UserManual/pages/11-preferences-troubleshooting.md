@@ -13,7 +13,7 @@ _verification:
 
 Preferences set the starting behavior for future work, such as display units, processing choices, and export formatting. Changing a default does not by itself redo an existing fit or processing decision saved in a project.
 
-**Preferences...** contains **General**, **Processing**, **Fitting**, **Export**, and **Interpretation**. Settings labeled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
+Open **Preferences...**, edit the relevant tab, and choose **Apply**. Defaults initialize new or reset work; display settings change presentation and export settings change output. Saved project settings remain distinct. See [Installation, files, and projects](03-installation-files-projects.md) for saving and recovery.
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
@@ -44,7 +44,7 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 | **Prompt to recover after an interrupted session** | Controls whether the application presents an available autosave recovery after an interrupted session. Recovery prompting is enabled by default. |
 | **Open Autosave Folder** | Opens the folder containing autosave recovery files. |
 
-Energy family, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The energy family changes displayed values but does not change the units used by supported interchange formats. Automatic display uses kJ or kcal when a value group is empty, zero, non-finite, or at or above the 100-unit threshold; fixed publication/result-export overrides are configured in their respective dialogs.
+Display units do not change interchange-format units. Automatic energy scaling uses kJ or kcal for empty, zero, non-finite, or at-least-100-unit groups. Fixed figure and result-export overrides are selected in their dialogs; see [Figures and export](09-figures-printing-export.md).
 
 ## Processing
 
@@ -59,7 +59,7 @@ Energy family, concentration unit, number precision, and uncertainty presentatio
 | **Allow spline point time dragging by default** | Controls whether spline points can be moved in time by default. |
 | **Copy integration start with selected region** | Controls whether copying an integration region also copies its start time. |
 
-Processing preferences provide defaults for new processors. Processing values already stored with an experiment are not replaced merely by changing a preference.
+For baseline, integration, and locking choices, see [Processing](05-processing-thermograms.md). For method assumptions, see [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas). Stored experiment processing is not replaced by changing defaults.
 
 ## Fitting
 
@@ -69,7 +69,7 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood**. |
 | **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and profile likelihood does not use this count. |
 | **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. |
-| **Max iterations** | Sets the maximum number of optimizer iterations. The built-in default is **20,000**, both at first launch and after Restore Defaults is applied. |
+| **Max iterations** | Sets the maximum number of optimizer iterations. The built-in default is **20,000**, including after **Restore Defaults** is applied. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
 | **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out and profile likelihood keep concentrations fixed. |
@@ -78,6 +78,8 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
 Concentration uncertainty and parameter unlocking apply only to residual bootstrap. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
+
+Saving a project or applying Preferences preserves the Analysis inspector's solver, uncertainty method, bootstrap count, weighting, and concentration-uncertainty choices. Defaults for these choices are loaded at application startup or when you choose **Restore defaults** in Analysis.
 
 ## Export
 

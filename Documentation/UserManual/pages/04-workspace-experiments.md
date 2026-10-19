@@ -19,13 +19,7 @@ The **Data / Results** list is the project navigator. It contains two types of p
 
 Only Experiment Data has an **Active** toggle. **Active** experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments. The **Sort** commands order the list by name, date, temperature, type, ionic strength, or protonation enthalpy. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
 
-The rest of the window changes to match the selected item and task:
-
-- The workflow navigator switches between the available stages of an experiment.
-- The workspace contains the graphs, tables, and controls for the current task.
-- Workflow controls provide options for the view or analysis currently open.
-- Item actions apply to the selected Experiment Data or Analysis Result.
-- The application menu contains project commands, tools, preferences, and help.
+The workflow navigator selects the task; the workspace and controls update for that task. Item actions apply to the selected experiment or result, while the application menu provides project commands, tools, preferences, and help.
 
 ## Experiment Data
 
@@ -46,11 +40,13 @@ Four task views are available for Experiment Data:
 
 ### Details and attributes
 
-The **Details...** view contains editable concentrations, comments, and experiment attributes. The macOS sheet has separate **Details** and **Attributes** tabs: Details contains the experiment name, date/time, conditions, concentrations, and comments; Attributes contains optional metadata. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
+The **Details...** view contains editable concentrations, comments, and experiment attributes. Use **Details** for the name, date/time, conditions, concentrations, and comments; **Identifiers** for external labels; and **Attributes** for optional metadata. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
 
 Buffer pH entry requires a finite number from 0 to 14, inclusive.
 
 Use **External experiment ID**, **Cell sample/batch ID**, and **Syringe sample/batch ID** on the **Identifiers** tab of Experiment Details to connect an experiment with your own records. These optional text labels allow duplicates and do not affect processing or fitting. Choose **Apply** to save them. Correcting an ID updates the displayed labels for existing results and newly generated reports; an already generated report preview must be updated to include the correction.
+
+With Traceability Mode and its import-ID prompt enabled, review identifiers after raw-data imports. Select rows to fill blank IDs or replace selected cell/syringe IDs with shared values. **Apply** saves edits; **Skip** or closing retains the imported data without those edits. Project imports do not trigger the review.
 
 **Copy Attributes to All** copies all attributes from the selected experiment to every other experiment. **Attribute Operations...** copies either one attribute or all attributes to **All other experiments**, **Active experiments**, a **Specific experiment**, or **Experiment names containing...**. The name option targets every other experiment whose name contains the entered text, without regard to capitalization. **Clear Attributes** removes all attributes from the selected experiment after confirmation.
 
@@ -72,12 +68,7 @@ An Analysis Result stores a fit for one or more experiments together with its mo
 
 ### Result workspace
 
-The result workspace provides these views:
-
-- **Summary** compares fitted and derived parameters across the result and provides its member table.
-- **Fit** shows the stored fitted curve and residuals for a selected member experiment.
-- **Correlation** shows parameter correlations calculated from residual-bootstrap refits when sufficient bootstrap information is available.
-- **Temperature**, **Salt**, and **Protonation** appear when the result and its experiment information support those analyses.
+Select **Summary** to compare member values, **Fit** to inspect a member's curve and residuals, or **Correlation** to inspect residual-bootstrap parameter relationships. **Temperature**, **Salt**, and **Protonation** require suitable models and metadata.
 
 The inspector organizes result information under **Summary**, **Analysis**, **Experiments**, and **Model**. See [Results and advanced analyses](08-results-advanced-analysis.md) for interpretation and prerequisites.
 
@@ -85,7 +76,7 @@ The inspector organizes result information under **Summary**, **Analysis**, **Ex
 
 - **Details...** edits the result name and comments.
 - In Avalonia, **Copy Result Table** copies the selected result table. On macOS, open **Analysis Result Exporter** and click **Copy to Clipboard**. The exporter also provides controlled table export.
-- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit. For bootstrap error estimation, you can increase the number of iterations when updating the result.
+- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit. For bootstrap uncertainty, choose the stored request or another offered count; the update creates a fresh set of refits.
 - **Set Active Experiments** makes the result's member experiments Active.
 - **Load Solutions to Experiments** attaches the stored member solutions to their corresponding Experiment Data.
 - **Export Associated Final Figures...** exports one figure per member experiment using that result's saved fit. It loads each saved solution only while making its figure, then restores the experiment's previous solution.
