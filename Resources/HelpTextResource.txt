@@ -24,7 +24,7 @@ Dates recorded in data files are read-only. If only a filesystem date is availab
 
 **Origin projects:** `.opj`. The first compatible ITC worksheet supplies a raw trace when available, otherwise integrated heats. Origin fits and processing are not imported; ResultsLog text is retained as provenance.
 
-**Integrated heats:** `.dat`, `.aff`, and `.dh`. The first injection is excluded from fitting by default; include it manually if appropriate. For `.dat` and `.aff`, choose whether to **Recalculate concentrations and ratios** from injection volumes or retain the table progression. Enter the experiment temperature in °C during import. `.dh` concentrations are always calculated.
+**Integrated heats:** `.dat`, `.aff`, and `.dh`. The first injection is excluded from fitting by default; include it manually if appropriate. For `.dat` and `.aff`, choose whether to **Recalculate concentrations and ratios** from injection volumes or retain the table progression. The **Recalculate concentrations on integrated-heat import** preference sets the initial choice; you can override it for each import. Enter the experiment temperature in °C during import. `.dh` concentrations are always calculated.
 
 For concatenated `.itc` runs, choose the MicroCal concentration progression or supply between-segment back-mixing settings when prompted.
 

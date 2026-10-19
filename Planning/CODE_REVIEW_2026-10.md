@@ -1100,6 +1100,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 ## CR-078 — A native preference describes project reprocessing instead of import recalculation
 
 - Priority: Low
+- Status: Resolved (2026-10-19).
 - Confidence: Confirmed
 - Category: Platform drift and misplaced logic
 - Location: `AnalysisITC.MacOS/Preferences.storyboard:1104`; `AnalysisITC.MacOS/ViewControllers/SettingsViews/MacPreferencesPaneControllers.cs:554`; `AnalysisITC.Core/DataReaders/IntegratedHeatReader.cs:306`
@@ -1108,6 +1109,10 @@ This is a staging review for maintainer triage, not an approved implementation b
 - Failure scenario: Change the checkbox expecting reopened projects to be reprocessed. It instead changes the initial option for subsequent .dat/.aff imports.
 - Consequence: The label describes the wrong operation and scientific inputs. The correctly labeled per-import dialog limits the impact; no saved project heats are rewritten by this preference.
 - Suggested direction: Describe the import concentration/ratio recalculation default explicitly, matching the dialog and manual.
+
+- Resolution (2026-10-19): Both desktop controls now read **Recalculate concentrations on integrated-heat import** and use the shared Core `IntegratedHeatImportPresentation.PreferenceTooltip`: "Initial .dat/.aff import choice for recalculating concentrations and ratios." The manual row uses the new label and retains its explanation; existing in-app import help now identifies the preference and per-import override. Control identifiers, stored key/default, calculations and serialization are unchanged.
+- Recheck: **2026-10-19; FIXED**; evidence=`AnalysisITC.MacOS/Preferences.storyboard:1096`; `AnalysisITC.MacOS/ViewControllers/SettingsViews/MacPreferencesPaneControllers.cs:601`; `AnalysisITC.Avalonia/Misc/Preferences/PreferencesWindow.cs:98`; `AnalysisITC.Core/Presentation/IntegratedHeatImportPresentation.cs:5`; validation=source, builds, tests and rendered preference panes.
+- Validation: Full Core suite: 4,455 passed, one skipped; focused preference/import tests: 47 passed; Avalonia preference tests: 27 passed. Avalonia builds and native managed compilation pass; native help rendering and the existing Swift preference-layout harness pass. Temporary harnesses exercised the actual Avalonia window and native storyboard/controller with an isolated in-memory settings store: both checkbox values save and restore, labels fit, and tooltips match Core. In both runtimes, `.dat` and `.aff` prompt-service checks receive each preference value, accept the opposite per-import choice, and leave the preference unchanged. Strict reopening of the three-experiment JORS `.ftxtc` fixture under both values retains identical raw/corrected heats, concentrations and ratios. Both rendered Processing panes were inspected. Interactive import dialogs and full application restarts were not manually exercised; no new repository tests, packaging or signing operations were added or run.
 
 ## CR-079 — Copy to Next Peak is enabled before its hidden zoom requirement is met
 

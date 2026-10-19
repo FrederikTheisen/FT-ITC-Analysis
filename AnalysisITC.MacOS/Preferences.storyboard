@@ -1101,7 +1101,7 @@ DQ
                                                         </button>
                                                         <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-ReprocessIntegratedCheck">
                                                             <rect key="frame" x="0.0" y="156" width="602" height="18"/>
-                                                            <buttonCell key="cell" type="check" title="Reprocess integrated heats when loading a project" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="processing-ReprocessIntegratedCheck-cell">
+                                                            <buttonCell key="cell" type="check" title="Recalculate concentrations on integrated-heat import" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="processing-ReprocessIntegratedCheck-cell">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>

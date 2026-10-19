@@ -97,7 +97,7 @@ internal sealed class PreferencesWindow : Window
     readonly TextBlock dilutionMethodDescription = Note();
     readonly ComboBox bufferSubtractionMethodCombo;
     readonly CheckBox discardIntegrationRegionCheck = Check("Discard integration regions for baseline");
-    readonly CheckBox reprocessIntegratedHeatsCheck = Check("Reprocess integrated heats on load");
+    readonly CheckBox reprocessIntegratedHeatsCheck = Check("Recalculate concentrations on integrated-heat import");
     readonly ComboBox splineDensityCombo;
     readonly ComboBox splineHandleModeCombo;
     readonly CheckBox splinePointTimeDraggingCheck = Check("Allow spline point time dragging by default");
@@ -217,6 +217,7 @@ internal sealed class PreferencesWindow : Window
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
         ToolTip.SetTip(dilutionMethodCombo, InjectionBookkeeping.Help + " Default for new data.");
+        ToolTip.SetTip(reprocessIntegratedHeatsCheck, IntegratedHeatImportPresentation.PreferenceTooltip);
         dilutionMethodCombo.SelectionChanged += (_, _) => UpdateDilutionMethodDescription();
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));

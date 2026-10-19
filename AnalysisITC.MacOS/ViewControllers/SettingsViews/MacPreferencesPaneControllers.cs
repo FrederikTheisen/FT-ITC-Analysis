@@ -600,6 +600,7 @@ namespace AnalysisITC
             base.ViewDidLoad();
             PopulatePopup(DilutionPopup, EnumValues<DilutionMethod>(), value => value.DisplayName());
             DilutionPopup.ToolTip = InjectionBookkeeping.Help + " Default for new data.";
+            ReprocessIntegratedCheck.ToolTip = IntegratedHeatImportPresentation.PreferenceTooltip;
             DilutionDescription.Cell.Wraps = true;
             DilutionDescription.Cell.UsesSingleLineMode = false;
             DilutionDescription.LineBreakMode = NSLineBreakMode.ByWordWrapping;
