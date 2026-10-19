@@ -1059,8 +1059,8 @@ namespace AnalysisITC.Avalonia.Results
                 modelPanel.Children.Add(Section("Locked parameters", lockedParameters
                     .Select(parameter =>
                     {
-                        var display = AnalysisParameterRowBuilder.ReadOnlyPresentation(parameter);
-                        return Pair(display.Name, display.Value);
+                        var display = AnalysisParameterRowBuilder.ReadOnlyPresentation(parameter, options);
+                        return Pair(display.Name, display.Value, rowTooltip: display.ToolTip);
                     })
                     .Cast<Control>()
                     .ToArray()));
@@ -1075,7 +1075,12 @@ namespace AnalysisITC.Avalonia.Results
             else
             {
                 modelPanel.Children.Add(Section("Constraints", activeConstraints
-                    .Select(constraint => Pair(constraint.Key.GetEnumDescription(), ConstraintPresentation.Description(constraint.Key, constraint.Value)))
+                    .Select(constraint =>
+                    {
+                        var label = AnalysisParameterLabelPresentation.Create(constraint.Key, options);
+                        return Pair(label.Title, ConstraintPresentation.Description(constraint.Key, constraint.Value),
+                            rowTooltip: label.ToolTip);
+                    })
                     .Cast<Control>()
                     .ToArray()));
             }

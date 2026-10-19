@@ -1417,9 +1417,13 @@ namespace AnalysisITC
                     Section(
                         "Locked parameters",
                         lockedParameters
-                            .Select(parameter => Pair(
-                                parameter.Key.GetProperties().Description,
-                                LockedParameterValue(parameter)))
+                            .Select(parameter =>
+                            {
+                                var presentation = AnalysisParameterLabelPresentation.Create(
+                                    parameter.Key, Solution.Model.ModelOptions);
+                                return Pair(presentation.Title, LockedParameterValue(parameter),
+                                    presentation.ToolTip);
+                            })
                             .ToArray()));
             }
 
@@ -1443,11 +1447,15 @@ namespace AnalysisITC
                         "Constraints",
                         constraints
                             .Select(constraint =>
-                                Pair(
-                                    constraint.Key.GetProperties().Name,
+                            {
+                                var presentation = AnalysisParameterLabelPresentation.Create(constraint.Key, options);
+                                return Pair(
+                                    presentation.Title,
                                     ConstraintPresentation.Description(
                                         constraint.Key,
-                                        constraint.Value)))
+                                        constraint.Value),
+                                    presentation.ToolTip);
+                            })
                             .ToArray()));
             }
         }
