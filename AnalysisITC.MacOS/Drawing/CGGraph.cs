@@ -2346,7 +2346,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 if (ShowPeakInfo)
                 {
-                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0,10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
+                    DrawString(infolayer, $"{inj.ID + 1}", infop + new CGSize(0,10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
                 }
 
                 if (inj.ID == mOverFeature) DrawRectsAtPositions(
@@ -2745,7 +2745,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 if (DataFittingGraph.ShowPeakInfo)
                 {
-                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0, 10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
+                    DrawString(infolayer, $"{inj.ID + 1}", infop + new CGSize(0, 10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
                 }
 
                 if (inj.ID == mOverFeature) DrawRectsAtPositions(
