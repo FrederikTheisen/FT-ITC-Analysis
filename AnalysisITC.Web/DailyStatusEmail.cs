@@ -36,6 +36,7 @@ public sealed class DailyStatusEmail
     readonly RegistrationPipelineDiagnostic? registrationDiagnostic;
     readonly RegistrationSummaryService? registrationSummary;
     readonly StorageCapacityService? storageCapacity;
+    readonly DailyInterpretationProbe? interpretationDiagnostic;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         IOptions<InterpretationOptions> options, OperatorCodeRegistry operators,
@@ -43,20 +44,22 @@ public sealed class DailyStatusEmail
         StorageCapacityService storageCapacity)
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
             CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, operators,
-            registrationDiagnostic, registrationSummary, storageCapacity, ServiceHealthCheck.ReadAsync) { }
+            registrationDiagnostic, registrationSummary, storageCapacity, ServiceHealthCheck.ReadAsync,
+            new DailyInterpretationProbe(options.Value, availability, usage)) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         string configurationPath, Func<Task<DailyStatusCheck>> serviceCheck, Func<string, Task<DailyStatusCheck>> endpointCheck,
         Func<string, string, Task>? sender, Func<DateTimeOffset> now,
         OperatorCodeRegistry? operators = null, RegistrationPipelineDiagnostic? registrationDiagnostic = null,
         RegistrationSummaryService? registrationSummary = null, StorageCapacityService? storageCapacity = null,
-        Func<Task<HealthReport>>? healthCheck = null)
+        Func<Task<HealthReport>>? healthCheck = null, DailyInterpretationProbe? interpretationDiagnostic = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
         this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now;
         this.healthCheck = healthCheck ?? (() => Task.FromException<HealthReport>(new InvalidOperationException("Service health check is unavailable.")));
         this.operators = operators; this.registrationDiagnostic = registrationDiagnostic; this.registrationSummary = registrationSummary;
         this.storageCapacity = storageCapacity;
+        this.interpretationDiagnostic = interpretationDiagnostic;
     }
 
     internal static (DateTime StartUtc, DateTime EndUtc) Bounds(DateOnly date)
@@ -68,7 +71,7 @@ public sealed class DailyStatusEmail
 
     public async Task<string> CreateReportAsync(DateOnly date) => (await CreateStatusReportAsync(date)).Text;
 
-    internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date)
+    internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date, bool liveChecks = false)
     {
         var hasAttention = false;
         var (start, end) = Bounds(date);
@@ -121,6 +124,17 @@ public sealed class DailyStatusEmail
                 lines.Add($"  {label}: {endpoint.Detail}");
             }
             catch { hasAttention = true; lines.Add($"  {label}: check unavailable"); }
+        }
+
+        DailyInterpretationProbeResult? probe = null;
+        if (interpretationDiagnostic is not null)
+        {
+            try { probe = await interpretationDiagnostic.RunAsync(liveChecks, now()); }
+            catch
+            {
+                probe = new(DailyInterpretationProbe.Day(now()), now(), HealthCheckState.Fail, "diagnostic check unavailable");
+            }
+            hasAttention |= probe.State is HealthCheckState.Fail or HealthCheckState.Warning;
         }
 
         lines.Add("");
@@ -219,7 +233,7 @@ public sealed class DailyStatusEmail
             using var db = usage.OpenForCommand();
             using (var query = db.CreateCommand())
             {
-                query.CommandText = "SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE started_utc >= $start AND started_utc < $end";
+                query.CommandText = "SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' AND started_utc >= $start AND started_utc < $end";
                 query.Parameters.AddWithValue("$start", start.ToString("O", CultureInfo.InvariantCulture));
                 query.Parameters.AddWithValue("$end", end.ToString("O", CultureInfo.InvariantCulture));
                 using var reader = query.ExecuteReader(); reader.Read();
@@ -234,7 +248,7 @@ public sealed class DailyStatusEmail
             }
             using (var query = db.CreateCommand())
             {
-                query.CommandText = "SELECT outcome,count(*) FROM execution_usage WHERE started_utc >= $start AND started_utc < $end GROUP BY outcome";
+                query.CommandText = "SELECT outcome,count(*) FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' AND started_utc >= $start AND started_utc < $end GROUP BY outcome";
                 query.Parameters.AddWithValue("$start", start.ToString("O", CultureInfo.InvariantCulture));
                 query.Parameters.AddWithValue("$end", end.ToString("O", CultureInfo.InvariantCulture));
                 using var reader = query.ExecuteReader();
@@ -250,7 +264,7 @@ public sealed class DailyStatusEmail
             }
             using (var query = db.CreateCommand())
             {
-                query.CommandText = "SELECT max(started_utc) FROM execution_usage";
+                query.CommandText = "SELECT max(started_utc) FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic'";
                 var last = query.ExecuteScalar() as string;
                 lines.Add("  Last request: " + (DateTimeOffset.TryParse(last, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var instant)
@@ -260,6 +274,37 @@ public sealed class DailyStatusEmail
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
         { hasAttention = true; lines.Add("  Usage database: check unavailable"); }
+        if (probe is not null)
+        {
+            lines.Add(""); lines.Add("Interpretation diagnostic");
+            lines.Add($"  Daily public submission: {probe.State.ToString().ToUpperInvariant()} — {probe.Reason}");
+            lines.Add("  Checked: " + Format(probe.CheckedAtUtc));
+            lines.Add("  Latest test cost: " + (probe.KnownCost is decimal cost
+                ? "$" + cost.ToString("0.0000000", CultureInfo.InvariantCulture)
+                    + (probe.UnresolvedCosts + probe.WaivedCosts > 0 ? " known subtotal; total unknown" : " estimated")
+                : "unavailable"));
+            try
+            {
+                using var db = usage.OpenForCommand(); using var query = db.CreateCommand();
+                query.CommandText = """
+                    SELECT coalesce(sum(request_count_eligible),0),coalesce(sum(provider_attempts),0),coalesce(sum(known_cost),0),
+                      coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0)
+                    FROM execution_usage WHERE effective_preset=$preset AND started_utc >= $start AND started_utc < $end
+                    """;
+                query.Parameters.AddWithValue("$preset", DailyInterpretationProbe.PresetId);
+                query.Parameters.AddWithValue("$start", start.ToString("O", CultureInfo.InvariantCulture));
+                query.Parameters.AddWithValue("$end", end.ToString("O", CultureInfo.InvariantCulture));
+                using var row = query.ExecuteReader(); row.Read();
+                lines.Add($"  Previous-day submissions: {row.GetInt64(0)}");
+                lines.Add($"  Previous-day provider attempts: {row.GetInt64(1)}");
+                var unresolved = row.GetInt64(3); var waived = row.GetInt64(4);
+                hasAttention |= unresolved > 0;
+                lines.Add("  Previous-day diagnostic cost: $" + row.GetDecimal(2).ToString("0.0000000", CultureInfo.InvariantCulture)
+                    + (unresolved + waived > 0 ? $" known subtotal; total unknown (unresolved {unresolved}, waived unknown {waived})" : " estimated"));
+            }
+            catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
+            { hasAttention = true; lines.Add("  Diagnostic accounting: check unavailable"); }
+        }
         lines.Insert(2, $"Overall status: {(hasAttention ? "ATTENTION" : "OK")}");
         return new(string.Join("\n", lines) + "\n", hasAttention);
     }
@@ -285,12 +330,12 @@ public sealed class DailyStatusEmail
               SELECT operator_code_id,coalesce(max(access_tier),'public') AS access_tier,count(*) AS prompts,
                      coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved,
                      coalesce(sum(waived_unknown_count),0) AS waived
-              FROM execution_usage WHERE started_utc >= $start AND started_utc < $end
+              FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' AND started_utc >= $start AND started_utc < $end
               GROUP BY operator_code_id
             ), totals AS (
               SELECT operator_code_id,count(*) AS prompts,coalesce(sum(known_cost),0) AS known_cost,
                      coalesce(sum(unresolved_cost_count),0) AS unresolved,coalesce(sum(waived_unknown_count),0) AS waived
-              FROM execution_usage GROUP BY operator_code_id
+              FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' GROUP BY operator_code_id
             )
             SELECT period.operator_code_id,period.access_tier,period.prompts,period.known_cost,period.unresolved,period.waived,
                    totals.prompts,totals.known_cost,totals.unresolved,totals.waived
@@ -331,9 +376,9 @@ public sealed class DailyStatusEmail
 
     public static async Task<int> RunAsync(string[] args, DailyStatusEmail reporter, TextWriter output, TextWriter error)
     {
-        if (args.Length == 0 || args[0] is not ("preview" or "send") || args.Length > 4 ||
-            args.Any(value => value is not ("preview" or "send" or "--live-checks" or "--date") && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
-        { error.WriteLine("Usage: status-email preview|send [--live-checks] [--date YYYY-MM-DD]"); return 2; }
+        if (args.Length == 0 || args[0] is not ("preview" or "send" or "check") || args.Length > 4 ||
+            args.Any(value => value is not ("preview" or "send" or "check" or "--live-checks" or "--date") && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+        { error.WriteLine("Usage: status-email preview|send|check [--live-checks] [--date YYYY-MM-DD]"); return 2; }
         if (args.Contains("--live-checks", StringComparer.Ordinal) && args[0] == "preview")
         { error.WriteLine("Preview runs non-billable checks only."); return 2; }
         var dateIndex = Array.IndexOf(args, "--date");
@@ -342,8 +387,8 @@ public sealed class DailyStatusEmail
         var currentDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(reporter.now(), reporter.zone).DateTime);
         var date = currentDate.AddDays(-1);
         if (dateIndex >= 0) DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
-        var report = await reporter.CreateStatusReportAsync(date);
-        if (args[0] == "preview") { output.Write(report.Text); return 0; }
+        var report = await reporter.CreateStatusReportAsync(date, args[0] == "check" || args.Contains("--live-checks", StringComparer.Ordinal));
+        if (args[0] is "preview" or "check") { output.Write(report.Text); return args[0] == "check" && report.HasAttention ? 1 : 0; }
         try
         {
             var subject = $"[{(report.HasAttention ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";

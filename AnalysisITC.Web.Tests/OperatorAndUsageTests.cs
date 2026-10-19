@@ -47,6 +47,9 @@ public sealed class OperatorAndUsageTests : IDisposable
             Interpretation__Registration__Enabled=true
             Interpretation__Registration__SiteKey=0x4AAAAAAdiagnostic
             Interpretation__Registration__DatabasePath='/var/lib/ftitc-web/self-registration.db'
+            Interpretation__DailyProbe__Enabled=true
+            Interpretation__DailyProbe__OperatorCodeId=diagnostic-account
+            Interpretation__DailyProbe__CredentialPath='/etc/ftitc-web/daily-interpretation-probe.json'
             Interpretation__OpenAI__ApiKey=must-not-be-loaded
             """);
 
@@ -55,6 +58,9 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal("true", values["Interpretation:Registration:Enabled"]);
         Assert.Equal("0x4AAAAAAdiagnostic", values["Interpretation:Registration:SiteKey"]);
         Assert.Equal("/var/lib/ftitc-web/self-registration.db", values["Interpretation:Registration:DatabasePath"]);
+        Assert.Equal("true", values["Interpretation:DailyProbe:Enabled"]);
+        Assert.Equal("diagnostic-account", values["Interpretation:DailyProbe:OperatorCodeId"]);
+        Assert.Equal("/etc/ftitc-web/daily-interpretation-probe.json", values["Interpretation:DailyProbe:CredentialPath"]);
         Assert.DoesNotContain(values.Keys, key => key.Contains("OpenAI", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(values.Values, value => value?.Contains("must-not-be-loaded", StringComparison.Ordinal) == true);
     }
@@ -150,6 +156,100 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.InRange(record.ExpiresAtUtc!.Value - record.CreatedAtUtc, TimeSpan.FromDays(29.99), TimeSpan.FromDays(30.01));
         Assert.Contains("ftitc_op_", output.ToString());
         Assert.DoesNotContain(record.CodeHash, output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("4")]
+    [InlineData("\u001b")]
+    [InlineData("\b")]
+    public async Task InteractiveCreateTierCancellationLeavesRegistryUnchanged(string cancellation)
+    {
+        var configured = Configuration(); var services = Services(configured);
+        var registry = services.GetRequiredService<OperatorCodeRegistry>();
+        var existing = registry.Create("Existing account", 2, false);
+        var before = File.ReadAllBytes(configured.OperatorAccess.RegistryPath);
+        var output = new StringWriter();
+        using var input = new StringReader($"2\n1\nCancelled draft\n\n\n\n{cancellation}\n4\n6\n");
+        var tool = InteractiveAdminTool.CreateForTests(services, input, output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+
+        AssertTierCancellationReturnedToAccounts(output.ToString());
+        Assert.Equal(before, File.ReadAllBytes(configured.OperatorAccess.RegistryPath));
+        Assert.Equal(existing.Record.Id, Assert.Single(registry.List()).Id);
+        Assert.Equal(-1, input.Peek());
+    }
+
+    [Theory]
+    [InlineData(ConsoleKey.End)]
+    [InlineData(ConsoleKey.Escape)]
+    [InlineData(ConsoleKey.Backspace)]
+    public async Task KeyboardCreateTierCancellationLeavesRegistryUnchanged(ConsoleKey cancellation)
+    {
+        var configured = Configuration(); var services = Services(configured);
+        var registry = services.GetRequiredService<OperatorCodeRegistry>();
+        var existing = registry.Create("Existing account", 2, false);
+        var before = File.ReadAllBytes(configured.OperatorAccess.RegistryPath);
+        var output = new StringWriter();
+        var keys = new Queue<ConsoleKeyInfo>(
+        [
+            Key(ConsoleKey.DownArrow), Key(ConsoleKey.Enter), // Operator accounts
+            Key(ConsoleKey.Enter), // Create
+            Key(cancellation),
+        ]);
+        if (cancellation == ConsoleKey.End) keys.Enqueue(Key(ConsoleKey.Enter)); // Explicit Back
+        keys.Enqueue(Key(ConsoleKey.End)); keys.Enqueue(Key(ConsoleKey.Enter)); // Accounts -> Back
+        keys.Enqueue(Key(ConsoleKey.End)); keys.Enqueue(Key(ConsoleKey.Enter)); // Main -> Exit
+        using var input = new StringReader("Cancelled draft\n\n\n\n");
+        var tool = InteractiveAdminTool.CreateForTests(services, input, output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")),
+            readKey: keys.Dequeue);
+
+        Assert.Equal(0, await tool.RunAsync());
+
+        AssertTierCancellationReturnedToAccounts(output.ToString());
+        Assert.Equal(before, File.ReadAllBytes(configured.OperatorAccess.RegistryPath));
+        Assert.Equal(existing.Record.Id, Assert.Single(registry.List()).Id);
+        Assert.Empty(keys);
+        Assert.Equal(-1, input.Peek());
+    }
+
+    [Theory]
+    [InlineData("4")]
+    [InlineData("\u001b")]
+    [InlineData("\b")]
+    public async Task InteractiveCreateSucceedsAfterTierCancellation(string cancellation)
+    {
+        var configured = Configuration(); var services = Services(configured);
+        var output = new StringWriter();
+        // Cancel at the tier menu, immediately choose Create again, then create an Advanced account.
+        using var input = new StringReader(
+            $"2\n1\nCancelled draft\n\n\n\n{cancellation}\n1\nValid account\n\n\n\n2\n\ny\n\n4\n6\n");
+        var tool = InteractiveAdminTool.CreateForTests(services, input, output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+
+        var record = Assert.Single(services.GetRequiredService<OperatorCodeRegistry>().List());
+        Assert.Equal("Valid account", record.Label);
+        Assert.Equal(InterpretationAccessTiers.Advanced, record.AccessTier);
+        Assert.Contains("Created account ID: " + record.Id, output.ToString());
+        Assert.DoesNotContain("Invalid menu selection.", output.ToString());
+        Assert.Equal(-1, input.Peek());
+    }
+
+    static void AssertTierCancellationReturnedToAccounts(string text)
+    {
+        Assert.True(text.LastIndexOf(Environment.NewLine + "Operator accounts" + Environment.NewLine,
+            StringComparison.Ordinal) > text.IndexOf("Administrator", StringComparison.Ordinal));
+        Assert.DoesNotContain("days (default)", text);
+        Assert.DoesNotContain("Custom days", text);
+        Assert.DoesNotContain("No expiry", text);
+        Assert.DoesNotContain("Create this account?", text);
+        Assert.DoesNotContain("Created account ID:", text);
+        Assert.DoesNotContain("Press Enter to continue...", text);
+        Assert.DoesNotContain("Invalid menu selection.", text);
     }
 
     [Fact]

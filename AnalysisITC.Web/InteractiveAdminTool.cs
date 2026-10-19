@@ -317,7 +317,7 @@ public sealed class InteractiveAdminTool
         var name = PromptHuman("Name (optional)", null, 120); if (name is null) return;
         var email = Prompt("Email (optional)"); if (email is null) return;
         var organization = PromptHuman("Organization (optional)", null, 200); if (organization is null) return;
-        var tier = SelectTier(InterpretationAccessTiers.Standard); if (tier is null) return;
+        var tier = SelectTier(InterpretationAccessTiers.Standard); if (tier is null or "back") return;
         int? days = options.OperatorAccess.DefaultLifetimeDays; var noExpiry = false;
         var expiry = SelectMenuWithDefault("account-expiry", true, "default", false,
             new("default", $"{options.OperatorAccess.DefaultLifetimeDays} days (default)"),

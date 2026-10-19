@@ -35,6 +35,10 @@ internal static class StatusEmailConfigurationLoader
         ["Interpretation__UsageLog__Enabled"] = "Interpretation:UsageLog:Enabled",
         ["Interpretation__UsageLog__DatabasePath"] = "Interpretation:UsageLog:DatabasePath",
         ["Interpretation__StatusEmailConfigurationPath"] = "Interpretation:StatusEmailConfigurationPath",
+        ["Interpretation__DailyProbe__Enabled"] = "Interpretation:DailyProbe:Enabled",
+        ["Interpretation__DailyProbe__OperatorCodeId"] = "Interpretation:DailyProbe:OperatorCodeId",
+        ["Interpretation__DailyProbe__CredentialPath"] = "Interpretation:DailyProbe:CredentialPath",
+        ["Interpretation__DailyProbe__StateDirectory"] = "Interpretation:DailyProbe:StateDirectory",
     };
 
     internal static IConfiguration Build(string? sourcePath = null)

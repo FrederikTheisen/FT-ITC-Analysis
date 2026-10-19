@@ -282,8 +282,8 @@ app.MapGet("/api/internal/health", (HttpContext context, HealthCheckService heal
 app.MapPost("/api/internal/health/provider-probe", (HttpContext context) =>
 {
     if (!IsInternalHealthRequest(context)) return Results.NotFound();
-    // Provider probes are intentionally not part of the web request path. The independent
-    // status-email process owns the daily idempotency window so a web restart cannot duplicate it.
+    // The status-email process submits its live diagnostic through the normal public
+    // generation endpoint and owns the daily claim; this route never dispatches a provider.
     return Results.Json(new { state = "skipped", reason = "provider probe is owned by the scheduled status-email process" }, statusCode: StatusCodes.Status503ServiceUnavailable);
 }).DisableAntiforgery();
 
@@ -697,6 +697,36 @@ app.MapPost("/api/interpretation/generate", async (
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
         return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
+    }
+
+    var diagnosticAccount = options.Value.DailyProbe.IsProbeAccount(selection.OperatorCodeId);
+    var diagnosticRequest = request.Headers[DailyInterpretationProbe.RequestHeader] == "1";
+    if (diagnosticRequest && !diagnosticAccount)
+    {
+        RecordRejectedAdmission("daily_probe_not_configured", StatusCodes.Status403Forbidden);
+        return Problem(403, "daily_probe_not_configured", "The supplied account is not the configured daily diagnostic account.", "Diagnostic account required");
+    }
+    if (diagnosticAccount)
+    {
+        // Classification is derived from a protected server-side account ID,
+        // never a client-provided diagnostic flag. The ordinary authentication,
+        // preset, quota, admission, relay and accounting paths still apply.
+        selection = selection with { EffectivePreset = DailyInterpretationProbe.PresetId };
+        if (!diagnosticRequest || result.Request!.TaskType != "interpretation" || result.Request.GenerationProfile != "instant"
+            || result.Request.RequestSchemaVersion != FtItcInterpretationClient.RequestSchemaVersion
+            || result.Request.ClientRequestId != DailyInterpretationProbe.RequestId(selection.OperatorCodeId!, started))
+        {
+            RecordRejectedAdmission("invalid_daily_probe", StatusCodes.Status422UnprocessableEntity);
+            return Problem(422, "invalid_daily_probe", "The diagnostic account accepts only its daily Instant interpretation request.", "Invalid daily diagnostic");
+        }
+        if (result.BytesRead > DailyInterpretationProbe.MaximumRequestBytes)
+        {
+            RecordRejectedAdmission("daily_probe_too_large", StatusCodes.Status413PayloadTooLarge);
+            return Problem(413, "daily_probe_too_large", "The daily diagnostic request must be 4 KiB or smaller.", "Daily diagnostic request too large");
+        }
+        var efforts = options.Value.AllowedModels[selection.Model].ReasoningEfforts;
+        var effort = new[] { "none", "minimal", "low" }.FirstOrDefault(value => efforts.Contains(value, StringComparer.Ordinal));
+        if (effort is not null) selection = selection with { ReasoningEffort = effort };
     }
 
     long tierMaximumBytes;

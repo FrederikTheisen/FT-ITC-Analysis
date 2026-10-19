@@ -1,0 +1,95 @@
+{
+  "requestSchemaVersion": "ft-itc-relay-request-6.0",
+  "omitScientificGuidance": false,
+  "outputInstructions": "Use the heading ## Overall interpretation and one short sentence identifying the evidence as synthetic, with no experimental observations or scientific conclusion.",
+  "package": {
+    "packageSchemaVersion": "2.2",
+    "report": {
+      "evidenceId": "smoke-report",
+      "reportId": "smoke-report",
+      "name": "Daily synthetic interpretation diagnostic",
+      "dateUtc": "2026-10-17T00:00:00Z",
+      "authorComments": "Invented operational check only; no laboratory data.",
+      "resultIds": [
+        "smoke-result"
+      ],
+      "references": [
+        {
+          "reportReference": "1",
+          "kind": "result",
+          "id": "smoke-result"
+        },
+        {
+          "reportReference": "1A",
+          "kind": "result-experiment",
+          "id": "smoke-experiment",
+          "parentReference": "1"
+        }
+      ]
+    },
+    "results": [
+      {
+        "evidenceId": "smoke-result",
+        "reportReference": "1",
+        "resultId": "smoke-result",
+        "name": "Invented single-site example",
+        "model": {
+          "type": "one-set-of-sites"
+        },
+        "solver": {},
+        "experiments": [
+          {
+            "evidenceId": "smoke-experiment",
+            "reportReference": "1A",
+            "experimentId": "smoke-experiment",
+            "sourceStateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "injections": []
+          }
+        ]
+      }
+    ],
+    "supportingExperiments": [],
+    "studyContext": {
+      "notes": "Invented daily operational check; no experimental observations."
+    },
+    "requestedInterpretation": {
+      "audience": "mixedScientific",
+      "detail": "brief",
+      "injectionRows": "none",
+      "allowGeneralModelKnowledge": false,
+      "requestedSections": [
+        "overallInterpretation"
+      ]
+    },
+    "evidenceCatalog": [
+      {
+        "id": "smoke-report",
+        "kind": "report",
+        "label": "Synthetic report",
+        "parentId": null
+      },
+      {
+        "id": "smoke-result",
+        "kind": "result",
+        "label": "Invented result",
+        "parentId": "smoke-report"
+      },
+      {
+        "id": "smoke-experiment",
+        "kind": "experiment",
+        "parentId": "smoke-result"
+      }
+    ],
+    "dataBoundary": {
+      "containsRawThermogramSamples": false,
+      "containsBaselineArrays": false,
+      "containsBootstrapReplicateArrays": false,
+      "containsLocalPaths": false,
+      "modelObservationRestriction": "All evidence is synthetic; no scientific conclusions can be drawn."
+    }
+  },
+  "clientRequestId": "55c1e19209894fb7a8215af39bdac9be",
+  "taskType": "interpretation",
+  "generationProfile": "instant",
+  "outputFormatVersion": "itc-interpretation-markdown-3.0"
+}

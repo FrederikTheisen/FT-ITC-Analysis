@@ -13,10 +13,11 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
     const int MaximumResponseBytes = 1024 * 1024;
     readonly HttpClient client;
     readonly OpenAIInterpretationOptions options;
+    readonly DailyInterpretationProbeOptions dailyProbe;
     readonly InterpretationUsageStore? usageStore;
 
     public OpenAIInterpretationProvider(HttpClient client, IOptions<InterpretationOptions> configured, InterpretationUsageStore? usageStore = null)
-    { this.client = client; options = configured.Value.OpenAI; this.usageStore = usageStore; }
+    { this.client = client; options = configured.Value.OpenAI; dailyProbe = configured.Value.DailyProbe; this.usageStore = usageStore; }
 
     public async Task<AnalysisInterpretationProviderResponse> GenerateAsync(
         AnalysisInterpretationGenerationRequest request, CancellationToken cancellationToken)
@@ -35,7 +36,8 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         JsonNode rawPackage = JsonNode.Parse(raw.GetRawText()) ?? throw new InvalidOperationException("The evidence package is malformed.");
         var rawOmissions = RawOmissions(rawPackage);
         var summary = request.TaskType == "summary";
-        var retrieval = !summary && !string.IsNullOrWhiteSpace(options.VectorStoreId);
+        var retrieval = !summary && !dailyProbe.IsProbeAccount(request.OperatorCodeId)
+            && !string.IsNullOrWhiteSpace(options.VectorStoreId);
         var retrievalRetried = false;
         var fallbackAccountingResolved = false;
         var attemptNumber = 0;
@@ -123,7 +125,8 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             ["reasoning"] = new { effort = effectiveReasoning },
             ["instructions"] = prompt.SystemInstructions,
             ["input"] = prompt.UserMessage,
-            ["max_output_tokens"] = options.MaxOutputTokens,
+            ["max_output_tokens"] = dailyProbe.IsProbeAccount(request.OperatorCodeId)
+                ? Math.Min(options.MaxOutputTokens, DailyInterpretationProbe.MaximumOutputTokens) : options.MaxOutputTokens,
             ["store"] = false,
             ["truncation"] = "disabled",
         };

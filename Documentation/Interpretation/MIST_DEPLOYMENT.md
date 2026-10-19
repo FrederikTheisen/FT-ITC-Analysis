@@ -171,11 +171,51 @@ their structured states, independently of diagnostic wording. A deliberate
 interpretation pause or retirement is not itself a failure; transport and
 storage failures still require attention. Update both Web and standalone
 status-email binaries together when changing these checks. A preview exercises
-the same health and alert decisions as a send, without sending email.
+the same non-billable health and alert decisions as a send, without sending email.
 Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
 section lists identities that submitted requests during the reported day, with their account or
 public-client ID, available name/label, previous-day prompt count and cost, and all-time prompt
 count and cost.
+
+The scheduled service also runs `send --live-checks`. When `Interpretation:DailyProbe`
+is enabled, this submits one small invented-evidence interpretation through
+`https://app.ft-itc.org/api/interpretation/generate`. It exercises normal authentication,
+validation, Instant preset selection, quota/admission, prompt construction, provider
+generation, response handling and durable accounting. Retrieval is disabled for this
+diagnostic account only; ordinary requests retain their configured retrieval and output
+limits. The probe uses at most 4 KiB of request JSON, 256 generated tokens (including
+reasoning), and the lowest allowlisted reasoning effort available among `none`,
+`minimal` and `low`. It retains the Instant model and configured scientific guidance.
+
+Provision a dedicated non-expiring Registered operator credential using the existing
+operator-code administration command. Save its raw code only as `{"accessCode":"..."}`
+in `/etc/ftitc-web/daily-interpretation-probe.json`, owned by root with mode `0600`.
+Set `Interpretation:DailyProbe:Enabled` to `true` and `OperatorCodeId` to that account's
+ID in both Web and standalone status-email settings. `CredentialPath` and
+`StateDirectory` may override the default credential file and
+`/var/lib/ftitc-web/daily-interpretation-probe` directory. The email process never needs
+the provider API key. A client header alone cannot grant diagnostic treatment.
+
+The standalone process durably claims the current Copenhagen calendar day before
+sending. Success, failure and interrupted runs are reused for the rest of that day,
+including repeated email sends and process restarts. The API independently requires
+that account's daily request ID; normal duplicate admission prevents another provider
+dispatch. A deliberate interpretation pause or retirement skips the probe. No failure
+automatically retries a generation. The `--date` option changes the reported usage
+period, not the day claimed by a live diagnostic.
+
+`status-email preview` and ordinary `send` read the saved result without submitting.
+`status-email check` runs the daily diagnostic and prints the report without sending
+email. This command is billable when no result has been saved for today, and exits
+nonzero when the report requires attention. Preview still rejects `--live-checks`.
+
+Diagnostic executions use the server-assigned `daily-diagnostic` effective preset in
+the existing ledger. The email's ordinary usage counts, last-user-request time and
+user-activity list exclude them. A separate Interpretation diagnostic section reports
+the current check and its cost, plus diagnostic activity in the reported usage period.
+Full accounting and administrative usage exports retain these executions and costs,
+including unresolved charges; no financial evidence is deleted or zeroed. Include the
+protected credential and daily state directory in deployment/recovery backups.
 
 For delivery, create `admin@ft-itc.org` in iCloud if it is to be the report recipient.
 `mist@ft-itc.org` is a sending identity only and does not need an iCloud mailbox;
