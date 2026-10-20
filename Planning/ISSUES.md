@@ -938,6 +938,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Plan: [Derived-parameter uncertainty across all models](ITC-117_DERIVED_PARAMETER_UNCERTAINTY_PLAN.md).
 - Origin: CR-029 exposes omitted N dependence in competitive apparent-Kd uncertainty. The user requested a broader feature covering all derived parameters for all models, including how profile-likelihood errors should be used.
 - Scope: Inventory derived quantities, fitted/input dependencies, uncertainty methods, local/global constraints, temperatures, summaries, and desktop/web/report/export consumers. Include competitive apparent affinity and enthalpy within the common design. Trace downstream advanced-analysis dependencies without automatically approving their redesign.
+- Additional finding (2026-10-20, binding-model review finding 4): For ordinary, unlinked solutions, `ThermodynamicSolution.EntropyContributionFor` calculates −TΔS from ΔG − ΔH using `FloatWithError.operator-`, which combines marginal SDs and interval widths in quadrature without covariance. ΔG and ΔH come from the same fit/refits, so this independence assumption can overstate or understate entropy uncertainty. For example, SDs of 0.3 and 1.0 kJ/mol with correlation +0.8 give an SD of about 0.78 kJ/mol for the difference, versus about 1.04 kJ/mol from quadrature; ΔS inherits the discrepancy after division by temperature. Best-fit central values are unaffected.
+- Consumer and evidence qualification: `UISolutionParameters` and `ReportParameters` expose this fallback; desktop result presentation (`AnalysisResultPresentationMember`) and report parameter tables consume it. Thermodynamically linked solutions use the separate `LinkedThermodynamicParameter` evaluation path. The `DependenciesToReport` route can preserve joint variation when evaluated across retained refits, but the dependency declaration alone does not make every consumer covariance-aware. Source review only; no builds, tests or runtime reproduction were performed for this finding, and no complete consumer inventory is claimed.
+- Suggested direction for entropy: Within this feature's common method policy, calculate −TΔS and ΔS from each joint retained refit and summarize those derived values while preserving the original best-fit center. Reuse the linked evaluator where applicable, decide profile-likelihood treatment explicitly, and route affected UI/report/export consumers through the agreed shared evaluation. Do not change generic `FloatWithError` subtraction to assume an unknown correlation. This is a design direction, not implementation approval or a separate issue.
 - Agreed constraints: Preserve original best-fit centers. Zero error means the error does not exist; do not invent additional error tracking. Preserve the current CR-024/SUMMARY_SEM summary convention unless a change is explicitly reviewed. Keep CR-010's failed-profile safeguards and ITC-114 primary-fit recovery separate.
 - Open decisions: Per-quantity joint-refit propagation; direct transformations versus profiling multi-coordinate derived quantities; external-input uncertainty; profile interval/SD interpretation; incomplete evidence and numerical boundaries; shared evaluation interfaces and persistence needs.
 - Next deliverable: Quantity/evidence/consumer inventory and a method-policy proposal, then a decision-complete implementation plan. CR-029 remains unresolved pending implementation and validation of this feature.
@@ -1050,3 +1053,263 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Status: Open; recorded by request during bootstrap-display optimization (2026-10-19). Record only; no message-routing change is included in that work.
 - Location: `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisWorkspaceControl.cs`, temporary fit status presentation and inspector footer.
 - Requested behavior: Temporary fit messages should appear in the status bar rather than the Analyze Data inspector footer. Keep persistent analysis information distinct from temporary progress and completion messages.
+
+## ITC-129 - Competitive bootstrap samples competitor concentration regardless of the concentration-error option
+
+- Priority: Medium-low.
+- Status: Open (2026-10-20); binding-model review finding 1. Static review only; no builds, tests or runtime reproduction.
+- Location: Core `Model.SetSynthModelParameters` in `Analysis2/Models/Models.cs`, `ModelCloneOptions.EffectiveSampleModelOptionParameters`, `CompetitiveBinding.TryEvaluateCompetitive` / `ModelSolution.CompetitionFactor`, and local/global `BoostrapResiduals` in `Solver2.cs`.
+- Problem: Every residual bootstrap samples uncertain model options, including `PreboundLigandConc`, `PreboundLigandAffinity` and `PreboundLigandEnthalpy`. `IncludeConcentrationErrorsInBootstrap` gates cell/syringe concentration variation but not competitor concentration. Model options use Normal/split-Normal sampling, so competitor concentration can become negative; cell/syringe variation instead uses positive lognormal factors. For a symmetric Normal with SD equal to 50% of its positive mean, the negative tail is about 2.3%; larger relative SDs give larger probabilities, and asymmetric intervals change the probability.
+- Consequence and qualification: Negative competitor concentration throws `ArgumentOutOfRangeException`. Both local and global bootstrap loops catch replicate exceptions, count failures and exclude those refits; this does not establish a whole-analysis crash. Sampling still occurs with concentration errors disabled, and rejection changes the retained bootstrap population. Whether the concentration flag should cover competitor concentration requires an explicit policy; affinity and enthalpy uncertainty are separate from concentration uncertainty. Primary best-fit inputs are unchanged.
+- Suggested direction: Define the concentration control's scope explicitly. If it includes competitor concentration, gate that option with the effective concentration flag while keeping affinity/enthalpy sampling separate. Use positive concentration sampling consistent with the chosen input mean/SD policy, considering the existing lognormal helper and the treatment of asymmetric intervals. Verify disabled/enabled behavior and invalid-draw handling through both local and global bootstrap entry points before claiming the issue resolved.
+
+## ITC-130 - Two-site syringe mode disables an independently used fixed site count
+
+- Priority: Medium-low.
+- Status: Open (2026-10-20); binding-model review finding 2. Static review only; no builds, tests or interactive reproduction.
+- Location: Core `TwoSetsOfSites.GetSiteStoichiometry2`, `ApplyModelOptions` and `ModelSolution.UISolutionParameters`; Avalonia `Workspace/Analysis/ModelOptionRowBuilder.IsOptionEnabled`; macOS `CustomViews/OptionAdjustmentView.UpdateState`.
+- Problem: With syringe active-fraction mode and Shared N-Values both enabled, both desktops disable `NumberOfSites2`, but the model still reads that fixed option independently. `ApplyModelOptions` shares the fitted `Nvalue2` parameter rather than the fixed `NumberOfSites2` option. Setting the first fixed count to 2 can therefore leave an inaccessible second count at its previous value, such as the default 1. Result text also reports that independently stored second count.
+- Qualification: The manual describes Shared N-Values as sharing fitted stoichiometry and syringe mode as using two fixed site counts with one syringe factor. This establishes an enablement mismatch; it does not establish that copying the first fixed count is the intended correction. The reported second count reflects the value actually used by the model.
+- Suggested direction: Align both desktop enablement rules with the documented independent fixed counts in syringe mode, keeping the second count editable and Shared N-Values relevant only to fitted stoichiometries. If equal fixed counts are desired instead, agree that scientific option policy before changing the model or report values. Cover switching modes and preserving both entered counts.
+
+## ITC-131 - Competitive initialization omits reuse of the attached affinity estimate
+
+- Priority: Low.
+- Status: Open (2026-10-20); binding-model review finding 3. Static review only; no builds or tests.
+- Location: `AnalysisITC.Core/Analysis2/Models/CompetitiveBinding.cs`, `InitializeParameters`; shared `Model.PreviousOrDefault` and analysis builder/factory initialization.
+- Problem: Competitive affinity is initialized with `GuessLogAffinity()` directly, while its other fitted coordinates and the analogous coordinates in other binding models use `PreviousOrDefault`. When attached-solution reuse is enabled and no explicit override replaces it, the previous fitted affinity is discarded as an initial guess.
+- Consequence and qualification: This is a confirmed initialization inconsistency, not a change to the stored best-fit result. Explicit parameter overrides can replace the default, and factory rebuilds restore values marked as user changes. No convergence or fitted-result impact was demonstrated, and deliberate model-specific intent has not been established.
+- Suggested direction: Use `PreviousOrDefault(ParameterType.Affinity1, GuessLogAffinity())` consistently with the other coordinates, preserving the reuse-disabled/default-guess path and explicit overrides. Verify initialization with an attached result and with reuse disabled; assess any intended competitive-specific exception before changing behavior.
+
+## ITC-132 - One-site heat content loses precision through subtractive cancellation
+
+- Priority: Low; numerical stability follow-up.
+- Status: Open (2026-10-20); binding-model review finding 5. Algebraic/source review only; no builds, tests or numerical sweep.
+- Location: `AnalysisITC.Core/Analysis2/Models/OneSetOfSites.cs`, `GetHeatContent`; related rationalized calculation in `CompetitiveBinding.OneLigandState`.
+- Problem: With `s = 1 + XnM + nKM`, the bound-fraction term is evaluated as `s - sqrt(s*s - 4*XnM)`, subtracting nearly equal values. Its algebraically equivalent rationalized form is `4*XnM / (s + sqrt(s*s - 4*XnM))`. At `XnM` around 1e-3 and negligible `nKM`, the original term is about 2e-3 and loses roughly three decimal digits of precision.
+- Consequence and qualification: The cited example has small relative error, but it does not establish a universal 1e-13 bound. Cancellation can worsen for smaller ligand ratios or larger `nKM`, potentially rounding a positive contribution to zero. Practical impact across supported parameter ranges and injection heat differences has not been measured; it is not established that the issue affects only floating-point-precision forward comparisons.
+- Suggested direction: Evaluate the algebraically equivalent rationalized term while preserving the binding equation, syringe correction and injection bookkeeping. Check independent numerical expectations across tight/weak binding, small ratios and supported limits, including integrated injection heats; do not use solver recovery as evidence of forward-model accuracy.
+
+## ITC-133 - Microcalorie scale is missing from the shared Energy scaling API
+
+- Priority: Low; latent API inconsistency.
+- Status: Open (2026-10-20); binding-model review finding 6. Static review only; no builds or tests.
+- Location: `AnalysisITC.Core/UnitClasses/Energy.cs`, `ScaleFactor`, `Energy(FloatWithError, EnergyUnit)`, `GetMod` and `ToFormattedString`; `FloatWithError.AsFormattedEnergy` in `Math/NumberStructs.cs`.
+- Problem: `ScaleFactor(EnergyUnit.MicroCal)` falls through to 1, the joule scale; `GetMod` delegates to it. The unit-aware constructor and shared formatted-energy path therefore use the wrong scale for MicroCal, potentially showing joule magnitudes with a µcal label. `ToUnit`, `ToString(unit, ...)`, `ConvertToJoule` and `ConvertFromJoule` have explicit correct MicroCal cases.
+- Reachability qualification: No active user-facing caller of the defective MicroCal paths was established. Figure/result-export override validation rejects MicroCal, and the inspected import/export MicroCal calls use explicit conversions. This is a confirmed API inconsistency, not a demonstrated current figure/report failure.
+- Suggested direction: Add the MicroCal scale `1_000_000.0 / CalToJouleFactor` to `ScaleFactor`, which also corrects `GetMod`, and check constructor/formatter consistency against independent unit expectations. Preserve the existing restriction on figure/result-export overrides; correcting conversion does not imply enabling a new display option.
+
+## ITC-134 - Thermodynamic conversion constants are truncated
+
+- Priority: Low; numerical precision follow-up.
+- Status: Open (2026-10-20); binding-model review finding 7. Literal/source review only; no builds, tests or external-reference comparison.
+- Location: `AnalysisITC.Core/UnitClasses/Energy.cs`, `Energy.R = 8.3145`; `AnalysisITC.Core/Math/FWEMath.cs`, `ln10 = 2.302585093`.
+- Problem: The gas constant is rounded by about 4.5e-6 relative, shifting a Gibbs energy magnitude of 40 kJ/mol by about 0.18 J/mol compared with a full-precision gas constant. The truncated ln(10) produces about 2.6e-12 relative error in the SD calculation in `FWEMath.Log10`; its central logarithm and confidence endpoints use `Math.Log10`.
+- Consequence and qualification: These are precision discrepancies with very small practical effects, not established binding-equation errors or internally contradictory results. Floating-point-precision comparisons of derived thermodynamics must account for which constants the external reference uses; no reference-comparison failure was reproduced in this review.
+- Suggested direction: Use a full-double-precision gas constant derived from the exact SI defining constants, and calculate ln(10) with `Math.Log(10.0)`. Verify thermodynamic conversions and propagated SDs against independent expectations, identifying the intentional change to derived numerical values rather than loosening comparison tolerances.
+
+## ITC-135 - Stoichiometry guesses depend on a stored plotting-axis coordinate
+
+- Priority: Low.
+- Status: Open (2026-10-20); binding-model review finding 8. Source sequence traced; no builds, tests or complete UI reproduction.
+- Location: Core `Model.GuessN`, `ExperimentData.AxisType`, `InjectionDisplacementCalculator.ApplyToInjection`, concentration recalculation, analysis model initialization, and `SolverInterface.ValidateInitialParameterLimits`.
+- Problem: `GuessN()` reads the last injection's `Ratio / 2`, but recalculation writes injection number, titrant concentration or molar ratio into `Ratio` according to the current axis. A Dissociation model selects titrant concentration. Recalculating while that model is attached and then selecting a stoichiometric binding model can therefore supply a concentration-sized N guess when no prior N or explicit override replaces it.
+- Consequence and qualification: The sequence is statically supported, but a complete desktop workflow and any convergence impact remain unverified. Fit-start `ParameterStartNormalizer.Clamp` brings free out-of-range guesses within their active limits, so the expected consequence is an inappropriate guess, potentially clamped to the lower bound, rather than optimization beginning below the bound. Resolved ITC-096 concerns graph coordinates; it did not remove this initialization dependency.
+- Suggested direction: Derive the dimensionless stoichiometry guess from the saved physical titrant/cell concentrations rather than the axis-dependent `Ratio` field. Preserve existing attached-result reuse, explicit overrides and fit-start limit policy. Cover the Dissociation/recalculation/model-switch sequence and ordinary binding-model initialization without rewriting saved plotting coordinates as a side effect.
+
+## ITC-143 - Duplicate root IDs can produce a project that cannot reopen
+
+- Priority: Medium-high.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Plausible end-to-end; the writer/reader mismatch and duplicate-ID import path are confirmed by code inspection. The save/reopen sequence was not run.
+- Location: `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `FTXTCWriter.CaptureSnapshot` and `CaptureContentOrder`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `ValidateRootReferences`; `FTITCReader.cs`; `DataReaders.cs`; `AnalysisITC.Core/DataManager.cs`, both `AddData` overloads.
+- Problem: Legacy `.ftitc` imports retain saved experiment/result IDs, while duplicate resolution applies only to `.ftxtc` imports. Both `AddData` overloads append without checking identities. Snapshot capture accepts distinct experiment/result objects with the same ID; only solutions are deduplicated by their saved ID. The reader requires nonempty, globally unique root IDs across experiments, solutions, results, and reports, and rejects a duplicate before component recovery begins. The existing `FtxtcImportResolverTests.FallbackSkipsAndLegacyImportsDoNotAsk` source explicitly asserts that importing the same legacy file twice leaves duplicate IDs.
+- Consequence and qualification: Saving overlapping legacy content can create a package that neither strict nor recovery mode can reopen through the app. The package contents remain present; this does not establish irrecoverable loss of the whole file. ITC-077 deliberately left legacy import behavior unchanged.
+- Suggested solution direction: Validate all root IDs for emptiness and global uniqueness during snapshot preparation, before replacing any destination, and report an actionable save failure. Separately consider extending duplicate handling to legacy imports with reference-preserving remapping; do not silently rename IDs or deduplicate distinct content in the writer. Future regression coverage should exercise repeated legacy import followed by save/reopen and preservation of an existing destination when validation fails.
+- Validation boundary: Read-only source and test-source inspection; no builds or tests run for this review.
+
+## ITC-144 - Appending a project replaces the current Save destination
+
+- Priority: Medium.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Confirmed by code inspection; whether the behavior was intended remains unclear.
+- Location: `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `ReadPath`; `DataReaders.cs`, `ReadPathsAsync`; `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveCore`; `AnalysisITC.Core.Tests/ProjectWriterTests.cs`, `DataReaderAppendDuringSaveRetainsDocumentIdentityAndPreventsClose`.
+- Problem: Every clean `.ftxtc` read assigns the incoming file as `ProjectDocumentState.Path`. Import restores the previous path only when no content was accepted. Appending accepted content to a nonempty document therefore replaces its Save destination; ordinary Save writes the merged document over the appended source. Opening several clean project files leaves the last accepted file as the destination.
+- Qualification: The named test explicitly expects the append path, so this is an encoded behavior requiring a destination-policy decision. Partial recovery reads clear the path and do not establish this same overwrite scenario. An entirely skipped import already preserves the previous destination under ITC-077.
+- Suggested solution direction: Preserve the current destination when importing into an existing document; let a clean single-project open into an empty document adopt its source path. Decide explicitly whether opening multiple files into an empty document should require Save As. Keep destination changes at the document-open/import boundary and update the existing test only after that policy is agreed, retaining document identity, dirty-state, and save-during-append protections.
+- Validation boundary: Read-only source and test-source inspection; no builds or tests run for this review.
+
+## ITC-145 - Saving an unintegrated experiment loses its stored inclusion choice
+
+- Priority: Low-medium.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Confirmed by code inspection.
+- Location: `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `Include` and its backing field; `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `CaptureExperiment`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreExperiments`.
+- Problem: The stored inclusion field defaults to true, but the public `Include` getter returns false whenever any injection is unintegrated. Saving serializes that eligibility-gated getter. Reloading assigns the saved false value to the stored field, so completing integration afterward leaves the experiment excluded rather than recovering its previous inclusion choice.
+- Qualification: The defect is loss of the underlying choice across save/reopen. An unintegrated experiment already reports false through the getter before saving; this is not evidence that the checkbox visibly displayed true at that point.
+- Suggested solution direction: Expose the stored inclusion choice to persistence through a narrow accessor and serialize it independently of current analysis eligibility. Retain the existing eligibility gate for analysis consumers and preserve explicit exclusion. Future round-trip coverage should distinguish stored true/false choices before integration and verify their behavior after integration completes, without changing the wire field's type or existing file readability.
+- Validation boundary: Read-only source inspection; no builds or tests run for this review.
+
+## ITC-146 - Web byte budgets charge referenced project payloads twice
+
+- Priority: Low-medium.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Byte-counter duplication is confirmed by code inspection; the practical near-half-size rejection threshold is plausible and was not exercised.
+- Location: `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `FtxtcReadBudget.Entry`, `Reference`, `ReadAndValidateEntries`, `ReadProject`, and `ValidateReferenceBudgets`; `FtxtcReadLimits.cs`; `AnalysisITC.Web/ViewerUploadLimits.cs`.
+- Problem: ZIP validation charges every expanded JSON/binary entry to the cumulative JSON/binary counters. Manifest/project reads and root-reference validation charge most of those payloads to the same counters again. With the web defaults of 32 MiB JSON and 128 MiB binary, packages dominated by twice-charged payloads can reach the configured limits at roughly half their nominal cumulative size.
+- Qualification: Bootstrap matrices are not charged again by root-reference validation, so the effective threshold depends on package composition. Desktop defaults leave these optional counters unbounded. `RestoreResults` also restores reused solutions in separate result contexts and charges bootstrap/injection counts again, but those wrappers are additional restored objects; this is not independently established as a counting defect.
+- Suggested solution direction: Define cumulative JSON/binary limits as unique expanded payload bytes and charge each entry once, while retaining absolute archive/entry limits and any necessary separate restoration-work or allocation limits. Keep repeated-reference protection explicit rather than charging archive bytes again. Review contextual bootstrap/injection accounting separately against its intended resource meaning before changing it. Future boundary cases should cover referenced JSON, thermograms/baselines, bootstrap matrices, and shared solution contexts.
+- Validation boundary: Read-only source and test-source inspection; no builds or tests run for this review.
+
+## ITC-147 - Null-comparison serialization drops detail without logging the first failure
+
+- Priority: Low.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Confirmed by code inspection; occurrence during an ordinary save was not reproduced.
+- Location: `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `CaptureNullComparisonElement`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, Null comparison and binding-assessment restoration.
+- Problem: If full Null-comparison capture/serialization throws, the first catch writes a status-only fallback with `NullFitSucceeded=false`, no comparison members/points, and no delta AICc. It does not log the original exception. Only a failure while serializing that fallback is logged. A save can therefore succeed after discarding detailed saved comparison evidence.
+- Qualification: The fallback preserves some information criteria and records the failure reason inside the package; the loss is not wholly unrecorded. On reopening, automatic assessment can become unavailable, while valid manual overrides survive. Independent member assessment records have their own restoration path, so a universal loss of every assessment is not established.
+- Suggested solution direction: Log the original capture failure and make degraded persistence visible through the existing save-status/error reporting boundary. Decide whether malformed comparison detail should reject the save or permit an explicitly reported status-only fallback; avoid silently treating either policy as approved. Preserve surviving evidence and manual overrides, and cover both the initial fallback and fallback failure when implementing the chosen policy.
+- Validation boundary: Read-only source inspection; no builds or tests run for this review.
+
+## ITC-148 - Reopening changes the embedded Null solution's heat-method provenance
+
+- Priority: Low.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Confirmed by code inspection.
+- Location: `AnalysisITC.Core/Analysis2/NullModelComparisonCalculator.cs`, `CreateOffset`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreNullComparison` and `RestoreOffsetSolution`; `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `CaptureNullComparison` and `CaptureSolution`.
+- Problem: Fit-time Offset Null models inherit the binding model's heat method. Restoration constructs detached experiment data with the default MicroCal heat method and rebuilds the Offset solution from captured masses/heats, without restoring the embedded solution's heat-method metadata. Resaving a comparison originally using Dumas or discrete displacement therefore changes embedded `heatMethod` to `legacy` and `modelSchemaVersion` from 2 or 3 to 1.
+- Qualification: The change affects saved provenance on the first reopen/resave; those fields then stabilize at the reconstructed defaults. Reopening remains possible. This review does not establish a change to the saved comparison points, criteria, or numerical assessment.
+- Suggested solution direction: Retain the embedded Null solution's saved heat-method evidence and use it consistently when restoring or recapturing that solution. Preserve the detached masses/heats reconstruction and saved predictions; do not recompute the comparison from current experiment inputs or infer missing historical evidence. Check the FTXTC format contract before choosing how restoration carries the metadata, and add round-trip expectations for all three heat-method/schema pairs.
+- Validation boundary: Read-only source inspection; no builds or tests run for this review.
+
+## ITC-149 - Published experiment schema rejects saved tandem provenance fields
+
+- Priority: Low; documentation and external tooling.
+- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
+- Confidence: Confirmed by code inspection.
+- Location: `Documentation/Schemas/FTXTC/component.schema.json`, `$defs/experiment`; `Documentation/Schemas/FTXTC/FTXTC_FORMAT.md`, experiment provenance; `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `FtxtcExperimentState` and `CaptureExperiment`.
+- Problem: The experiment schema sets `additionalProperties:false` but omits `originDescription` and `tandemSourceExperimentIds`. The writer emits these optional fields when present, and the format document describes them, so a conforming external schema validator rejects valid saved provenance.
+- Qualification: This includes merge-tool tandem experiments and concatenated imports carrying `originDescription`. The app's reader does not enforce this published JSON schema; an application reopen failure is not established by this finding. These two omissions are confirmed, without claiming an exhaustive absence of other schema drift.
+- Suggested solution direction: Add the existing optional wire properties to the experiment schema with types/nullability matching the format contract; do not rename fields or change application serialization. Extend published-schema coverage to writer-produced merged and concatenated experiments with provenance, as well as ordinary experiments without it.
+- Validation boundary: Read-only source/schema inspection; no builds or tests run for this review.
+
+## ITC-150 - Native Final Figure ignores the experiment-details default
+
+- Priority: Medium; ineffective user preference and incorrect default mapping.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: macOS/Avalonia UI review, finding 3.
+- Location: `AnalysisITC.MacOS/Platform/MacSettingsApplier.cs:33`, `GraphViews/FinalFigureGraphView.cs` (`DrawExpDetails`, `UpdateParameterBoxVisibility`), and `PopOptionViewControllers/FinalFigureOptions/FinalFigureOptionsController.cs` (`SyncGeneral`, `ApplyGeneral`); compare Avalonia `FinalFigureWorkspaceControl.ApplySettingsDefaults`.
+- Problem: macOS sets `DrawExpDetails` from `FinalFigureShowParameterBoxAsDefault`; `FinalFigureShowDetailsAsDefault` is editable and saved by Preferences but is not consumed by the native figure. Avalonia applies separate defaults for experiment details, model information and fit parameters. The native combined details switch also gates parameter-box visibility, so changing only the assigned setting would not establish independent control.
+- Suggested direction: Reconcile the native combined switch with the three existing defaults so each preference controls its named content. Use Avalonia's separation as the reference while retaining the native renderer; settle any required control change before implementation.
+- Verify: Different combinations of the three defaults at startup and after Preferences Apply, including details off with fit parameters on, plus subsequent figure-control edits.
+
+## ITC-151 - Native Final Figure dimension parsing silently changes entered numbers
+
+- Priority: Medium; silent input alteration in editable figure dimensions.
+- Status: Open (2026-10-20). Confirmed by source and storyboard review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Corrected scope of UI review finding 2.
+- Location: `AnalysisITC.MacOS/PopOptionViewControllers/FinalFigureOptions/FinalFigureOptionsController.cs:761` (`TryParseCentimeterValue`, called by `ApplyGeneral`); editable width/height fields in `Main.storyboard`, wired through `FinalFigureViewController.EmbeddedGeneralControls`.
+- Problem: Removing every character except digits and periods turns `-5` into `5` and `1,5` into `15` before parsing. This is a figure-size entry defect, not established corruption of scientific parameter inputs. `ParameterValueAdjustmentView.InputString` already normalizes decimal commas, while experiment-attribute commits use `NumberStyles.Float`; their cited bare parsers do not establish the original broader claim.
+- Suggested direction: Parse the numeric entry explicitly, accepting only a recognized optional `cm` suffix and a deliberate decimal-separator policy. Validate finite positive dimensions using the agreed figure-size limits; show invalid input without changing the existing dimension or discarding the editable draft. Reuse an existing shared input policy where suitable rather than stripping arbitrary characters.
+- Verify: Ordinary dimensions with/without `cm`, decimal points/commas, negative/zero/non-finite values, malformed text and correction/retry through the actual editable controls.
+
+## ITC-152 - Native Final Figure does not apply changed fit-line smoothness preferences
+
+- Priority: Low-medium; live preference application defect.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 4.
+- Location: `AnalysisITC.MacOS/GraphViews/FinalFigureGraphView.cs:159`, `Platform/MacSettingsApplier.cs`, and `ViewControllers/SettingsViews/MacPreferencesWindowController.cs`; compare Avalonia `FinalFigureWorkspaceControl.ApplySettingsDefaults`.
+- Problem: The native static `FitLineSmoothness` reads `AppSettings.FitLineSmoothness` at initialization, but Preferences Apply does not assign it again. Invalidating the figure redraws using the old value. The figure's own smoothness control can change it live; the defect is specifically propagation from Preferences.
+- Suggested direction: Refresh native figure smoothness in the existing settings-application path before invalidation, matching Avalonia's preference application. Preserve the figure control's existing session behaviour and renderer.
+- Verify: Change the preference in a running session, inspect the figure/control and generated output, then change the figure control directly and reopen Preferences.
+
+## ITC-153 - Native Supporting Figure menu excludes documents without experiments
+
+- Priority: Low; document-content eligibility mismatch.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 14.
+- Location: `AnalysisITC.MacOS/AppDelegate.cs` (`AddSupportingFigureCanvasMenuItem` and menu validation, including the `supportingfigurecanvas` case); compare Avalonia `AppMenuController.cs:160` and `MainWindow.OpenSupportingFigureCanvasAsync`.
+- Problem: Native menu enablement and validation require `DataManager.DataIsLoaded`, which means an experiment is present. Avalonia allows any document content, including results-only or reports-only documents. The native gate therefore prevents opening the same tool for these document states; usable composition contents were not runtime-checked.
+- Suggested direction: Align the document-content eligibility policy across both apps and apply it to initial enablement, content-change refreshes, menu validation and the open action. Verify that the canvas can resolve eligible saved result figures without live experiments; explicitly reconcile reports-only behaviour with Avalonia rather than relying on the experiment predicate.
+- Verify: Empty, experiment-only, results-only and reports-only documents, including transitions caused by import, removal and document replacement.
+
+## ITC-154 - Native Analysis Result Exporter has no temperature-unit choice
+
+- Priority: Low; missing export option, not an established numerical error.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 5.
+- Location: `AnalysisITC.MacOS/ViewControllers/AnalysisResultExporterViewController.cs:109` (`CurrentOptions`); compare Avalonia `Misc/Tools/AnalysisResultExporterWindow.cs` (`temperatureCombo`, `CurrentOptions`).
+- Problem: Native export hard-codes `UseKelvin = false`, while Avalonia offers Celsius/Kelvin. Native users cannot choose Kelvin for the same Core result-table export. Existing Celsius output is intentional and is not evidence of a wrong evaluation temperature.
+- Suggested direction: Add the equivalent native display-unit choice and pass it through `AnalysisResultExportOptions.UseKelvin` for clipboard and file output. Share matching label/tooltip wording in Core. Keep unit selection separate from the scientific evaluation-temperature policy; report chapter behaviour is outside this entry.
+- Verify: Celsius and Kelvin headers/values for summary and replicate rows, clipboard/file parity and unchanged non-temperature output.
+
+## ITC-155 - Avalonia ignores the stored affinity-input preference
+
+- Priority: Low; conditional input-presentation mismatch.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Corrected scope of UI review finding 6.
+- Location: `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisParameterRowBuilder.cs` (`ParameterDisplay.From`); native `CustomViews/AnalysisInspectorViews.cs` and `CustomViews/ParameterValueAdjustmentView.cs`; Core `AppSettings.InputAffinityAsDissociationConstant` and `PreferencesState`.
+- Problem: Avalonia always displays/accepts Kd, while native editors honour the stored choice between Kd and log10 association constant. Both default to Kd, so divergence requires the preference to be false. Neither Preferences UI exposes this choice. The cited native `ParameterOptionControl_Activated` method has no references and does not establish an accessible toggle.
+- Suggested direction: Decide whether both apps should retain selectable Kd/log10 association-constant entry or adopt one presentation. If retaining the setting, apply it consistently to labels, units, conversions, ranges and sliders in both apps and provide an explicit way to select it. Keep canonical internal coordinates and fitted values unchanged.
+- Verify: Both stored preference values, reciprocal range/slider direction, unit changes, untouched drafts and equivalent internal values after entry.
+
+## ITC-156 - Result evaluation temperature-unit persistence differs between desktops
+
+- Priority: Low; display preference persistence mismatch.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 7.
+- Location: Native `ViewControllers/MainViews/AnalysisResultTabViewController.cs` (`TemperatureUnitPreferenceKey`, `CurrentUseKelvin`, `ChangeTemperatureDisplay`); Avalonia `Workspace/Results/AnalysisResultWorkspaceControl.cs` (`temperatureUnitCombo`, `ChangeTemperatureDisplay`).
+- Problem: Native macOS persists `AnalysisResultUseKelvin` directly through `NSUserDefaults`, bypassing `ISettingsStore`. Avalonia keeps the choice in its workspace combo, initialized to Celsius; it is lost on workspace construction/app restart, not necessarily on each result selection.
+- Suggested direction: Store the display-unit preference through the shared settings abstraction and restore it in both workspaces. Retain the existing native key/value when migrating its access. Preserve the physical evaluation temperature and editable value when changing display units; exporter unit choice remains separate under ITC-154.
+- Verify: Choice restoration after restart/workspace construction, result switching, Celsius/Kelvin conversion and preservation of the existing native preference.
+
+## ITC-157 - Desktop command wording and capitalization are inconsistent
+
+- Priority: Low; UI consistency.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 8.
+- Location: Native `ViewControllers/MainWindowController.cs` context/toolbar menus and `Main.storyboard`; Avalonia `Misc/Menus/AppMenuController.cs`, `Misc/Details/AnalysisResultDetailsWindow.cs` and tool/workspace push buttons.
+- Problem: Native menus mix sentence/title case and use different names from Avalonia for equivalent commands. Push buttons such as `Add selected`, `Save package`, `Restore defaults` and `Copy result table` violate the repository's title-case rule. `Set Active Experiments` also appears as `Select result experiments`; dialog-opening commands mix `...` and `…`.
+- Suggested direction: Agree common names for commands with the same behaviour and one ellipsis convention, then apply title case to menus/push buttons and sentence case to inspector labels/checkboxes. Put genuinely shared command wording in Core where appropriate and update native storyboard and runtime-created items together. Keep command behaviour and shortcuts unchanged.
+- Verify: Main menus, context/toolbar menus and matching window buttons on both desktops, including dynamically created items.
+
+## ITC-158 - Shared desktop tooltips are duplicated, inconsistent or absent
+
+- Priority: Low; presentation and maintainability.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 9 and the exporter tooltip portion of finding 5.
+- Location: Both Supporting Figure windows, Preferences number precision, Analysis Report/package controls, result exporters and identifier editors; Avalonia `MainWindow.axaml` All/None, Raw Data/Injections and Open File/Reload Last File controls.
+- Problem: Matching tooltip text is independently hard-coded in both apps, some equivalents drift, several static explanations exceed the 1-10 word guidance, and the listed Avalonia main-window controls have no assigned tooltip. Extra traceability is debug-only and must not be presented as a production feature defect.
+- Suggested direction: Define matching tooltip text once in Core and assign it in both consumers; add concise, useful text to the identified missing controls. Keep ordinary tooltips within 1-10 words, retaining the permitted longer value/unit/unavailability explanations and useful accessibility help. Move long scientific explanations to suitable help only when they aid interpretation. The duplicated identifier `ApplySharedValue` helper is optional refactoring, not required to fix tooltip drift.
+- Verify: Matching controls use the same shared text, formerly missing controls have meaningful tooltips, and debug-only content remains correctly scoped.
+
+## ITC-159 - Avalonia removal confirmations omit the suppression shortcut
+
+- Priority: Low; dialog convenience parity.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 11.
+- Location: `AnalysisITC.MacOS/ConfirmationDialog.cs` (`ConfirmRemoveOrDelete`); Avalonia `Misc/Dialogs/ConfirmationDialogWindow.cs` and `MainWindow.ConfirmAsync`.
+- Problem: Native removal/deletion confirmations offer `Do not show this again` and save `ConfirmRemoveDelete = false` after confirmation. Avalonia omits this dialog shortcut, although it already honours the setting and exposes it in Preferences. This is not an ignored preference or missing destructive-action confirmation.
+- Suggested direction: Add equivalent optional suppression to the removal/deletion confirmation path and save it only after an affirmative response. Keep cancellation and window closure non-destructive. Do not automatically extend suppression to processing-clear, report-delete or other confirmation policies.
+- Verify: Confirm/cancel/close with the option on/off, saved preference restoration and unchanged unrelated confirmation behaviour.
+
+## ITC-160 - Native app-lifetime views incompletely detach static events
+
+- Priority: Low; lifecycle maintenance, with no demonstrated ordinary-workflow leak or crash.
+- Status: Open (2026-10-20). Missing cleanup confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Corrected scope of UI review finding 12.
+- Location: `AnalysisITC.MacOS/ViewControllers/MainViews/DataProcessingViewControllet.cs` (`ViewDidLoad`, `Dispose`), `MainViews/ViewController.cs`, `ViewControllers/MainWindowController.cs` and `GraphViews/ResultGraphView.cs`.
+- Problem: Static-event subscriptions outlive the cleanup implemented for these views/controllers. For example, processing Dispose removes two DataManager handlers but leaves `SelectionDidChange`, print, processing and graph subscriptions; ResultGraphView uses anonymous static-event handlers that cannot currently be detached. These objects are mostly app-lifetime storyboard instances, so missing cleanup alone does not establish a growing production leak. `TemperatureDependenceGraphView` has no identified instantiation and is not evidence of an active leak.
+- Suggested direction: Match subscriptions to actual ownership/lifetime and detach them when the owning object is disposed, using named or retained delegates where needed. Preserve required app-lifetime subscriptions; avoid introducing a general event-management framework solely for this cleanup.
+- Verify: Exercise the actual dispose/recreate path where supported, confirm disposed views receive no later callbacks and live replacements receive each event once.
+
+## ITC-161 - Desktop unit and numeric-label formatting still differs
+
+- Priority: Low; display consistency.
+- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: UI review finding 13; adjacent to resolved ITC-079, whose scope did not include these native locations.
+- Location: Native `ViewControllers/ExperimentDesignerViewController2.cs` and `Drawing/GUIutils.cs` volume text; both Preferences iteration labels; native `DataProcessingViewControllet` and Avalonia `ProcessingWorkspaceControl` integration labels; both Designer injection-volume summaries.
+- Problem: Native Designer/cursor text uses `µl` while Avalonia uses `µL`; iteration counts use native `0` versus Avalonia `N0`; integration-time labels omit the native space before `s`; Designer volume lists use native `F1` versus Avalonia `G4`. These are presentation differences, not established changes to stored quantities or calculations.
+- Suggested direction: Use `µL` consistently in user-facing native text and include a space before time units. Agree common count formatting and adequate volume-summary precision, using shared Core formatters where applicable. Preserve numeric values, scientific calculations, serialized/export tokens and external-format compatibility.
+- Verify: Matching labels and summaries on both desktops, including small injection volumes and locale-dependent count grouping; keep data/export formatting policies separate.
