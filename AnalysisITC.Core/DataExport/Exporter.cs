@@ -317,13 +317,13 @@ namespace AnalysisITC.Core.Export
             var lines = new List<string>
             {
                 "10",
-                "0," + data.InjectionCount.ToString() + ",0,0,0",
-                data.MeasuredTemperature.ToString("F3") + "," + (1000 * data.CellConcentration).Value.ToString("F4") + "," + (1000 * data.SyringeConcentration).Value.ToString("F4") + "," + (1000 * data.CellVolume).ToString("F5"),
+                "0," + data.InjectionCount.ToString(CultureInfo.InvariantCulture) + ",0,0,0",
+                data.MeasuredTemperature.ToString("F3", CultureInfo.InvariantCulture) + "," + (1000 * data.CellConcentration).Value.ToString("F4", CultureInfo.InvariantCulture) + "," + (1000 * data.SyringeConcentration).Value.ToString("F4", CultureInfo.InvariantCulture) + "," + (1000 * data.CellVolume).ToString("F5", CultureInfo.InvariantCulture),
                 "0",
                 "0",
             };
             foreach (var injection in data.Injections)
-                lines.Add((1000000 * injection.Volume).ToString("F2") + "," + injection.PeakArea.Energy.ToUnit(EnergyUnit.MicroCal).Value.ToString("F5"));
+                lines.Add((1000000 * injection.Volume).ToString("F2", CultureInfo.InvariantCulture) + "," + injection.PeakArea.Energy.ToUnit(EnergyUnit.MicroCal).Value.ToString("F5", CultureInfo.InvariantCulture));
             return lines;
         }
 
@@ -543,22 +543,22 @@ namespace AnalysisITC.Core.Export
 
                 switch (column)
                 {
-                    case ExportColumns.MolarRatio: return inj.Ratio.ToString("F5", settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
+                    case ExportColumns.MolarRatio: return inj.Ratio.ToString("F5", CultureInfo.InvariantCulture);
                     case ExportColumns.Included: return inj.Include ? "1" : "0";
-                    case ExportColumns.InjectionVolume: return inj.Volume.ToString("E2", settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
-                    case ExportColumns.InjectionDelay: return inj.Delay.ToString(settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
-                    case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8");
-                    case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8");
+                    case ExportColumns.InjectionVolume: return inj.Volume.ToString("E2", CultureInfo.InvariantCulture);
+                    case ExportColumns.InjectionDelay: return inj.Delay.ToString(CultureInfo.InvariantCulture);
+                    case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8", CultureInfo.InvariantCulture);
+                    case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8", CultureInfo.InvariantCulture);
                     case ExportColumns.Peak:
                         var molarHeat = settings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
                         return settings.Export == ExportType.ITCsim
                             ? Invariant(Energy.ConvertFromJoule(molarHeat, settings.ExportEnergyUnit))
-                            : molarHeat.ToString("F3");
-                    case ExportColumns.PeakError: return inj.SD.ToString("F2");
-                    case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
-                    case ExportColumns.IntegrationLength: return inj.IntegrationEndOffset.ToString("F1");
+                            : molarHeat.ToString("F3", CultureInfo.InvariantCulture);
+                    case ExportColumns.PeakError: return inj.SD.ToString("F2", CultureInfo.InvariantCulture);
+                    case ExportColumns.Temperature: return inj.Temperature.ToString("F2", CultureInfo.InvariantCulture);
+                    case ExportColumns.IntegrationLength: return inj.IntegrationEndOffset.ToString("F1", CultureInfo.InvariantCulture);
                     case ExportColumns.Fit:
-                        if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !settings.ExportOffsetCorrected).ToString("F3");
+                        if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !settings.ExportOffsetCorrected).ToString("F3", CultureInfo.InvariantCulture);
                         else return BlankChar.ToString();
                     default: return BlankChar.ToString();
                 }

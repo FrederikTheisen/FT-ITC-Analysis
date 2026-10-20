@@ -553,6 +553,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public void Draw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             var previousStyle = AppSettings.UncertaintyDisplayStyle;
             AppSettings.UncertaintyDisplayStyle = ShowTextUncertainties
                 ? TextUncertaintyStyle

@@ -400,7 +400,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (!IsFinite(value)) return "";
 
-            return value.ToString(Math.Abs(value) < 10 ? "G3" : "G4", CultureInfo.CurrentCulture);
+            return value.ToString(Math.Abs(value) < 10 ? "G3" : "G4", CultureInfo.InvariantCulture);
         }
 
         static bool IsFinite(double value)

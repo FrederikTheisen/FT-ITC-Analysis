@@ -107,7 +107,7 @@ namespace AnalysisITC.Core.Tests
                 CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
                 var expected = Exporter.BuildMicroCalLines(data);
 
-                foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE" })
+                foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
                 {
                     CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
                     CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);

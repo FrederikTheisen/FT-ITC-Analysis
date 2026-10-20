@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using AnalysisITC.Core.Analysis;
@@ -310,9 +311,9 @@ namespace AnalysisITC.Core.Presentation
         public string FormatTick(double value)
         {
             if (Math.Abs(value) < 1E-12) value = 0;
-            if (DecimalPlaces <= 0) return value.ToString("0");
+            if (DecimalPlaces <= 0) return value.ToString("0", CultureInfo.InvariantCulture);
 
-            return value.ToString("0." + new string('0', DecimalPlaces));
+            return value.ToString("0." + new string('0', DecimalPlaces), CultureInfo.InvariantCulture);
         }
 
         void NormalizeRange()
@@ -646,6 +647,7 @@ namespace AnalysisITC.Core.Presentation
 
         public static PublicationFigureDocument Build(PublicationFigureSource source, PublicationFigureOptions options)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (source == null) throw new ArgumentNullException(nameof(source));
             options = options ?? new PublicationFigureOptions();
             var data = source.Experiment;

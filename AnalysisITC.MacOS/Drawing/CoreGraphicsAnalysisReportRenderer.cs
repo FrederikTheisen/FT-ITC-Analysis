@@ -11,6 +11,7 @@ using Foundation;
 
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.UI.MacOS.Drawing
 {
@@ -36,6 +37,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public NSData CreatePdfData(AnalysisReportDocument document, AnalysisReportLayoutPlan plan = null)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (document == null) throw new ArgumentNullException(nameof(document));
             plan = plan ?? CreatePlan(document);
             var data = new NSMutableData();
@@ -333,7 +335,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 var value = minY + (maxY - minY) * tick / 4.0;
                 var y = Y(value);
                 Line(context, graph.X, y, graph.GetMaxX(), y, Rule, .4f);
-                var text = value.ToString("G3", CultureInfo.CurrentCulture);
+                var text = value.ToString("G3", CultureInfo.InvariantCulture);
                 DrawTextTop(context, pageHeight, text,
                     graphLeft - Measure(text, 6, false).Width - 5,
                     pageHeight - y - 4, 6, Muted);
@@ -433,7 +435,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 var value = min + (max - min) * tick / 4.0;
                 var y = Y(value);
                 Line(context, graph.X, y, graph.GetMaxX(), y, Rule, .45f);
-                var text = value.ToString("G3", CultureInfo.CurrentCulture);
+                var text = value.ToString("G3", CultureInfo.InvariantCulture);
                 DrawTextTop(context, pageHeight, text,
                     graphLeft - Measure(text, 5.5, false).Width - 5,
                     pageHeight - y - 4, 5.5, Muted);

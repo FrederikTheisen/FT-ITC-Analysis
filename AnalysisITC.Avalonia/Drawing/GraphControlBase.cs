@@ -93,11 +93,11 @@ namespace AnalysisITC.Avalonia
             {
                 var absStep = Math.Abs(step);
 
-                if (absStep >= 1000) return value.ToString("G4", CultureInfo.CurrentCulture);
-                if (absStep >= 1) return value.ToString("0.#", CultureInfo.CurrentCulture);
+                if (absStep >= 1000) return value.ToString("G4", CultureInfo.InvariantCulture);
+                if (absStep >= 1) return value.ToString("0.#", CultureInfo.InvariantCulture);
 
                 var decimals = Math.Min(6, Math.Max(1, (int)Math.Ceiling(-Math.Log10(absStep)) + 1));
-                return value.ToString("0." + new string('#', decimals), CultureInfo.CurrentCulture);
+                return value.ToString("0." + new string('#', decimals), CultureInfo.InvariantCulture);
             }
 
             static double NiceNumber(double value, bool round)

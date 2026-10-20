@@ -53,7 +53,12 @@ public sealed class TwoSiteEntropyPresentationTests
                     .ToFormattedString(unit, permole: true);
                 Assert.Equal(expected, Assert.Single(inspector.Rows, row => row.Label == label).Value);
                 Assert.Contains(label + " = " + expected, graph);
-                Assert.Contains(label + " = " + expected, annotation);
+                using (new InvariantNumericCultureScope())
+                {
+                    var figureExpected = new Energy(new FloatWithError(site * 1000, site * 100))
+                        .ToFormattedString(unit, permole: true);
+                    Assert.Contains(label + " = " + figureExpected, annotation);
+                }
                 var labels = inspector.Rows.Select(row => row.Label).ToList();
                 Assert.Equal(labels.IndexOf(MarkdownStrings.Enthalpy + "{" + site + "}") + 1,
                     labels.IndexOf(label));

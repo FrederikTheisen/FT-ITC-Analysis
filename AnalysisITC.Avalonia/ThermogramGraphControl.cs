@@ -435,9 +435,9 @@ namespace AnalysisITC.Avalonia
             var injection = InjectionAtTime(graph.Transform.ToData(hoverPoint.Value).X);
             if (injection != null) lines.Add($"Injection: {injection.ID + 1}");
 
-            lines.Add($"Time: {data.Time:F1} s");
+            lines.Add(FormattableString.Invariant($"Time: {data.Time:F1} s"));
             lines.Add($"Power: {Power.Format(Power.Convert(data.Power))}");
-            lines.Add($"Temp: {data.Temperature:F3} °C");
+            lines.Add(FormattableString.Invariant($"Temp: {data.Temperature:F3} °C"));
 
             DrawInfoBox(context, lines.ToArray(), graph.Plot, screen);
         }
@@ -538,7 +538,7 @@ namespace AnalysisITC.Avalonia
 
             public double Convert(double power) => power * Scale;
 
-            public string Format(double value) => $"{value:G4} {UnitLabel}";
+            public string Format(double value) => FormattableString.Invariant($"{value:G4} {UnitLabel}");
         }
 
         readonly struct GraphViewport

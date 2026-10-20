@@ -150,7 +150,7 @@ namespace AnalysisITC.Core.Tests
             {
                 var reference = Exporter.BuildIntegratedPeakLines(data, settings);
                 var itcsimReference = Exporter.BuildITCsimLines(data, settings);
-                foreach (var name in new[] { "en-US", "da-DK", "de-DE" })
+                foreach (var name in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
                 {
                     CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(name);
                     Assert.Equal(reference, Exporter.BuildIntegratedPeakLines(data, settings));

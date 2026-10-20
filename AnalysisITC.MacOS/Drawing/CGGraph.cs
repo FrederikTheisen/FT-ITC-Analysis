@@ -580,6 +580,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             this.Center = center;
 
             AutoSetFrame();
@@ -1127,6 +1128,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public bool SetCursorInfo(CGPoint cursorpos)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (Frame.Contains(cursorpos))
             {
                 DrawCursorPositionInfo = true;
@@ -1452,6 +1454,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawExperimentDetails(CGContext gc)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             var lines = new List<string>();
             var syr = FormatConcentrationLine(
                 ExperimentSpeciesLocation.Syringe,
@@ -1824,6 +1827,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public bool SetCursorInfo(CGPoint cursorpos)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (Frame.Contains(cursorpos))
             {
                 CursorInfo = new List<string>();
@@ -2187,6 +2191,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (configuredXAxisType != ExperimentData.AxisType) SetupAxes();
             base.PrepareDraw(gc, center);
         }
@@ -2669,6 +2674,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             SetupAxes();
 
             DrawOnWhite = DataFittingGraph.DrawOnWhite;

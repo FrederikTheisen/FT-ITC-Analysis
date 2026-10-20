@@ -630,6 +630,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawParameterBox(DrawingContext context, GraphLayout layout)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             var data = Experiment;
             var solution = ActiveSolution;
             if (data == null || solution == null || !dataSnapshot.ParameterBoxAtTop.HasValue || data.InjectionCount == 0) return;
@@ -682,6 +683,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         IReadOnlyList<string> BuildHoverLines(GraphHit hit, GraphLayout layout)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             var point = hit.Point;
             var lines = new List<string>
             {

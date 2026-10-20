@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using AppKit;
@@ -49,6 +50,7 @@ static class FinalFigureModelSelectionTests
                 "Final Figure still has a second rendering engine");
 
             var data = Experiment();
+            CultureInvariantFinalFigureMetadata(data, directory);
             var attached = data.Solution;
             var savedNull = attached.NullComparison.NullSolutions.Single();
 
@@ -188,6 +190,39 @@ static class FinalFigureModelSelectionTests
         }
         catch (Exception error) { Console.Error.WriteLine("FAIL: " + error); return 1; }
         finally { FinalFigureModelPresentation.Selection = original; Directory.Delete(directory, true); }
+    }
+
+    static void CultureInvariantFinalFigureMetadata(ExperimentData data, string directory)
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            data.Solution.Convergence.SetUnweightedRmsd(0.8199);
+            data.Solution.Parameters[ParameterType.Nvalue1] = new FloatWithError(0.8199, 0.002, 0.8156, 0.8236);
+            foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                var resolution = typeof(FinalFigureGraphView).GetMethod("ResolveFigure", InternalStatic)
+                    .Invoke(null, new object[] { data, null, null, PublicationFigureModelSelection.BindingModel });
+                var method = typeof(FinalFigureGraphView).GetMethod("BuildPdfMetadataKeywords", InternalStatic);
+                var keywords = (string[])method.Invoke(null, new[] { (object)data, resolution });
+                Check(keywords.Any(value => value.Contains("=")) && keywords.All(value => !value.Contains(","))
+                    && keywords.Any(value => value == "Loss: 0.82")
+                    && keywords.Any(value => value == "N = 0.820 ± 0.002 [0.816.. 0.824]"),
+                    cultureName + " numeric metadata is period-decimal and keyword-safe");
+                var path = Path.Combine(directory, "culture-" + cultureName + ".pdf");
+                typeof(FinalFigureGraphView).GetMethod("WriteFigurePdf", InternalStatic, null,
+                        new[] { typeof(ExperimentData), typeof(string), typeof(AnalysisResult), typeof(SolutionInterface), typeof(PublicationFigureModelSelection?) }, null)
+                    .Invoke(null, new object[] { data, path, null, null, (PublicationFigureModelSelection?)PublicationFigureModelSelection.BindingModel });
+                Check(new FileInfo(path).Length > 500, cultureName + " Final Figure PDF written");
+                if (!String.IsNullOrEmpty(QaDirectory))
+                {
+                    Directory.CreateDirectory(QaDirectory);
+                    File.Copy(path, Path.Combine(QaDirectory, "culture-" + cultureName + ".pdf"), true);
+                }
+            }
+        }
+        finally { CultureInfo.CurrentCulture = original; }
     }
 
     static void Controls()

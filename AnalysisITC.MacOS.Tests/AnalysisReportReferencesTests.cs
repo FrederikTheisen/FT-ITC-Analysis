@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -41,6 +42,7 @@ static class AnalysisReportReferencesTests
             CheckExperimentHeaders();
             CheckConditionsSubtitles();
             CheckSourceMetadata();
+            CheckCultureInvariantReportPdfs();
             CheckReportContinuation();
             CheckTemperatureValidity();
             Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping, bounded footer titles and PDF rendering");
@@ -390,6 +392,35 @@ static class AnalysisReportReferencesTests
             rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
                 Path.Combine(output, "macos-source.pdf") });
         }
+    }
+
+    static void CheckCultureInvariantReportPdfs()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            var rendererType = typeof(MainWindowController).Assembly.GetType(
+                "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+            var renderer = Activator.CreateInstance(rendererType, true);
+            foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                var document = AnalysisReportBuilder.Build(Result(Source("culture-" + cultureName)));
+                var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan")
+                    .Invoke(renderer, new object[] { document });
+                using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData")
+                    .Invoke(renderer, new object[] { document, plan }))
+                    Check(pdf.Length > 0, cultureName + " native report PDF is empty");
+                var output = Environment.GetEnvironmentVariable("FTITC_REPORT_CULTURE_QA_DIRECTORY");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output);
+                    rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                        Path.Combine(output, "macos-report-" + cultureName + ".pdf") });
+                }
+            }
+        }
+        finally { CultureInfo.CurrentCulture = original; }
     }
 
     static void CheckMixedAssessmentReport()

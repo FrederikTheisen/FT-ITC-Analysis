@@ -148,7 +148,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
             var expected = AnalysisResultTableExporter.Build(new[] { single, independent }, options);
             Assert.Contains("\"Run, \"\"A\"\"\"", expected);
 
-            foreach (var cultureName in new[] { "en-US", "da-DK", "fr-FR" })
+            foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
             {
                 var culture = CultureInfo.GetCultureInfo(cultureName);
                 CultureInfo.CurrentCulture = culture;

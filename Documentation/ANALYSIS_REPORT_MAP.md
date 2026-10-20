@@ -22,6 +22,8 @@ concentrations are absent. `AnalysisAxisPresentation` supplies the coordinates a
 Figure canvases retain automatic titles per experiment unless an explicit title override is saved.
 Report figures retain excluded injections. Traceability Mode also forces their visibility in
 Final Figure and supporting figures, regardless of the excluded-point visibility choice.
+Generated numeric text and scientific graph labels use period decimal markers regardless of
+regional settings, consistently in previews, PDF exports, and printing in both desktop applications.
 
 In both desktop builders, the top Report inspector section has a separate Saved Reports…
 picker above equally sized Save Report and Save Report As… buttons

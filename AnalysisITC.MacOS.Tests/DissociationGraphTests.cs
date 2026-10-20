@@ -1,6 +1,7 @@
 // Run: bash AnalysisITC.MacOS.Tests/run-analysis-null-graph-tests.sh DissociationGraphTests
 using System;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -93,7 +94,7 @@ static class DissociationGraphTests
                 var hit = graph.CursorFeatureFromPos(point + new CGSize(graph.Origin));
                 Check(hit.IsMouseOverFeature && hit.FeatureID == injection.ID,
                     "Injection #" + (injection.ID + 1) + " is not plotted at its saved concentration");
-                Check(hit.ToolTip.Contains("[Titrant] (µM): " + (5 * (injection.ID + 1)).ToString("F2")),
+                Check(hit.ToolTip.Contains("[Titrant] (µM): " + (5 * (injection.ID + 1)).ToString("F2", CultureInfo.InvariantCulture)),
                     "Concentration tooltip reports a molar ratio");
                 var residual = data.Model.Residual(injection) / injection.InjectionMass;
                 var residualPoint = graph.ResidualGraph.GetRelativePosition(injection.ActualTitrantConcentration, residual);

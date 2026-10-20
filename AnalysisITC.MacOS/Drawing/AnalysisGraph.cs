@@ -115,6 +115,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             FitGraph.PrepareDraw(gc, center);
             ResidualGraph.PrepareDraw(gc, center);
 

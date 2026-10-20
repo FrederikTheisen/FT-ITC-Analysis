@@ -107,6 +107,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             SetupAxes();
             base.PrepareDraw(gc, center);
         }
@@ -162,6 +163,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         internal override void Draw(CGContext gc)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             bufferPointBoxes.Clear();
 
             if (ShowGrid) DrawGrid(gc);
@@ -393,6 +395,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public string TooltipForFeature(MouseOverFeatureEvent feature)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             if (feature == null || !feature.IsMouseOverFeature || BufferExperiment == null) return null;
             var inj = BufferExperiment.Injections.FirstOrDefault(i => i.ID == feature.FeatureID);
             if (inj == null) return null;

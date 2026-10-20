@@ -292,6 +292,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public MouseOverFeatureEvent(InjectionData inj, CGGraph graph)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             Type = FeatureType.IntegratedInjectionPoint;
             FeatureID = inj.ID;
 

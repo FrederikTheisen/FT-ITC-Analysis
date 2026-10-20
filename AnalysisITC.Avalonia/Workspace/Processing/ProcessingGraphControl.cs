@@ -793,18 +793,22 @@ namespace AnalysisITC.Avalonia.Processing
             var injection = Experiment?.Injections?.FirstOrDefault(inj => data.Time >= inj.IntegrationStartTime && data.Time <= inj.IntegrationEndTime);
             if (injection != null)
             {
-                var heat = double.IsFinite(injection.Enthalpy)
-                    ? injection.Enthalpy2.ToFormattedString(
-                        EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, injection.Enthalpy),
-                        withunit: true,
-                        permole: true)
-                    : Power.FormatEnergy(injection.PeakArea);
+                string heat;
+                using (new InvariantNumericCultureScope())
+                {
+                    heat = double.IsFinite(injection.Enthalpy)
+                        ? injection.Enthalpy2.ToFormattedString(
+                            EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, injection.Enthalpy),
+                            withunit: true,
+                            permole: true)
+                        : Power.FormatEnergy(injection.PeakArea);
+                }
 
                 yield return $"Inj #{injection.ID + 1}: {heat}";
                 yield return $"Heat: {injection.HeatDirection.GetEnumDescription()}";
             }
 
-            yield return $"Time: {data.Time:F1} s";
+            yield return FormattableString.Invariant($"Time: {data.Time:F1} s");
             yield return $"Power: {Power.Format(Power.Convert(data.Power))}";
 
             if (Experiment?.BaseLineCorrectedDataPoints != null && Experiment.BaseLineCorrectedDataPoints.Count > 0)
@@ -1441,13 +1445,13 @@ namespace AnalysisITC.Avalonia.Processing
 
             public double Convert(double power) => power * Scale;
 
-            public string Format(double value) => $"{value:G4} {UnitLabel}";
+            public string Format(double value) => FormattableString.Invariant($"{value:G4} {UnitLabel}");
 
             public string FormatEnergy(double value)
             {
                 var family = AppSettings.EnergyUnitFamily;
                 var scaled = value * ThermogramUnits.IntegratedHeatScale(family);
-                return $"{scaled:G4} {ThermogramUnits.IntegratedHeatUnit(family)}";
+                return FormattableString.Invariant($"{scaled:G4} {ThermogramUnits.IntegratedHeatUnit(family)}");
             }
         }
 

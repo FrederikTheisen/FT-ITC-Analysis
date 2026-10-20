@@ -417,7 +417,7 @@ public sealed class ClassifiedNullFigureTests
             case "no-residuals": Assert.Null(classified.ResidualPanel); break;
             case "no-parameters": Assert.Empty(lines); break;
             case "model-and-offset":
-                Assert.Equal("Null (Offset) | RMSD = " + LossValue.ToString("G3"), lines[0]);
+                Assert.Equal("Null (Offset) | RMSD = 2.5E-07", lines[0]);
                 Assert.Contains(lines, line => line.StartsWith("Offset = ", StringComparison.Ordinal));
                 break;
             case "kcal-override": Assert.Equal(EnergyUnit.KCal, classified.ResolvedEnergyUnit); break;

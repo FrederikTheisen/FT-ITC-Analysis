@@ -16,7 +16,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(2.5, axis.TickSpacing, 10);
             Assert.Equal(new[] { 0d, 2.5, 5, 7.5, 10 }, axis.MajorTicks);
             Assert.Equal(1, axis.DecimalPlaces);
-            Assert.Equal(2.5.ToString("0.0"), axis.FormatTick(2.5));
+            Assert.Equal("2.5", axis.FormatTick(2.5));
 
             var spacings = axis.MajorTicks
                 .Zip(axis.MajorTicks.Skip(1), (left, right) => right - left)

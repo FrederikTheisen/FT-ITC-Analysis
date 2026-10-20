@@ -349,7 +349,7 @@ namespace AnalysisITC.Avalonia.Tools
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
-        static string Format(double value) => value.ToString("G3", CultureInfo.CurrentCulture);
+        static string Format(double value) => value.ToString("G3", CultureInfo.InvariantCulture);
 
         static string TruncateName(string? name)
         {

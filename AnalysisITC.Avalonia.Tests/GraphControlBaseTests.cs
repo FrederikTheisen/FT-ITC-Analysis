@@ -46,14 +46,18 @@ public sealed class GraphControlBaseTests
         }
     }
 
-    [Fact]
-    public void LabelsUseCurrentCulture()
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("da-DK")]
+    [InlineData("de-DE")]
+    [InlineData("fr-FR")]
+    public void LabelsUsePeriodDecimalsRegardlessOfCurrentCulture(string cultureName)
     {
         var culture = CultureInfo.CurrentCulture;
         try
         {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("da-DK");
-            Assert.Equal("-1,25", TestGraph.Format(-2, 2, 8, -1.25));
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+            Assert.Equal("-1.25", TestGraph.Format(-2, 2, 8, -1.25));
             Assert.Equal("2000", TestGraph.Format(0, 10_000, 5, 2000));
         }
         finally

@@ -369,9 +369,9 @@ public sealed class IntegratedHeatsGraphControlTests
                 Assert.Equal("±", correctedParts[2]);
                 Assert.Equal("kJ/mol", correctedParts[4]);
 
-                var rawHeat = double.Parse(rawParts[1], CultureInfo.CurrentCulture);
-                var correctedHeat = double.Parse(correctedParts[1], CultureInfo.CurrentCulture);
-                var displayedError = double.Parse(correctedParts[3], CultureInfo.CurrentCulture);
+                var rawHeat = double.Parse(rawParts[1], CultureInfo.InvariantCulture);
+                var correctedHeat = double.Parse(correctedParts[1], CultureInfo.InvariantCulture);
+                var displayedError = double.Parse(correctedParts[3], CultureInfo.InvariantCulture);
                 Assert.InRange(Math.Abs(rawHeat - injection.PeakArea.Value / injection.InjectionMass / 1000), 0, 0.0001);
                 Assert.InRange(Math.Abs(correctedHeat - (injection.PeakArea.Value / injection.InjectionMass - 500) / 1000), 0, 0.0001);
                 Assert.InRange(Math.Abs(displayedError - injection.PeakArea.SD / injection.InjectionMass / 1000), 0, 0.00001);

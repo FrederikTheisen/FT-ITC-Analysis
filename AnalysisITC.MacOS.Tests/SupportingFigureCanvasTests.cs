@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using AppKit;
@@ -72,24 +73,50 @@ static class SupportingFigureCanvasTests
             Close(replacement);
 
             var directory = Environment.GetEnvironmentVariable("FTITC_SUPPORTING_FIGURE_QA_DIRECTORY");
-            if (!string.IsNullOrEmpty(directory))
+            var temporaryOutput = string.IsNullOrEmpty(directory);
+            if (temporaryOutput) directory = Path.Combine(Path.GetTempPath(), "native-supporting-culture-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
             {
-                Directory.CreateDirectory(directory);
                 var rendererType = App.GetType("AnalysisITC.UI.MacOS.Drawing.CoreGraphicsFigureCanvasRenderer", true);
                 var renderer = Activator.CreateInstance(rendererType, true);
-                foreach (var size in new[] { 5, 8, 10, 24 })
+                first.DataPoints.Add(new DataPoint(0f, 0f, 25f));
+                first.DataPoints.Add(new DataPoint(30f, 1.25f, 25f));
+                first.DataPoints.Add(new DataPoint(60f, -0.75f, 25f));
+                var originalCulture = CultureInfo.CurrentCulture;
+                try
                 {
-                    var document = PublicationFigureCanvasBuilder.Build(new[] { first },
-                        new PublicationFigureOptions { ShowThermogram = false, ShowAxisTitles = false },
-                        new PublicationFigureCanvasOptions
+                    foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
+                    {
+                        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                        var document = PublicationFigureCanvasBuilder.Build(new[] { first },
+                            new PublicationFigureOptions { ShowThermogram = true, ShowAxisTitles = true },
+                            new PublicationFigureCanvasOptions { Columns = 1, Rows = 1 });
+                        var plan = rendererType.GetMethod("CreatePlan", Instance).Invoke(renderer, new object[] { document });
+                        using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData", Instance).Invoke(renderer, new[] { plan }))
                         {
-                            Columns = 1, Rows = 1, FontSize = size, ShowPanelTitles = true,
-                            ShowInformationBoxes = false
-                        });
-                    var plan = rendererType.GetMethod("CreatePlan", Instance).Invoke(renderer, new object[] { document });
-                    using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData", Instance).Invoke(renderer, new[] { plan }))
-                        File.WriteAllBytes(Path.Combine(directory, "native-base-" + size + ".pdf"), pdf.ToArray());
+                            Check(pdf.Length > 0, cultureName + " supporting figure PDF is empty");
+                            File.WriteAllBytes(Path.Combine(directory, "native-culture-" + cultureName + ".pdf"), pdf.ToArray());
+                        }
+                    }
                 }
+                finally { CultureInfo.CurrentCulture = originalCulture; }
+                if (!temporaryOutput)
+                {
+                    foreach (var size in new[] { 5, 8, 10, 24 })
+                    {
+                        var document = PublicationFigureCanvasBuilder.Build(new[] { first },
+                            new PublicationFigureOptions { ShowThermogram = false, ShowAxisTitles = false },
+                            new PublicationFigureCanvasOptions
+                            {
+                                Columns = 1, Rows = 1, FontSize = size, ShowPanelTitles = true,
+                                ShowInformationBoxes = false
+                            });
+                        var plan = rendererType.GetMethod("CreatePlan", Instance).Invoke(renderer, new object[] { document });
+                        using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData", Instance).Invoke(renderer, new[] { plan }))
+                            File.WriteAllBytes(Path.Combine(directory, "native-base-" + size + ".pdf"), pdf.ToArray());
+                    }
+                }
+                if (temporaryOutput) Directory.Delete(directory, true);
             }
             Console.WriteLine("Native supporting figure close/reopen checks passed.");
             return 0;

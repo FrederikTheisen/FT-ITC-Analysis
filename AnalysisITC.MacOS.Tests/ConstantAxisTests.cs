@@ -34,6 +34,7 @@ static class ConstantAxisTests
             Run("setter constant " + v + " buffer " + b, () => Axis(v, b, false));
         }
         Run("ordinary ranges unchanged", Ordinary);
+        Run("tick labels keep invariant decimal precision", InvariantTickLabels);
         Run("constant X and Y render", ConstantGraph);
         Run("constant affinity without uncertainty", () => SaltGraph(false));
         Run("constant affinity with uncertainty", () => SaltGraph(true));
@@ -79,6 +80,27 @@ static class ConstantAxisTests
                 && setter.Max == (float)(limits[1] + delta * .1), "ordinary setter bounds unchanged");
             Check(setter.TickScale.MaxTicks == 5, "tick count retained");
         }
+    }
+
+    static void InvariantTickLabels()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                var graph = new ParameterDependenceGraph(null);
+                var axis = new GraphAxis(graph, 0, 1, AxisPosition.Left);
+                axis.Set(.12, .88);
+                var format = typeof(GraphAxis).GetMethod("FormatTickLabel", Instance);
+                var tick = axis.TickScale.Ticks().First(value => value != 0);
+                var label = (string)format.Invoke(axis, new object[] { tick });
+                Check(label.Contains(".") && !label.Contains(","), cultureName + " tick uses period");
+                Check(axis.DecimalPoints > 0, cultureName + " fractional tick precision retained");
+            }
+        }
+        finally { CultureInfo.CurrentCulture = original; }
     }
 
     static void Valid(GraphAxis axis)

@@ -452,7 +452,7 @@ Figure batches ask once before replacing existing PDFs; **Cancel** stops the ent
 
 # Exporting and checking plots
 
-Use **File > Export**, context menus, or the result exporter for data and figures. Combined Data includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available. **Copy Result Table** copies one row per experiment as tab-separated text for spreadsheet pasting. Values and uncertainties use separate columns following the uncertainty display preference; **None** copies values only. Use the Analysis Result Exporter for combined summary rows or other formats.
+Use **File > Export**, context menus, or the result exporter for data and figures. Numerical exports use a period as the decimal separator, regardless of regional settings. Combined Data includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available. **Copy Result Table** copies one row per experiment as tab-separated text for spreadsheet pasting. Values and uncertainties use separate columns following the uncertainty display preference; **None** copies values only. Use the Analysis Result Exporter for combined summary rows or other formats.
 
 Figures use current processing. After changing baselines or integration regions, rerun the fit before exporting; processing edits do not automatically refit curves. Supporting Figure retains its sources and layout during the current document session.
 

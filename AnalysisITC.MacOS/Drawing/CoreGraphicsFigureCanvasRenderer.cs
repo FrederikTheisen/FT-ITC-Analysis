@@ -262,6 +262,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void Draw(CGContext context, CoreGraphicsFigureCanvasRenderPlan plan)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             context.SetFillColor(White);
             context.FillRect(new CGRect(0, 0, plan.CanvasWidth, plan.CanvasHeight));
 
@@ -350,6 +351,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawFigure(CGContext context, PublicationFigureDocument document, CoreGraphicsFigureLayout layout, CoreGraphicsFigureRenderSettings settings)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             context.SetFillColor(White);
             context.FillRect(layout.PageRect);
 

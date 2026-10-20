@@ -229,7 +229,7 @@ public sealed class SkiaAnalysisReportRenderer
         }
         foreach (var entry in block.Entries.Skip(fragment.FirstItem).Take(fragment.ItemCount))
         {
-            var page = entry.PageNumber > 0 ? entry.PageNumber.ToString(CultureInfo.CurrentCulture) : "–";
+            var page = entry.PageNumber > 0 ? entry.PageNumber.ToString(CultureInfo.InvariantCulture) : "–";
             var pageWidth = Measure(page, 9, false).Width;
             var titleX = rect.Left + (float)entry.Indent;
             var titleWidth = Math.Max(40, rect.Width - 42 - (float)entry.Indent);
@@ -478,11 +478,11 @@ public sealed class SkiaAnalysisReportRenderer
             var value = minY + (maxY - minY) * tick / 4.0;
             var y = MapY(value);
             Line(canvas, graph.Left, y, graph.Right, y, Rule, .4f);
-            var text = value.ToString("G3", CultureInfo.CurrentCulture);
+            var text = value.ToString("G3", CultureInfo.InvariantCulture);
             DrawText(canvas, text, graph.Left - Measure(text, 6, false).Width - 5, y - 4, 6, Muted);
         }
-        DrawText(canvas, minX.ToString("G4", CultureInfo.CurrentCulture), graph.Left, graph.Bottom + 1, 6.5f, Muted);
-        var maxXText = maxX.ToString("G4", CultureInfo.CurrentCulture);
+        DrawText(canvas, minX.ToString("G4", CultureInfo.InvariantCulture), graph.Left, graph.Bottom + 1, 6.5f, Muted);
+        var maxXText = maxX.ToString("G4", CultureInfo.InvariantCulture);
         DrawText(canvas, maxXText, graph.Right - Measure(maxXText, 6.5f, false).Width, graph.Bottom + 1, 6.5f, Muted);
 
         var groupColors = new Dictionary<string, int>();
@@ -600,7 +600,7 @@ public sealed class SkiaAnalysisReportRenderer
             var value = minimum + (maximum - minimum) * tick / 4.0;
             var y = MapY(value);
             Line(canvas, graph.Left, y, graph.Right, y, Rule, .45f);
-            var text = value.ToString("G3", CultureInfo.CurrentCulture);
+            var text = value.ToString("G3", CultureInfo.InvariantCulture);
             DrawText(canvas, text, graph.Left - Measure(text, 5.5f, false).Width - 5, y - 4, 5.5f, Muted);
         }
         var zero = MapY(0);

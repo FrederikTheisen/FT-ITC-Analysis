@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -213,7 +214,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var tick in ticks)
             {
-                string s = ((float)tick).ToString();
+                string s = ((float)tick).ToString(CultureInfo.InvariantCulture);
                 if (!s.Contains('.')) continue;
                 string result = s.Substring(s.LastIndexOf('.'));
                 int num = result.Length - 1;
@@ -407,7 +408,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 CGPoint tick = ticks[i];
                 var point = tick + FrameOffset + LabelOffset;
 
-                var _size = cggraph.DrawString(layer, (tickvalues[i]).ToString(formatter), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+                var _size = cggraph.DrawString(layer, FormatTickLabel(tickvalues[i]), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 
                 if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
                 if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;
@@ -475,7 +476,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             for (int i = 0; i < tickvalues.Count; i++)
             {
-                var _size = CGGraph.MeasureString((tickvalues[i]).ToString(formatter), TickFont, null);
+                var _size = CGGraph.MeasureString(FormatTickLabel(tickvalues[i]), TickFont, null);
 
                 if (_size.Width > ticklabelsize.Width) ticklabelsize.Width = _size.Width;
                 if (_size.Height > ticklabelsize.Height) ticklabelsize.Height = _size.Height;
@@ -491,6 +492,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (horizontal) return margin.Height + ticklabelsize.Height + titlesize.Height;
             else return margin.Width + ticklabelsize.Width + titlesize.Height;
         }
+
+        string FormatTickLabel(double value) => value.ToString(formatter, CultureInfo.InvariantCulture);
 
         public static string GetXAxisTitle(ExperimentData data)
         {

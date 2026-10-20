@@ -220,6 +220,28 @@ public sealed class AnalysisResultStoichiometryExportTests
         Assert.Equal("1949C51D0A5A859DF5150538949CD46AE71E6258D16224775BBF29CF3D8A3CEE", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
     }
 
+    [Fact]
+    public void QuickCopyRetainsInvariantNumbersAndUserCommasAcrossCultures()
+    {
+        var result = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "User text, 1,25");
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            var expected = Enum.GetValues<UncertaintyDisplayStyle>()
+                .ToDictionary(style => style, style => Cr019Fixtures.Copy(result, style));
+            Assert.All(expected.Values, text => Assert.Contains("User text, 1,25", text));
+            foreach (var cultureName in new[] { "en-US", "da-DK", "de-DE", "fr-FR" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                foreach (var style in expected.Keys)
+                    Assert.Equal(expected[style], Cr019Fixtures.Copy(result, style));
+                Assert.Equal(cultureName, CultureInfo.CurrentCulture.Name);
+            }
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+    }
+
     static string Hash(IEnumerable<string> tables) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n\n", tables.Select(table => table.Replace(Environment.NewLine, "\n"))))));
 
     static AnalysisResultExportOptions Options(AnalysisResultExportRowMode mode,

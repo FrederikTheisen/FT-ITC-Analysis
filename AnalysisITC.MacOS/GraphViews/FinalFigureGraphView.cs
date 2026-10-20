@@ -782,6 +782,7 @@ namespace AnalysisITC
 
         static string[] BuildPdfMetadataKeywords(ExperimentData data, PublicationFigureModelResolution model)
         {
+            using var numericCulture = new InvariantNumericCultureScope();
             var solution = model?.Solution;
             var parameters = new List<string>()
             {
