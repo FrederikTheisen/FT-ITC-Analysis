@@ -896,7 +896,7 @@ namespace AnalysisITC
                 return AnalysisBuilder.Build(
                     previewSession,
                     experiments,
-                    reuseAttachedSolutionInitialValues: true);
+                    reuseAttachedSolutionInitialValues: Workspace.ReuseAttachedSolutionInitialValues);
             }
             catch (Exception ex)
             {

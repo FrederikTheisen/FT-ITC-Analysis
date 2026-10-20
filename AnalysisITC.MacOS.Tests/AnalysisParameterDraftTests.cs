@@ -16,6 +16,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
 
 static class AnalysisParameterDraftTests
 {
@@ -39,6 +40,7 @@ static class AnalysisParameterDraftTests
             ControllerRunFitClampsAcceptedGuess(assembly);
             ModelSwitchResetsCachedConstraints(assembly);
             ModelSwitchUsesPhysicalStoichiometry();
+            CompetitiveAffinityInitializationUsesActiveControls();
 
             var pendingText = FormatParameter(assembly, 60000);
             var pending = CreateDraft(draftType, pendingText, false, false);
@@ -319,6 +321,217 @@ static class AnalysisParameterDraftTests
         finally { CultureInfo.CurrentCulture = culture; }
         Check(failures.Count == 0, string.Join("\n", failures));
         Console.WriteLine("PASS: four native model-switch workflows display dimensionless N after Dissociation Details edits");
+    }
+
+    static void CompetitiveAffinityInitializationUsesActiveControls()
+    {
+        var priorUnit = AppSettings.DefaultConcentrationUnit;
+        var priorKdInput = AppSettings.InputAffinityAsDissociationConstant;
+        var culture = CultureInfo.CurrentCulture;
+        AppSettings.DefaultConcentrationUnit = ConcentrationUnit.nM;
+        AppSettings.InputAffinityAsDissociationConstant = true;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        var failures = new List<string>();
+        try
+        {
+            foreach (var global in new[] { false, true })
+            {
+                try { CompetitiveAffinityInitializationUsesActiveControls(global, failures); }
+                catch (Exception error) { failures.Add("global=" + global + ": " + error); }
+                finally { DataManager.Clear(DataClearMode.ResetSession); }
+            }
+        }
+        finally
+        {
+            AppSettings.DefaultConcentrationUnit = priorUnit;
+            AppSettings.InputAffinityAsDissociationConstant = priorKdInput;
+            CultureInfo.CurrentCulture = culture;
+        }
+        Check(failures.Count == 0, string.Join("\n", failures));
+    }
+
+    static void CompetitiveAffinityInitializationUsesActiveControls(bool global, List<string> failures)
+    {
+        DataManager.Init();
+        var experiments = global
+            ? new[] { CompetitiveExperiment("native-competitive-a.itc"), CompetitiveExperiment("native-competitive-b.itc") }
+            : new[] { CompetitiveExperiment("native-competitive.itc") };
+        foreach (var data in experiments)
+        {
+            var attached = new CompetitiveBinding(data);
+            attached.InitializeParameters(data);
+            attached.Parameters.Table[ParameterType.Affinity1].Update(7, false);
+            attached.Solution = SolutionInterface.FromModel(attached,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            data.Model = attached;
+        }
+        var attachedSolutions = experiments.Select(data => data.Model.Solution).ToArray();
+        DataManager.AddData(experiments);
+
+        using (var controller = Create<DataAnalysisViewController>())
+        {
+            var type = controller.GetType();
+            SetOutlet(type, controller, "AnalysisModeControl",
+                new NSSegmentedControl { SegmentCount = 2, SelectedSegment = global ? 1 : 0 });
+            SetOutlet(type, controller, "ParameterStackView", new NSStackView());
+            SetOutlet(type, controller, "ConstraintStackView", new NSStackView());
+            SetOutlet(type, controller, "ModelOptionsStackView", new NSStackView());
+            SetOutlet(type, controller, "GraphView", Create<AnalysisGraphView>());
+            SetOutlet(type, controller, "FitSimplexButton", new NSButton());
+            SetOutlet(type, controller, "ErrorMethodControl", Popup("None"));
+            var menu = Popup("One Site", "Competitive Binding");
+            menu.ItemAtIndex(0).Tag = (int)AnalysisModel.OneSetOfSites;
+            menu.ItemAtIndex(1).Tag = (int)AnalysisModel.CompetitiveBinding;
+            menu.Target = controller;
+            menu.Action = new Selector("AnalysisModelClicked:");
+            SetOutlet(type, controller, "ModelTypeControl", menu);
+
+            if (global)
+            {
+                var mode = (NSSegmentedControl)GetOutlet(type, controller, "AnalysisModeControl");
+                mode.Target = controller;
+                mode.Action = new Selector("AnalysisModeClicked:");
+                Check(mode.SendAction(mode.Action, mode.Target), "Global analysis-mode action was not dispatched");
+            }
+            menu.SelectItem(1);
+            Check(menu.SendAction(menu.Action, menu.Target), "Competitive model-selector action was not dispatched");
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            Check(controller.Workspace.IsReady, "Competitive analysis workspace did not rebuild");
+
+            if (global)
+            {
+                var constraintControls = ((IList)type.GetField("constraintControls", PrivateInstance).GetValue(controller))
+                    .Cast<object>().ToArray();
+                var constraint = constraintControls.Single(row => (ParameterType)row.GetType()
+                        .GetField("key", PrivateInstance).GetValue(row) == ParameterType.Affinity1);
+                var options = (IReadOnlyList<VariableConstraint>)constraint.GetType()
+                    .GetField("options", PrivateInstance).GetValue(constraint);
+                var popup = (NSPopUpButton)constraint.GetType().GetField("popup", PrivateInstance).GetValue(constraint);
+                popup.SelectItem(options.ToList().IndexOf(VariableConstraint.SameForAll));
+                Check(popup.SendAction(popup.Action, popup.Target), "Shared Kd-constraint action was not dispatched");
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            }
+
+            var rows = ParameterRows(type, controller, ParameterType.Affinity1);
+            Check(rows.Length == 1, "Expected one active affinity editor after Single or shared Global setup");
+            for (var i = 0; i < rows.Length; i++)
+            {
+                var input = (NSTextField)rows[i].GetType().GetField("input", PrivateInstance).GetValue(rows[i]);
+                var displayed = string.IsNullOrWhiteSpace(input.StringValue)
+                    ? input.PlaceholderString.Replace("Auto: ", "")
+                    : input.StringValue;
+                Console.WriteLine("ITC-131 native initial: global=" + global + ", editor=" + i
+                    + ", displayed Kd=" + displayed + ", attached log10Ka=7, expected Kd=100 nM");
+                if (displayed != "100")
+                {
+                    failures.Add("global=" + global + ": automatic competitive affinity showed " + displayed + " nM instead of 100 nM");
+                }
+            }
+
+            // Explicit value and lock changes must survive the next real workspace rebuild.
+            var firstInput = (NSTextField)rows[0].GetType().GetField("input", PrivateInstance).GetValue(rows[0]);
+            firstInput.StringValue = "10";
+            NSNotificationCenter.DefaultCenter.PostNotificationName("NSControlTextDidChangeNotification", firstInput);
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            var preview = type.GetMethod("BuildInspectorPreviewContext", PrivateInstance).Invoke(controller, null);
+            var previewAffinities = ((IEnumerable)preview.GetType().GetProperty("ExposedParameters").GetValue(preview))
+                .Cast<Parameter>().Where(parameter => parameter.Key == ParameterType.Affinity1).ToArray();
+            Check(previewAffinities.Length > 0
+                && previewAffinities.All(parameter => Math.Abs(parameter.Value - 8) < 1e-12),
+                "Native 10 nM edit did not produce canonical preview log10Ka=8");
+            controller.Workspace.TryRebuild();
+            type.GetMethod("RebuildInspectorEditorViews", PrivateInstance).Invoke(controller, null);
+            var freeRetained = ParameterRows(type, controller, ParameterType.Affinity1);
+            Check(((NSTextField)freeRetained[0].GetType().GetField("input", PrivateInstance).GetValue(freeRetained[0])).StringValue == "10",
+                "Free 10 nM affinity was not retained through rebuild");
+            Check(((NSSwitch)freeRetained[0].GetType().GetField("lockSwitch", PrivateInstance).GetValue(freeRetained[0])).State == (int)NSCellStateValue.Off,
+                "Free affinity unexpectedly became locked");
+            var firstLock = (NSSwitch)freeRetained[0].GetType().GetField("lockSwitch", PrivateInstance).GetValue(freeRetained[0]);
+            firstLock.State = (int)NSCellStateValue.On;
+            Check(firstLock.SendAction(firstLock.Action, firstLock.Target), "Affinity lock action was not dispatched");
+            controller.Workspace.TryRebuild();
+            type.GetMethod("RebuildInspectorEditorViews", PrivateInstance).Invoke(controller, null);
+            var retained = ParameterRows(type, controller, ParameterType.Affinity1);
+            Check(((NSTextField)retained[0].GetType().GetField("input", PrivateInstance).GetValue(retained[0])).StringValue == "10",
+                "Explicit 10 nM affinity was not retained through rebuild");
+            Check(((NSSwitch)retained[0].GetType().GetField("lockSwitch", PrivateInstance).GetValue(retained[0])).State == (int)NSCellStateValue.On,
+                "Locked affinity was not retained through rebuild");
+            Console.WriteLine("PASS: native Competitive affinity editor accepts 10 nM as log10Ka=8; free and locked drafts survive rebuild; global=" + global);
+
+            // Restore defaults through the production menu helper; the attached result is independent.
+            var mainWindow = Create<MainWindowController>();
+            try
+            {
+                var mainWindowType = mainWindow.GetType();
+                var resetHandler = type.GetMethod("OnResetStoredAnalysisStateRequested", PrivateInstance);
+                EventHandler forwardReset = (sender, args) => resetHandler.Invoke(controller, new object[] { sender, args });
+                DataAnalysisViewController.ResetStoredAnalysisStateRequested += forwardReset;
+                try { mainWindowType.GetMethod("RestoreAnalysisDefaults", PrivateInstance).Invoke(mainWindow, null); }
+                finally { DataAnalysisViewController.ResetStoredAnalysisStateRequested -= forwardReset; }
+            }
+            finally { mainWindow.Dispose(); }
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            if (global)
+            {
+                var resetConstraintControls = ((IList)type.GetField("constraintControls", PrivateInstance).GetValue(controller))
+                    .Cast<object>().ToArray();
+                var constraint = resetConstraintControls.Single(row => (ParameterType)row.GetType()
+                    .GetField("key", PrivateInstance).GetValue(row) == ParameterType.Affinity1);
+                var options = (IReadOnlyList<VariableConstraint>)constraint.GetType()
+                    .GetField("options", PrivateInstance).GetValue(constraint);
+                var popup = (NSPopUpButton)constraint.GetType().GetField("popup", PrivateInstance).GetValue(constraint);
+                var sharedIndex = options.ToList().IndexOf(VariableConstraint.SameForAll);
+                Check(sharedIndex >= 0, "Post-reset affinity constraint does not offer Shared Kd");
+                popup.SelectItem(sharedIndex);
+                Check(popup.SendAction(popup.Action, popup.Target), "Post-reset shared Kd-constraint action was not dispatched");
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            }
+            var resetRows = ParameterRows(type, controller, ParameterType.Affinity1);
+            Check(resetRows.Length == 1, "Expected one active affinity editor after default sharing setup");
+            foreach (var row in resetRows)
+            {
+                var input = (NSTextField)row.GetType().GetField("input", PrivateInstance).GetValue(row);
+                var display = string.IsNullOrWhiteSpace(input.StringValue)
+                    ? input.PlaceholderString.Replace("Auto: ", "") : input.StringValue;
+                Console.WriteLine("ITC-131 native reset display: global=" + global + ", Kd=" + display + " nM");
+                Check(display == "1", "Restore analysis defaults did not show the 1 nM automatic value; got " + display);
+            }
+            for (var i = 0; i < experiments.Length; i++)
+                Check(ReferenceEquals(experiments[i].Model.Solution, attachedSolutions[i])
+                    && attachedSolutions[i].Parameters[ParameterType.Affinity1].Value == 7,
+                    "Restore analysis defaults changed the attached solution's canonical log10Ka value");
+            Console.WriteLine("PASS: native Restore analysis defaults shows 1 nM and retains attached log10Ka=7; global=" + global);
+            type.GetMethod("ClearInspectorRows", PrivateInstance).Invoke(controller, null);
+        }
+    }
+
+    static object[] ParameterRows(Type controllerType, object controller, ParameterType key)
+        => ((IList)controllerType.GetField("parameterControls", PrivateInstance).GetValue(controller))
+            .Cast<object>().Where(row => (ParameterType)row.GetType().GetProperty("ParameterKey").GetValue(row) == key).ToArray();
+
+    static ExperimentData CompetitiveExperiment(string name)
+    {
+        var data = new ExperimentData(name)
+        {
+            CellConcentration = new FloatWithError(35e-6),
+            SyringeConcentration = new FloatWithError(420e-6),
+            CellVolume = 1.4e-3,
+            MeasuredTemperature = 25,
+            TargetTemperature = 25,
+        };
+        for (var i = 0; i < 5; i++)
+        {
+            var injection = new InjectionData(data, i, 2e-6, 420e-6 * 2e-6, include: true)
+            {
+                ActualCellConcentration = new FloatWithError(35e-6 * (1 - .01 * i)),
+                ActualTitrantConcentration = new FloatWithError((i + 1) * 5e-6),
+                Ratio = (i + 1) * 5e-6 / (35e-6 * (1 - .01 * i)),
+                Temperature = 25,
+            };
+            injection.SetPeakArea(new FloatWithError(-2e-6 + i * 1e-7));
+            data.Injections.Add(injection);
+        }
+        return data;
     }
 
     static void ModelSwitchUsesPhysicalStoichiometry(AnalysisModel target, bool global)

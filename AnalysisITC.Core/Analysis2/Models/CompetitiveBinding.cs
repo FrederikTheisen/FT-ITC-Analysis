@@ -36,7 +36,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN()));
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessLogAffinity());
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, GuessLogAffinity()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
         }

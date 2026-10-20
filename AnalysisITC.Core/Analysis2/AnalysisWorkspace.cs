@@ -37,6 +37,7 @@ namespace AnalysisITC.Core.Analysis
         bool reuseAttachedSolutionInitialValues = true;
 
         public bool IsReady => Context != null;
+        internal bool ReuseAttachedSolutionInitialValues => reuseAttachedSolutionInitialValues;
 
         /// <summary>Returns editable model options even when no analysis context can be built.</summary>
         public IDictionary<AttributeKey, ExperimentAttribute> GetEditableModelOptions()
