@@ -206,6 +206,11 @@ namespace AnalysisITC.Core.Data
             Duration = duration;
         }
 
+        internal void SetDelay(float delay)
+        {
+            Delay = delay;
+        }
+
         public InjectionData(ExperimentData experiment, int id, double volume, double mass, bool include)
         {
             Experiment = experiment;

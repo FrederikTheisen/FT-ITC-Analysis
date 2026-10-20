@@ -60,7 +60,11 @@ namespace AnalysisITC.Core.DataReaders
             double filter = ParseDouble(experimentElement.Element("FilterPeriod")?.Value);
             var instrument = ITCInstrumentAttribute.TryResolveMicroCalInstrument(experimentElement.Element("CellID")?.Value);
             string comment = experimentElement.Element("Comment")?.Value;
-            bool parseddate = DateTime.TryParse(experimentElement.Element("ModifiedDate").Value, out var date);
+            bool parseddate = DateTime.TryParse(
+                experimentElement.Element("ModifiedDate")?.Value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces,
+                out var date);
             double temperature = averageTemperature;
             double initialDelay = 0;
             double stirringSpeed = 0;

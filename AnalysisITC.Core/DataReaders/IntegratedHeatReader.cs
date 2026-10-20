@@ -611,7 +611,6 @@ namespace AnalysisITC.Core.DataReaders
             // Affinimeter uses ';' separators; header may contain trailing ";;;".
             // Keep empty entries so indexing stays consistent.
             return (line ?? string.Empty)
-                .Trim()
                 .Split(new[] { separator }, StringSplitOptions.None)
                 .Select(s => s.Trim())
                 .ToArray();

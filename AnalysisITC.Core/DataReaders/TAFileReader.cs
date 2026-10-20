@@ -69,6 +69,9 @@ namespace AnalysisITC.Core.DataReaders
             experiment.InitialDelay = experiment.Injections.First().Time;
             experiment.Instrument = experiment.CellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
 
+            // The final injection has no following marker; its scope ends with the recorded trace.
+            var lastInjection = experiment.Injections.Last();
+            lastInjection.SetDelay(experiment.DataPoints.Last().Time - lastInjection.Time);
             foreach (var inj in experiment.Injections) inj.InitializeIntegrationTimes();
 
             ProcessInjections(experiment);
