@@ -104,6 +104,7 @@ namespace AnalysisITC.Core.DataReaders
 
     internal sealed class FtxtcReadBudget
     {
+        readonly HashSet<string> chargedPayloadPaths = new HashSet<string>(StringComparer.Ordinal);
         internal readonly FtxtcReadLimits Limits;
         internal long ExpandedArchiveBytes, JsonBytes, BinaryBytes, Samples, RootComponents, BootstrapReplicates, InjectionRecords;
         internal FtxtcReadBudget(FtxtcReadLimits limits) => Limits = limits ?? new FtxtcReadLimits();
@@ -118,12 +119,18 @@ namespace AnalysisITC.Core.DataReaders
             if (bytes > Limits.IndividualMaterializedPayloadBytes) throw new FtxtcResourceLimitException("individualMaterializedPayloadBytes", $"FTXTC payload '{path}' exceeds the configured resource limit.");
             if (json && bytes > Limits.IndividualJsonPayloadBytes) throw new FtxtcResourceLimitException("individualJsonPayloadBytes", $"FTXTC JSON payload '{path}' exceeds the configured resource limit.");
             Add(ref ExpandedArchiveBytes, bytes, Limits.ExpandedArchiveBytes, "expandedArchiveBytes");
-            if (json) Add(ref JsonBytes, bytes, Limits.CumulativeJsonBytes, "cumulativeJsonBytes");
-            else Add(ref BinaryBytes, bytes, Limits.CumulativeBinaryBytes, "cumulativeBinaryBytes");
+            ChargePayload(bytes, json, path);
         }
         internal void Reference(long bytes, bool json, string path, CancellationToken cancellationToken)
         {
             Check(cancellationToken);
+            ChargePayload(bytes, json, path);
+        }
+        void ChargePayload(long bytes, bool json, string path)
+        {
+            // Byte quotas count distinct expanded entries. Restoration work is
+            // bounded separately by root, sample, bootstrap and injection counts.
+            if (!chargedPayloadPaths.Add(path)) return;
             if (json) Add(ref JsonBytes, bytes, Limits.CumulativeJsonBytes, "cumulativeJsonBytes");
             else Add(ref BinaryBytes, bytes, Limits.CumulativeBinaryBytes, "cumulativeBinaryBytes");
         }

@@ -9,7 +9,9 @@ namespace AnalysisITC.Core.DataReaders
         public long ExpandedArchiveBytes { get; set; } = long.MaxValue;
         public long IndividualMaterializedPayloadBytes { get; set; } = long.MaxValue;
         public long IndividualJsonPayloadBytes { get; set; } = long.MaxValue;
+        /// <summary>Expanded JSON bytes, counting each ZIP entry once.</summary>
         public long CumulativeJsonBytes { get; set; } = long.MaxValue;
+        /// <summary>Expanded binary bytes, counting each ZIP entry once.</summary>
         public long CumulativeBinaryBytes { get; set; } = long.MaxValue;
         public long TotalRestoredSamples { get; set; } = long.MaxValue;
         public long RootComponents { get; set; } = long.MaxValue;

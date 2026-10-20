@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.IO.Compression;
 using System.Text.Json;
 using AnalysisITC.Web;
 using Microsoft.AspNetCore.Hosting;
@@ -13,6 +14,44 @@ namespace AnalysisITC.Web.Tests;
 
 public sealed class ViewerUploadAdmissionEndpointTests
 {
+    [Theory]
+    [InlineData("CumulativeJsonBytes", "cumulativeJsonBytes", -1)]
+    [InlineData("CumulativeJsonBytes", "cumulativeJsonBytes", 0)]
+    [InlineData("CumulativeJsonBytes", "cumulativeJsonBytes", 1)]
+    [InlineData("CumulativeBinaryBytes", "cumulativeBinaryBytes", -1)]
+    [InlineData("CumulativeBinaryBytes", "cumulativeBinaryBytes", 0)]
+    [InlineData("CumulativeBinaryBytes", "cumulativeBinaryBytes", 1)]
+    public async Task UploadPayloadByteLimitsCountExpandedEntriesOnce(string setting, string budget, int margin)
+    {
+        long bytes;
+        using (var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "jors.ftxtc")))
+        using (var archive = new ZipArchive(input, ZipArchiveMode.Read))
+            bytes = archive.Entries.Where(entry =>
+                entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase) == (setting == "CumulativeJsonBytes"))
+                .Sum(entry => entry.Length);
+        using var factory = new UploadFactory(new()
+        {
+            [$"ViewerUpload:{setting}"] = (bytes + margin).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        using var client = CreateClient(factory);
+
+        using var response = await Upload(client, "/api/viewer/open", await Token(client));
+
+        if (margin < 0)
+        {
+            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("project_resource_limit", problem.GetProperty("code").GetString());
+            Assert.Equal(budget, problem.GetProperty("budget").GetString());
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.NotEmpty(document.GetProperty("experiments").EnumerateArray());
+        }
+    }
+
     [Theory]
     [InlineData("/api/viewer/open")]
     [InlineData("/api/viewer/open/")]
