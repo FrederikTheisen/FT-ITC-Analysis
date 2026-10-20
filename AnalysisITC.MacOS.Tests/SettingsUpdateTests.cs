@@ -63,12 +63,17 @@ static class SettingsUpdateTests
             DataManager.AddData(data);
             DataManager.SelectIndex(0);
             MacSettingsApplier.Register();
+            FittingOptionsController.BootstrapIterations = 500;
+            FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            FittingOptionsController.Algorithm = SolverAlgorithm.LevenbergMarquardt;
+            var countFailures = new List<string>();
             using (var sidebar = CreateController<SideBarViewController>())
             using (var analysis = CreateController<DataAnalysisViewController>())
             {
                 analysis.Workspace.SetModelType(AnalysisModel.OneSetOfSites);
                 var menu = Outlet<NSPopUpButton>(analysis, "ModelTypeControl");
                 menu.SelectItem(menu.Items().Single(item => item.Tag == (int)AnalysisModel.OneSetOfSites));
+                CountCase(countFailures, "initial controls", () => CheckCountAndFit(analysis, 500));
                 foreach (var applyPreferences in new[] { false, true })
                 {
                     SetLiveOptions();
@@ -124,7 +129,9 @@ static class SettingsUpdateTests
                 Check(Outlet<NSButton>(analysis, "UnlockParametersForErrorEstimationControl").State == NSCellStateValue.Off,
                     "Restore defaults did not clear parameter unlocking");
                 Console.WriteLine("PASS: native display updates and explicit Analysis restore defaults");
+                CheckBootstrapCounts(analysis, countFailures);
             }
+            Check(countFailures.Count == 0, countFailures.Count + " bootstrap-count regression(s) failed:\n" + string.Join("\n", countFailures));
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine("FAIL: " + error); return 1; }
@@ -137,6 +144,175 @@ static class SettingsUpdateTests
             PlatformServices.RegisterFileSavePromptService(prompt);
             SynchronizationContext.SetSynchronizationContext(context);
             Directory.Delete(directory, true);
+        }
+    }
+
+    static void CheckBootstrapCounts(DataAnalysisViewController controller, List<string> failures)
+    {
+        AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+        AppSettings.DefaultSolverAlgorithm = SolverAlgorithm.LevenbergMarquardt;
+        foreach (var count in FittingOptionsController.BootstrapIterationPresets.Concat(new[] { 137, 1234, 0, 1, 25000 }))
+        foreach (var scenario in new[] { "untouched", "view reentry", "restore defaults" })
+        {
+            CountCase(failures, scenario + ", count=" + count, () =>
+            {
+                SetCount(controller, count);
+                if (scenario == "view reentry")
+                {
+                    controller.ViewWillDisappear();
+                    controller.ViewWillAppear();
+                }
+                else if (scenario == "restore defaults")
+                {
+                    AppSettings.DefaultBootstrapIterations = count;
+                    AppSettings.Save();
+                    FittingOptionsController.BootstrapIterations = 100;
+                    RestoreAnalysisDefaults();
+                }
+                CheckCountAndFit(controller, count);
+            });
+        }
+
+        // These positions represent an exact midpoint, fractional counts, and the endpoints.
+        var positions = new[] { 1.0, 4.0, 1.0211892990699381, Math.Log10(137.25), Math.Log10(137.75), Math.Log10(500) };
+        var expectedCounts = new[] { 10, 10000, 11, 137, 138, 500 };
+        for (var index = 0; index < positions.Length; index++)
+        {
+            var position = positions[index];
+            var expected = expectedCounts[index];
+            CountCase(failures, "slider edit, count=" + expected, () =>
+            {
+                SetCount(controller, 1234);
+                MoveCountSlider(controller, position);
+                Check(FittingOptionsController.BootstrapIterations == 1234, "Dragging committed the draft before Run Fit");
+                CheckCountAndFit(controller, expected, checkPosition: false);
+                Check(FittingOptionsController.BootstrapIterations == expected, "Run Fit did not commit the slider draft");
+            });
+        }
+
+        CountCase(failures, "uncommitted edit and view reentry", () =>
+        {
+            SetCount(controller, 500);
+            MoveCountSlider(controller, Math.Log10(137.75));
+            controller.ViewWillDisappear();
+            controller.ViewWillAppear();
+            CheckCountAndFit(controller, 500);
+        });
+        CountCase(failures, "save and Preferences Apply retain the draft", () =>
+        {
+            SetCount(controller, 500);
+            MoveCountSlider(controller, Math.Log10(137.75));
+            AppSettings.Save();
+            var preferences = PreferencesState.FromSettings();
+            preferences.DefaultBootstrapIterations = 2000;
+            preferences.Apply();
+            Check(FittingOptionsController.BootstrapIterations == 500, "Preferences Apply replaced the live count");
+            CheckCountAndFit(controller, 138, checkPosition: false);
+            Check(AppSettings.DefaultBootstrapIterations == 2000, "Run Fit overwrote the saved default");
+        });
+        CountCase(failures, "restore defaults discards a slider draft", () =>
+        {
+            SetCount(controller, 137);
+            MoveCountSlider(controller, Math.Log10(500));
+            AppSettings.DefaultBootstrapIterations = 1234;
+            AppSettings.Save();
+            RestoreAnalysisDefaults();
+            CheckCountAndFit(controller, 1234);
+        });
+
+        foreach (var method in new[] { ErrorEstimationMethod.None, ErrorEstimationMethod.LeaveOneOut,
+            ErrorEstimationMethod.ProfileLikelihood, ErrorEstimationMethod.BootstrapResiduals })
+        {
+            CountCase(failures, "uncertainty method=" + method, () =>
+            {
+                SetCount(controller, 500);
+                var popup = Outlet<NSPopUpButton>(controller, "ErrorMethodControl");
+                popup.SelectItem((int)method);
+                Check(popup.SendAction(popup.Action, popup.Target), "The uncertainty-method action was not dispatched");
+                Check(Outlet<NSSlider>(controller, "ErrorIterationsControl").Enabled
+                    == (method == ErrorEstimationMethod.BootstrapResiduals), "Iteration availability changed incorrectly");
+                CheckCountAndFit(controller, 500, method: method);
+            });
+        }
+
+        var second = Experiment();
+        second.Name = "Second count experiment";
+        DataManager.AddData(second);
+        var mode = Outlet<NSSegmentedControl>(controller, "AnalysisModeControl");
+        mode.SelectedSegment = 1;
+        typeof(DataAnalysisViewController).GetMethod("AnalysisModeClicked", Instance).Invoke(controller, new object[] { mode });
+        foreach (var count in new[] { 500, 1234 })
+        {
+            CountCase(failures, "global fit, count=" + count, () =>
+            {
+                SetCount(controller, count);
+                CheckCountAndFit(controller, count, global: true);
+            });
+        }
+    }
+
+    static void SetCount(DataAnalysisViewController controller, int count)
+    {
+        FittingOptionsController.BootstrapIterations = count;
+        FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+        FittingOptionsController.Algorithm = SolverAlgorithm.LevenbergMarquardt;
+        FittingOptionsController.UseErrorWeightedFitting = false;
+        FittingOptionsController.IncludeConcentrationVariance = false;
+        FittingOptionsController.UnlockBootstrapParameters = false;
+        controller.ViewWillAppear();
+    }
+
+    static void RestoreAnalysisDefaults()
+    {
+        FittingOptionsController.ResetToPreferenceDefaults();
+        ModelFactory.ResetStoredAnalysisState();
+        DataAnalysisViewController.ResetStoredAnalysisState();
+    }
+
+    static void MoveCountSlider(DataAnalysisViewController controller, double position)
+    {
+        var slider = Outlet<NSSlider>(controller, "ErrorIterationsControl");
+        slider.DoubleValue = position;
+        Check(slider.SendAction(slider.Action, slider.Target), "The iteration slider action was not dispatched");
+    }
+
+    static void CheckCountAndFit(DataAnalysisViewController controller, int expected,
+        bool checkPosition = true, ErrorEstimationMethod method = ErrorEstimationMethod.BootstrapResiduals, bool global = false)
+    {
+        var displayed = Outlet<NSTextField>(controller, "ErrorIterationLabel").IntValue;
+        var position = Outlet<NSSlider>(controller, "ErrorIterationsControl").DoubleValue;
+        SolverInterface started = null;
+        EventHandler<TerminationFlag> capture = (sender, stop) => { started = (SolverInterface)sender; stop.Raise(); };
+        SolverInterface.AnalysisStarted += capture;
+        try
+        {
+            typeof(DataAnalysisViewController).GetMethod("RunFit", Instance).Invoke(controller, null);
+            Check(started != null, "The next count-validation fit did not start");
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= capture;
+            WaitForIdle();
+        }
+        Console.WriteLine("COUNT: expected=" + expected + ", displayed=" + displayed + ", solver=" + started.BootstrapIterations);
+        Check(started.BootstrapIterations == expected, "Started solver received " + started.BootstrapIterations + " instead of " + expected);
+        Check(displayed == expected, "Displayed count was " + displayed + " instead of " + expected);
+        Check(started.ErrorEstimationMethod == method, "The fit used a different uncertainty method");
+        Check((started is GlobalSolver) == global, "The fit used a different analysis mode");
+        if (checkPosition)
+        {
+            var expectedPosition = expected <= 10 ? 1 : expected >= 10000 ? 4 : Math.Log10(expected);
+            Check(Math.Abs(position - expectedPosition) < 1e-12, "The count's slider position was incorrect");
+        }
+    }
+
+    static void CountCase(List<string> failures, string name, Action test)
+    {
+        try { test(); Console.WriteLine("PASS: bootstrap count " + name); }
+        catch (Exception error)
+        {
+            failures.Add(name + ": " + error.Message);
+            Console.Error.WriteLine("FAIL: bootstrap count " + name + ": " + error.Message);
         }
     }
 
@@ -215,7 +391,11 @@ static class SettingsUpdateTests
         {
             Outlet<NSPopUpButton>(controller, "ErrorMethodControl").AddItems(new[] { "None", "Bootstrap residuals", "Leave-one-out", "Profile likelihood" });
             Outlet<NSPopUpButton>(controller, "SolverAlgorithmControl").AddItems(new[] { "Nelder-Mead", "Levenberg-Marquardt" });
-            Outlet<NSSlider>(controller, "ErrorIterationsControl").MaxValue = 4;
+            var slider = Outlet<NSSlider>(controller, "ErrorIterationsControl");
+            slider.MinValue = 1;
+            slider.MaxValue = 4;
+            slider.Target = controller;
+            slider.Action = new Selector("ErrorIterationSliderChanged:");
         }
         controller.ViewDidLoad();
         return controller;

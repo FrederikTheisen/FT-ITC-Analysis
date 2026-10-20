@@ -60,6 +60,7 @@ namespace AnalysisITC
         NSStackView nullHypothesisTestStack;
         NSStackView nullTestRowsStack;
         bool isFitting;
+        int bootstrapIterationDraft;
 
         AnalysisModel ModelFromControl => ModelTypeControl?.SelectedItem == null
             ? Workspace.Session.ModelType
@@ -186,7 +187,9 @@ namespace AnalysisITC
         {
             if (ErrorIterationLabel == null || ErrorIterationsControl == null) return;
 
-            ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+            bootstrapIterationDraft = (int)Math.Round(
+                Math.Pow(10, ErrorIterationsControl.DoubleValue), MidpointRounding.AwayFromZero);
+            ErrorIterationLabel.IntValue = bootstrapIterationDraft;
         }
 
         void OnErrorMethodActivated(object sender, EventArgs e)
@@ -296,8 +299,13 @@ namespace AnalysisITC
                 ? NSCellStateValue.On
                 : NSCellStateValue.Off;
 
-            ErrorIterationsControl.DoubleValue = Math.Log10(FittingOptionsController.BootstrapIterations);
-            ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+            bootstrapIterationDraft = FittingOptionsController.BootstrapIterations;
+            ErrorIterationLabel.IntValue = bootstrapIterationDraft;
+            var iterationPosition = bootstrapIterationDraft > 0
+                ? Math.Log10(bootstrapIterationDraft)
+                : ErrorIterationsControl.MinValue;
+            ErrorIterationsControl.DoubleValue = Math.Max(ErrorIterationsControl.MinValue,
+                Math.Min(ErrorIterationsControl.MaxValue, iterationPosition));
             ErrorMethodControl.SelectItem((int)FittingOptionsController.ErrorEstimationMethod);
 
             IncludeConcErrorControl.State = FittingOptionsController.IncludeConcentrationVariance
@@ -968,8 +976,7 @@ namespace AnalysisITC
 
             FittingOptionsController.ErrorEstimationMethod =
                 (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem;
-            FittingOptionsController.BootstrapIterations =
-                (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+            FittingOptionsController.BootstrapIterations = bootstrapIterationDraft;
             FittingOptionsController.IncludeConcentrationVariance =
                 IncludeConcErrorControl.State == NSCellStateValue.On;
             FittingOptionsController.Algorithm =
