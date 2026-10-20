@@ -56,14 +56,13 @@ static class ResultExporterTemperatureTests
         DataManager.Clear(DataClearMode.ResetSession);
         var result = CreateResult();
         DataManager.AddData(result.Solution.Solutions.Select(s => (ITCDataContainer)s.Data).Concat(new ITCDataContainer[] { result }));
+        // Present the archived view as a sheet so AppKit resolves its control sizes.
         using (var controller = (AnalysisResultExporterViewController)storyboard.InstantiateControllerWithIdentifier("NSViewController-y9t-uG-ZTy"))
+        using (var window = new NSWindow(new CGRect(0, 0, 470, 550), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
+        using (var parent = new NSViewController { View = new NSView(new CGRect(0, 0, 470, 550)) })
         {
             Check(controller.View != null, "Archived exporter view is missing");
-            using (var window = new NSWindow(new CGRect(0, 0, 470, 550), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
-            {
             window.ReleasedWhenClosed = false;
-            using (var parent = new NSViewController { View = new NSView(new CGRect(0, 0, 470, 550)) })
-            {
             window.ContentViewController = parent;
             window.OrderFront(null);
             parent.PresentViewControllerAsSheet(controller);
@@ -130,8 +129,6 @@ static class ResultExporterTemperatureTests
                 }
             }
             finally { Directory.Delete(directory, true); parent.DismissViewController(controller); window.Close(); }
-            }
-            }
         }
     }
 
