@@ -167,7 +167,21 @@ namespace AnalysisITC.Core.Data
             {
                 var report = ValiditySnapshot?.Compare(Solution)
                     ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
-                return IncludeSkippedUncertaintyStatus(IncludeCompetitorSourceStatus(report, DataManager.Results));
+                var currentResults = DataManager.Results;
+                report = IncludeSkippedUncertaintyStatus(IncludeCompetitorSourceStatus(report, currentResults));
+
+                // Detached results are compared with their own inputs, not an unrelated active document.
+                if (!currentResults.Contains(this)) return report;
+
+                var experiments = new HashSet<ExperimentData>(DataManager.Data);
+                var missing = (Solution?.Model?.Models ?? new List<Model>())
+                    .Select(model => model?.Data)
+                    .Where(data => data != null && !experiments.Contains(data))
+                    .Distinct()
+                    .Select(data => $"Experiment missing: {(string.IsNullOrWhiteSpace(data.Name) ? data.UniqueID : data.Name)}.")
+                    .ToArray();
+                return missing.Length == 0 ? report
+                    : AnalysisResultValidityReport.Invalid(report.Reasons.Concat(missing).Distinct());
             }
         }
 

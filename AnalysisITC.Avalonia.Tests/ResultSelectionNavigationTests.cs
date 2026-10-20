@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -18,6 +19,34 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ResultSelectionNavigationTests
 {
+    [AvaloniaFact]
+    public void BrowserValidityUpdatesAfterSourceRemovalAndUndo()
+    {
+        var experiment = CreateExperiment("availability.itc");
+        var result = CreateResult(experiment);
+        RunWithMainWindow(new ITCDataContainer[] { experiment, result }, (window, items) =>
+        {
+            items.SelectedIndex = 1;
+            Assert.Equal("Valid", items.Items.OfType<DataListEntry>().Single(entry => entry.IsResult).ValidityLabel);
+
+            DataManager.RemoveSourceItemAt(0);
+            Dispatcher.UIThread.RunJobs();
+            var missing = items.Items.OfType<DataListEntry>().Single();
+            Assert.Same(result, missing.Item);
+            Assert.Equal("Invalid", missing.ValidityLabel);
+            Assert.True(missing.IsValidityInvalid);
+            Assert.Contains("Experiment missing: " + experiment.Name, missing.ValidityTooltip);
+            AssertMainWindowSelection(window, items, result);
+
+            DataManager.UndoDeleteData();
+            Dispatcher.UIThread.RunJobs();
+            var restored = items.Items.OfType<DataListEntry>().Single(entry => entry.IsResult);
+            Assert.Equal("Valid", restored.ValidityLabel);
+            Assert.DoesNotContain("Experiment missing", restored.ValidityTooltip);
+            AssertMainWindowSelection(window, items, experiment);
+        });
+    }
+
     [AvaloniaTheory]
     [InlineData(-1)]
     [InlineData(0)]

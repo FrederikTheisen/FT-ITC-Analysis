@@ -105,6 +105,8 @@ R01/R03 use shared input validity. Temperature edits produce "temperature change
 repeated property changes use the shared category/count summary. Any detected fit-input
 change makes a result with captured temperature dependence Invalid, including individually
 fitted series. Independent collections without temperature dependence retain partial invalidity.
+For results in the active document, a source experiment absent from the experiment browser
+makes the whole result Invalid with a named missing-experiment reason; Undo recomputes validity.
 
 | Code | Content | When / omitted |
 | --- | --- | --- |

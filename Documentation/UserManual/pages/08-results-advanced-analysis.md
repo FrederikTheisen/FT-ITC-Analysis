@@ -72,6 +72,8 @@ Validity answers whether the saved fit still describes the experiment inputs cur
 
 Check the listed validity reasons and use **Update Result** when inputs have changed. Stored fitted parameters continue to describe the earlier inputs until updated.
 
+Removing any source experiment from the experiment browser makes the whole result **Invalid** and names the missing experiment. **Undo** restores the previous validity when it restores the original experiment unchanged.
+
 Analysis warnings are separate from validity: a matching fit can still reach a parameter bound, encounter an uncertainty limit, or have an **Inconclusive** member. A manual **Binding detected** conclusion clears only that member's Inconclusive warning. No-binding members' boundary and uncertainty-limit warnings remain listed with the experiment but do not contribute to result status. Repeated desktop reasons are summarized by category and count; the browser likewise distinguishes saved analysis warnings from input validity.
 
 ### Information criteria
