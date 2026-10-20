@@ -45,7 +45,12 @@ namespace AnalysisITC.Core.Analysis.Models
             var included = Data.Injections.Where(inj => inj.Include).ToList();
             return 0.8 * included.Skip(Math.Max(0, included.Count - 2)).Average(inj => inj.Enthalpy);
         }
-        public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
+        public virtual double GuessN()
+        {
+            // Ratio stores the plotting coordinate, which can be a concentration.
+            var last = Data.Injections.Last();
+            return last.ActualTitrantConcentration / last.ActualCellConcentration / 2;
+        }
         public virtual double GuessAffinity() => 1000000;
         public double GuessLogAffinity() => Math.Log10(GuessAffinity());
         public virtual double GuessAffinityAsGibbs()

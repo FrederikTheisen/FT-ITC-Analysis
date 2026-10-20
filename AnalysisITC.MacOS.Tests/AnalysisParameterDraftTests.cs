@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
@@ -11,6 +14,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 
 static class AnalysisParameterDraftTests
@@ -34,6 +38,7 @@ static class AnalysisParameterDraftTests
 
             ControllerRunFitClampsAcceptedGuess(assembly);
             ModelSwitchResetsCachedConstraints(assembly);
+            ModelSwitchUsesPhysicalStoichiometry();
 
             var pendingText = FormatParameter(assembly, 60000);
             var pending = CreateDraft(draftType, pendingText, false, false);
@@ -288,6 +293,126 @@ static class AnalysisParameterDraftTests
             controller.Dispose();
             DataManager.Clear(DataClearMode.ResetSession);
         }
+    }
+
+    sealed class SwitchDetailsController : ExperimentDetailsPopoverController
+    {
+        public bool Applied;
+        public override void DismissViewController(NSViewController controller) { Applied = true; }
+    }
+
+    static void ModelSwitchUsesPhysicalStoichiometry()
+    {
+        var culture = CultureInfo.CurrentCulture;
+        var failures = new List<string>();
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        try
+        {
+            foreach (var target in new[] { AnalysisModel.OneSetOfSites, AnalysisModel.CompetitiveBinding })
+                foreach (var global in new[] { false, true })
+                {
+                    try { ModelSwitchUsesPhysicalStoichiometry(target, global); }
+                    catch (Exception error) { failures.Add(target + ", global=" + global + ": " + error.Message); }
+                    finally { DataManager.Clear(DataClearMode.ResetSession); }
+                }
+        }
+        finally { CultureInfo.CurrentCulture = culture; }
+        Check(failures.Count == 0, string.Join("\n", failures));
+        Console.WriteLine("PASS: four native model-switch workflows display dimensionless N after Dissociation Details edits");
+    }
+
+    static void ModelSwitchUsesPhysicalStoichiometry(AnalysisModel target, bool global)
+    {
+        DataManager.Init();
+        var experiments = global ? new[] { SwitchExperiment(), SwitchExperiment() } : new[] { SwitchExperiment() };
+        DataManager.AddData(experiments);
+        using (var controller = Create<DataAnalysisViewController>())
+        {
+            var type = controller.GetType();
+            var mode = new NSSegmentedControl { SegmentCount = 2, SelectedSegment = global ? 1 : 0 };
+            SetOutlet(type, controller, "AnalysisModeControl", mode);
+            SetOutlet(type, controller, "ParameterStackView", new NSStackView());
+            SetOutlet(type, controller, "ConstraintStackView", new NSStackView());
+            SetOutlet(type, controller, "ModelOptionsStackView", new NSStackView());
+            SetOutlet(type, controller, "FitSimplexButton", new NSButton());
+            SetOutlet(type, controller, "ErrorMethodControl", Popup("None"));
+            var menu = Popup("Dissociation", target.ToString());
+            menu.ItemAtIndex(0).Tag = (int)AnalysisModel.Dissociation;
+            menu.ItemAtIndex(1).Tag = (int)target;
+            menu.Target = controller;
+            menu.Action = new Selector("AnalysisModelClicked:");
+            SetOutlet(type, controller, "ModelTypeControl", menu);
+            menu.SendAction(menu.Action, menu.Target);
+            controller.Workspace.SetGlobalMode(global);
+            foreach (var data in experiments)
+            {
+                ExperimentDetailsPopoverController.Data = data;
+                using (var details = new SwitchDetailsController { View = new NSView(new CGRect(0, 0, 720, 600)) })
+                {
+                    details.ViewDidLoad();
+                    var detailsType = typeof(ExperimentDetailsPopoverController);
+                    ((NSTextField)detailsType.GetField("CellConcentrationField", PrivateInstance).GetValue(details)).StringValue = "35";
+                    ((NSTextField)detailsType.GetField("SyringeConcentrationField", PrivateInstance).GetValue(details)).StringValue = "700";
+                    detailsType.GetMethod("Apply", PrivateInstance).Invoke(details, new object[] { null });
+                    Check(details.Applied, "Details Apply did not complete");
+                }
+                Check(data.AxisType == AnalysisXAxisType.TitrantConcentration, "Dissociation axis precondition");
+                Check(data.Injections.Last().Ratio == data.Injections.Last().ActualTitrantConcentration,
+                    "Details did not recalculate on the concentration axis");
+            }
+            menu.SelectItem(1);
+            menu.SendAction(menu.Action, menu.Target);
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            if (global)
+            {
+                var row = ((IList)type.GetField("constraintControls", PrivateInstance).GetValue(controller)).Cast<object>()
+                    .Single(view => (ParameterType)view.GetType().GetField("key", PrivateInstance).GetValue(view) == ParameterType.Nvalue1);
+                var options = (IReadOnlyList<VariableConstraint>)row.GetType().GetField("options", PrivateInstance).GetValue(row);
+                var sharing = (NSPopUpButton)row.GetType().GetField("popup", PrivateInstance).GetValue(row);
+                sharing.SelectItem(options.ToList().IndexOf(VariableConstraint.SameForAll));
+                sharing.SendAction(sharing.Action, sharing.Target);
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
+            }
+            var models = global ? controller.Workspace.Context.GlobalModel.Models : new[] { controller.Workspace.Context.SingleModel }.AsEnumerable();
+            var controls = ((IList)type.GetField("parameterControls", PrivateInstance).GetValue(controller)).Cast<object>()
+                .Where(view => (ParameterType)view.GetType().GetProperty("ParameterKey").GetValue(view) == ParameterType.Nvalue1).ToArray();
+            Check(controls.Length > 0, "Missing native N editor");
+            foreach (var row in controls)
+            {
+                var input = (NSTextField)row.GetType().GetField("input", PrivateInstance).GetValue(row);
+                var text = string.IsNullOrEmpty(input.StringValue) ? input.PlaceholderString.Replace("Auto: ", "") : input.StringValue;
+                Console.WriteLine("ITC-135 native " + target + ", global=" + global + ": displayed N=" + text + "; expected .5125");
+                Check(Math.Abs(double.Parse(text, CultureInfo.CurrentCulture) - .5125) < .0001, "Displayed N: " + text);
+            }
+            foreach (var model in models)
+                Check(Math.Abs(model.Parameters.Table[ParameterType.Nvalue1].Value - .5125) < 1e-12,
+                    "Expected N=.5125, actual=" + model.Parameters.Table[ParameterType.Nvalue1].Value);
+            foreach (var data in experiments)
+                Check(data.Injections.Last().Ratio == data.Injections.Last().ActualTitrantConcentration,
+                    "Model switch rewrote plotting coordinates");
+            type.GetMethod("ClearInspectorRows", PrivateInstance).Invoke(controller, null);
+        }
+    }
+
+    static ExperimentData SwitchExperiment()
+    {
+        var data = new ExperimentData("native-model-switch.itc")
+        {
+            CellConcentration = new FloatWithError(0), SyringeConcentration = new FloatWithError(420e-6),
+            CellVolume = 200e-6, MeasuredTemperature = 25, TargetTemperature = 25,
+        };
+        for (var i = 0; i < 5; i++)
+        {
+            var injection = new InjectionData(data, i, 2e-6, 420e-6 * 2e-6, true);
+            injection.SetPeakArea(new FloatWithError(-2e-6 + i * 1e-7));
+            data.Injections.Add(injection);
+        }
+        RawDataReader.ProcessInjections(data, DilutionMethod.MicroCal);
+        var model = new Dissociation(data);
+        model.InitializeParameters(data);
+        model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        data.Model = model;
+        return data;
     }
 
     static ExperimentData CreateConstraintExperiment(string name, double temperature)
