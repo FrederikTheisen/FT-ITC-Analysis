@@ -486,7 +486,7 @@ public sealed class NullComparisonPersistenceTests
         Assert.Equal(model.Solution.Guid, issue.ComponentId);
     }
 
-    static void AssertComparisonEvidence(NullModelComparison expected, NullModelComparison actual)
+    internal static void AssertComparisonEvidence(NullModelComparison expected, NullModelComparison actual)
     {
         Assert.NotNull(actual);
         Assert.Equal(expected.NullModelId, actual.NullModelId);

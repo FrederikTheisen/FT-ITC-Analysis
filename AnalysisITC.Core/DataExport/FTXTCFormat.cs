@@ -1452,7 +1452,7 @@ namespace AnalysisITC.Core.Export
             TandemMergeDescription = experiment.TandemMergeDescription,
             TandemSourceExperimentIds = experiment.TandemSourceExperimentIds.Count == 0
                 ? null : experiment.TandemSourceExperimentIds.ToList(),
-            Included = experiment.Include,
+            Included = experiment.StoredInclude,
             SourceFormat = DataFormatId(experiment.DataSourceFormat),
             Instrument = InstrumentId(experiment.Instrument),
             CellConcentration = FtxtcFloatWithError.Capture(experiment.CellConcentration),
@@ -1823,46 +1823,7 @@ namespace AnalysisITC.Core.Export
         static JsonElement? CaptureNullComparisonElement(NullModelComparison value)
         {
             if (value == null) return null;
-            try
-            {
-                var state = CaptureNullComparison(value);
-                return JsonSerializer.SerializeToElement(state, FTXTCFormat.JsonOptions);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
-            {
-                // Preserve a usable status-only record if optional numerical detail is malformed.
-                // The binding result remains saveable, and the reader will not claim a complete null fit.
-                var fallback = new FtxtcNullComparisonState
-                {
-                    NullModelId = string.IsNullOrWhiteSpace(value.NullModelId) ? "offset" : value.NullModelId,
-                    IsIndependentMemberComparison = value.IsIndependentMemberComparison,
-                    BindingFitSucceeded = value.BindingFitSucceeded,
-                    BindingFitReason = value.BindingFitReason ?? string.Empty,
-                    NullFitSucceeded = false,
-                    NullFitReason = string.IsNullOrWhiteSpace(value.NullModelId)
-                        ? "Saved Null model identity was missing."
-                        : "Saved null-model details could not be serialized: " + ex.Message,
-                    BindingInformationCriteria = TryCaptureInformationCriteria(value.BindingInformationCriteria),
-                    NullInformationCriteria = TryCaptureInformationCriteria(value.NullInformationCriteria),
-                    DeltaAicc = null,
-                    ComparisonUnavailableReason = "Saved null-model details could not be serialized.",
-                    Members = new List<FtxtcNullComparisonMemberState>(),
-                };
-                try { return JsonSerializer.SerializeToElement(fallback, FTXTCFormat.JsonOptions); }
-                catch (Exception fallbackException) when (fallbackException is not OperationCanceledException
-                    && fallbackException is not FtxtcResourceLimitException)
-                {
-                    AppEventHandler.AddLog(fallbackException);
-                    return null;
-                }
-            }
-        }
-
-        static FtxtcInformationCriteriaState TryCaptureInformationCriteria(FitInformationCriteria value)
-        {
-            if (value == null) return null;
-            try { return CaptureInformationCriteria(value); }
-            catch { return null; }
+            return JsonSerializer.SerializeToElement(CaptureNullComparison(value), FTXTCFormat.JsonOptions);
         }
 
         static FtxtcNullComparisonState CaptureNullComparison(NullModelComparison value)

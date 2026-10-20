@@ -163,9 +163,15 @@ namespace AnalysisITC.Core.DataReaders
                             if (acceptedThisFile != null) importedExperiments.AddRange(acceptedThisFile);
                             AppSettings.LastDocumentPath = path;
                         }
-                        else if (isProjectFile)
+                        if (dat != null && wasEmptyDocument && isProjectFile)
                         {
-                            // A fully skipped project import must leave the current save destination untouched.
+                            // Only a clean single-project open adopts its source as the save target.
+                            ProjectDocumentState.Path = format == ITCDataFormat.FTXTC && pathList.Length == 1
+                                && FTXTCReader.LastRecoveryIssues.Count == 0 ? path : string.Empty;
+                        }
+                        else if (format == ITCDataFormat.FTITC)
+                        {
+                            // The legacy reader clears its path for native Save As; appending keeps this document's target.
                             ProjectDocumentState.Path = previousDocumentPath;
                         }
                         if (acceptedContent || (isProjectFile && dat != null))

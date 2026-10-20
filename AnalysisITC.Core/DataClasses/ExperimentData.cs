@@ -111,6 +111,9 @@ namespace AnalysisITC.Core.Data
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool CanBeAnalyzed => Injections.All(inj => inj.IsIntegrated);
+
+        // Persistence keeps the user's choice independently of processing readiness.
+        internal bool StoredInclude => include;
         
         public bool Include
         {

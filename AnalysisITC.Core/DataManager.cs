@@ -361,6 +361,8 @@ namespace AnalysisITC.Core.Application
                 var matches = solution.Data?.UniqueID == experimentID;
                 foreach (var bootstrap in solution.BootstrapSolutions ?? Enumerable.Empty<SolutionInterface>())
                     matches |= CollectSolution(bootstrap);
+                foreach (var nullSolution in solution.NullComparison?.NullSolutions ?? Enumerable.Empty<SolutionInterface>())
+                    CollectSolution(nullSolution);
 
                 visitedSolutions[solution] = matches;
                 if (matches) matchingSolutions.Add(solution);

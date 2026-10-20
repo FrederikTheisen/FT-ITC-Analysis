@@ -126,16 +126,16 @@ static class ProjectOpenReportOnlyTests
         var report = PrepareReportOnly("append");
         var oldPath = FTITCFormat.CurrentAccessedAppDocumentPath;
         var oldBytes = File.ReadAllBytes(oldPath);
+        var incomingBytes = File.ReadAllBytes(incomingPath);
         var document = DocumentDirtyTracker.CurrentDocumentId;
         Open(incomingPath, "Append");
         Check(DataManager.SourceItems.Count == 1, "Append did not load the incoming experiment");
         CheckReports(DataManager.Reports, report, incomingReport);
-        Check(FTITCFormat.CurrentAccessedAppDocumentPath == incomingPath && DocumentDirtyTracker.IsDirty
-            && DocumentDirtyTracker.CurrentDocumentId == document, "Append changed the existing destination/dirty/identity behavior");
+        Check(FTITCFormat.CurrentAccessedAppDocumentPath == oldPath && DocumentDirtyTracker.IsDirty
+            && DocumentDirtyTracker.CurrentDocumentId == document, "Append did not preserve the destination, dirty state and document identity");
         Check(File.ReadAllBytes(oldPath).SequenceEqual(oldBytes), "Append wrote the original project");
-        // Save the combined project elsewhere so later cases keep using the original incoming fixture.
-        FTITCFormat.CurrentAccessedAppDocumentPath = Path.Combine(directory, "combined.ftxtc");
-        SaveAndCheckReports(FTITCFormat.CurrentAccessedAppDocumentPath, report, incomingReport);
+        SaveAndCheckReports(oldPath, report, incomingReport);
+        Check(File.ReadAllBytes(incomingPath).SequenceEqual(incomingBytes), "Save overwrote the appended source project");
     }
 
     static void CheckEmptyOpen()

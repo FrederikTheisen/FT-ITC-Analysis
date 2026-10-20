@@ -155,7 +155,6 @@ namespace AnalysisITC.Core.DataReaders
             LastReports = result.Reports;
             foreach (var issue in result.Issues)
                 AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Severity}/{issue.Code}] {issue.ComponentId}: {issue.Message}");
-            FTITCFormat.CurrentAccessedAppDocumentPath = result.IsPartial ? "" : path;
             if (result.IsPartial) DocumentDirtyTracker.MarkDirty();
             return result.Containers;
         }
@@ -1209,10 +1208,12 @@ namespace AnalysisITC.Core.DataReaders
                 // Paired fits share the binding model's saved convention. Save Selected may
                 // omit another binding member, whose embedded Null solution retains that method.
                 var heatMethod = binding?.Model.HeatMethod ?? FtxtcWireIds.HeatMethod(member.Solution?.HeatMethod);
-                comparison.NullSolutions.Add(RestoreOffsetSolution(restored,
+                var nullSolution = RestoreOffsetSolution(restored,
                     restored.Convergence == null ? null : SolverConvergence.FromSnapshot(restored.Convergence),
                     comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance,
-                    heatMethod));
+                    heatMethod);
+                nullSolution.RestoreValidity(binding?.IsValid ?? member.Solution?.IsValid ?? true);
+                comparison.NullSolutions.Add(nullSolution);
             }
             foreach (var solution in comparison.NullSolutions) solution.NullComparison = comparison;
             return comparison;

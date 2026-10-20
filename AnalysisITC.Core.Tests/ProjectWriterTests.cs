@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
@@ -512,6 +513,158 @@ public sealed class ProjectWriterTests : IDisposable
         Assert.False(DocumentDirtyTracker.IsDirty);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AppendingProjectSaveUpdatesOriginalAndPreservesImportedFile(bool saveForClose)
+    {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(
+            new FtxtcImportResolverTests.RecordingPrompt(FtxtcDuplicateAction.ImportCopies));
+        await LoadDocument();
+        var originalPath = Path.Combine(directory, "original.ftxtc");
+        var appendPath = Path.Combine(directory, "append-source.ftxtc");
+        await FTXTCWriter.WriteFileAsync(originalPath, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+        DataManager.Data.First().Name = "Appended experiment";
+        await FTXTCWriter.WriteFileAsync(appendPath, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+        var appendBytes = File.ReadAllBytes(appendPath);
+        DataManager.Clear(DataClearMode.ResetSession);
+
+        Assert.True((await DataReader.ReadPathsAsync(new[] { originalPath })).OpenedCleanProject);
+        Assert.Equal(originalPath, ProjectDocumentState.Path);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        var opened = DocumentDirtyTracker.CaptureSaveStamp();
+        var originalCount = DataManager.SourceItems.Count;
+
+        Assert.True((await DataReader.ReadPathsAsync(new[] { appendPath })).LoadedAllRequested);
+        Assert.Equal(originalCount * 2, DataManager.SourceItems.Count);
+        Assert.True(DocumentDirtyTracker.IsCurrentDocument(opened));
+        Assert.True(DocumentDirtyTracker.IsDirty);
+        Assert.True(await (saveForClose ? ProjectWriter.SaveForCloseAsync() : ProjectWriter.SaveWithPathAsync()));
+
+        Assert.Equal(originalCount, (await Read(appendPath)).Count);
+        Assert.Equal(appendBytes, File.ReadAllBytes(appendPath));
+        Assert.Equal(originalPath, ProjectDocumentState.Path);
+        Assert.Equal(DataManager.SourceItems.Count, (await Read(originalPath)).Count);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OpeningSingleProjectWithoutExperimentsAdoptsSourceDestination(bool reportsOnly)
+    {
+        var path = Path.Combine(directory, "single.ftxtc");
+        await FTXTCWriter.WriteFileAsync(path, Array.Empty<ExperimentData>(),
+            reports: reportsOnly ? new[] { new AnalysisReport() } : Array.Empty<AnalysisReport>());
+
+        Assert.True((await DataReader.ReadPathsAsync(new[] { path })).LoadedAllRequested);
+        Assert.Equal(path, ProjectDocumentState.Path);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AppendingToUnnamedDocumentStillRequiresSaveAs(bool reportsOnly)
+    {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(
+            new FtxtcImportResolverTests.RecordingPrompt(FtxtcDuplicateAction.ImportCopies));
+        await LoadDocument();
+        var appendPath = Path.Combine(directory, "append-source.ftxtc");
+        await FTXTCWriter.WriteFileAsync(appendPath, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+        var appendBytes = File.ReadAllBytes(appendPath);
+        if (reportsOnly)
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            DataManager.AddReport(new AnalysisReport());
+        }
+        ProjectDocumentState.Path = string.Empty;
+        var beforeAppend = DocumentDirtyTracker.CaptureSaveStamp();
+
+        Assert.True((await DataReader.ReadPathsAsync(new[] { appendPath })).LoadedAllRequested);
+        Assert.True(DocumentDirtyTracker.IsCurrentDocument(beforeAppend));
+        Assert.True(DocumentDirtyTracker.IsDirty);
+        Assert.False(ProjectWriter.IsSaved);
+        var combinedPath = Path.Combine(directory, "combined.ftxtc");
+        PlatformServices.RegisterFileSavePromptService(new FixedPrompt(combinedPath));
+
+        Assert.True(await ProjectWriter.SaveForCloseAsync());
+        Assert.Equal(combinedPath, ProjectDocumentState.Path);
+        Assert.Equal(appendBytes, File.ReadAllBytes(appendPath));
+        Assert.Equal(DataManager.SourceItems.Count, (await Read(combinedPath)).Count);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+    }
+
+    [Theory]
+    [InlineData(FtxtcDuplicateAction.SkipDuplicates)]
+    [InlineData(FtxtcDuplicateAction.ImportCopies)]
+    public async Task OpeningMultipleProjectsRequiresSaveAs(FtxtcDuplicateAction action)
+    {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(new FtxtcImportResolverTests.RecordingPrompt(action));
+        await LoadDocument();
+        var firstPath = Path.Combine(directory, "first.ftxtc");
+        var secondPath = Path.Combine(directory, "second.ftxtc");
+        await FTXTCWriter.WriteFileAsync(firstPath, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+        File.Copy(firstPath, secondPath);
+        var sourceBytes = File.ReadAllBytes(firstPath);
+        var originalCount = DataManager.SourceItems.Count;
+        DataManager.Clear(DataClearMode.ResetSession);
+
+        var read = await DataReader.ReadPathsAsync(new[] { firstPath, secondPath });
+        Assert.True(read.LoadedAllRequested);
+        Assert.False(read.OpenedCleanProject);
+        Assert.Equal(action == FtxtcDuplicateAction.ImportCopies ? originalCount * 2 : originalCount, DataManager.SourceItems.Count);
+        Assert.False(ProjectWriter.IsSaved);
+        Assert.True(DocumentDirtyTracker.IsDirty);
+        PlatformServices.RegisterFileSavePromptService(new FixedPrompt(null));
+        Assert.False(await ProjectWriter.SaveForCloseAsync());
+        Assert.False(ProjectWriter.IsSaved);
+        Assert.True(DocumentDirtyTracker.IsDirty);
+        Assert.Equal(sourceBytes, File.ReadAllBytes(firstPath));
+        Assert.Equal(sourceBytes, File.ReadAllBytes(secondPath));
+        var combinedPath = Path.Combine(directory, "combined.ftxtc");
+        PlatformServices.RegisterFileSavePromptService(new FixedPrompt(combinedPath));
+
+        Assert.True(await ProjectWriter.SaveForCloseAsync());
+        Assert.Equal(combinedPath, ProjectDocumentState.Path);
+        Assert.Equal(sourceBytes, File.ReadAllBytes(firstPath));
+        Assert.Equal(sourceBytes, File.ReadAllBytes(secondPath));
+        Assert.Equal(DataManager.SourceItems.Count, (await Read(combinedPath)).Count);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PartiallyRecoveredProjectOnlyKeepsAnExistingDestination(bool append)
+    {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(
+            new FtxtcImportResolverTests.RecordingPrompt(FtxtcDuplicateAction.ImportCopies));
+        await LoadDocument();
+        var damagedPath = Path.Combine(directory, "damaged.ftxtc");
+        using (var package = new MemoryStream())
+        {
+            await FTXTCWriter.WriteStream(package, DataManager.Data, DataManager.Results, DataManager.SourceItems,
+                new[] { new AnalysisReport { Name = "Damaged report" } });
+            using var damaged = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == "reports/000000/report.json" ? Encoding.UTF8.GetBytes("{not-json") : bytes,
+                schemaMinor: FTXTCFormat.SchemaMinor);
+            File.WriteAllBytes(damagedPath, damaged.ToArray());
+        }
+        var originalPath = Path.Combine(directory, "original.ftxtc");
+        if (append) ProjectDocumentState.Path = originalPath;
+        else DataManager.Clear(DataClearMode.ResetSession);
+
+        var read = await DataReader.ReadPathsAsync(new[] { damagedPath });
+
+        Assert.True(read.LoadedAllRequested);
+        Assert.False(read.OpenedCleanProject);
+        Assert.NotEmpty(DataManager.SourceItems);
+        Assert.Contains(FTXTCReader.LastRecoveryIssues, issue => issue.Code == "report-metadata");
+        Assert.Equal(append ? originalPath : string.Empty, ProjectDocumentState.Path);
+        Assert.True(DocumentDirtyTracker.IsDirty);
+    }
+
     [Fact]
     public async Task DataReaderAppendDuringSaveRetainsDocumentIdentityAndPreventsClose()
     {
@@ -541,7 +694,7 @@ public sealed class ProjectWriterTests : IDisposable
         Assert.False(await save);
         Assert.True(DocumentDirtyTracker.IsDirty);
         Assert.True(File.Exists(savePath));
-        Assert.Equal(appendPath, ProjectDocumentState.Path);
+        Assert.Equal(savePath, ProjectDocumentState.Path);
         Assert.Equal(appendPath, AppSettings.LastDocumentPath);
     }
 
