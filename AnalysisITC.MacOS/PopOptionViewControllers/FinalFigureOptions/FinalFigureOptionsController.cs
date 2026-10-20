@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -22,6 +21,11 @@ namespace AnalysisITC
 {
     internal static class FinalFigureOptionsController
     {
+        const float MinimumWidthCentimeters = 3;
+        const float MaximumWidthCentimeters = 20;
+        const float MinimumHeightCentimeters = 4;
+        const float MaximumHeightCentimeters = 28;
+
         internal sealed class GeneralControls
         {
             public NSSwitch ShowDataGraphControl { get; set; }
@@ -102,7 +106,7 @@ namespace AnalysisITC
             public NSTextField ModelAssessmentLabel { get; set; }
         }
 
-        internal static void SyncGeneral(GeneralControls controls)
+        internal static void SyncGeneral(GeneralControls controls, bool widthValid = true, bool heightValid = true)
         {
             if (controls == null) return;
 
@@ -114,15 +118,10 @@ namespace AnalysisITC
             }
             controls.TimeUnitControl?.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
-            if (controls.WidthLabel != null)
-            {
-                controls.WidthLabel.StringValue = FinalFigureGraphView.Width.ToString("F1") + " cm";
-            }
-
-            if (controls.HeightLabel != null)
-            {
-                controls.HeightLabel.StringValue = FinalFigureGraphView.Height.ToString("F1") + " cm";
-            }
+            SyncDimension(controls.WidthLabel, FinalFigureGraphView.Width, widthValid,
+                MinimumWidthCentimeters, MaximumWidthCentimeters, "Plot-area width in centimeters");
+            SyncDimension(controls.HeightLabel, FinalFigureGraphView.Height, heightValid,
+                MinimumHeightCentimeters, MaximumHeightCentimeters, "Plot-area height in centimeters");
 
             SetState(controls.SanitizeTicks, FinalFigureGraphView.SanitizeTicks);
             SetState(controls.ShowParametersControl, FinalFigureGraphView.DrawExpDetails);
@@ -156,16 +155,20 @@ namespace AnalysisITC
             UpdateAttributeDisplayMenu(controls.AttributeDisplayOptionsControl);
         }
 
-        internal static void ApplyGeneral(GeneralControls controls)
+        internal static (bool WidthValid, bool HeightValid) ApplyGeneral(GeneralControls controls)
         {
-            if (controls == null) return;
+            if (controls == null) return (true, true);
 
-            if (TryParseCentimeterValue(controls.WidthLabel, out var width))
+            var widthValid = TryParseCentimeterValue(controls.WidthLabel,
+                MinimumWidthCentimeters, MaximumWidthCentimeters, out var width);
+            var heightValid = TryParseCentimeterValue(controls.HeightLabel,
+                MinimumHeightCentimeters, MaximumHeightCentimeters, out var height);
+            if (widthValid)
             {
                 FinalFigureGraphView.Width = width;
             }
 
-            if (TryParseCentimeterValue(controls.HeightLabel, out var height))
+            if (heightValid)
             {
                 FinalFigureGraphView.Height = height;
             }
@@ -256,6 +259,8 @@ namespace AnalysisITC
                 FinalFigureModelPresentation.EnergyUnitFamily = controls.EnergyUnitControl.SelectedSegment == 1
                     ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
             }
+
+            return (controls.WidthLabel == null || widthValid, controls.HeightLabel == null || heightValid);
         }
 
         internal static void ToggleParameterOption(NSObject sender, NSMenu menu)
@@ -777,13 +782,31 @@ namespace AnalysisITC
             }
         }
 
-        static bool TryParseCentimeterValue(NSTextField textField, out float value)
+        static void SyncDimension(NSTextField field, float value, bool valid, float minimum, float maximum, string tooltip)
+        {
+            if (field == null) return;
+
+            if (valid) field.StringValue = value.ToString("R", CultureInfo.CurrentCulture) + " cm";
+            field.TextColor = valid ? NSColor.ControlText : NSColor.SystemRed;
+            field.ToolTip = valid ? tooltip : $"Use {minimum}–{maximum} cm; decimal point or comma";
+        }
+
+        static bool TryParseCentimeterValue(NSTextField textField, float minimum, float maximum, out float value)
         {
             value = 0;
             if (string.IsNullOrWhiteSpace(textField?.StringValue)) return false;
 
-            string number = Regex.Replace(textField.StringValue, "[^0-9.]", "");
-            return float.TryParse(number, out value);
+            var number = textField.StringValue.Trim();
+            if (number.EndsWith("cm", StringComparison.OrdinalIgnoreCase))
+                number = number.Substring(0, number.Length - 2).TrimEnd();
+            if (number.Contains(",") && number.Contains(".")) return false;
+
+            if (!double.TryParse(number.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                || double.IsNaN(parsed) || double.IsInfinity(parsed) || parsed < minimum || parsed > maximum)
+                return false;
+
+            value = (float)parsed;
+            return true;
         }
 
         static void SetText(NSTextField field, string value, string placeholder)

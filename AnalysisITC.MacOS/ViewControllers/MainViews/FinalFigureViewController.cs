@@ -23,6 +23,8 @@ namespace AnalysisITC
 	{
         bool _eventsUnsubscribed = false;
         bool _isSyncingEmbeddedOptions = false;
+        bool _widthDimensionValid = true;
+        bool _heightDimensionValid = true;
 
         public FinalFigureViewController (IntPtr handle) : base (handle)
 		{
@@ -141,10 +143,10 @@ namespace AnalysisITC
         {
             if (_isSyncingEmbeddedOptions) return;
 
-            FinalFigureOptionsController.ApplyGeneral(EmbeddedGeneralControls);
+            (_widthDimensionValid, _heightDimensionValid) = FinalFigureOptionsController.ApplyGeneral(EmbeddedGeneralControls);
             FinalFigureOptionsController.ApplyData(EmbeddedDataControls);
             FinalFigureOptionsController.ApplyFit(EmbeddedFitControls);
-            FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls);
+            FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls, _widthDimensionValid, _heightDimensionValid);
 
             FinalFigureGraphView.Invalidate();
         }
@@ -166,7 +168,7 @@ namespace AnalysisITC
                     }
                 }
 
-                FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls);
+                FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls, _widthDimensionValid, _heightDimensionValid);
                 FinalFigureOptionsController.SyncData(EmbeddedDataControls);
                 FinalFigureOptionsController.SyncFit(EmbeddedFitControls);
             }
