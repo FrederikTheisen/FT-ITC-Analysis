@@ -91,9 +91,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         readonly CheckBox showThermogramCheck = Check("Data graph", true, "Include the differential-power trace above the fit graph.");
         readonly CheckBox axisTitlesCheck = Check("Axis titles", true, "Draw titles for the graph axes.");
-        readonly CheckBox experimentDetailsCheck = Check("Experiment details", true, "Include experiment metadata in the figure information box.");
-        readonly CheckBox modelInfoCheck = Check("Model info", true, "Include the selected analysis model in the figure information box.");
-        readonly CheckBox fitParametersCheck = Check("Fit parameters", true, "Include fitted parameter values in the figure information box.");
+        readonly CheckBox experimentDetailsCheck = Check("Experiment details", true, FinalFigureModelPresentation.ExperimentDetailsTooltip);
+        readonly CheckBox modelInfoCheck = Check("Model info", true, FinalFigureModelPresentation.ModelInfoTooltip);
+        readonly CheckBox fitParametersCheck = Check("Fit parameters", true, FinalFigureModelPresentation.FitParametersTooltip);
         readonly CheckBox thermodynamicCheck = Check("Thermodynamic", true, "Include thermodynamic parameters in the information box.");
         readonly CheckBox derivedCheck = Check("Derived", true, "Include calculated or derived parameters in the information box.");
         readonly CheckBox offsetParameterCheck = Check("Offset parameter", false, "Include the fitted offset parameter in the information box.");

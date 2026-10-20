@@ -30,8 +30,9 @@ namespace AnalysisITC.UI.MacOS
         {
             FinalFigureGraphView.Width = (float)AppSettings.FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)AppSettings.FinalFigureDimensions[1];
-            FinalFigureGraphView.DrawExpDetails = AppSettings.FinalFigureShowParameterBoxAsDefault;
+            FinalFigureGraphView.DrawExpDetails = AppSettings.FinalFigureShowDetailsAsDefault;
             FinalFigureGraphView.DrawModelInfo = AppSettings.FinalFigureShowModelInfoAsDefault;
+            FinalFigureGraphView.DrawFitParameterValues = AppSettings.FinalFigureShowParameterBoxAsDefault;
             FinalFigureGraphView.TextUncertaintyStyle = AppSettings.UncertaintyDisplayStyle;
             FinalFigureGraphView.UpdateParameterBoxVisibility();
             FinalFigureGraphView.ShowResiduals = AppSettings.ShowResidualGraph;

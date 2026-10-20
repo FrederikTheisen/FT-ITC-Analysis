@@ -220,6 +220,8 @@ namespace AnalysisITC
             WidthLabel = EmbeddedWidthLabel,
             HeightLabel = EmbeddedHeightLabel,
             ShowParametersControl = EmbeddedShowParametersControl,
+            ModelInfoControl = EmbeddedModelInfoControl,
+            FitParametersControl = EmbeddedFitParametersControl,
             ShowTextUncertaintiesControl = EmbeddedShowTextUncertaintiesControl,
             TextUncertaintyStyleControl = EmbeddedTextUncertaintyStyleControl,
             InformationBoxPositionControl = EmbeddedInformationBoxPositionControl,

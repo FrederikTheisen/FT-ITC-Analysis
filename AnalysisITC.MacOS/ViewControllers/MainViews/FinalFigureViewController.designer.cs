@@ -162,6 +162,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedModelInfoControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedFitParametersControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedMolarRatioAxisTitleLabel { get; set; }
 
 		[Outlet]
@@ -492,6 +495,11 @@ namespace AnalysisITC
 			if (EmbeddedModelInfoControl != null) {
 				EmbeddedModelInfoControl.Dispose ();
 				EmbeddedModelInfoControl = null;
+			}
+
+			if (EmbeddedFitParametersControl != null) {
+				EmbeddedFitParametersControl.Dispose ();
+				EmbeddedFitParametersControl = null;
 			}
 
 			if (EmbeddedMolarRatioAxisTitleLabel != null) {

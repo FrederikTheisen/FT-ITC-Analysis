@@ -31,6 +31,8 @@ namespace AnalysisITC
             public NSTextField WidthLabel { get; set; }
             public NSTextField HeightLabel { get; set; }
             public NSSwitch ShowParametersControl { get; set; }
+            public NSSwitch ModelInfoControl { get; set; }
+            public NSSwitch FitParametersControl { get; set; }
             public NSSwitch ShowTextUncertaintiesControl { get; set; }
             public NSSegmentedControl TextUncertaintyStyleControl { get; set; }
             public NSSegmentedControl InformationBoxPositionControl { get; set; }
@@ -124,6 +126,19 @@ namespace AnalysisITC
 
             SetState(controls.SanitizeTicks, FinalFigureGraphView.SanitizeTicks);
             SetState(controls.ShowParametersControl, FinalFigureGraphView.DrawExpDetails);
+            SetState(controls.ModelInfoControl, FinalFigureGraphView.DrawModelInfo);
+            SetState(controls.FitParametersControl, FinalFigureGraphView.DrawFitParameterValues);
+            if (controls.ShowParametersControl != null) controls.ShowParametersControl.ToolTip = FinalFigureModelPresentation.ExperimentDetailsTooltip;
+            if (controls.ModelInfoControl != null)
+            {
+                controls.ModelInfoControl.ToolTip = FinalFigureModelPresentation.ModelInfoTooltip;
+                controls.ModelInfoControl.Enabled = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
+            }
+            if (controls.FitParametersControl != null)
+            {
+                controls.FitParametersControl.ToolTip = FinalFigureModelPresentation.FitParametersTooltip;
+                controls.FitParametersControl.Enabled = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
+            }
             SetState(controls.ShowTextUncertaintiesControl, FinalFigureGraphView.ShowTextUncertainties);
             controls.TextUncertaintyStyleControl?.SelectSegment((int)FinalFigureGraphView.TextUncertaintyStyle);
             if (controls.TextUncertaintyStyleControl != null)
@@ -168,6 +183,16 @@ namespace AnalysisITC
             if (controls.ShowParametersControl != null)
             {
                 FinalFigureGraphView.DrawExpDetails = IsOn(controls.ShowParametersControl);
+            }
+
+            if (controls.ModelInfoControl != null)
+            {
+                FinalFigureGraphView.DrawModelInfo = IsOn(controls.ModelInfoControl);
+            }
+
+            if (controls.FitParametersControl != null)
+            {
+                FinalFigureGraphView.DrawFitParameterValues = IsOn(controls.FitParametersControl);
             }
 
             if (controls.ShowTextUncertaintiesControl != null)
@@ -271,13 +296,9 @@ namespace AnalysisITC
             if (sender is not NSPopUpButton btn) return;
 
             int index = (int)btn.IndexOfSelectedItem;
-            if (index == 1)
+            if (index == 1 || index == 2)
             {
-                FinalFigureGraphView.DrawModelInfo = !FinalFigureGraphView.DrawModelInfo;
-            }
-            else if (index == 2 || index == 3)
-            {
-                var detailFlag = index == 2
+                var detailFlag = index == 1
                     ? FinalFigureDisplayParameters.Temperature
                     : FinalFigureDisplayParameters.Concentrations;
                 var currentlyEnabled = AppSettings.FinalFigureParameterDisplay.HasFlag(detailFlag);
@@ -301,12 +322,10 @@ namespace AnalysisITC
             if (menu == null) return;
 
             menu.AutoEnablesItems = false;
-            if (menu.Items.Length > 1) menu.Items[1].Enabled = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
-            SetMenuState(menu, 1, FinalFigureGraphView.DrawModelInfo);
-            SetMenuState(menu, 2, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature));
-            SetMenuState(menu, 3, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations));
+            SetMenuState(menu, 1, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature));
+            SetMenuState(menu, 2, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations));
 
-            for (int i = 5; i < menu.Items.Length; i++)
+            for (int i = 4; i < menu.Items.Length; i++)
             {
                 var item = menu.Items[i];
                 var flag = GetAttributeFlagForMenuIndex(i);
@@ -686,12 +705,12 @@ namespace AnalysisITC
         {
             return index switch
             {
-                5 => DisplayAttributeOptions.UsedInAnalysis,
-                6 => DisplayAttributeOptions.Buffer,
-                7 => DisplayAttributeOptions.Salt,
-                8 => DisplayAttributeOptions.IonicStrength,
-                9 => DisplayAttributeOptions.ProtonationEnthalpy,
-                10 => DisplayAttributeOptions.Competitor,
+                4 => DisplayAttributeOptions.UsedInAnalysis,
+                5 => DisplayAttributeOptions.Buffer,
+                6 => DisplayAttributeOptions.Salt,
+                7 => DisplayAttributeOptions.IonicStrength,
+                8 => DisplayAttributeOptions.ProtonationEnthalpy,
+                9 => DisplayAttributeOptions.Competitor,
 
                 _ => DisplayAttributeOptions.None,
             };

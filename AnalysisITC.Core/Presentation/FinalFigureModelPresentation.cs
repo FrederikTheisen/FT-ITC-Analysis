@@ -31,6 +31,9 @@ namespace AnalysisITC.Core.Presentation
         public const string FitLineTooltip = "Draw the selected model prediction.";
         public const string EnergyUnitTooltip = "Energy unit family; magnitude is chosen automatically.";
         public const string ExcludedAutoYScaleTooltip = "Let excluded points affect automatic Y axis limits.";
+        public const string ExperimentDetailsTooltip = "Show recorded conditions and attributes.";
+        public const string ModelInfoTooltip = "Show the selected model name.";
+        public const string FitParametersTooltip = "Show fitted and derived parameter values.";
         public const string NoAssessmentText = "No assessment";
         public static PublicationFigureModelSelection Selection { get; set; } = PublicationFigureModelSelection.BindingModel;
 

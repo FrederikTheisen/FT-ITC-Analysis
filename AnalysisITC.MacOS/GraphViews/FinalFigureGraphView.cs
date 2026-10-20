@@ -141,6 +141,7 @@ namespace AnalysisITC
         public static bool DrawConfidence { get; set; } = true;
         public static bool DrawFitOffsetCorrected { get; set; } = true;
         public static bool DrawFitParameters { get; set; } = false;
+        public static bool DrawFitParameterValues { get; set; } = true;
         public static bool DrawParameterGuides { get; set; } = true;
         public static bool DrawExpDetails { get; set; } = true;
         public static bool DrawModelInfo { get; set; } = true;
@@ -199,16 +200,19 @@ namespace AnalysisITC
         {
             get
             {
-                if (!DrawExpDetails) return FinalFigureDisplayParameters.None;
-
-                var display = AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags;
+                var display = DrawFitParameterValues
+                    ? AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags
+                    : FinalFigureDisplayParameters.None;
 
                 if (DrawModelInfo)
                 {
                     display |= FinalFigureDisplayParameters.Model;
                 }
 
-                display |= AppSettings.FinalFigureParameterDisplay & DetailDisplayFlags;
+                if (DrawExpDetails)
+                {
+                    display |= AppSettings.FinalFigureParameterDisplay & DetailDisplayFlags;
+                }
 
                 return display;
             }
@@ -216,8 +220,8 @@ namespace AnalysisITC
 
         public static void UpdateParameterBoxVisibility()
         {
-            DrawFitParameters = DrawExpDetails
-                && (DrawModelInfo || (AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags) != FinalFigureDisplayParameters.None);
+            DrawFitParameters = DrawModelInfo || (DrawFitParameterValues
+                && (AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags) != FinalFigureDisplayParameters.None);
         }
 
         public static void Invalidate() => Invalidated?.Invoke(null, null);

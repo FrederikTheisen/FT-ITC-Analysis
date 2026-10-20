@@ -1,5 +1,6 @@
 using AnalysisITC.Avalonia.FinalFigure;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
@@ -10,6 +11,7 @@ using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 
 using Xunit;
 
@@ -18,6 +20,60 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FinalFigureWorkspaceControlTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void ContentDefaultsAndSwitchesRemainIndependent(bool details, bool model, bool parameters)
+    {
+        var original = PreferencesState.FromSettings();
+        try
+        {
+            var selected = FinalFigureDisplayParameters.Temperature | FinalFigureDisplayParameters.Thermodynamic;
+            var state = PreferencesState.FromSettings();
+            state.FinalFigureShowDetailsAsDefault = details;
+            state.FinalFigureShowModelInfoAsDefault = model;
+            state.FinalFigureShowParameterBoxAsDefault = parameters;
+            state.FinalFigureParameterDisplay = selected;
+            state.Apply();
+            var workspace = new FinalFigureWorkspaceControl();
+            var controls = new[] { "experimentDetailsCheck", "modelInfoCheck", "fitParametersCheck" }
+                .Select(name => (CheckBox)typeof(FinalFigureWorkspaceControl)
+                    .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!).ToArray();
+            var choices = new[] { details, model, parameters };
+            var tooltips = new[] { FinalFigureModelPresentation.ExperimentDetailsTooltip,
+                FinalFigureModelPresentation.ModelInfoTooltip, FinalFigureModelPresentation.FitParametersTooltip };
+            void Verify()
+            {
+                var options = workspace.GetOptionsSnapshot();
+                Assert.Equal(choices[0], options.ShowExperimentDetails);
+                Assert.Equal(choices[1] || choices[2], options.ShowFitParameters);
+                var expected = (choices[0] ? FinalFigureDisplayParameters.Temperature : 0)
+                    | (choices[1] ? FinalFigureDisplayParameters.Model : 0)
+                    | (choices[2] ? FinalFigureDisplayParameters.Thermodynamic : 0);
+                Assert.Equal(expected, options.DisplayParameters);
+                for (var i = 0; i < controls.Length; i++)
+                {
+                    Assert.Equal(choices[i], controls[i].IsChecked);
+                    Assert.Equal(tooltips[i], ToolTip.GetTip(controls[i]));
+                }
+                Assert.Equal(selected, AppSettings.FinalFigureParameterDisplay);
+            }
+            Verify();
+            for (var i = 0; i < controls.Length; i++)
+            {
+                choices[i] = !choices[i]; controls[i].IsChecked = choices[i]; Verify();
+                choices[i] = !choices[i]; controls[i].IsChecked = choices[i]; Verify();
+            }
+        }
+        finally { original.Apply(); }
+    }
+
     [AvaloniaFact]
     public void TraceabilityModeDisablesExcludedPointVisibilityAndRestoresNormalChoice()
     {

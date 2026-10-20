@@ -7626,7 +7626,7 @@ IA
         <!--Publish-->
         <scene sceneID="rGT-uA-CgQ">
             <objects>
-                <viewController title="Publish" id="aiw-ef-R4r" customClass="FinalFigureViewController" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="FinalFigureViewController" title="Publish" id="aiw-ef-R4r" customClass="FinalFigureViewController" sceneMemberID="viewController">
                     <view key="view" id="NyX-eR-7ca">
                         <rect key="frame" x="0.0" y="0.0" width="893" height="646"/>
                         <autoresizingMask key="autoresizingMask"/>
@@ -8012,8 +8012,8 @@ IA
                                                                                                             <subviews>
                                                                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="nOh-6u-X4i">
                                                                                                                     <rect key="frame" x="-2" y="0.0" width="250" height="16"/>
-                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Display Details" id="38N-zv-81x">
-                                                                                                                        <font key="font" textStyle="headline" name=".SFNS-Bold"/>
+                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Experiment details" id="38N-zv-81x">
+                                                                                                                        <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                                     </textFieldCell>
@@ -8022,6 +8022,60 @@ IA
                                                                                                                     <rect key="frame" x="253" y="-1" width="28" height="17"/>
                                                                                                                     <connections>
                                                                                                                         <action selector="ControlChanged:" target="aiw-ef-R4r" id="zek-yo-kR4"/>
+                                                                                                                    </connections>
+                                                                                                                </switch>
+                                                                                                            </subviews>
+                                                                                                            <visibilityPriorities>
+                                                                                                                <integer value="1000"/>
+                                                                                                                <integer value="1000"/>
+                                                                                                            </visibilityPriorities>
+                                                                                                            <customSpacing>
+                                                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                                            </customSpacing>
+                                                                                                        </stackView>
+                                                                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Z9i-N6-0vP">
+                                                                                                            <rect key="frame" x="10" y="249" width="280" height="16"/>
+                                                                                                            <subviews>
+                                                                                                                <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="VHo-cz-B6b">
+                                                                                                                    <rect key="frame" x="-2" y="0.0" width="250" height="16"/>
+                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Model info" id="lU7-kc-PSW">
+                                                                                                                        <font key="font" metaFont="system"/>
+                                                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                                                    </textFieldCell>
+                                                                                                                </textField>
+                                                                                                                <switch horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" state="on" translatesAutoresizingMaskIntoConstraints="NO" id="2gb-TJ-2DG">
+                                                                                                                    <rect key="frame" x="253" y="-1" width="28" height="17"/>
+                                                                                                                    <connections>
+                                                                                                                        <action selector="ControlChanged:" target="aiw-ef-R4r" id="ecB-lv-mSu"/>
+                                                                                                                    </connections>
+                                                                                                                </switch>
+                                                                                                            </subviews>
+                                                                                                            <visibilityPriorities>
+                                                                                                                <integer value="1000"/>
+                                                                                                                <integer value="1000"/>
+                                                                                                            </visibilityPriorities>
+                                                                                                            <customSpacing>
+                                                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                                            </customSpacing>
+                                                                                                        </stackView>
+                                                                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ff-fit-parameters-row">
+                                                                                                            <rect key="frame" x="10" y="249" width="280" height="16"/>
+                                                                                                            <subviews>
+                                                                                                                <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="ff-fit-parameters-label">
+                                                                                                                    <rect key="frame" x="-2" y="0.0" width="250" height="16"/>
+                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Fit parameters" id="ff-fit-parameters-label-cell">
+                                                                                                                        <font key="font" metaFont="system"/>
+                                                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                                                    </textFieldCell>
+                                                                                                                </textField>
+                                                                                                                <switch horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" state="on" translatesAutoresizingMaskIntoConstraints="NO" id="ff-fit-parameters-switch">
+                                                                                                                    <rect key="frame" x="253" y="-1" width="28" height="17"/>
+                                                                                                                    <connections>
+                                                                                                                        <action selector="ControlChanged:" target="aiw-ef-R4r" id="ff-fit-parameters-action"/>
                                                                                                                     </connections>
                                                                                                                 </switch>
                                                                                                             </subviews>
@@ -8140,7 +8194,6 @@ IA
                                                                                                                         <menu key="menu" id="eNQ-wZ-Qsa">
                                                                                                                             <items>
                                                                                                                                 <menuItem title="Select" hidden="YES" id="2g9-Kg-S24"/>
-                                                                                                                                <menuItem title="Model info" state="on" id="ff-attr-model-menu"/>
                                                                                                                                 <menuItem title="Temperature" state="on" id="ff-attr-temp-menu"/>
                                                                                                                                 <menuItem title="Concentrations" state="on" id="ff-attr-conc-menu"/>
                                                                                                                                 <menuItem isSeparatorItem="YES" id="ff-attr-detail-separator"/>
@@ -10270,6 +10323,7 @@ DQ
                         <outlet property="EmbeddedInformationBoxPositionControl" destination="oXU-QD-0aP" id="cdx-ff-box-position"/>
                         <outlet property="EmbeddedIntegrationRegionStyleControl" destination="Y4f-mH-upr" id="cdx-ff-integration-region-style"/>
                         <outlet property="EmbeddedModelInfoControl" destination="2gb-TJ-2DG" id="cdx-ff-model"/>
+                        <outlet property="EmbeddedFitParametersControl" destination="ff-fit-parameters-switch" id="cdx-ff-fit-parameters"/>
                         <outlet property="EmbeddedMolarRatioAxisTitleLabel" destination="RkX-d1-VHY" id="cdx-ff-022"/>
                         <outlet property="EmbeddedNameDisplayModeControl" destination="ff-name-mode-control" id="cdx-ff-name-mode"/>
                         <outlet property="EmbeddedParameterDisplayOptionsControl" destination="zzV-BM-mZL" id="cdx-ff-023"/>
@@ -10349,34 +10403,6 @@ DQ
                             <rect key="frame" x="135" y="-1" width="28" height="17"/>
                             <connections>
                                 <action selector="ControlChanged:" target="aiw-ef-R4r" id="ff-conc-detail-action"/>
-                            </connections>
-                        </switch>
-                    </subviews>
-                    <visibilityPriorities>
-                        <integer value="1000"/>
-                        <integer value="1000"/>
-                    </visibilityPriorities>
-                    <customSpacing>
-                        <real value="3.4028234663852886e+38"/>
-                        <real value="3.4028234663852886e+38"/>
-                    </customSpacing>
-                </stackView>
-                <stackView hidden="YES" distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" id="Z9i-N6-0vP">
-                    <rect key="frame" x="0.0" y="0.0" width="135" height="16"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <subviews>
-                        <textField focusRingType="none" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="VHo-cz-B6b">
-                            <rect key="frame" x="-2" y="0.0" width="105" height="16"/>
-                            <textFieldCell key="cell" lineBreakMode="clipping" title="Show model info" id="lU7-kc-PSW">
-                                <font key="font" metaFont="system"/>
-                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
-                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                            </textFieldCell>
-                        </textField>
-                        <switch horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" state="on" translatesAutoresizingMaskIntoConstraints="NO" id="2gb-TJ-2DG">
-                            <rect key="frame" x="108" y="-1" width="28" height="17"/>
-                            <connections>
-                                <action selector="ControlChanged:" target="aiw-ef-R4r" id="ecB-lv-mSu"/>
                             </connections>
                         </switch>
                     </subviews>
