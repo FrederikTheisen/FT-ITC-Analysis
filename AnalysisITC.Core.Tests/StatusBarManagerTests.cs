@@ -130,6 +130,27 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ConcurrentCompletedScrollersRestoreDocumentStatus()
+        {
+            var secondaryStatuses = new ConcurrentQueue<string>();
+            EventHandler<string> handler = (_, message) => secondaryStatuses.Enqueue(message);
+            StatusBarManager.SetDefaultSecondaryStatus("Project [M]");
+            StatusBarManager.SecondaryStatusUpdated += handler;
+            try
+            {
+                Parallel.For(0, 10000, new ParallelOptions { MaxDegreeOfParallelism = 8 }, _ =>
+                    StatusBarManager.SetStatusScrolling("Saving test output", scrollcount: 0));
+
+                StatusBarManager.SetDefaultSecondaryStatus("Project [M]");
+                Assert.Equal("Project [M]", secondaryStatuses.Last());
+            }
+            finally
+            {
+                StatusBarManager.SecondaryStatusUpdated -= handler;
+            }
+        }
+
+        [Fact]
         public void SuccessfulFileMessageStopsProgressWithoutSuppressingDocumentStatus()
         {
             var path = Path.Combine("private-save-folder", "Project.ftxtc");
