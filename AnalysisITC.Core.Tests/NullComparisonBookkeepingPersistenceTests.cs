@@ -181,7 +181,12 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
         Assert.True(DocumentDirtyTracker.IsDirty);
         Assert.True(DocumentDirtyTracker.MatchesSaveStamp(stamp));
         Assert.False(ProjectWriter.IsWriteInProgress);
-        if (entryPoint != "autosave") Assert.Single(errors);
+        if (entryPoint != "autosave")
+        {
+            var error = Assert.Single(errors);
+            Assert.Equal(nameof(InvalidDataException), error.Title);
+            Assert.Equal(HandledException.Severity.Error, error.Level);
+        }
     }
 
     static async Task<(List<ExperimentData> Experiments, AnalysisResult Result)> Fit(string scope, DilutionMethod method)
