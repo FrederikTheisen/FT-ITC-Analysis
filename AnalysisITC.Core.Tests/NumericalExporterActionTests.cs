@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -12,7 +13,7 @@ using Xunit;
 namespace AnalysisITC.Core.Tests
 {
     [Collection(FileTypeFixtureCollectionDefinition.Name)]
-    public sealed class NumericalExporterActionTests : IDisposable
+    public sealed class NumericalExporterActionTests : IAsyncLifetime
     {
         readonly string folder = Path.Combine(Path.GetTempPath(), "numerical-export-action-" + Guid.NewGuid().ToString("N"));
         readonly ISettingsStore oldStore = PlatformServices.SettingsStore;
@@ -44,9 +45,20 @@ namespace AnalysisITC.Core.Tests
             AppEventHandler.ShowAppMessage += messageHandler;
         }
 
-        public void Dispose()
+        public Task InitializeAsync() => Task.CompletedTask;
+
+        public async Task DisposeAsync()
         {
             StatusBarManager.StatusUpdated -= statusHandler;
+            // Export starts an async-void status animation. Stop and drain it before
+            // another fixture observes secondary status updates in this process.
+            StatusBarManager.SetStatus("", 0);
+            var scrolling = typeof(StatusBarManager).GetField("secondaryStatusSuppressionCount", BindingFlags.Static | BindingFlags.NonPublic)!;
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while ((int)scrolling.GetValue(null)! > 0 && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            var remainingScrollers = (int)scrolling.GetValue(null)!;
+            StatusBarManager.ClearAppStatus();
             AppEventHandler.ShowAppMessage -= messageHandler;
             AppEventHandler.ShowAppMessage = oldMessageHandler;
             PlatformServices.RegisterExportPromptService(oldPrompt);
@@ -60,6 +72,7 @@ namespace AnalysisITC.Core.Tests
             AppSettings.ExportColumns = oldColumns;
             DataManager.Clear(DataClearMode.ResetSession);
             Directory.Delete(folder, recursive: true);
+            Assert.Equal(0, remainingScrollers);
         }
 
         [Fact]
