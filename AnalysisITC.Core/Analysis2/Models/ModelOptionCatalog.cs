@@ -7,9 +7,16 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis.Models
 {
-    /// <summary>Canonical model option defaults, independent of experiment data.</summary>
+    /// <summary>Canonical model option defaults and editability, independent of experiment data.</summary>
     public static class ModelOptionCatalog
     {
+        public static bool IsOptionEnabled(AttributeKey key, bool useSyringeCorrection) => key switch
+        {
+            AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 => useSyringeCorrection,
+            AttributeKey.LockDuplicateParameter => !useSyringeCorrection,
+            _ => true,
+        };
+
         public static IDictionary<AttributeKey, ExperimentAttribute> CreateOptions(AnalysisModel model)
         {
             var options = new Dictionary<AttributeKey, ExperimentAttribute>();

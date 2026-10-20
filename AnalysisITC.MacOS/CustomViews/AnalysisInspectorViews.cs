@@ -558,31 +558,15 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             var useSyringe = options.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringe)
                 && syringe.Option.BoolValue;
-            var shareNValues = options.TryGetValue(AttributeKey.LockDuplicateParameter, out var shared)
-                && shared.Option.BoolValue;
-
-            return key switch
-            {
-                AttributeKey.NumberOfSites1 => useSyringe,
-                AttributeKey.NumberOfSites2 => useSyringe && !shareNValues,
-                _ => true,
-            };
+            return ModelOptionCatalog.IsOptionEnabled(key, useSyringe);
         }
 
         public static string DisabledOptionToolTip(
             AttributeKey key,
             IDictionary<AttributeKey, AnalysisOptionDraft> options)
         {
-            if (key == AttributeKey.NumberOfSites1)
+            if (key is AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2)
                 return "Enable Use Syringe Correction to edit site stoichiometry.";
-            if (key == AttributeKey.NumberOfSites2)
-            {
-                var shared = options.TryGetValue(AttributeKey.LockDuplicateParameter, out var option)
-                    && option.Option.BoolValue;
-                return shared
-                    ? "Site 2 uses the shared N-value."
-                    : "Enable Use Syringe Correction to edit site stoichiometry.";
-            }
 
             return string.Empty;
         }

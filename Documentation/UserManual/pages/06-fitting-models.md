@@ -202,6 +202,8 @@ Let *M* be the total macromolecule concentration, *N* the number of sites per ma
 
 **Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
 
+With syringe correction on, set the two fixed stoichiometries independently. **Shared N-Values** applies only when syringe correction is off.
+
 The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower RMSD or optimizer objective alone does not establish that two distinguishable binding processes are supported by the experiment.
 
 #### Calculation and assumptions

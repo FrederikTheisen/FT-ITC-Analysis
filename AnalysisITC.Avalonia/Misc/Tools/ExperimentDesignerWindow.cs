@@ -330,6 +330,8 @@ namespace AnalysisITC.Avalonia.Tools
                 state.ApplyParameters(factory);
                 RebuildParameterRows();
             }
+            if (option.Key == AttributeKey.UseSyringeActiveFraction)
+                RebuildOptionRows();
             UpdateSyntheticData();
         }
 
@@ -350,6 +352,10 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var properties = key.GetProperties();
             var optionType = properties?.Type ?? ExperimentAttribute.AttributeType.String;
+            var options = factory!.GetExposedModelOptions();
+            var useSyringeCorrection = options.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption)
+                && syringeOption.BoolValue;
+            var enabled = ModelOptionCatalog.IsOptionEnabled(key, useSyringeCorrection);
             var title = WorkspaceControlBuilder.MarkdownText(key switch
             {
                 AttributeKey.PreboundLigandConc => "Total competitor concentration",
@@ -358,7 +364,7 @@ namespace AnalysisITC.Avalonia.Tools
                 _ => option.GetDisplayName()
             });
             title.FontWeight = FontWeight.SemiBold;
-            AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            AppTheme.Bind(title, TextBlock.ForegroundProperty, enabled ? AppTheme.PrimaryText : AppTheme.MutedText);
             if (!string.IsNullOrWhiteSpace(properties?.ToolTip))
                 ToolTip.SetTip(title, properties?.ToolTip);
 
@@ -382,6 +388,7 @@ namespace AnalysisITC.Avalonia.Tools
                 }
             };
 
+            editor.IsEnabled = enabled;
             var panel = new StackPanel { Spacing = 4 };
             panel.Children.Add(title);
             panel.Children.Add(editor);
@@ -397,7 +404,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         Control BoolOptionEditor(ExperimentAttribute option)
         {
-            var check = Check("Enabled", option.BoolValue, "Enable or disable this model option.");
+            var tooltip = option.Key == AttributeKey.LockDuplicateParameter
+                ? option.Key.GetProperties().ToolTip : "Enable or disable this model option.";
+            var check = Check("Enabled", option.BoolValue, tooltip);
             check.IsCheckedChanged += (_, _) =>
             {
                 var copy = option.Copy();

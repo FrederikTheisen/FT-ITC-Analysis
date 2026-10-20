@@ -218,6 +218,8 @@ When comparing programs, check the model, concentration and stoichiometry defini
 ## Syringe correction
 Enable syringe correction when the main concentration uncertainty concerns material in the syringe rather than the cell. The **N-value** parameter row becomes **Correction factor** (α), which scales delivered titrant concentration. Enter or lock α there and set the fixed cell-side site ratio under **Stoichiometry**. Check this setting when comparing fitted stoichiometry between analyses.
 
+For **Two-Sets-Of-Sites**, set the two fixed stoichiometries independently. **Shared N-Values** applies only when syringe correction is off.
+
 # Scientific interpretation
 
 An ordinary fitted N-value can absorb error in cell concentration or activity, so it is not necessarily a pure stoichiometric estimate. Syringe correction instead applies the fitted factor to the delivered titrant concentration during fitting. It changes the mass balance without changing measured heats or thermogram integration. Values fitted with and without this mode are not directly interchangeable.

@@ -158,19 +158,20 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public void UpdateState(IDictionary<AttributeKey,ExperimentAttribute> attributes)
         {
-            bool enable;
+            var useSyringeCorrection = attributes.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption)
+                && syringeOption.BoolValue;
+            var enable = ModelOptionCatalog.IsOptionEnabled(Option.Key, useSyringeCorrection);
 
             switch (Option.Key)
             {
                 case AttributeKey.NumberOfSites1:
-                    enable = attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+                case AttributeKey.NumberOfSites2:
                     UpdateAnalysisLabelEnabled(enable);
                     StoichiometryPopup.Enabled = enable;
                     break;
-                case AttributeKey.NumberOfSites2:
-                    enable = (attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false) && (!attributes[AttributeKey.LockDuplicateParameter]?.BoolValue ?? true);
+                case AttributeKey.LockDuplicateParameter:
                     UpdateAnalysisLabelEnabled(enable);
-                    StoichiometryPopup.Enabled = enable;
+                    InputSwitch.Enabled = enable;
                     break;
             }
         }

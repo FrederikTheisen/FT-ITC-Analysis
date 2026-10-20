@@ -12,6 +12,7 @@ using Avalonia.Media;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
@@ -196,7 +197,9 @@ namespace AnalysisITC.Avalonia.Analysis
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus)
         {
-            var check = WorkspaceControlBuilder.Check("Enabled", option.BoolValue, "Enable or disable this model option.");
+            var tooltip = key == AttributeKey.LockDuplicateParameter
+                ? key.GetProperties().ToolTip : "Enable or disable this model option.";
+            var check = WorkspaceControlBuilder.Check("Enabled", option.BoolValue, tooltip);
             check.IsEnabled = enabled;
             check.IsCheckedChanged += (_, _) =>
             {
@@ -609,15 +612,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var useSyringeCorrection = allOptions.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption)
                 && syringeOption.BoolValue;
-            var lockDuplicateParameter = allOptions.TryGetValue(AttributeKey.LockDuplicateParameter, out var duplicateOption)
-                && duplicateOption.BoolValue;
-
-            return key switch
-            {
-                AttributeKey.NumberOfSites1 => useSyringeCorrection,
-                AttributeKey.NumberOfSites2 => useSyringeCorrection && !lockDuplicateParameter,
-                _ => true
-            };
+            return ModelOptionCatalog.IsOptionEnabled(key, useSyringeCorrection);
         }
 
         static bool TryParseDouble(string? text, out double value)

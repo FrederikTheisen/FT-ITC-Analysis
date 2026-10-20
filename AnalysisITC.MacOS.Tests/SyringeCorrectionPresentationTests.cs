@@ -15,6 +15,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.UI.MacOS;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 static class SyringeCorrectionPresentationTests
@@ -42,12 +43,194 @@ static class SyringeCorrectionPresentationTests
                 LockedResult(model);
                 LockedResult(model, global: true);
             }
+            FixedCountControls();
             Console.WriteLine("PASS: native syringe labels and tooltips follow options in Analysis, designer and locked results for all three models");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
         finally { ExperimentDesignerViewController2.AutoRunExperimentSimulation = autoRun; }
     }
+
+    static void FixedCountControls()
+    {
+        var failures = new List<string>();
+        foreach (var shared in new[] { true, false })
+        {
+            foreach (var global in new[] { false, true })
+            {
+                try { AnalysisFixedCounts(global, shared); }
+                catch (Exception error) { failures.Add("Analyze global=" + global + ", shared=" + shared + ": " + error); }
+            }
+            try { DesignerFixedCounts(shared); }
+            catch (Exception error) { failures.Add("Designer shared=" + shared + ": " + error); }
+        }
+        Check(failures.Count == 0, string.Join("\n", failures));
+        Console.WriteLine("PASS: six native Analyze/Designer groups preserve independent fixed counts and sharing through mode changes");
+    }
+
+    static void AnalysisFixedCounts(bool global, bool initiallyShared)
+    {
+        DataManager.Init();
+        DataManager.AddData(new[] { Data(), Data() });
+        using (var controller = Create<DataAnalysisViewController>())
+        {
+            var mode = new NSSegmentedControl { SegmentCount = 2, SelectedSegment = global ? 1 : 0 };
+            Set(controller, "AnalysisModeControl", mode);
+            Set(controller, "ParameterStackView", new NSStackView());
+            Set(controller, "ConstraintStackView", new NSStackView());
+            Set(controller, "ModelOptionsStackView", new NSStackView());
+            Set(controller, "FitSimplexButton", new NSButton());
+            var errors = new NSPopUpButton();
+            errors.AddItem("None");
+            Set(controller, "ErrorMethodControl", errors);
+            var model = new NSPopUpButton();
+            model.AddItem("Two Sites");
+            model.ItemAtIndex(0).Tag = (int)AnalysisModel.TwoSetsOfSites;
+            Set(controller, "ModelTypeControl", model);
+            controller.Workspace.SetModelType(AnalysisModel.TwoSetsOfSites);
+            controller.Workspace.SetGlobalMode(global);
+            Invoke(controller, "RebuildInspectorEditorViews");
+
+            SetAnalysisCheck(controller, AttributeKey.UseSyringeActiveFraction, true);
+            SetAnalysisCount(controller, AttributeKey.NumberOfSites1, 2);
+            SetAnalysisCount(controller, AttributeKey.NumberOfSites2, 3);
+            SetAnalysisCheck(controller, AttributeKey.UseSyringeActiveFraction, false);
+            SetAnalysisCheck(controller, AttributeKey.LockDuplicateParameter, initiallyShared);
+            var shared = initiallyShared;
+            foreach (var syringe in new[] { false, true, false, true, false })
+            {
+                SetAnalysisCheck(controller, AttributeKey.UseSyringeActiveFraction, syringe);
+                CheckAnalysisState(controller, syringe, shared);
+                CheckAnalysisCounts(controller);
+                if (!syringe)
+                {
+                    shared = !shared;
+                    SetAnalysisCheck(controller, AttributeKey.LockDuplicateParameter, shared);
+                }
+                Check(controller.Workspace.TryRebuild(), "Analyze context rebuild failed");
+                Invoke(controller, "RebuildInspectorEditorViews");
+                CheckAnalysisState(controller, syringe, shared);
+                CheckAnalysisCounts(controller);
+            }
+        }
+        DataManager.Clear(DataClearMode.ResetSession);
+    }
+
+    static NSView AnalysisOption(DataAnalysisViewController controller, AttributeKey key) =>
+        Field<System.Collections.IList>(controller, "optionControls").Cast<NSView>().Single(view =>
+            ((ExperimentAttribute)Get(Field<object>(view, "draft"), "Option")).Key == key);
+
+    static void SetAnalysisCheck(DataAnalysisViewController controller, AttributeKey key, bool value)
+    {
+        var row = AnalysisOption(controller, key);
+        var control = key == AttributeKey.UseSyringeActiveFraction
+            ? (NSControl)Views<NSSwitch>(row).Single() : Views<NSButton>(row).Single();
+        Check(control.Enabled, "Attempt to edit disabled " + key);
+        if (control is NSSwitch) ((NSSwitch)control).State = value ? 1 : 0;
+        else ((NSButton)control).State = value ? NSCellStateValue.On : NSCellStateValue.Off;
+        control.SendAction(control.Action, control.Target);
+        Pump();
+    }
+
+    static void SetAnalysisCount(DataAnalysisViewController controller, AttributeKey key, double value)
+    {
+        var popup = Views<NSPopUpButton>(AnalysisOption(controller, key)).Single();
+        Check(popup.Enabled, "Attempt to edit disabled " + key);
+        StoichiometryPopupBuilder.Select(popup, value);
+        popup.SendAction(popup.Action, popup.Target);
+        Pump();
+    }
+
+    static void CheckAnalysisState(DataAnalysisViewController controller, bool syringe, bool shared)
+    {
+        var first = Views<NSPopUpButton>(AnalysisOption(controller, AttributeKey.NumberOfSites1)).Single();
+        var second = Views<NSPopUpButton>(AnalysisOption(controller, AttributeKey.NumberOfSites2)).Single();
+        var sharing = Views<NSButton>(AnalysisOption(controller, AttributeKey.LockDuplicateParameter)).Single();
+        Check(first.Enabled == syringe && second.Enabled == syringe && sharing.Enabled == !syringe,
+            "Enablement: syringe=" + syringe + ", fixed1=" + first.Enabled + ", fixed2=" + second.Enabled + ", sharing=" + sharing.Enabled);
+        Check((sharing.State == NSCellStateValue.On) == shared, "Analyze sharing choice changed");
+        Check(controller.Workspace.Session.Active.ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue == shared,
+            "Analyze stored sharing choice changed");
+    }
+
+    static void CheckAnalysisCounts(DataAnalysisViewController controller)
+    {
+        foreach (var pair in new[] { Tuple.Create(AttributeKey.NumberOfSites1, 2.0), Tuple.Create(AttributeKey.NumberOfSites2, 3.0) })
+        {
+            var popup = Views<NSPopUpButton>(AnalysisOption(controller, pair.Item1)).Single();
+            Check(StoichiometryPopupBuilder.GetSelected(popup).Factor == pair.Item2, "Analyze displayed count changed");
+            Check(controller.Workspace.Session.Active.ModelOptions[pair.Item1].DoubleValue == pair.Item2, "Analyze stored count changed");
+        }
+    }
+
+    static void DesignerFixedCounts(bool initiallyShared)
+    {
+        using (var controller = DesignerController())
+        {
+            var model = Outlet<NSPopUpButton>(controller, "ModelControl");
+            model.SelectItemWithTag((int)AnalysisModel.TwoSetsOfSites);
+            Invoke(controller, "ModelControlAction", model);
+            SetDesignerCheck(controller, AttributeKey.UseSyringeActiveFraction, true);
+            foreach (var pair in new[] { Tuple.Create(AttributeKey.NumberOfSites1, 2.0), Tuple.Create(AttributeKey.NumberOfSites2, 3.0) })
+            {
+                var popup = DesignerOption(controller, pair.Item1).StoichiometryPopup;
+                Check(popup.Enabled, "Attempt to edit disabled Designer count");
+                StoichiometryPopupBuilder.Select(popup, pair.Item2);
+                popup.SendAction(popup.Action, popup.Target);
+            }
+            SetDesignerCheck(controller, AttributeKey.UseSyringeActiveFraction, false);
+            SetDesignerCheck(controller, AttributeKey.LockDuplicateParameter, initiallyShared);
+            var shared = initiallyShared;
+            foreach (var syringe in new[] { false, true, false, true, false })
+            {
+                SetDesignerCheck(controller, AttributeKey.UseSyringeActiveFraction, syringe);
+                CheckDesignerState(controller, syringe, shared);
+                if (!syringe)
+                {
+                    shared = !shared;
+                    SetDesignerCheck(controller, AttributeKey.LockDuplicateParameter, shared);
+                }
+                Invoke(controller, "SetupModelControls");
+                Invoke(controller, "RefreshDesignerControlStates");
+                CheckDesignerState(controller, syringe, shared);
+            }
+        }
+    }
+
+    static OptionAdjustmentView DesignerOption(ExperimentDesignerViewController2 controller, AttributeKey key) =>
+        Field<List<OptionAdjustmentView>>(controller, "OptionControls").Single(control => control.Key == key);
+
+    static void SetDesignerCheck(ExperimentDesignerViewController2 controller, AttributeKey key, bool value)
+    {
+        var button = Field<NSButton>(DesignerOption(controller, key), "InputSwitch");
+        Check(button.Enabled, "Attempt to edit disabled Designer " + key);
+        button.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
+        button.SendAction(button.Action, button.Target);
+    }
+
+    static void CheckDesignerState(ExperimentDesignerViewController2 controller, bool syringe, bool shared)
+    {
+        var first = DesignerOption(controller, AttributeKey.NumberOfSites1).StoichiometryPopup;
+        var second = DesignerOption(controller, AttributeKey.NumberOfSites2).StoichiometryPopup;
+        var sharing = Field<NSButton>(DesignerOption(controller, AttributeKey.LockDuplicateParameter), "InputSwitch");
+        Check(first.Enabled == syringe && second.Enabled == syringe && sharing.Enabled == !syringe,
+            "Enablement: syringe=" + syringe + ", fixed1=" + first.Enabled + ", fixed2=" + second.Enabled + ", sharing=" + sharing.Enabled);
+        Check((sharing.State == NSCellStateValue.On) == shared, "Designer sharing choice changed");
+        var options = ((SingleModelFactory)Get(controller, "Factory")).GetExposedModelOptions();
+        Check(options[AttributeKey.LockDuplicateParameter].BoolValue == shared, "Designer stored sharing choice changed");
+        Check(StoichiometryPopupBuilder.GetSelected(first).Factor == 2 && options[AttributeKey.NumberOfSites1].DoubleValue == 2,
+            "Designer first count changed");
+        Check(StoichiometryPopupBuilder.GetSelected(second).Factor == 3 && options[AttributeKey.NumberOfSites2].DoubleValue == 3,
+            "Designer second count changed");
+    }
+
+    static IEnumerable<T> Views<T>(NSView view) where T : NSView
+    {
+        if (view is T) yield return (T)view;
+        foreach (var child in view.Subviews) foreach (var nested in Views<T>(child)) yield return nested;
+    }
+
+    static void Pump() => NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.02));
 
     static void Analysis(AnalysisModel model)
     {

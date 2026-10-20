@@ -69,7 +69,7 @@ namespace AnalysisITC.Core.Analysis
         EquilibriumConstant,
         [AttributeKey(ExperimentAttribute.AttributeType.Parameter)]
         Percentage,
-        [AttributeKey("Shared N-Values", "Force duplicated site parameters to share the same fitted value. Useful for symmetric or equivalent two-site models.", ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey("Shared N-Values", "Share fitted stoichiometries when syringe correction is off.", ExperimentAttribute.AttributeType.Bool)]
         LockDuplicateParameter,
         [AttributeKey("Buffer Subtraction", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,

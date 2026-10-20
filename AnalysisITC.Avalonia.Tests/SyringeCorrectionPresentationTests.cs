@@ -15,6 +15,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Utilities;
 using Xunit;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -22,6 +23,140 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SyringeCorrectionPresentationTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void AnalysisFixedCountsAndSharingSurviveModeChanges(bool global, bool initiallyShared)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var data = Data();
+        DataManager.AddData(data);
+        if (global) DataManager.AddData(Data());
+        var workspace = new AnalysisWorkspaceControl { Experiment = data };
+        var window = new Window { Content = workspace };
+        try
+        {
+            window.Show();
+            workspace.ModelComboForTesting.SelectedItem = workspace.ModelComboForTesting.Items
+                .OfType<ComboBoxItem>().Single(item => Equals(item.Tag, AnalysisModel.TwoSetsOfSites));
+            if (global) workspace.ModeSelectorForTesting.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            var panel = workspace.OptionPanelForTesting;
+            SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, true);
+            SetFixedCount(panel, AttributeKey.NumberOfSites1, 2);
+            SetFixedCount(panel, AttributeKey.NumberOfSites2, 3);
+            SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, false);
+            SetOptionCheck(panel, AttributeKey.LockDuplicateParameter, initiallyShared);
+            var shared = initiallyShared;
+
+            foreach (var syringe in new[] { false, true, false, true, false })
+            {
+                SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, syringe);
+                AssertOptionStates(panel, syringe, shared);
+                AssertFixedCounts(panel, workspace.ContextForTesting!.ExposedModelOptions, shared);
+                if (!syringe)
+                {
+                    shared = !shared;
+                    SetOptionCheck(panel, AttributeKey.LockDuplicateParameter, shared);
+                    AssertOptionStates(panel, syringe, shared);
+                    AssertFixedCounts(panel, workspace.ContextForTesting!.ExposedModelOptions, shared);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DesignerFixedCountsAndSharingSurviveModeChanges(bool initiallyShared)
+    {
+        var window = new ExperimentDesignerWindow();
+        try
+        {
+            window.ModelComboForTesting.SelectedIndex = AnalysisModelAttribute.GetAll().IndexOf(AnalysisModel.TwoSetsOfSites);
+            var panel = window.OptionPanelForTesting;
+            SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, true);
+            SetFixedCount(panel, AttributeKey.NumberOfSites1, 2);
+            SetFixedCount(panel, AttributeKey.NumberOfSites2, 3);
+            SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, false);
+            SetOptionCheck(panel, AttributeKey.LockDuplicateParameter, initiallyShared);
+            var shared = initiallyShared;
+
+            foreach (var syringe in new[] { false, true, false, true, false })
+            {
+                SetOptionCheck(panel, AttributeKey.UseSyringeActiveFraction, syringe);
+                AssertOptionStates(panel, syringe, shared);
+                AssertFixedCounts(panel, window.GenerationFactoryForTesting!.GetExposedModelOptions(), shared);
+                if (!syringe)
+                {
+                    shared = !shared;
+                    SetOptionCheck(panel, AttributeKey.LockDuplicateParameter, shared);
+                }
+                window.InjectionCountStepperForTesting.Value += 1;
+                AssertOptionStates(panel, syringe, shared);
+                AssertFixedCounts(panel, window.GenerationFactoryForTesting!.GetExposedModelOptions(), shared);
+                AssertFixedCounts(panel, window.CreateFitFactory().GetExposedModelOptions(), shared);
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    static Control OptionRow(StackPanel panel, AttributeKey key)
+    {
+        var title = ModelOptionCatalog.CreateOptions(AnalysisModel.TwoSetsOfSites)[key].GetDisplayName().Replace("^", "");
+        return panel.Children.Single(row => Texts(row).Any(text =>
+            (text.Text ?? string.Concat(text.Inlines?.OfType<Run>().Select(run => run.Text) ?? Array.Empty<string>())) == title));
+    }
+
+    static CheckBox OptionCheck(StackPanel panel, AttributeKey key) =>
+        OptionRow(panel, key).GetLogicalDescendants().OfType<CheckBox>().Single();
+
+    static ComboBox FixedCount(StackPanel panel, AttributeKey key) =>
+        OptionRow(panel, key).GetLogicalDescendants().OfType<ComboBox>().Single();
+
+    static void SetOptionCheck(StackPanel panel, AttributeKey key, bool value)
+    {
+        var check = OptionCheck(panel, key);
+        Assert.True(check.IsEnabled);
+        check.IsChecked = value;
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    static void SetFixedCount(StackPanel panel, AttributeKey key, double value)
+    {
+        var combo = FixedCount(panel, key);
+        Assert.True(combo.IsEnabled);
+        combo.SelectedIndex = StoichiometryOptions.Presets.ToList().FindIndex(option => option.Factor == value);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    static void AssertOptionStates(StackPanel panel, bool syringe, bool shared)
+    {
+        Assert.Equal(syringe, FixedCount(panel, AttributeKey.NumberOfSites1).IsEnabled);
+        Assert.Equal(syringe, FixedCount(panel, AttributeKey.NumberOfSites2).IsEnabled);
+        Assert.Equal(!syringe, OptionCheck(panel, AttributeKey.LockDuplicateParameter).IsEnabled);
+        Assert.Equal(shared, OptionCheck(panel, AttributeKey.LockDuplicateParameter).IsChecked);
+        Assert.Equal(AttributeKey.LockDuplicateParameter.GetProperties().ToolTip,
+            ToolTip.GetTip(OptionCheck(panel, AttributeKey.LockDuplicateParameter)));
+    }
+
+    static void AssertFixedCounts(StackPanel panel, System.Collections.Generic.IDictionary<AttributeKey, ExperimentAttribute> options, bool shared)
+    {
+        Assert.Equal(shared, options[AttributeKey.LockDuplicateParameter].BoolValue);
+        foreach (var pair in new[] { (AttributeKey.NumberOfSites1, 2.0), (AttributeKey.NumberOfSites2, 3.0) })
+        {
+            Assert.Equal(pair.Item2, options[pair.Item1].DoubleValue);
+            Assert.Equal(pair.Item2, StoichiometryOptions.Presets[FixedCount(panel, pair.Item1).SelectedIndex].Factor);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(AnalysisModel.OneSetOfSites, false)]
     [InlineData(AnalysisModel.TwoSetsOfSites, false)]
