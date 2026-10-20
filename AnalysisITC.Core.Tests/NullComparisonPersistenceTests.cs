@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -19,6 +21,97 @@ namespace AnalysisITC.Core.Tests;
 [Collection("AutoSaveManager")]
 public sealed class NullComparisonPersistenceTests
 {
+    [Theory]
+    [InlineData(DilutionMethod.MicroCal, "legacy", 1, false, false)]
+    [InlineData(DilutionMethod.Exponential, "dumas-simpson", 2, false, false)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, "pytc-discrete", 3, false, false)]
+    [InlineData(DilutionMethod.MicroCal, "legacy", 1, true, false)]
+    [InlineData(DilutionMethod.Exponential, "dumas-simpson", 2, true, false)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, "pytc-discrete", 3, true, false)]
+    [InlineData(DilutionMethod.MicroCal, "legacy", 1, false, true)]
+    [InlineData(DilutionMethod.Exponential, "dumas-simpson", 2, false, true)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, "pytc-discrete", 3, false, true)]
+    [InlineData(DilutionMethod.MicroCal, "legacy", 1, true, true)]
+    [InlineData(DilutionMethod.Exponential, "dumas-simpson", 2, true, true)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, "pytc-discrete", 3, true, true)]
+    public async Task SavedNullHeatMethodMetadataSurvivesReopening(
+        DilutionMethod method, string heatMethod, int modelSchema, bool includeResult, bool reprocessExperiment)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false, method: method);
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        model.Data.UpdateSolution(model);
+        var result = includeResult ? CreateResult(model) : null;
+        result?.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        var expectedComparison = model.Solution.NullComparison;
+        var expectedAssessment = result?.BindingAssessment;
+        var expected = new Dictionary<string, (string, int)> { [model.Data.UniqueID] = (heatMethod, modelSchema) };
+        using var initial = new MemoryStream();
+        await FTXTCWriter.WriteStream(initial, new[] { model.Data },
+            result == null ? Array.Empty<AnalysisResult>() : new[] { result });
+        AssertSavedNullHeatMethods(initial, expected);
+        var bytes = initial.ToArray();
+
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var input = new MemoryStream(bytes);
+            var restored = await FTXTCReader.ReadWithRecovery(input, FtxtcReadPolicy.Strict);
+            Assert.Empty(restored.Issues);
+            var experiment = Assert.Single(restored.Containers.OfType<ExperimentData>());
+            if (reprocessExperiment && generation == 0)
+            {
+                RawDataReader.ReprocessInjections(experiment, method == DilutionMethod.MicroCal
+                    ? DilutionMethod.DiscreteDisplacement : DilutionMethod.MicroCal);
+                // These result objects are outside DataManager, which normally invalidates them.
+                foreach (var savedResult in restored.Containers.OfType<AnalysisResult>()) savedResult.Solution.Invalidate();
+            }
+            using var resaved = new MemoryStream();
+            await FTXTCWriter.WriteStream(resaved, restored.Containers.OfType<ExperimentData>(),
+                restored.Containers.OfType<AnalysisResult>());
+            AssertSavedNullHeatMethods(resaved, expected);
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(resaved);
+            Assert.Equal(model.HeatMethod, experiment.Solution.Model.HeatMethod);
+            if (reprocessExperiment) Assert.NotEqual(model.HeatMethod, experiment.HeatMethod);
+            else Assert.Equal(model.Data.HeatMethod, experiment.HeatMethod);
+            Assert.Equal(!reprocessExperiment, experiment.Solution.IsValid);
+            AssertComparisonEvidence(expectedComparison, experiment.Solution.NullComparison);
+            Assert.NotSame(experiment, Assert.Single(experiment.Solution.NullComparison.NullSolutions).Data);
+            if (includeResult)
+            {
+                var restoredResult = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+                AssertComparisonEvidence(expectedComparison, restoredResult.NullComparison);
+                Assert.Equivalent(expectedAssessment, restoredResult.BindingAssessment, strict: true);
+                Assert.False(restoredResult.IsModified);
+                Assert.NotSame(restoredResult.Solution.Solutions[0].Data,
+                    Assert.Single(restoredResult.NullComparison.NullSolutions).Data);
+            }
+            bytes = resaved.ToArray();
+        }
+    }
+
+    static void AssertSavedNullHeatMethods(MemoryStream package,
+        IReadOnlyDictionary<string, (string HeatMethod, int ModelSchema)> expected)
+    {
+        package.Position = 0;
+        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
+        var count = 0;
+        foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith("/solution.json", StringComparison.Ordinal)
+                     || entry.FullName.EndsWith("/result.json", StringComparison.Ordinal)))
+        {
+            using var stream = entry.Open();
+            var comparison = JsonNode.Parse(stream)["nullComparison"];
+            if (comparison == null) continue;
+            foreach (var member in comparison["members"].AsArray())
+            {
+                var saved = expected[member["experimentId"].GetValue<string>()];
+                Assert.Equal(saved, (member["solution"]["heatMethod"].GetValue<string>(),
+                    member["solution"]["modelSchemaVersion"].GetValue<int>()));
+                count++;
+            }
+        }
+        Assert.True(count > 0, "The package must contain an embedded Null solution.");
+    }
+
     [Theory]
     [InlineData("single", SolverTermination.IterationLimit)]
     [InlineData("independent", SolverTermination.EvaluationLimit)]
@@ -145,17 +238,80 @@ public sealed class NullComparisonPersistenceTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task AttachedMultiExperimentComparisonsRetainScopeWhenSavingAllOrOneExperiment(bool pooled, bool selectedOnly)
+    [InlineData(false, false, false, FtxtcReadPolicy.Strict)]
+    [InlineData(false, true, false, FtxtcReadPolicy.Strict)]
+    [InlineData(true, false, false, FtxtcReadPolicy.Strict)]
+    [InlineData(true, true, false, FtxtcReadPolicy.Strict)]
+    [InlineData(false, false, true, FtxtcReadPolicy.Strict)]
+    [InlineData(false, false, true, FtxtcReadPolicy.RecoverUsableContent)]
+    [InlineData(true, false, true, FtxtcReadPolicy.Strict)]
+    [InlineData(true, false, true, FtxtcReadPolicy.RecoverUsableContent)]
+    public async Task MultiExperimentComparisonsRetainScopeAndHeatMethods(
+        bool pooled, bool selectedOnly, bool includeResult, FtxtcReadPolicy policy)
     {
-        var models = new[]
+        var globalSolution = CreateMixedMethodComparison(pooled);
+        var models = globalSolution.Model.Models;
+        var result = includeResult ? new AnalysisResult(globalSolution) : null;
+        if (includeResult)
         {
-            InjectionProcessingMethodTests.FittedModel(bootstrap: false),
-            InjectionProcessingMethodTests.FittedModel(bootstrap: false),
+            if (pooled) result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+            else result.SetMemberBindingAssessmentOverride(models[1].Solution.Guid, BindingAssessmentOutcome.NoBindingDetected);
+        }
+        var expectedAssessments = result?.MemberAssessments.Select(member => member.Assessment).ToArray();
+        var expectedAssessment = result?.BindingAssessment;
+        var expected = models.ToDictionary(model => model.Data.UniqueID, model => model.Solution.NullComparison);
+        var expectedResultComparison = result?.NullComparison;
+        var expectedHeatMethods = new Dictionary<string, (string, int)>
+        {
+            [models[0].Data.UniqueID] = ("legacy", 1),
+            [models[1].Data.UniqueID] = ("dumas-simpson", 2),
+            [models[2].Data.UniqueID] = ("pytc-discrete", 3),
         };
+        var experiments = models.Take(selectedOnly ? 1 : models.Count).Select(model => model.Data).ToArray();
+
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, experiments,
+                result == null ? Array.Empty<AnalysisResult>() : new[] { result });
+            AssertSavedNullHeatMethods(package, expectedHeatMethods);
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+            package.Position = 0;
+            var restored = await FTXTCReader.ReadWithRecovery(package, policy);
+            Assert.Empty(restored.Issues);
+            if (includeResult)
+            {
+                result = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+                AssertComparisonEvidence(expectedResultComparison, result.NullComparison);
+                Assert.Equivalent(expectedAssessment, result.BindingAssessment, strict: true);
+                Assert.Equivalent(expectedAssessments, result.MemberAssessments.Select(member => member.Assessment).ToArray(), strict: true);
+                Assert.False(result.IsModified);
+                foreach (var member in result.Solution.Solutions)
+                {
+                    AssertComparisonEvidence(expected[member.Data.UniqueID], member.NullComparison);
+                    Assert.NotSame(member.Data, Assert.Single(result.NullComparison.NullSolutions,
+                        solution => solution.Data.UniqueID == member.Data.UniqueID).Data);
+                }
+            }
+            else Assert.DoesNotContain(restored.Containers, container => container is AnalysisResult);
+            experiments = restored.Containers.OfType<ExperimentData>().ToArray();
+            Assert.Equal(selectedOnly ? 1 : models.Count, experiments.Length);
+            foreach (var experiment in experiments)
+            {
+                var comparison = experiment.Solution.NullComparison;
+                AssertComparisonEvidence(expected[experiment.UniqueID], comparison);
+                Assert.Equal(!pooled, comparison.IsIndependentMemberComparison);
+                Assert.Equal(pooled ? models.Count : 1, comparison.Members.Count);
+                Assert.NotSame(experiment, Assert.Single(comparison.NullSolutions,
+                    solution => solution.Data.UniqueID == experiment.UniqueID).Data);
+            }
+        }
+    }
+
+    static GlobalSolution CreateMixedMethodComparison(bool pooled)
+    {
+        var models = new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.DiscreteDisplacement }
+            .Select(method => InjectionProcessingMethodTests.FittedModel(bootstrap: false, method: method)).ToArray();
         var globalModel = new GlobalModel(models.ToList()) { Parameters = new GlobalModelParameters() };
         foreach (var model in models)
         {
@@ -174,27 +330,99 @@ public sealed class NullComparisonPersistenceTests
         NullModelComparisonCalculator.Calculate(globalSolution, weighted: false,
             SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
         foreach (var model in models) model.Data.UpdateSolution(model);
-        var expected = models.ToDictionary(model => model.Data.UniqueID, model => model.Solution.NullComparison);
-        var experiments = models.Take(selectedOnly ? 1 : 2).Select(model => model.Data).ToArray();
+        return globalSolution;
+    }
 
-        for (var generation = 0; generation < 2; generation++)
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task MissingOrDefaultedEmbeddedMetadataUsesPairedBindingConvention(bool includeResult, bool missingSolution)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false, method: DilutionMethod.Exponential);
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        model.Data.UpdateSolution(model);
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { model.Data },
+            includeResult ? new[] { CreateResult(model) } : Array.Empty<AnalysisResult>());
+        using var historical = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
         {
-            using var package = new MemoryStream();
-            await FTXTCWriter.WriteStream(package, experiments);
-            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
-            package.Position = 0;
-            var containers = await FTXTCReader.ReadStream(package);
-            Assert.DoesNotContain(containers, container => container is AnalysisResult);
-            experiments = containers.OfType<ExperimentData>().ToArray();
-            Assert.Equal(selectedOnly ? 1 : 2, experiments.Length);
-            foreach (var experiment in experiments)
+            if (!path.EndsWith("/solution.json", StringComparison.Ordinal)
+                && !path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
+            var node = JsonNode.Parse(bytes);
+            if (node["nullComparison"] is not { } comparison) return bytes;
+            foreach (var member in comparison["members"].AsArray())
             {
-                var comparison = experiment.Solution.NullComparison;
-                AssertComparisonEvidence(expected[experiment.UniqueID], comparison);
-                Assert.Equal(!pooled, comparison.IsIndependentMemberComparison);
-                Assert.Equal(pooled ? 2 : 1, comparison.Members.Count);
+                if (missingSolution) member.AsObject().Remove("solution");
+                else
+                {
+                    member["solution"]["heatMethod"] = "legacy";
+                    member["solution"]["modelSchemaVersion"] = 1;
+                }
             }
-        }
+            return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+        }, schemaMinor: FTXTCFormat.SchemaMinor);
+        historical.Position = 0;
+        var restored = await FTXTCReader.ReadWithRecovery(historical, FtxtcReadPolicy.Strict);
+        Assert.Empty(restored.Issues);
+        var experiment = Assert.Single(restored.Containers.OfType<ExperimentData>());
+        AssertComparisonEvidence(model.Solution.NullComparison, experiment.Solution.NullComparison);
+        if (includeResult)
+            AssertComparisonEvidence(model.Solution.NullComparison,
+                Assert.Single(restored.Containers.OfType<AnalysisResult>()).NullComparison);
+        using var resaved = new MemoryStream();
+        await FTXTCWriter.WriteStream(resaved, restored.Containers.OfType<ExperimentData>(),
+            restored.Containers.OfType<AnalysisResult>());
+        AssertSavedNullHeatMethods(resaved, new Dictionary<string, (string, int)>
+        {
+            [model.Data.UniqueID] = ("dumas-simpson", 2),
+        });
+    }
+
+    [Fact]
+    public async Task MissingBindingAndEmbeddedSolutionRetainsHistoricalConvention()
+    {
+        var fitted = CreateMixedMethodComparison(pooled: true);
+        var selected = fitted.Solutions[1].Data;
+        var expected = selected.Solution.NullComparison;
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { selected });
+        using var historical = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
+        {
+            if (!path.EndsWith("/solution.json", StringComparison.Ordinal)) return bytes;
+            var node = JsonNode.Parse(bytes);
+            foreach (var member in node["nullComparison"]["members"].AsArray())
+                if (member["experimentId"].GetValue<string>() != selected.UniqueID)
+                    member.AsObject().Remove("solution");
+            return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+        }, schemaMinor: FTXTCFormat.SchemaMinor);
+        historical.Position = 0;
+        var restored = await FTXTCReader.ReadWithRecovery(historical, FtxtcReadPolicy.Strict);
+        Assert.Empty(restored.Issues);
+        var experiment = Assert.IsType<ExperimentData>(Assert.Single(restored.Containers));
+        var comparison = experiment.Solution.NullComparison;
+        Assert.All(comparison.NullSolutions, solution =>
+        {
+            var expectedMethod = solution.Data.UniqueID == selected.UniqueID
+                ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.MicroCal;
+            Assert.Equal(expectedMethod, solution.Model.HeatMethod);
+            Assert.Equal(expectedMethod, solution.Data.HeatMethod);
+        });
+        Assert.Equal(expected.Members.Select(member => (member.ExperimentId, member.Offset, member.Scope)),
+            comparison.Members.Select(member => (member.ExperimentId, member.Offset, member.Scope)));
+        Assert.Equal(expected.Members.SelectMany(member => member.Points).Select(point => (point.InjectionId,
+                point.InjectionMass, point.Ratio, point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)),
+            comparison.Members.SelectMany(member => member.Points).Select(point => (point.InjectionId,
+                point.InjectionMass, point.Ratio, point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)));
+        Assert.Equivalent(expected.BindingInformationCriteria, comparison.BindingInformationCriteria, strict: true);
+        Assert.Equivalent(expected.NullInformationCriteria, comparison.NullInformationCriteria, strict: true);
+        Assert.Equal(expected.DeltaAicc, comparison.DeltaAicc);
+        using var resaved = new MemoryStream();
+        await FTXTCWriter.WriteStream(resaved, new[] { experiment });
+        AssertSavedNullHeatMethods(resaved, expected.Members.ToDictionary(member => member.ExperimentId,
+            member => member.ExperimentId == selected.UniqueID ? ("dumas-simpson", 2) : ("legacy", 1)));
     }
 
     [Theory]
@@ -264,22 +492,33 @@ public sealed class NullComparisonPersistenceTests
         Assert.Equal(expected.NullModelId, actual.NullModelId);
         Assert.Equal(expected.IsIndependentMemberComparison, actual.IsIndependentMemberComparison);
         Assert.Equal(expected.BindingFitSucceeded, actual.BindingFitSucceeded);
+        Assert.Equal(expected.BindingFitReason, actual.BindingFitReason);
         Assert.Equal(expected.NullFitSucceeded, actual.NullFitSucceeded);
-        Assert.Equal(expected.BindingInformationCriteria.Aicc, actual.BindingInformationCriteria.Aicc);
-        Assert.Equal(expected.NullInformationCriteria.Aicc, actual.NullInformationCriteria.Aicc);
-        Assert.Equal(expected.NullInformationCriteria.ObservationCount, actual.NullInformationCriteria.ObservationCount);
-        Assert.Equal(expected.NullInformationCriteria.LikelihoodMode, actual.NullInformationCriteria.LikelihoodMode);
+        Assert.Equal(expected.NullFitReason, actual.NullFitReason);
+        Assert.Equal(expected.ComparisonUnavailableReason, actual.ComparisonUnavailableReason);
+        Assert.Equivalent(expected.BindingInformationCriteria, actual.BindingInformationCriteria, strict: true);
+        Assert.Equivalent(expected.NullInformationCriteria, actual.NullInformationCriteria, strict: true);
         Assert.Equal(expected.DeltaAicc, actual.DeltaAicc);
         Assert.Equal(expected.Members.Select(member => member.ExperimentId), actual.Members.Select(member => member.ExperimentId));
         foreach (var (before, after) in expected.Members.Zip(actual.Members))
         {
             Assert.Equal(before.Offset, after.Offset);
             Assert.Equal(before.Scope, after.Scope);
+            Assert.Equal(before.Convergence.Algorithm, after.Convergence.Algorithm);
+            Assert.Equal(before.Convergence.Termination, after.Convergence.Termination);
+            Assert.Equal(before.Convergence.ErrorEstimationOutcome, after.Convergence.ErrorEstimationOutcome);
+            Assert.Equal(before.Convergence.Loss, after.Convergence.Loss);
+            Assert.Equal(before.Convergence.Objective, after.Convergence.Objective);
+            Assert.Equal(before.Convergence.FailureReason, after.Convergence.FailureReason);
             Assert.Equal(before.Points.Select(point => (point.InjectionId, point.InjectionMass, point.Ratio,
                     point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)),
                 after.Points.Select(point => (point.InjectionId, point.InjectionMass, point.Ratio,
                     point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)));
             var solution = Assert.Single(actual.NullSolutions, solution => solution.Data.UniqueID == after.ExperimentId);
+            var original = Assert.Single(expected.NullSolutions, solution => solution.Data.UniqueID == before.ExperimentId);
+            Assert.Equal(original.Model.HeatMethod, solution.Model.HeatMethod);
+            Assert.Equal(solution.Model.HeatMethod, solution.Data.HeatMethod);
+            Assert.Equal(original.UseWeightedFitting, solution.UseWeightedFitting);
             Assert.Equal(after.Offset, solution.Parameters[ParameterType.Offset].Value);
             foreach (var point in after.Points)
                 Assert.Equal(point.PredictedHeatJoules, solution.Model.Evaluate(point.InjectionId), 12);

@@ -643,7 +643,7 @@ namespace AnalysisITC.Core.DataReaders
                             var comparisonState = JsonSerializer.Deserialize<FtxtcNullComparisonState>(
                                 state.NullComparison.Value, FTXTCFormat.JsonOptions);
                             solution.NullComparison = RestoreNullComparison(comparisonState, null,
-                                attachedExperimentId: experiment.UniqueID);
+                                attachedBinding: solution);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                         {
@@ -1116,7 +1116,7 @@ namespace AnalysisITC.Core.DataReaders
         }
 
         static NullModelComparison RestoreNullComparison(FtxtcNullComparisonState state,
-            IReadOnlyList<SolutionInterface> bindingMembers, string attachedExperimentId = null)
+            IReadOnlyList<SolutionInterface> bindingMembers, SolutionInterface attachedBinding = null)
         {
             if (state == null || state.SchemaVersion != 1 || state.NullModelId != "offset" || state.Members == null)
                 throw new InvalidDataException("Null comparison identity or schema is invalid.");
@@ -1124,6 +1124,7 @@ namespace AnalysisITC.Core.DataReaders
                 throw new InvalidDataException("Null comparison member state is invalid.");
             var expectedIds = bindingMembers?.Select(member => member.Data.UniqueID).ToList();
             var memberIds = state.Members.Select(member => member.ExperimentId).ToList();
+            var attachedExperimentId = attachedBinding?.Data.UniqueID;
             // An attached solution can retain pooled evidence even when Save Selected writes
             // only its experiment. The other members restore from their captured points.
             if (memberIds.Distinct(StringComparer.Ordinal).Count() != memberIds.Count
@@ -1203,10 +1204,16 @@ namespace AnalysisITC.Core.DataReaders
                     });
                 }
                 comparison.Members.Add(restored);
+                var binding = bindingMembers?.FirstOrDefault(candidate => candidate.Data.UniqueID == member.ExperimentId)
+                    ?? (attachedExperimentId == member.ExperimentId ? attachedBinding : null);
+                // Paired fits share the binding model's saved convention. Save Selected may
+                // omit another binding member, whose embedded Null solution retains that method.
+                var heatMethod = binding?.Model.HeatMethod ?? FtxtcWireIds.HeatMethod(member.Solution?.HeatMethod);
+                comparison.NullSolutions.Add(RestoreOffsetSolution(restored,
+                    restored.Convergence == null ? null : SolverConvergence.FromSnapshot(restored.Convergence),
+                    comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance,
+                    heatMethod));
             }
-            comparison.NullSolutions = comparison.Members.Select(member => RestoreOffsetSolution(member,
-                member.Convergence == null ? null : SolverConvergence.FromSnapshot(member.Convergence),
-                comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance)).ToList();
             foreach (var solution in comparison.NullSolutions) solution.NullComparison = comparison;
             return comparison;
         }
@@ -1322,7 +1329,7 @@ namespace AnalysisITC.Core.DataReaders
         }
 
         static SolutionInterface RestoreOffsetSolution(NullModelComparisonMember member, SolverConvergence convergence,
-            bool weighted)
+            bool weighted, InjectionHeatMethod heatMethod)
         {
             // Build a detached data snapshot from the captured masses and heats. This preserves an
             // inspectable ordinary Offset model after reopen without depending on edited experiment inputs.
@@ -1331,6 +1338,7 @@ namespace AnalysisITC.Core.DataReaders
                 SyringeConcentration = new FloatWithError(1),
                 CellConcentration = new FloatWithError(0),
                 CellVolume = 1,
+                HeatMethod = heatMethod,
             };
             data.SetID(member.ExperimentId);
             foreach (var point in member.Points)

@@ -1180,13 +1180,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-148 - Reopening changes the embedded Null solution's heat-method provenance
 
 - Priority: Low.
-- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
-- Confidence: Confirmed by code inspection.
+- Status: Resolved locally (2026-10-20).
+- Confidence: Reproduced through the production writer/reader before the fix.
 - Location: `AnalysisITC.Core/Analysis2/NullModelComparisonCalculator.cs`, `CreateOffset`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreNullComparison` and `RestoreOffsetSolution`; `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `CaptureNullComparison` and `CaptureSolution`.
 - Problem: Fit-time Offset Null models inherit the binding model's heat method. Restoration constructs detached experiment data with the default MicroCal heat method and rebuilds the Offset solution from captured masses/heats, without restoring the embedded solution's heat-method metadata. Resaving a comparison originally using Dumas or discrete displacement therefore changes embedded `heatMethod` to `legacy` and `modelSchemaVersion` from 2 or 3 to 1.
 - Qualification: The change affects saved provenance on the first reopen/resave; those fields then stabilize at the reconstructed defaults. Reopening remains possible. This review does not establish a change to the saved comparison points, criteria, or numerical assessment.
-- Suggested solution direction: Retain the embedded Null solution's saved heat-method evidence and use it consistently when restoring or recapturing that solution. Preserve the detached masses/heats reconstruction and saved predictions; do not recompute the comparison from current experiment inputs or infer missing historical evidence. Check the FTXTC format contract before choosing how restoration carries the metadata, and add round-trip expectations for all three heat-method/schema pairs.
-- Validation boundary: Read-only source inspection; no builds or tests run for this review.
+- Reproduction: Four of six initial save/reopen/resave regressions failed: Dumas and Discrete comparisons changed to `legacy`/schema 1 for both attached fits and Analysis Results. Both MicroCal controls passed.
+- Resolution: Restore each detached Null model with its paired saved binding model's heat convention, matched by experiment ID. For comparison members retained without their binding fit by Save Selected, use the embedded saved method; if both sources are absent, retain the historical default. Current experiment processing never replaces the saved binding convention. Captured masses, observations, predictions, offsets, criteria, convergence, assessments, and overrides retain their existing restoration paths. No fitting, public API, or wire-version change.
+- Validation: All 55 Null-comparison persistence cases and all 142 focused persistence, schema, independent-assessment, and Null-figure cases pass. Coverage includes all three explicit heat-method/schema pairs over two round trips, attached and result-owned comparisons, weighted fits, mixed-method pooled/independent collections, Save Selected, reprocessed experiments, missing/defaulted embedded metadata, historical absence, unchanged comparison evidence, detached data, and retained manual overrides. Full Core suite on the shared working tree: 4,732 passed, 19 failures confined to the unrelated ongoing `StoichiometryGuessTests`, and one existing opt-in skip. `git diff --check` passes.
+- Evidence: `/private/tmp/itc148-before.log`, `/private/tmp/itc148-focused.log`, `/private/tmp/itc148-core-full.log`.
 
 ## ITC-149 - Published experiment schema rejects saved tandem provenance fields
 
