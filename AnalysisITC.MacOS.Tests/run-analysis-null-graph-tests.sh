@@ -27,13 +27,23 @@ dotnet build AnalysisITC.Core/AnalysisITC.Core.csproj --configuration Debug \
 if (( $# > 0 )); then
     native_tests=("$@")
 else
-    native_tests=(AnalysisNullGraphTests AnalysisNullEvidenceTests AllExcludedFitGraphTests DissociationGraphTests UnifiedPowerAxisTests ConstantAxisTests SaltDependenceGraphTests LinearDependenceEnvelopeTests SaltAnalysisPresentationTests InjectionEditingTests ProjectInformationTests ProjectOpenReportOnlyTests AnalysisParameterDraftTests EnergyEditorUnitTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests DataValidationPromptTests TandemImportPromptTests ExperimentDesignerTests SyringeCorrectionPresentationTests CompetitiveResultModelOptionPresentationTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests ProcessingCopyButtonsTests UpdateResultStatusTests HelpDocumentTests TandemCreationTests TandemBufferSubtractionTests DetailsDraftPreservationTests DetailsValuePreservationTests SettingsUpdateTests ExportSheetTests FinalFigureContentControlsTests)
+    native_tests=(AnalysisNullGraphTests AnalysisNullEvidenceTests AllExcludedFitGraphTests DissociationGraphTests UnifiedPowerAxisTests ConstantAxisTests SaltDependenceGraphTests LinearDependenceEnvelopeTests SaltAnalysisPresentationTests InjectionEditingTests ProjectInformationTests ProjectOpenReportOnlyTests AnalysisParameterDraftTests EnergyEditorUnitTests AnalysisReportReferencesTests AnalysisReportFigurePairTests FtxtcDuplicatePromptTests DataValidationPromptTests TandemImportPromptTests ExperimentDesignerTests SyringeCorrectionPresentationTests CompetitiveResultModelOptionPresentationTests SpolarSavedTemperatureViewTests ProcessingGraphDragTests ProcessingSliderTests ProcessingInitializationTests ProcessingCopyButtonsTests UpdateResultStatusTests HelpDocumentTests TandemCreationTests TandemBufferSubtractionTests DetailsDraftPreservationTests DetailsValuePreservationTests SettingsUpdateTests ExportSheetTests FinalFigureContentControlsTests FinalFigureSmoothnessPreferencesTests)
 fi
 for native_test in "${native_tests[@]}"; do
-    if [[ "$native_test" == ProcessingCopyButtonsTests || "$native_test" == ExperimentDesignerTests || "$native_test" == FinalFigureContentControlsTests ]]; then
+    if [[ "$native_test" == ProcessingCopyButtonsTests || "$native_test" == ExperimentDesignerTests || "$native_test" == FinalFigureContentControlsTests || "$native_test" == FinalFigureSmoothnessPreferencesTests ]]; then
         xcrun ibtool --compile "$check_dir/Main.storyboardc" AnalysisITC.MacOS/Main.storyboard \
             --errors --warnings > "$check_dir/storyboard-diagnostics.plist" 2> "$check_dir/storyboard-compiler.log" || {
                 cat "$check_dir/storyboard-diagnostics.plist" "$check_dir/storyboard-compiler.log"
+                exit 1
+            }
+        break
+    fi
+done
+for native_test in "${native_tests[@]}"; do
+    if [[ "$native_test" == FinalFigureSmoothnessPreferencesTests ]]; then
+        xcrun ibtool --compile "$check_dir/Preferences.storyboardc" AnalysisITC.MacOS/Preferences.storyboard \
+            --errors --warnings > "$check_dir/preferences-diagnostics.plist" 2> "$check_dir/preferences-compiler.log" || {
+                cat "$check_dir/preferences-diagnostics.plist" "$check_dir/preferences-compiler.log"
                 exit 1
             }
         break
@@ -54,4 +64,9 @@ export DYLD_FALLBACK_LIBRARY_PATH="$xamarin_root/SDKs/Xamarin.macOS.sdk/lib:${DY
 export MONO_PATH="$repo_root/AnalysisITC.Core/bin/Debug/netstandard2.0:$repo_root/AnalysisITC.MacOS/obj/Debug:$xamarin_root/lib/64bits/full:$mono_root/lib/mono/4.5:$mono_root/lib/mono/4.5/Facades:$xamarin_root/lib/mono/4.5/Facades:$repo_root/AnalysisITC.MacOS/bin/Debug:${MONO_PATH:-}"
 for native_test in "${native_tests[@]}"; do
     "$mono_root/Commands/mono" "$check_dir/$native_test.exe" "$repo_root" "$check_dir/Main.storyboardc"
+    if [[ "$native_test" == FinalFigureSmoothnessPreferencesTests ]]; then
+        for smoothness in 0 1 2; do
+            "$mono_root/Commands/mono" "$check_dir/$native_test.exe" --startup "$smoothness"
+        done
+    fi
 done

@@ -1,5 +1,6 @@
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.UI.MacOS.Drawing;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -72,6 +73,7 @@ namespace AnalysisITC
                 if (updateExisting)
                     RawDataReader.ReprocessInjections(existingExperiments, state.DilutionCalculationMethod);
                 state.Apply();
+                FinalFigureGraphView.FitLineSmoothness = (GraphBase.LineSmoothness)(int)AppSettings.FitLineSmoothness;
                 if (updateExisting)
                 {
                     DataManager.InvokeDataDidChange();

@@ -41,6 +41,7 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             FinalFigureGraphView.PlotSizeChanged += FinalFigureGraphView_PlotSizeChanged;
+            FinalFigureGraphView.Invalidated += OnFigureInvalidated;
             DataManager.SelectionDidChange += OnExportDataChanged;
             DataManager.ResultLinkedExperimentHighlightDidChange += OnExportDataChanged;
             DataManager.DataDidChange += OnExportDataChanged;
@@ -180,6 +181,15 @@ namespace AnalysisITC
             NSApplication.SharedApplication.InvokeOnMainThread(SyncEmbeddedOptions);
         }
 
+        void OnFigureInvalidated(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                if (EmbeddedSplineInterpolationControl != null)
+                    EmbeddedSplineInterpolationControl.SelectedSegment = (int)FinalFigureGraphView.FitLineSmoothness;
+            });
+        }
+
         void OnExportDataChanged(object sender, ExperimentData experiment)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(
@@ -307,6 +317,7 @@ namespace AnalysisITC
             _eventsUnsubscribed = true;
 
             FinalFigureGraphView.PlotSizeChanged -= FinalFigureGraphView_PlotSizeChanged;
+            FinalFigureGraphView.Invalidated -= OnFigureInvalidated;
             DataManager.SelectionDidChange -= OnExportDataChanged;
             DataManager.ResultLinkedExperimentHighlightDidChange -= OnExportDataChanged;
             DataManager.DataDidChange -= OnExportDataChanged;
