@@ -48,7 +48,7 @@ namespace AnalysisITC.Core.Application
         {
             get
             {
-                if (secondaryStatusSuppressionCount > 0) return "";
+                if (Volatile.Read(ref secondaryStatusSuppressionCount) > 0) return "";
                 if (!string.IsNullOrEmpty(transientSecondaryStatus)) return transientSecondaryStatus;
                 return defaultSecondaryStatus;
             }
@@ -168,7 +168,7 @@ namespace AnalysisITC.Core.Application
             var tmp = status;
 
             abortscroll = false;
-            secondaryStatusSuppressionCount++;
+            Interlocked.Increment(ref secondaryStatusSuppressionCount);
             PublishSecondaryStatus();
 
             try
@@ -197,7 +197,7 @@ namespace AnalysisITC.Core.Application
             }
             finally
             {
-                secondaryStatusSuppressionCount = Math.Max(0, secondaryStatusSuppressionCount - 1);
+                Interlocked.Decrement(ref secondaryStatusSuppressionCount);
                 PublishSecondaryStatus();
             }
 
