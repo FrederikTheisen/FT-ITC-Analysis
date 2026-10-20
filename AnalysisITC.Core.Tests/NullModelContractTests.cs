@@ -242,21 +242,17 @@ public sealed class NullModelContractTests
     [Theory]
     [InlineData("")]
     [InlineData(null)]
-    public async Task EmptyIdentitySavesReadableStatusOnlyEvidence(string id)
+    public async Task EmptyIdentityRejectsSaveBeforeWriting(string id)
     {
         var result = Result(out var member);
         var comparison = Comparison(member, AnalysisModel.Offset);
         comparison.NullModelId = id;
         SetComparison(result, comparison);
         using var stream = new MemoryStream();
-        await FTXTCWriter.WriteStream(stream, new[] { member.Data }, new[] { result });
-        stream.Position = 0;
-        var restored = Assert.Single((await FTXTCReader.ReadStream(stream)).OfType<AnalysisResult>());
-        Assert.NotNull(restored.NullComparison);
-        Assert.Equal("offset", restored.NullComparison.NullModelId);
-        Assert.False(restored.NullComparison.NullFitSucceeded);
-        Assert.Equal("Saved Null model identity was missing.", restored.NullComparison.NullFitReason);
-        Assert.Empty(restored.NullComparison.Members);
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            FTXTCWriter.WriteStream(stream, new[] { member.Data }, new[] { result }));
+        Assert.Equal("Saved Null model identity was missing.", error.Message);
+        Assert.Equal(0, stream.Length);
     }
 
     static AnalysisResult Result(out SolutionInterface member)

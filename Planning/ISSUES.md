@@ -1170,14 +1170,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-147 - Null-comparison serialization drops detail without logging the first failure
 
-- Priority: Low.
-- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
-- Confidence: Confirmed by code inspection; occurrence during an ordinary save was not reproduced.
-- Location: `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `CaptureNullComparisonElement`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, Null comparison and binding-assessment restoration.
-- Problem: If full Null-comparison capture/serialization throws, the first catch writes a status-only fallback with `NullFitSucceeded=false`, no comparison members/points, and no delta AICc. It does not log the original exception. Only a failure while serializing that fallback is logged. A save can therefore succeed after discarding detailed saved comparison evidence.
-- Qualification: The fallback preserves some information criteria and records the failure reason inside the package; the loss is not wholly unrecorded. On reopening, automatic assessment can become unavailable, while valid manual overrides survive. Independent member assessment records have their own restoration path, so a universal loss of every assessment is not established.
-- Suggested solution direction: Log the original capture failure and make degraded persistence visible through the existing save-status/error reporting boundary. Decide whether malformed comparison detail should reject the save or permit an explicitly reported status-only fallback; avoid silently treating either policy as approved. Preserve surviving evidence and manual overrides, and cover both the initial fallback and fallback failure when implementing the chosen policy.
-- Validation boundary: Read-only source inspection; no builds or tests run for this review.
+- Status: Resolved locally (2026-10-20).
+- Problem: Bookkeeping changes invalidated the binding fit while leaving its linked Null solution valid. Before reopening detaches the Null data, the resulting convention mismatch made capture fail. A status-only fallback then allowed Save to succeed after discarding comparison members, points and delta AICc and changing `NullFitSucceeded` to false, without logging the initial exception.
+- Resolution: `DataManager.InvalidateSolutionsForExperiment` also invalidates paired Null fits by experiment ID; `FTXTCReader.RestoreNullComparison` derives Null validity from its paired saved binding fit when available. Other members retain their validity. Fit-time conventions, captured evidence, success flags, assessments and overrides remain unchanged; explicit refitting uses the current convention for both fits. `FTXTCWriter.CaptureNullComparisonElement` no longer substitutes status-only evidence: capture failures reach existing save-error/logging handling before replacing the destination. No new stale state, UI, public API, schema version, or fitting changes. `NullComparisonBookkeepingPersistenceTests` and `NullModelContractTests` cover actual fitting through bookkeeping changes and two strict round trips for all three methods, attached/single/pooled/independent fits, detached Null data, mixed validity, retained evidence and overrides, refitting, and failed saves preserving existing files and dirty state.
 
 ## ITC-148 - Reopening changes the embedded Null solution's heat-method provenance
 

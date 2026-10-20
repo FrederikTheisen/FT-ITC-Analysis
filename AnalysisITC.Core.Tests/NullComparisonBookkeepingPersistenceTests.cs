@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -72,6 +73,8 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
         var changed = experiments[0];
         var expected = experiments.ToDictionary(data => data.UniqueID, data => data.Solution.NullComparison);
         var expectedResult = result?.NullComparison;
+        var comparisons = expected.Values.Append(expectedResult).ToArray();
+        var evidence = comparisons.Select(CapturedEvidence).ToArray();
         var expectedAssessment = result?.BindingAssessment;
         var expectedMemberAssessments = result?.MemberAssessments.Select(member => member.Assessment).ToArray();
         var oldNull = Assert.Single(changed.Solution.NullComparison.NullSolutions,
@@ -87,6 +90,7 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
         Assert.False(changed.Solution.IsValid);
         Assert.Equal(oldHeatMethod, changed.Solution.Model.HeatMethod);
         Assert.Equal(observedHeats, changed.Injections.Select(injection => injection.RawPeakArea));
+        Assert.Equal(evidence, comparisons.Select(CapturedEvidence));
         var path = Path.Combine(directory, "changed.ftxtc");
         ProjectDocumentState.Path = path;
         Assert.True(await ProjectWriter.SaveWithPathAsync());
@@ -136,6 +140,7 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
             var update = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(result));
             Assert.Equal(InjectionBookkeeping.HeatMethodFor(nextMethod), update.Model.Models[0].HeatMethod);
         }
+        Assert.Equal(evidence, comparisons.Select(CapturedEvidence));
         Assert.Empty(errors);
     }
 
@@ -144,6 +149,7 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
     {
         var (experiments, result) = await Fit("single", DilutionMethod.Exponential);
         var comparison = result.NullComparison;
+        var evidence = CapturedEvidence(comparison);
         RawDataReader.ReprocessInjections(experiments[0], DilutionMethod.DiscreteDisplacement);
         var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(result));
         await Analyze(solver);
@@ -154,6 +160,7 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
         Assert.True(binding.IsValid);
         Assert.True(nullFit.IsValid);
         Assert.Same(comparison, result.NullComparison);
+        Assert.Equal(evidence, CapturedEvidence(comparison));
     }
 
     [Theory]
@@ -188,6 +195,22 @@ public sealed class NullComparisonBookkeepingPersistenceTests : IDisposable
             Assert.Equal(HandledException.Severity.Error, error.Level);
         }
     }
+
+    // Freeze captured evidence independently of the mutable solution validity flags.
+    static string CapturedEvidence(NullModelComparison comparison) => JsonSerializer.Serialize(comparison == null ? null : new
+    {
+        comparison.NullModelId,
+        comparison.IsIndependentMemberComparison,
+        comparison.BindingFitSucceeded,
+        comparison.BindingFitReason,
+        comparison.NullFitSucceeded,
+        comparison.NullFitReason,
+        comparison.BindingInformationCriteria,
+        comparison.NullInformationCriteria,
+        comparison.DeltaAicc,
+        comparison.ComparisonUnavailableReason,
+        comparison.Members,
+    });
 
     static async Task<(List<ExperimentData> Experiments, AnalysisResult Result)> Fit(string scope, DilutionMethod method)
     {
