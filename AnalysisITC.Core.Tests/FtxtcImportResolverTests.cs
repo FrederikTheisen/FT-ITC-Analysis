@@ -437,7 +437,7 @@ public sealed class FtxtcImportResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task FallbackSkipsAndLegacyImportsDoNotAsk()
+    public async Task FallbackSkipsDuplicateFtxtcImports()
     {
         var result = Result(Prepared());
         var path = await Save("fallback", new[] { result });
@@ -445,12 +445,98 @@ public sealed class FtxtcImportResolverTests : IDisposable
         PlatformServices.RegisterFtxtcDuplicatePromptService(null);
         await DataReader.ReadPathsAsync(new[] { path });
         Assert.Single(DataManager.Results);
-        PlatformServices.RegisterFtxtcDuplicatePromptService(prompt);
-        DataManager.Clear(DataClearMode.ResetSession);
+    }
+
+    [Theory]
+    [InlineData(false, FtxtcDuplicateAction.SkipDuplicates)]
+    [InlineData(true, FtxtcDuplicateAction.SkipDuplicates)]
+    [InlineData(false, FtxtcDuplicateAction.ImportCopies)]
+    [InlineData(true, FtxtcDuplicateAction.ImportCopies)]
+    public async Task RepeatedLegacyImportsResolveDuplicatesAndReopen(bool together, FtxtcDuplicateAction action)
+    {
         var legacy = Path.Combine(AppContext.BaseDirectory, "Fixtures", "one-set.ftitc");
-        await DataReader.ReadPathsAsync(new[] { legacy, legacy });
-        Assert.Empty(prompt.Summaries);
-        Assert.True(DataManager.SourceItems.Count > DataManager.SourceItems.Select(item => item.UniqueID).Distinct().Count());
+        Assert.True((await DataReader.ReadPathsAsync(new[] { legacy })).LoadedAllRequested);
+        var experimentCount = DataManager.Data.Count;
+        var resultCount = DataManager.Results.Count;
+        Assert.True(experimentCount > 0);
+        Assert.True(resultCount > 0);
+        var originalIds = DataManager.SourceItems.Select(item => item.UniqueID).ToArray();
+        var originalParameters = DataManager.Results.SelectMany(result => result.Solution.Solutions)
+            .SelectMany(member => member.Parameters.OrderBy(pair => pair.Key).Select(pair => pair.Value)).ToArray();
+        prompt.Action = action;
+
+        if (together)
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            Assert.True((await DataReader.ReadPathsAsync(new[] { legacy, legacy })).LoadedAllRequested);
+        }
+        else Assert.True((await DataReader.ReadPathsAsync(new[] { legacy })).LoadedAllRequested);
+
+        var summary = Assert.Single(prompt.Summaries);
+        Assert.Equal("one-set.ftitc", summary.FileName);
+        Assert.Equal(experimentCount, summary.ExperimentCount);
+        Assert.Equal(resultCount, summary.ResultCount);
+        var copies = action == FtxtcDuplicateAction.ImportCopies ? 2 : 1;
+        Assert.Equal(experimentCount * copies, DataManager.Data.Count);
+        Assert.Equal(resultCount * copies, DataManager.Results.Count);
+        Assert.Equal(originalIds, DataManager.SourceItems.Take(originalIds.Length).Select(item => item.UniqueID));
+        Assert.Equal(DataManager.SourceItems.Count, DataManager.SourceItems.Select(item => item.UniqueID).Distinct().Count());
+        foreach (var result in DataManager.Results)
+            foreach (var member in result.Solution.Solutions)
+                Assert.Same(DataManager.Data.Single(data => data.UniqueID == member.Data.UniqueID), member.Data);
+        if (copies == 2)
+        {
+            var existingFitIds = DataManager.Results.Take(resultCount).SelectMany(result => result.Solution.Solutions)
+                .Select(member => member.Guid).ToHashSet();
+            Assert.All(DataManager.Results.Skip(resultCount).SelectMany(result => result.Solution.Solutions), member =>
+            {
+                Assert.DoesNotContain(member.Data.UniqueID, originalIds);
+                Assert.DoesNotContain(member.Guid, existingFitIds);
+            });
+        }
+
+        var path = Path.Combine(directory, "legacy-imports.ftxtc");
+        ProjectDocumentState.Path = path;
+        Assert.True(await ProjectWriter.SaveWithPathAsync());
+        var restored = await Strict(path);
+        Assert.Equal(DataManager.SourceItems.Select(item => item.UniqueID), restored.Select(item => item.UniqueID));
+        for (var copy = 0; copy < copies; copy++)
+        {
+            var results = restored.OfType<AnalysisResult>().Skip(copy * resultCount).Take(resultCount);
+            Assert.Equal(originalParameters, results.SelectMany(result => result.Solution.Solutions)
+                .SelectMany(member => member.Parameters.OrderBy(pair => pair.Key).Select(pair => pair.Value)));
+            foreach (var member in results.SelectMany(result => result.Solution.Solutions))
+                Assert.Same(restored.OfType<ExperimentData>().Single(data => data.UniqueID == member.Data.UniqueID), member.Data);
+        }
+
+        DataManager.Clear(DataClearMode.ResetSession);
+        Assert.True((await DataReader.ReadPathsAsync(new[] { path })).OpenedCleanProject);
+        Assert.Equal(restored.Select(item => item.UniqueID), DataManager.SourceItems.Select(item => item.UniqueID));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SkippedLegacyImportPreservesDestinationAndDirtyState(bool dirty)
+    {
+        var legacy = Path.Combine(AppContext.BaseDirectory, "Fixtures", "one-set.ftitc");
+        await DataReader.ReadPathsAsync(new[] { legacy });
+        ProjectDocumentState.Path = await SaveCurrent("current");
+        DocumentDirtyTracker.MarkClean();
+        if (dirty) DocumentDirtyTracker.MarkDirty();
+        var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+        var path = ProjectDocumentState.Path;
+        var items = DataManager.SourceItems.ToArray();
+        PlatformServices.RegisterFtxtcDuplicatePromptService(null);
+
+        var read = await DataReader.ReadPathsAsync(new[] { legacy });
+
+        Assert.True(read.LoadedAllRequested);
+        Assert.Equal(0, read.AddedItemCount);
+        Assert.Equal(items, DataManager.SourceItems);
+        Assert.Equal(path, ProjectDocumentState.Path);
+        Assert.Equal(dirty, DocumentDirtyTracker.IsDirty);
+        Assert.True(DocumentDirtyTracker.MatchesSaveStamp(stamp));
     }
 
     static Model Prepared(string id = "one-c100-v0.01", bool bootstrap = false)

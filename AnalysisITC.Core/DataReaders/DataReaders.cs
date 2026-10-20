@@ -138,7 +138,11 @@ namespace AnalysisITC.Core.DataReaders
                         if (format == ITCDataFormat.FTXTC && dat != null)
                         {
                             recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
-                            var resolved = FtxtcImportResolver.Resolve(path, dat, FTXTCReader.LastReports);
+                            reports = FTXTCReader.LastReports.ToArray();
+                        }
+                        if (isProjectFile && dat != null)
+                        {
+                            var resolved = FtxtcImportResolver.Resolve(path, dat, reports);
                             dat = resolved.Containers;
                             reports = resolved.Reports;
                         }
@@ -159,13 +163,12 @@ namespace AnalysisITC.Core.DataReaders
                             if (acceptedThisFile != null) importedExperiments.AddRange(acceptedThisFile);
                             AppSettings.LastDocumentPath = path;
                         }
-                        else if (format == ITCDataFormat.FTXTC)
+                        else if (isProjectFile)
                         {
-                            // Reading a package sets its save path. A skipped import
-                            // must leave the current document destination untouched.
+                            // A fully skipped project import must leave the current save destination untouched.
                             ProjectDocumentState.Path = previousDocumentPath;
                         }
-                        if (acceptedContent || (format == ITCDataFormat.FTXTC && dat != null))
+                        if (acceptedContent || (isProjectFile && dat != null))
                         {
                             loadedPaths.Add(path);
                             didReadPath?.Invoke(path);

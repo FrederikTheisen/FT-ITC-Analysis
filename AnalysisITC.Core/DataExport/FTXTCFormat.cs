@@ -1222,8 +1222,6 @@ namespace AnalysisITC.Core.Export
             var entries = new Dictionary<string, (string mediaType, byte[] bytes)>(StringComparer.Ordinal);
             var project = new FtxtcProject();
 
-            project.ContentOrder = CaptureContentOrder(experimentList, resultList, contentOrder);
-
             var solutions = experimentList.Select(experiment => experiment.Solution)
                 .Concat(resultList.SelectMany(result => result.Solution.Solutions))
                 .Where(solution => solution != null)
@@ -1233,6 +1231,9 @@ namespace AnalysisITC.Core.Export
                 .Select(group => group.FirstOrDefault(solution => !solution.IsValid) ?? group.First())
                 .OrderBy(solution => solution.Guid, StringComparer.Ordinal)
                 .ToList();
+
+            ValidateRootIds(experimentList, solutions, resultList, reportList);
+            project.ContentOrder = CaptureContentOrder(experimentList, resultList, contentOrder);
 
             for (var index = 0; index < experimentList.Count; index++)
             {
@@ -1375,6 +1376,30 @@ namespace AnalysisITC.Core.Export
             finally
             {
                 if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
+        }
+
+        static void ValidateRootIds(
+            IEnumerable<ExperimentData> experiments,
+            IEnumerable<SolutionInterface> solutions,
+            IEnumerable<AnalysisResult> results,
+            IEnumerable<AnalysisReport> reports)
+        {
+            var ids = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var experiment in experiments) Add(experiment.UniqueID, $"experiment '{experiment.Name}'");
+            foreach (var solution in solutions) Add(solution.Guid, $"solution for experiment '{solution.Data.Name}'");
+            foreach (var result in results) Add(result.UniqueID, $"Analysis Result '{result.Name}'");
+            foreach (var report in reports) Add(report.UniqueID, $"report '{report.Name}'");
+
+            void Add(string id, string description)
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                    throw new InvalidDataException($"Cannot save project: {description} has an empty ID. "
+                        + "Remove and recreate or reimport the affected content before saving.");
+                if (ids.TryGetValue(id, out var existing))
+                    throw new InvalidDataException($"Cannot save project: {existing} and {description} share ID '{id}'. "
+                        + "Remove the duplicate content or reimport it using Import Copies before saving.");
+                ids.Add(id, description);
             }
         }
 
