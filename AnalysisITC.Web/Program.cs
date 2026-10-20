@@ -932,6 +932,12 @@ app.MapPost("/api/interpretation/generate", async (
         Record(exception.Kind == AnalysisInterpretationFailureKind.Timeout ? "timeout" : exception.Kind == AnalysisInterpretationFailureKind.Cancelled ? "cancelled" : "provider_error", providerFailure.Item1, providerFailure.Item2, null);
         return Problem(providerFailure.Item1, providerFailure.Item2, providerFailure.Item3, providerFailure.Item4);
     }
+    catch (Exception exception)
+    {
+        AnalysisInterpretationLog.Write("server-failed", result.Request?.ClientRequestId, $"kind=Unexpected type={exception.GetType().Name}");
+        Record("server_error", StatusCodes.Status500InternalServerError, "unexpected_error", null);
+        throw;
+    }
 
 
     void Record(string outcome, int status, string? code, InterpretationRelayResponse? response)

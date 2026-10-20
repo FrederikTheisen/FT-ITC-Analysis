@@ -520,6 +520,62 @@ public sealed class RegistrationSecurityTests : IDisposable
         Assert.Contains(access.Secret, accessMessage.GetProperty("text").GetString());
     }
 
+    [Theory]
+    [InlineData(RegistrationMessageKinds.Activation, false)]
+    [InlineData(RegistrationMessageKinds.AccessCode, false)]
+    [InlineData(RegistrationMessageKinds.AccessCode, true)]
+    public async Task UnreadableDeliveryFailsWithoutBlockingLaterMail(string kind, bool provisioned)
+    {
+        var (_, outbox, configured) = CreateServices();
+        await File.WriteAllTextAsync(configured.Registration.MailConfigurationPath, "{\"ApiKey\":\"test-key\"}");
+        var values = Options.Create(configured);
+        var tombstones = new OperatorTombstoneRegistry(values);
+        var registry = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance, tombstones);
+        var now = DateTime.UtcNow;
+        var first = outbox.Submit("First", "first@example.org", null, "terms", "privacy", now.AddMinutes(-3));
+        var pending = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now));
+        if (kind == RegistrationMessageKinds.AccessCode)
+        {
+            outbox.MarkSent(pending, now.AddMinutes(-2));
+            pending = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(pending.Secret, now.AddMinutes(-1)));
+            if (provisioned)
+            {
+                registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
+                outbox.MarkProvisioned(pending);
+            }
+        }
+        var second = outbox.Submit("Second", "second@example.org", null, "terms", "privacy", now.AddSeconds(-30));
+        using (var db = OpenDatabase())
+        using (var corrupt = db.CreateCommand())
+        {
+            corrupt.CommandText = "UPDATE registration_delivery SET protected_code='unreadable-payload' WHERE registration_id=$id";
+            corrupt.Parameters.AddWithValue("$id", first.RegistrationId);
+            Assert.Equal(1, corrupt.ExecuteNonQuery());
+        }
+        var handler = new RecordingHandler();
+        using var httpClient = new HttpClient(handler);
+        var sender = new RegistrationMailSender(values, outbox, registry, new SingleClientFactory(httpClient), tombstones);
+
+        Assert.False(await sender.ProcessOneAsync());
+        Assert.Empty(handler.Messages);
+        using (var db = OpenDatabase())
+        {
+            Assert.Equal("failed", Scalar<string>(db, "SELECT state FROM registration_delivery WHERE registration_id='" + first.RegistrationId + "'"));
+            Assert.Equal("delivery_payload_unreadable", Scalar<string>(db, "SELECT last_failure_code FROM registration_delivery WHERE registration_id='" + first.RegistrationId + "'"));
+            Assert.Equal(1L, Scalar<long>(db, "SELECT count(*) FROM registration_delivery WHERE registration_id='" + first.RegistrationId + "' AND failed_at_utc IS NOT NULL"));
+            Assert.Equal(provisioned ? "active" : "failed", Scalar<string>(db, "SELECT state FROM registration_accounts WHERE id='" + first.RegistrationId + "'"));
+        }
+        if (kind == RegistrationMessageKinds.AccessCode)
+            Assert.Equal(provisioned, registry.Authenticate("Bearer " + pending.Secret).IsAuthorized);
+
+        Assert.True(await sender.ProcessOneAsync());
+        var message = Assert.Single(handler.Messages);
+        Assert.Equal("second@example.org", message.GetProperty("to")[0].GetString());
+        using var verify = OpenDatabase();
+        Assert.Equal("sent", Scalar<string>(verify, "SELECT state FROM registration_delivery WHERE registration_id='" + second.RegistrationId + "'"));
+        Assert.Null(outbox.GetPending(DateTime.UtcNow));
+    }
+
     [Fact]
     public async Task ExhaustedProvisionedAccessDeliveryCanBeResubmittedWithoutChangingCredential()
     {

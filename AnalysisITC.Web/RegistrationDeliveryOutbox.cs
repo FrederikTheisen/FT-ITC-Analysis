@@ -208,7 +208,16 @@ public sealed class RegistrationDeliveryOutbox
         command.Parameters.AddWithValue("$now", utcNow.ToString("O", CultureInfo.InvariantCulture));
         using var reader = command.ExecuteReader();
         if (!reader.Read()) return null;
-        return ReadDelivery(reader);
+        var registrationId = reader.GetString(0);
+        var idempotencyKey = reader.GetString(3);
+        try { return ReadDelivery(reader); }
+        catch (Exception exception) when (exception is CryptographicException or FormatException or InvalidDataException)
+        {
+            // Release the read lock before failing only the selected delivery cycle.
+            reader.Close();
+            MarkFailed(registrationId, "delivery_payload_unreadable", idempotencyKey);
+            return null;
+        }
     }
 
     public PendingRegistrationDelivery? BeginActivation(string token, DateTime utcNow)

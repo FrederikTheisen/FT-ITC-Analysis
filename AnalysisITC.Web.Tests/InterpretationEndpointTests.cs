@@ -1686,11 +1686,19 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
             input.GetProperty("cellConcentration").GetDouble() == originalConcentration);
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
         var request = ValidRequestNode(); request["package"] = JsonNode.Parse(compact ? prompt.ModelPackageJson : prompt.CanonicalPackageJson);
-        // Source sharing can bring this fixture below the authenticated tier
-        // limit. Keep the compact branch an explicit oversized-package test.
-        if (compact) ((JsonObject)request["package"]!)["sizeTestPadding"] = new string('x', 40_000);
-        using var response = await PostJson(request.ToJsonString());
-        await AssertProblem(response, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
+        var maximumRequestBytes = factory.Services.GetRequiredService<GenerationPresetRegistry>()
+            .MaximumRequestBytes(InterpretationAccessTiers.Public);
+        var json = request.ToJsonString();
+        // Keep both representations oversized as the fixture size changes.
+        if (Encoding.UTF8.GetByteCount(json) <= maximumRequestBytes)
+            json = PadToUtf8ByteCount(json, checked((int)maximumRequestBytes + 1));
+        var requestBytes = Encoding.UTF8.GetByteCount(json);
+        Assert.True(requestBytes > maximumRequestBytes);
+
+        using var response = await PostJson(json);
+        var problem = await AssertProblem(response, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
+        Assert.Equal(maximumRequestBytes, problem.GetProperty("maximumRequestBytes").GetInt64());
+        Assert.Equal((long)requestBytes, problem.GetProperty("requestBytes").GetInt64());
     }
 
     [Fact]
