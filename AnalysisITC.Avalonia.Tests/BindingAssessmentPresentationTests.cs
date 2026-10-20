@@ -363,7 +363,6 @@ public sealed class BindingAssessmentPresentationTests
                 Assert.All(values, block => Assert.True(block.Bounds.Width > 0 && block.Bounds.Width <= 400));
                 using var bitmap = new global::Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(900, 1000));
                 bitmap.Render(window);
-                bitmap.Save("/private/tmp/itc094-avalonia-summary.png");
             }
             finally { window.Close(); application.Styles.Remove(theme); workspace.Result = null; }
             details.Close();
