@@ -119,6 +119,36 @@ public sealed class AnalysisResultModelOptionPresentationTests : IDisposable
     }
 
     [Theory]
+    [InlineData(AttributeKey.PreboundLigandConc, "0.0 µM")]
+    [InlineData(AttributeKey.PreboundLigandEnthalpy, "0.0 kJ/mol")]
+    [InlineData(AttributeKey.PreboundLigandAffinity, "1000000.0 µM")]
+    [InlineData(AttributeKey.Percentage, "0.0 %")]
+    public void MissingParametersRemainDistinctFromZeroBeforeTransforming(AttributeKey key, string zero)
+    {
+        foreach (var style in Enum.GetValues<UncertaintyDisplayStyle>())
+        {
+            AppSettings.UncertaintyDisplayStyle = style;
+            Assert.Equal("Unavailable", Format(key, FloatWithError.NaN));
+            Assert.Equal(zero, Format(key, new FloatWithError(0)));
+        }
+    }
+
+    [Theory]
+    [InlineData(AttributeKey.PreboundLigandConc)]
+    [InlineData(AttributeKey.PreboundLigandEnthalpy)]
+    [InlineData(AttributeKey.PreboundLigandAffinity)]
+    public void MissingMemberValuePreservesExperimentAttributeSourcePrecedence(AttributeKey key)
+    {
+        var option = Option(key, FloatWithError.NaN);
+        option.BoolValue = true;
+
+        Assert.Equal("From experiment attribute", AnalysisResultModelOptionPresentation.FormatValue(key, option));
+        Assert.Equal("Unavailable", AnalysisResultModelOptionPresentation.FormatValue(key, option, showAttributeSource: false));
+        Assert.True(FloatWithError.IsNaN(option.ParameterValue));
+        Assert.True(option.BoolValue);
+    }
+
+    [Theory]
     [InlineData(AttributeKey.PreboundLigandAffinity, 6, .1, 5, 7, "1.0 [0.1, 10.0] µM")]
     [InlineData(AttributeKey.PreboundLigandEnthalpy, -32000, 2000, -35000, -20000, "-32.0 [-35.0, -20.0] kJ/mol")]
     [InlineData(AttributeKey.PreboundLigandConc, 2e-6, .2e-6, 1e-6, 5e-6, "2.0 [1.0, 5.0] µM")]

@@ -39,7 +39,8 @@ static class CompetitiveResultModelOptionPresentationTests
             CheckModelPage(false);
             CheckModelPage(true);
             CheckStoredStoichiometry();
-            Console.WriteLine("PASS: native saved competitor intervals, all display styles, manual/member rows, preference refresh and stored stoichiometry");
+            CheckMissingValuesAndZeros();
+            Console.WriteLine("PASS: native saved competitor intervals, all display styles, manual/member rows, preference refresh, stored stoichiometry and missing/zero values");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -51,6 +52,40 @@ static class CompetitiveResultModelOptionPresentationTests
             AppSettings.NumberPrecision = precision;
             CultureInfo.CurrentCulture = culture;
         }
+    }
+
+    static void CheckMissingValuesAndZeros()
+    {
+        AppSettings.DefaultConcentrationUnit = ConcentrationUnit.µM;
+        AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+        AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
+        AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+        var keys = new[] { AttributeKey.PreboundLigandConc, AttributeKey.PreboundLigandEnthalpy, AttributeKey.PreboundLigandAffinity };
+        var zeros = new[] { "0.0 µM", "0.0 kJ/mol", "1000000.0 µM" };
+        var failures = new List<string>();
+        foreach (var missing in new[] { false, true })
+        for (var index = 0; index < keys.Length; index++)
+        {
+            var model = CreateModel(0, false);
+            foreach (var option in model.ModelOptions.Values) option.BoolValue = false;
+            var optionValue = model.ModelOptions[keys[index]];
+            optionValue.ParameterValue = missing ? FloatWithError.NaN : new FloatWithError(0);
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+            using (var controller = Runtime.GetNSObject<AnalysisResultTabViewController>(
+                Send(Send(new Class(typeof(AnalysisResultTabViewController)).Handle, Selector.GetHandle("alloc")), Selector.GetHandle("init"))))
+            using (var stack = new NSStackView())
+            {
+                typeof(AnalysisResultTabViewController).GetField("modelStack", Instance).SetValue(controller, stack);
+                typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+                Refresh(controller);
+                var text = Text(stack);
+                var expected = missing ? "Unavailable" : zeros[index];
+                if (!text.Contains(expected))
+                    failures.Add(keys[index] + ": expected " + expected + "; actual: " + string.Join(" | ", text));
+                Check(FloatWithError.IsNaN(optionValue.ParameterValue) == missing, "Presentation changed the saved missing flag");
+            }
+        }
+        Check(failures.Count == 0, string.Join("\n", failures));
     }
 
     static void CheckStoredStoichiometry()

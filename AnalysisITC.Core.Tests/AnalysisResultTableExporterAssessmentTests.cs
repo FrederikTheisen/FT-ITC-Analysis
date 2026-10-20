@@ -17,6 +17,35 @@ namespace AnalysisITC.Core.Tests;
 [Collection("AutoSaveManager")]
 public sealed class AnalysisResultTableExporterAssessmentTests
 {
+    [Theory]
+    [InlineData(AnalysisResultExportErrorStyle.ValueWithError)]
+    [InlineData(AnalysisResultExportErrorStyle.SeparateColumns)]
+    public void MissingParameterCellsStayBlankWhileZeroRemainsNumeric(AnalysisResultExportErrorStyle errorStyle)
+    {
+        var result = FractionalResult();
+        var member = result.Solution.Solutions[0];
+        member.Parameters[ParameterType.Nvalue1] = FloatWithError.NaN;
+        member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(0);
+        var table = Lines(AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        {
+            RowMode = AnalysisResultExportRowMode.AllRows,
+            FileFormat = AnalysisResultExportFileFormat.TSV,
+            ErrorStyle = errorStyle,
+            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+            EnergyUnitOverride = EnergyUnit.KiloJoule,
+        }));
+        var header = table[0];
+        var row = table[1];
+        var suffixes = errorStyle == AnalysisResultExportErrorStyle.SeparateColumns
+            ? new[] { "_value", "_sd", "_ci_lower", "_ci_upper" } : new[] { "" };
+
+        foreach (var suffix in suffixes)
+            Assert.Equal("", row[Array.IndexOf(header, "N" + suffix)]);
+        var valueSuffix = errorStyle == AnalysisResultExportErrorStyle.SeparateColumns ? "_value" : "";
+        Assert.Equal(0, double.Parse(row[Array.IndexOf(header, "∆H (kJ/mol)" + valueSuffix)], CultureInfo.InvariantCulture));
+        Assert.DoesNotContain("Unavailable", row);
+    }
+
     [Fact]
     public void IndependentSummaryShowsCollectionCountsAndLeavesOrdinaryComparisonBlank()
     {

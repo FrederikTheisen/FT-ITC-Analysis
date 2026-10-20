@@ -337,6 +337,8 @@ namespace AnalysisITC.Core.Units
 
         public string ToString(EnergyUnit unit, string formatter, bool withunit = true, bool permole = false, bool perK = false, UncertaintyDisplayStyle? style = null)
         {
+            if (Numerics.FloatWithError.IsNaN(FloatWithError)) return FloatWithError.ToString(formatter, style);
+
             var suffix = withunit ? unit.GetUnit() : "";
             suffix += Suffix(permole, perK);
 

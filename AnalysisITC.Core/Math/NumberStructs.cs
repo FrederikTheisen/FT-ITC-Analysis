@@ -304,6 +304,8 @@ namespace AnalysisITC.Core.Numerics
 
         public static FloatWithError operator /(FloatWithError v1, double scalar)
         {
+            if (IsNaN(v1)) return NaN;
+
             var v = v1.Value / scalar;
 
             return new FloatWithError(v, v1.SD / Math.Abs(scalar), v1.Lower / scalar, v1.Upper / scalar);
@@ -326,6 +328,8 @@ namespace AnalysisITC.Core.Numerics
 
         public static FloatWithError operator *(double scalar, FloatWithError v1)
         {
+            if (IsNaN(v1)) return NaN;
+
             var v = v1.Value * scalar;
             var bound1 = scalar * v1.Lower;
             var bound2 = scalar * v1.Upper;
@@ -353,6 +357,8 @@ namespace AnalysisITC.Core.Numerics
 
         public override string ToString()
         {
+            if (IsNaN(this)) return ToString("G3");
+
             return ToString("G3") + " | " + (100 * FractionSD).ToString("F1") + "%";
         }
 
@@ -361,6 +367,8 @@ namespace AnalysisITC.Core.Numerics
 
         public string ToString(string format, UncertaintyDisplayStyle? style, IFormatProvider provider)
         {
+            if (IsNaN(this)) return "Unavailable";
+
             var displayStyle = ResolveDisplayStyle(this, style, includeConfidenceInterval: false);
 
             return FormatNumberWithUncertainty(this, this, format, displayStyle, provider);
@@ -373,6 +381,8 @@ namespace AnalysisITC.Core.Numerics
 
         public string AsConcentration(ConcentrationUnit unit, bool withunit = true)
         {
+            if (IsNaN(this)) return ToString("G5");
+
             var value = unit.GetMod() * this;
 
             return withunit ? value.ToString("G5") + " " + unit.GetName() : value.ToString("G5");
@@ -398,6 +408,8 @@ namespace AnalysisITC.Core.Numerics
 
         string WithMod(double mod, string unit, bool withunit, bool withci, UncertaintyDisplayStyle? style = null)
         {
+            if (IsNaN(this)) return ToString("G5", style);
+
             var value = mod * this;
             var displayStyle = ResolveDisplayStyle(value, style, withci);
             double logerror;

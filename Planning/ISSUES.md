@@ -988,10 +988,13 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-122 - FloatWithError formatting loses the missing-value marker
 
 - Priority: Medium
-- Status: Open; discovered while implementing CR-020.
-- Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `WithMod`.
-- Problem: `WithMod` multiplies `mod * this`; scalar multiplication drops the `FloatWithError.NaN` marker, so a missing quantity can format as scientific zero. This affects more than salt analysis.
-- Scope: CR-020 gates salt outputs by shared component availability. The general formatter issue is deliberately deferred; preserve missing markers through arithmetic/formatting with focused regression coverage when addressed.
+- Status: Resolved (2026-10-20).
+- Location: Core `FloatWithError` scalar scaling and formatting, `Energy` formatting, and `AnalysisResultModelOptionPresentation`; both desktop Results views already consume the shared model-option helper.
+- Problem: Scalar scaling dropped the explicit `FloatWithError.NaN` marker, and formatting also ignored it directly. Missing concentration, enthalpy and percentage could display as zero; transforming missing log-affinity could instead display a Kd of 1 M.
+- Resolution: Scalar multiplication and division preserve the missing flag. Shared number, concentration and energy text delegates missing-value display to the same Core formatter, returning `Unavailable` without units, uncertainty or percentage suffixes. Results checks missing parameter values before transformations and preserves the `From experiment attribute` indicator's precedence. Legitimate zeros, their uncertainty and intervals, and valid log-affinity zero (Kd = 1 M) retain their existing behavior.
+- Scope: Formatting and scalar scaling only; general arithmetic, `FWEMath` transformations and serialization are unchanged. Table exports retain blank missing cells and report tables retain their existing missing-value conventions. CR-020's independent salt-component availability policy remains in place.
+- Validation: Before production edits, actual Avalonia and native AppKit Results control-text tests reproduced all three missing competitor values as numeric output while the three legitimate-zero controls passed. The focused Core baseline had 57 failures and 42 passes. After the fix, 419 focused Core cases plus two export blank/zero cases pass, all 12 affected Avalonia presentation cases pass, and the native presentation harness passes. Coverage includes every precision/uncertainty style, English/French cultures, explicit/automatic units, scalar scaling, zero-centered asymmetric uncertainty, source indicators and unchanged IEEE NaN text. Full Release Core suite: 4,633 passed, one existing opt-in external-reference skip, zero failures; `git diff --check` passes. These are automated control-text checks, not mouse-driven desktop verification.
+- Evidence: `/private/tmp/itc122-core-before.log`, `/private/tmp/itc122-core-focused.log`, `/private/tmp/itc122-table-regression.log`, `/private/tmp/itc122-core-full.log`, `/private/tmp/itc122-avalonia-before-run.log`, `/private/tmp/itc122-avalonia-after.log`, `/private/tmp/itc122-native-before.log`, `/private/tmp/itc122-native-after.log`.
 
 ## ITC-123 - No-binding interpretation restriction overwritten when traces are absent
 

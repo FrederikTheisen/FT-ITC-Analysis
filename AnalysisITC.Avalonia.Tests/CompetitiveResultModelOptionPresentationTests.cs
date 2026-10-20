@@ -25,6 +25,48 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class CompetitiveResultModelOptionPresentationTests
 {
     [AvaloniaTheory]
+    [InlineData(AttributeKey.PreboundLigandConc, true, "Unavailable")]
+    [InlineData(AttributeKey.PreboundLigandEnthalpy, true, "Unavailable")]
+    [InlineData(AttributeKey.PreboundLigandAffinity, true, "Unavailable")]
+    [InlineData(AttributeKey.PreboundLigandConc, false, "0.0 µM")]
+    [InlineData(AttributeKey.PreboundLigandEnthalpy, false, "0.0 kJ/mol")]
+    [InlineData(AttributeKey.PreboundLigandAffinity, false, "1000000.0 µM")]
+    public void ModelPageDistinguishesMissingValuesFromLegitimateZeros(AttributeKey key, bool missing, string expected)
+    {
+        var originalUnit = AppSettings.DefaultConcentrationUnit;
+        var originalFamily = AppSettings.EnergyUnitFamily;
+        var originalStyle = AppSettings.UncertaintyDisplayStyle;
+        var originalPrecision = AppSettings.NumberPrecision;
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            AppSettings.DefaultConcentrationUnit = ConcentrationUnit.µM;
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+            AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
+            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            var model = CreateModel("missing-option", 2e-6, -32000);
+            foreach (var option in model.ModelOptions.Values) option.BoolValue = false;
+            model.ModelOptions[key].ParameterValue = missing ? FloatWithError.NaN : new FloatWithError(0);
+            model.Solution = SolutionInterface.FromModel(model, Convergence());
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var text = TextFrom(workspace.ModelPanelForTesting);
+
+            Assert.Contains(expected, text);
+            Assert.Equal(missing, FloatWithError.IsNaN(model.ModelOptions[key].ParameterValue));
+        }
+        finally
+        {
+            AppSettings.DefaultConcentrationUnit = originalUnit;
+            AppSettings.EnergyUnitFamily = originalFamily;
+            AppSettings.UncertaintyDisplayStyle = originalStyle;
+            AppSettings.NumberPrecision = originalPrecision;
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData(0, 7, "0", "7")]
     [InlineData(0.2, double.NaN, "0.2", "Unavailable")]
     [InlineData(0.25, 1, "One to tetramer (1:4)", "One to one (1:1)")]

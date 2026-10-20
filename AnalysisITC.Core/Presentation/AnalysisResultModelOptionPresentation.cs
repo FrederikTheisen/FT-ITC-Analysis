@@ -25,6 +25,12 @@ namespace AnalysisITC.Core.Presentation
 
             var style = AppSettings.UncertaintyDisplayStyle;
             var value = option.ParameterValue;
+            if (FloatWithError.IsNaN(value) && key.GetProperties().Type is
+                ExperimentAttribute.AttributeType.Parameter
+                    or ExperimentAttribute.AttributeType.ParameterAffinity
+                    or ExperimentAttribute.AttributeType.ParameterConcentration)
+                return value.AsNumber(style);
+
             switch (key)
             {
                 case AttributeKey.PreboundLigandAffinity:
