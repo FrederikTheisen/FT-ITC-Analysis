@@ -42,7 +42,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ComboBox errorStyleCombo = Combo(new[] { "Value with error", "Separate columns" });
         readonly ComboBox uncertaintyCombo = Combo(new[] { "SD", "CI", "SD + CI" });
         readonly ComboBox formatCombo = Combo(new[] { "CSV", "TSV" });
-        readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
+        readonly ComboBox temperatureCombo = Combo(new[] { AnalysisResultExportPresentation.CelsiusLabel, AnalysisResultExportPresentation.KelvinLabel });
         readonly ComboBox outputPurposeCombo = Combo(new[] { "Standard export", "Diagnostic export" });
         readonly ComboBox energyUnitCombo = Combo(EnergyUnitOverrideNames);
         readonly TextBlock statusText = Text();
@@ -84,8 +84,7 @@ namespace AnalysisITC.Avalonia.Tools
                 "Summary thermodynamic values use Parameter Evaluation at its default temperature; replicate rows retain their fitted values.");
             ToolTip.SetTip(uncertaintyCombo,
                 "Local summaries use Combined SD and approximate propagated intervals. Model-estimated intervals remain CI95.");
-            ToolTip.SetTip(temperatureCombo,
-                "Choose the display unit. Summary rows label their default evaluation temperature.");
+            ToolTip.SetTip(temperatureCombo, AnalysisResultExportPresentation.TemperatureToolTip);
             optionsPanel.Children.Add(Section("Rows", Labeled("Mode", rowModeCombo)));
             optionsPanel.Children.Add(Section("Result output", Labeled("Purpose", outputPurposeCombo)));
             optionsPanel.Children.Add(Section("Uncertainty",
@@ -93,7 +92,7 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Style", uncertaintyCombo)));
             optionsPanel.Children.Add(Section("Format",
                 Labeled("File", formatCombo),
-                Labeled("Temperature", temperatureCombo),
+                Labeled(AnalysisResultExportPresentation.TemperatureLabel, temperatureCombo),
                 Labeled("Energy", energyUnitCombo)));
 
             Content = WorkspaceControlBuilder.Workspace(

@@ -28,6 +28,7 @@ namespace AnalysisITC
         AnalysisResultExporterDataSource dataSource;
         AnalysisResultExporterDelegate tableDelegate;
         readonly NSPopUpButton outputPurposePopup = new NSPopUpButton();
+        readonly NSPopUpButton temperaturePopup = new NSPopUpButton();
 
         public AnalysisResultExporterViewController(IntPtr handle) : base(handle)
         {
@@ -46,6 +47,7 @@ namespace AnalysisITC
             ListView.ReloadData();
 
             SetupOutputPurposeControl();
+            SetupTemperatureControl();
 
             SetupToolTips();
             SelectDefaultRows();
@@ -106,7 +108,7 @@ namespace AnalysisITC
                 UncertaintyDisplayStyle = ExportUncertaintyStyle(),
                 EnergyUnitFamily = AppSettings.EnergyUnitFamily,
                 EnergyUnitOverride = ExportEnergyUnitOverride(),
-                UseKelvin = false,
+                UseKelvin = temperaturePopup.IndexOfSelectedItem == 1,
                 OutputPurpose = outputPurposePopup.IndexOfSelectedItem == 1
                     ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard,
             };
@@ -134,7 +136,33 @@ namespace AnalysisITC
             var root = FindPurposeHost(View);
             if (root == null) return;
             root.InsertArrangedSubview(row, Math.Min(2, (int)root.ArrangedSubviews.Length));
-            row.WidthAnchor.ConstraintEqualToAnchor(root.WidthAnchor, -36).Active = true;
+            row.WidthAnchor.ConstraintEqualToAnchor(root.WidthAnchor, 1, -36).Active = true;
+        }
+
+        void SetupTemperatureControl()
+        {
+            temperaturePopup.AddItems(new[] { AnalysisResultExportPresentation.CelsiusLabel, AnalysisResultExportPresentation.KelvinLabel });
+            temperaturePopup.SelectItem(0);
+            temperaturePopup.ToolTip = AnalysisResultExportPresentation.TemperatureToolTip;
+            var label = new NSTextField { StringValue = AnalysisResultExportPresentation.TemperatureLabel, Editable = false, Bordered = false,
+                DrawsBackground = false, Font = NSFont.SystemFontOfSize(12) };
+            label.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
+            var row = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Alignment = NSLayoutAttribute.Top,
+                Distribution = NSStackViewDistribution.Fill,
+                Spacing = 4,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            row.AddArrangedSubview(label);
+            row.AddArrangedSubview(temperaturePopup);
+            temperaturePopup.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            var root = FindPurposeHost(View);
+            if (root == null) return;
+            var formatRow = Array.FindIndex(root.ArrangedSubviews, child => ContainsControl(child, ExportFormatControl));
+            root.InsertArrangedSubview(row, formatRow + 1);
+            row.WidthAnchor.ConstraintEqualToAnchor(root.WidthAnchor, 1, -36).Active = true;
         }
 
         NSStackView FindPurposeHost(NSView view)
