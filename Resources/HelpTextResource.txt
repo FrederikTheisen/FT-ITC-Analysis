@@ -34,6 +34,8 @@ Save as `.ftxtc` to retain processing, fits, and project contents for another se
 
 When opening a project with already-loaded objects, **Skip Duplicates** keeps those objects and imports new content. **Import Copies** creates separate copies with their relationships preserved.
 
+Opening one complete `.ftxtc` project into an empty document sets its save destination. Adding files keeps the current destination. If the document is unnamed, or multiple projects are opened together into an empty document, **Save** asks for a name and location.
+
 Save after processing or fitting finishes; save commands are unavailable while busy, and autosave waits. If the project remains marked as changed after saving, save again to include the newer edits.
 
 Drag a non-button area of a Data or Analysis Result row to reorder the list. Projects retain that order.
