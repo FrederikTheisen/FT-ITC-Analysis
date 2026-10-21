@@ -90,6 +90,8 @@ public sealed class AnalysisResultNameParserTests : IDisposable
             var injection = new InjectionData(experiment, index, 2e-6, 2e-10, include: true)
             {
                 Ratio = index + 1,
+                ActualCellConcentration = experiment.CellConcentration.Value,
+                ActualTitrantConcentration = (index + 1) * experiment.CellConcentration.Value,
             };
             injection.SetPeakArea(new FloatWithError(-1e-6));
             experiment.Injections.Add(injection);

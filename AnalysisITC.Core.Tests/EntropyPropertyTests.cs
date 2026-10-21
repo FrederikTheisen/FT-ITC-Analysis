@@ -31,7 +31,12 @@ public sealed class EntropyPropertyTests
             MeasuredTemperature = 25,
             TargetTemperature = 25,
         };
-        var injection = new InjectionData(data, 0, 2e-6, 2e-9, true) { Ratio = 10 };
+        var injection = new InjectionData(data, 0, 2e-6, 2e-9, true)
+        {
+            Ratio = 10,
+            ActualCellConcentration = 10e-6,
+            ActualTitrantConcentration = 100e-6,
+        };
         injection.SetPeakArea(new FloatWithError(-1e-6));
         data.Injections.Add(injection);
 

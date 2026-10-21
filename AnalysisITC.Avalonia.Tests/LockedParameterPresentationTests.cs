@@ -169,6 +169,8 @@ public sealed class LockedParameterPresentationTests
         {
             IsIntegrated = true,
             Ratio = 1,
+            ActualCellConcentration = 10e-6,
+            ActualTitrantConcentration = 10e-6,
         });
 
         var model = new OneSetOfSites(data);

@@ -84,7 +84,13 @@ public sealed class CompetitiveResultModelOptionPresentationTests
                 CellVolume = 1.4e-3,
                 MeasuredTemperature = 25,
             };
-            data.Injections.Add(new InjectionData(data, volume: 1e-6) { IsIntegrated = true, Ratio = 1 });
+            data.Injections.Add(new InjectionData(data, volume: 1e-6)
+            {
+                IsIntegrated = true,
+                Ratio = 1,
+                ActualCellConcentration = 10e-6,
+                ActualTitrantConcentration = 10e-6,
+            });
             var model = new TwoSetsOfSites(data);
             model.InitializeParameters(data);
             model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
@@ -307,6 +313,8 @@ public sealed class CompetitiveResultModelOptionPresentationTests
         {
             IsIntegrated = true,
             Ratio = 1,
+            ActualCellConcentration = 10e-6,
+            ActualTitrantConcentration = 10e-6,
         });
         var model = new CompetitiveBinding(data);
         model.InitializeParameters(data);

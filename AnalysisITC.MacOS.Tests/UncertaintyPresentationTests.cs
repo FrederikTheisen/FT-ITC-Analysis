@@ -46,7 +46,14 @@ static class UncertaintyPresentationTests
     {
         var data = new ExperimentData("uncertainty-native.itc")
         { CellConcentration = new FloatWithError(10e-6), SyringeConcentration = new FloatWithError(100e-6), CellVolume = 1.4e-3, MeasuredTemperature = 25 };
-        for (var index = 0; index < 8; index++) data.Injections.Add(new InjectionData(data, volume: 1e-6) { IsIntegrated = true, Ratio = index + 1 });
+        for (var index = 0; index < 8; index++)
+            data.Injections.Add(new InjectionData(data, volume: 1e-6)
+            {
+                IsIntegrated = true,
+                Ratio = index + 1,
+                ActualCellConcentration = 10e-6,
+                ActualTitrantConcentration = (index + 1) * 10e-6,
+            });
         var model = new OneSetOfSites(data);
         model.InitializeParameters(data);
         model.ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = method };

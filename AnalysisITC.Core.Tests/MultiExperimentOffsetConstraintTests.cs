@@ -152,6 +152,8 @@ public sealed class MultiExperimentOffsetConstraintTests
             var injection = new InjectionData(experiment, index, 1e-6, 0, include: true)
             {
                 Ratio = index + 1,
+                ActualCellConcentration = experiment.CellConcentration.Value,
+                ActualTitrantConcentration = (index + 1) * experiment.CellConcentration.Value,
             };
             injection.SetPeakArea(new FloatWithError(enthalpy * injection.InjectionMass));
             experiment.Injections.Add(injection);

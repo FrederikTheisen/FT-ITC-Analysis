@@ -98,6 +98,8 @@ public sealed class MolarRmsdPresentationTests
         {
             IsIntegrated = true,
             Ratio = 1,
+            ActualCellConcentration = 10e-6,
+            ActualTitrantConcentration = 10e-6,
         };
         injection.SetPeakArea(new FloatWithError(-1e-6));
         experiment.Injections.Add(injection);
