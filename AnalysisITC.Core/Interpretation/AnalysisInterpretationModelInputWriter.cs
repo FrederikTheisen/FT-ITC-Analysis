@@ -124,7 +124,9 @@ namespace AnalysisITC.Core.Interpretation
             var isCompact = compactEncoding == SharedEvidenceEncoding || compactEncoding == Encoding;
             if (isCompact)
             {
+                RewriteCorrelations(root, BuildReportReferenceMapping(root));
                 if (root["requestedInterpretation"] is JsonObject) ApplyEvidenceSelection(root);
+                FinalizeProjection(root, ResultMemberReferences(root));
                 return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
             }
 
@@ -151,6 +153,8 @@ namespace AnalysisITC.Core.Interpretation
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);
             ApplyEvidenceSelection(root);
+            var resultMemberReferences = ResultMemberReferences(root);
+            FinalizeProjection(root, resultMemberReferences);
             RemoveKnownEvidenceIds(root);
             RoundKnownNumbers(root);
             var inline = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
@@ -511,9 +515,121 @@ namespace AnalysisITC.Core.Interpretation
                 omissions.Add(AnalysisInterpretationEvidencePolicy.NullPointsOmission);
             if (!selection.IncludeProcessingInformation) omissions.Add(AnalysisInterpretationEvidencePolicy.ProcessingOmission);
             if (!selection.IncludeThermograms) omissions.Add(AnalysisInterpretationEvidencePolicy.ThermogramOmission);
-            if (!selection.IncludeProcessingInformation && root["modelInputDefinitions"] is JsonObject definitions) definitions.Remove("baselineControls");
+        }
+
+        static void FinalizeProjection(JsonObject root, ISet<string> resultMemberReferences)
+        {
+            if (root == null) return;
+            CompactSupportingEvidence(root, resultMemberReferences,
+                ReadEvidenceSelection(root).IncludeProcessingInformation);
+            FilterStudyContextExperiments(root);
+            EnsureSupportingOmission(root);
             UpdateModelBoundary(root);
+            if (root["modelInputDefinitions"] is JsonObject definitions
+                && root["dataBoundary"]?["containsBaselineControlRepresentation"]?.GetValue<bool>() != true)
+                definitions.Remove("baselineControls");
             PruneUnusedSchemas(root);
+        }
+
+        static HashSet<string> ResultMemberReferences(JsonObject root) => new HashSet<string>(
+            Objects(root?["results"]).SelectMany(result => Objects(result["experiments"]))
+                .Select(experiment => String(experiment["reportReference"]))
+                .Where(reference => !string.IsNullOrWhiteSpace(reference)), StringComparer.Ordinal);
+
+        static HashSet<string> SupportingExperimentReferences(JsonObject root)
+        {
+            var memberReferences = ResultMemberReferences(root);
+            var supportReferences = new HashSet<string>(Objects(root?["supportingExperiments"])
+                .Select(experiment => String(experiment["reportReference"]))
+                .Where(reference => !string.IsNullOrWhiteSpace(reference)), StringComparer.Ordinal);
+            foreach (var record in Objects(root?["experimentEvidence"]))
+            {
+                var references = Strings(record["reportReferences"])
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference)).ToList();
+                foreach (var reference in references.Where(reference => !memberReferences.Contains(reference)))
+                    supportReferences.Add(reference);
+            }
+            return supportReferences;
+        }
+
+        static void FilterStudyContextExperiments(JsonObject root)
+        {
+            if (root?["studyContext"] is not JsonObject context || context["experiments"] is not JsonArray experiments) return;
+            var allowed = new HashSet<string>(AllMembers(root)
+                .Select(member => String(member["experimentId"]))
+                .Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.Ordinal);
+            for (var i = experiments.Count - 1; i >= 0; i--)
+            {
+                var id = String((experiments[i] as JsonObject)?["experimentId"]);
+                if (string.IsNullOrWhiteSpace(id) || !allowed.Contains(id)) experiments.RemoveAt(i);
+            }
+        }
+
+        static void CompactSupportingEvidence(JsonObject root, ISet<string> resultMemberReferences, bool retainProcessing)
+        {
+            foreach (var experiment in Objects(root?["supportingExperiments"]))
+                CompactSupportingExperiment(experiment, retainProcessing);
+            foreach (var record in Objects(root?["experimentEvidence"]))
+            {
+                var reportReferences = Strings(record["reportReferences"]).Where(reference => !string.IsNullOrWhiteSpace(reference)).ToList();
+                if (reportReferences.Count > 0 && reportReferences.Any(reference => resultMemberReferences.Contains(reference))) continue;
+                CompactSupportingExperiment(record, retainProcessing);
+            }
+        }
+
+        static void CompactSupportingExperiment(JsonObject experiment, bool retainProcessing)
+        {
+            if (experiment == null) return;
+            experiment.Remove("injections");
+            experiment.Remove("thermogram");
+            if (!retainProcessing)
+            {
+                experiment.Remove("baseline");
+                foreach (var field in new[] { "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor", "initialDelaySeconds" })
+                    experiment.Remove(field);
+            }
+            if (experiment["baseline"] is JsonObject baseline)
+            {
+                baseline.Remove("landmarks");
+                baseline.Remove("spline");
+                baseline.Remove("segmented");
+                baseline.Remove("polynomial");
+            }
+
+            const string noFit = "Supporting experiment has no report fit.";
+            if (String(experiment["matchedFitDiagnosticsUnavailableReason"]) == noFit)
+                experiment.Remove("matchedFitDiagnosticsUnavailableReason");
+            RemoveIfEmpty(experiment, "solver");
+            RemoveIfEmpty(experiment, "informationCriteria");
+            RemoveIfEmpty(experiment, "fittedHeatMethod");
+            RemoveIfEmpty(experiment, "unavailableDerivedParameterReason");
+            if (String(experiment["residualDiagnostics"]?["unavailableReason"]) == noFit)
+                experiment.Remove("residualDiagnostics");
+            RemoveIfEmpty(experiment, "residualDiagnostics");
+            RemoveIfEmpty(experiment, "modelOptions");
+            RemoveIfEmpty(experiment, "parameters");
+            RemoveIfEmpty(experiment, "cValues");
+        }
+
+        static void RemoveIfEmpty(JsonObject value, string name)
+        {
+            if (value[name] == null) { value.Remove(name); return; }
+            if (value[name] is JsonArray array && array.Count == 0) value.Remove(name);
+            else if (value[name] is JsonObject obj && obj.Count == 0) value.Remove(name);
+        }
+
+        static void EnsureSupportingOmission(JsonObject root)
+        {
+            if (root["omissions"] is not JsonArray omissions) root["omissions"] = omissions = new JsonArray();
+            var supportReferences = SupportingExperimentReferences(root);
+            for (var i = omissions.Count - 1; i >= 0; i--)
+            {
+                var reason = String(omissions[i]);
+                if (supportReferences.Any(reference => reason?.StartsWith("Experiment " + reference + ": Thermogram omitted because", StringComparison.Ordinal) == true))
+                    omissions.RemoveAt(i);
+                if (reason == AnalysisInterpretationEvidencePolicy.SupportingExperimentOmission) omissions.RemoveAt(i);
+            }
+            if (supportReferences.Count > 0) omissions.Add(AnalysisInterpretationEvidencePolicy.SupportingExperimentOmission);
         }
 
         static IEnumerable<JsonObject> EvidenceOwners(JsonObject root) => AllExperiments(root).Concat(Objects(root["experimentEvidence"]));
@@ -657,6 +773,7 @@ namespace AnalysisITC.Core.Interpretation
                 foreach (var experiment in Objects(result["experiments"])) RemoveExperimentEvidenceIds(experiment);
             }
             foreach (var experiment in Objects(root["supportingExperiments"])) RemoveExperimentEvidenceIds(experiment);
+            foreach (var experiment in Objects(root["experimentEvidence"])) RemoveExperimentEvidenceIds(experiment);
         }
 
         static void RemoveExperimentEvidenceIds(JsonObject experiment)
@@ -674,8 +791,12 @@ namespace AnalysisITC.Core.Interpretation
         {
             foreach (var result in Objects(root["results"]))
             {
-                RewriteCorrelation(result["bootstrapCorrelation"] as JsonObject, map);
-                foreach (var correlation in Objects(result["bootstrapCorrelations"])) RewriteCorrelation(correlation, map);
+                var singular = result["bootstrapCorrelation"] as JsonObject;
+                var plural = result["bootstrapCorrelations"] as JsonArray;
+                if (plural == null && singular != null)
+                    result["bootstrapCorrelations"] = plural = new JsonArray(singular.DeepClone());
+                result.Remove("bootstrapCorrelation");
+                foreach (var correlation in Objects(plural)) RewriteCorrelation(correlation, map);
             }
         }
 
@@ -694,13 +815,13 @@ namespace AnalysisITC.Core.Interpretation
         {
             foreach (var result in Objects(root["results"])) RoundResult(result);
             foreach (var experiment in Objects(root["supportingExperiments"])) RoundExperiment(experiment);
+            foreach (var experiment in Objects(root["experimentEvidence"])) RoundExperiment(experiment);
         }
 
         static void RoundResult(JsonObject result)
         {
             RoundSolver(result["solver"] as JsonObject);
             foreach (var option in Objects((result["model"] as JsonObject)?["options"])) RoundFields(option, "numericValue");
-            RoundCorrelation(result["bootstrapCorrelation"] as JsonObject);
             foreach (var correlation in Objects(result["bootstrapCorrelations"])) RoundCorrelation(correlation);
             foreach (var experiment in Objects(result["experiments"])) RoundExperiment(experiment);
             foreach (var item in Objects(result["temperatureDependence"])) RoundTemperatureDependence(item);
@@ -928,6 +1049,7 @@ namespace AnalysisITC.Core.Interpretation
         static double ParseNumber(string text) => double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
         static JsonNode Clone(JsonNode value) => value?.DeepClone();
         static string String(JsonNode value) => value is JsonValue json && json.TryGetValue<string>(out var result) ? result : null;
+        static IEnumerable<string> Strings(JsonNode value) => (value as JsonArray)?.Select(String).Where(item => item != null) ?? Enumerable.Empty<string>();
         static IEnumerable<JsonObject> Objects(JsonNode value) => (value as JsonArray)?.OfType<JsonObject>() ?? Enumerable.Empty<JsonObject>();
         static IEnumerable<JsonObject> AllExperiments(JsonObject root) { foreach (var result in Objects(root["results"])) foreach (var experiment in Objects(result["experiments"])) yield return experiment; foreach (var experiment in Objects(root["supportingExperiments"])) yield return experiment; }
         static IEnumerable<JsonObject> AllMembers(JsonObject root) { foreach (var result in Objects(root["results"])) foreach (var experiment in Objects(result["experiments"])) yield return experiment; foreach (var experiment in Objects(root["supportingExperiments"])) yield return experiment; }

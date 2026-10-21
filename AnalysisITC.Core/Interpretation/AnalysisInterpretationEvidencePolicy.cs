@@ -15,13 +15,14 @@ namespace AnalysisITC.Core.Interpretation
         // | JSON paths/evidence | First transmitted level |
         // | report, studyContext; results[].{reportReference,resultId,name,dateUtc,comments,health,validityStatus,validityReasons,matchedFitDiagnosticsUnavailableReason,model,solver,informationCriteria}; assessment except points | Results |
         // | result correlations, temperatureDependence, advancedAnalyses | Results |
-        // | E.{reportReference,experimentId,name,sourceFileBasename,dateProvenance,dateUtc,comments,sourceStateFingerprint,traceability} | Results |
-        // | E.{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason} | Results |
-        // | E.{concentrationMethod,heatMethod,fittedHeatMethod,analysisAxis,instrument} | Results |
-        // | E.{targetTemperatureKelvin,measuredTemperatureKelvin,targetTemperatureCelsius,measuredTemperatureCelsius,cellConcentrationMolar,cellConcentrationSdMolar,syringeConcentrationMolar,syringeConcentrationSdMolar} | Results |
-        // | E.{attributes,modelOptions,parameters,cValues,tandemSegments,tandemSourceExperimentIds,blankReferenceExperimentId,blankSubtractionMethod} | Results |
-        // | E.initialDelaySeconds, baselineCompleted, integrationCompleted, residualDiagnostics | Results |
-        // | E.injections.{acquisition,heatObservations,fit}; bindingAssessment.{members,nullMembers}[].points | InjectionData |
+        // | results[].experiments[].{reportReference,experimentId,name,sourceFileBasename,dateProvenance,dateUtc,comments,sourceStateFingerprint,traceability} | Results |
+        // | results[].experiments[].{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason} | Results |
+        // | results[].experiments[].{concentrationMethod,heatMethod,fittedHeatMethod,analysisAxis,instrument} | Results |
+        // | results[].experiments[].{temperatures,concentrations,attributes,modelOptions,parameters,cValues,tandem and blank relationships} | Results |
+        // | results[].experiments[].initialDelaySeconds, baselineCompleted, integrationCompleted, residualDiagnostics | Results |
+        // | supportingExperiments: source, identity, names, comments, conditions, concentrations, instrument, attributes, provenance and relationships | Results |
+        // | supportingExperiments: injections, thermograms and baseline controls are always omitted; processing settings and scalar baseline statistics/reasons | ProcessingDetails |
+        // | results[].experiments[].injections.{acquisition,heatObservations,fit}; bindingAssessment.{members,nullMembers}[].points | InjectionData |
         // | results[].historicalFitInputs (whole saved snapshots) | ProcessingDetails |
         // | E.baseline (statistics, availability and controls); E.injections.{integration,baseline} | ProcessingDetails |
         // | E.{baselineProcessor,processorLocked,discardsIntegratedPointsForBaseline,integrationLengthMode,integrationLengthFactor} | ProcessingDetails |
@@ -32,6 +33,7 @@ namespace AnalysisITC.Core.Interpretation
         public const string NullPointsOmission = "Saved Null comparison points omitted by user choice.";
         public const string ProcessingOmission = "Detailed processing information omitted by user choice.";
         public const string ThermogramOmission = "Thermograms and sampled baselines omitted by user choice.";
+        internal const string SupportingExperimentOmission = "Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.";
         public const string TraceRestriction = "Compressed value bounds preserve original observations but omit exact occurrence times, within-segment order and waveform detail. Do not infer precise settling or integration adequacy from extrema alone. Use timing, fitted baseline and processing evidence where supplied.";
         public const string NoTraceRestriction = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
         public const string NoBindingRestriction = "A No binding detected assessment is result-level evidence based on the saved comparison; supplied attempted-model parameters are diagnostic context, not established binding findings. Use each member assessment when interpreting its parameters. Use its saved Null model predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";

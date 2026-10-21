@@ -152,10 +152,10 @@ public sealed class CompactModelInputWriterTests
         using var expected = JsonDocument.Parse(JsonSerializer.Serialize(injection, options));
         using var compact = Compact(JsonSerializer.Serialize(package, options));
         var schemas = compact.RootElement.GetProperty("tableSchemas");
-        var experiments = new[] { compact.RootElement.GetProperty("results")[0].GetProperty("experiments")[0],
-            compact.RootElement.GetProperty("supportingExperiments")[0] };
-        foreach (var experiment in experiments)
-        {
+        var fittedMember = compact.RootElement.GetProperty("results")[0].GetProperty("experiments")[0];
+        var support = compact.RootElement.GetProperty("supportingExperiments")[0];
+        Assert.False(support.TryGetProperty("injections", out _));
+        var experiment = fittedMember;
             var reconstructed = new Dictionary<string, JsonElement>();
             var tables = experiment.GetProperty("injections");
             Assert.Equal(5, tables.EnumerateObject().Count());
@@ -187,7 +187,6 @@ public sealed class CompactModelInputWriterTests
             Assert.Empty(reconstructed);
             Assert.Equal(0.08, compact.RootElement.GetProperty("results")[0].GetProperty("experiments")[0]
                 .GetProperty("injections").GetProperty("integration").GetProperty("rows")[0][6].GetDouble(), 8);
-        }
     }
 
     [Fact]
@@ -211,6 +210,67 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal("1A", correlation.GetProperty("scopeReportReference").GetString());
         Assert.Equal(0.99999999, correlation.GetProperty("pearsonMatrix")[0][1].GetDouble());
         Assert.Equal(-0.99999999, correlation.GetProperty("pearsonMatrix")[1][0].GetDouble());
+    }
+
+    [Fact]
+    public void NormalizesBootstrapCorrelationsWithoutDuplicatingTheMatrix()
+    {
+        const string both = """
+        {"results":[{"reportReference":"1",
+          "bootstrapCorrelation":{"pearsonMatrix":[[1,0.5],[0.5,1]]},
+          "bootstrapCorrelations":[{"scopeReportReference":"1A","pearsonMatrix":[[1,0.25],[0.25,1]]},
+            {"scopeReportReference":"1B","pearsonMatrix":[[1,-0.75],[-0.75,1]]}],"experiments":[]}],"supportingExperiments":[]}
+        """;
+        using var normalized = Compact(both);
+        var normalizedResult = normalized.RootElement.GetProperty("results")[0];
+        Assert.False(normalizedResult.TryGetProperty("bootstrapCorrelation", out _));
+        var matrices = normalizedResult.GetProperty("bootstrapCorrelations");
+        Assert.Equal(2, matrices.GetArrayLength());
+        Assert.Equal(0.25, matrices[0].GetProperty("pearsonMatrix")[0][1].GetDouble());
+        Assert.Equal(-0.75, matrices[1].GetProperty("pearsonMatrix")[0][1].GetDouble());
+
+        const string singularOnly = """
+        {"results":[{"reportReference":"1","bootstrapCorrelation":{"pearsonMatrix":[[1,0.4],[0.4,1]]},"experiments":[]}],"supportingExperiments":[]}
+        """;
+        using var migrated = Compact(singularOnly);
+        var migratedResult = migrated.RootElement.GetProperty("results")[0];
+        Assert.False(migratedResult.TryGetProperty("bootstrapCorrelation", out _));
+        Assert.Equal(0.4, migratedResult.GetProperty("bootstrapCorrelations")[0].GetProperty("pearsonMatrix")[0][1].GetDouble());
+
+        const string emptyPlural = """
+        {"results":[{"reportReference":"1","bootstrapCorrelation":{"pearsonMatrix":[[1,0.4],[0.4,1]]},"bootstrapCorrelations":[],"experiments":[]}],"supportingExperiments":[]}
+        """;
+        using var empty = Compact(emptyPlural);
+        var emptyResult = empty.RootElement.GetProperty("results")[0];
+        Assert.False(emptyResult.TryGetProperty("bootstrapCorrelation", out _));
+        Assert.Empty(emptyResult.GetProperty("bootstrapCorrelations").EnumerateArray());
+    }
+
+    [Fact]
+    public void StudyContextExperimentsAreRestrictedToExactResultAndSupportIdsInOriginalOrder()
+    {
+        const string source = """
+        {"studyContext":{"experiments":[
+          {"experimentId":"support-id","detail":"first"},
+          {"experimentId":"member-id","detail":"second"},
+          {"experimentId":"excluded-id","detail":"excluded"},
+          {"experimentId":"Member-id","detail":"case-sensitive"},
+          {"experimentId":" ","detail":"blank"},
+          {"detail":"missing-id"}]},
+         "results":[{"experiments":[{"experimentId":"member-id","reportReference":"1A"}]}],
+         "supportingExperiments":[{"experimentId":"support-id","reportReference":"S1"}]}
+        """;
+
+        using var compact = Compact(source);
+        var retained = compact.RootElement.GetProperty("studyContext").GetProperty("experiments").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "support-id", "member-id" }, retained.Select(item => item.GetProperty("experimentId").GetString()));
+        Assert.Equal(new[] { "first", "second" }, retained.Select(item => item.GetProperty("detail").GetString()));
+
+        const string noMatches = """
+        {"studyContext":{"experiments":[{"experimentId":"nope"}]},"results":[],"supportingExperiments":[]}
+        """;
+        using var empty = Compact(noMatches);
+        Assert.Empty(empty.RootElement.GetProperty("studyContext").GetProperty("experiments").EnumerateArray());
     }
 
     [Fact]
@@ -353,7 +413,7 @@ public sealed class CompactModelInputWriterTests
         using var compact = JsonDocument.Parse(first);
         var root = compact.RootElement;
         var result = root.GetProperty("results")[0];
-        Assert.Equal("2", result.GetProperty("bootstrapCorrelation").GetProperty("scopeReportReference").GetString());
+        Assert.Equal("2", result.GetProperty("bootstrapCorrelations")[0].GetProperty("scopeReportReference").GetString());
         var experiment = result.GetProperty("experiments")[0];
         Assert.Equal("2C", experiment.GetProperty("reportReference").GetString());
         Assert.Equal("same-C", experiment.GetProperty("experimentId").GetString());
@@ -366,15 +426,17 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal("1.1234567890123456789", rows[0][Array.IndexOf(columns, "futureNumeric")].GetRawText());
         Assert.Equal(JsonValueKind.Null, rows[1][Array.IndexOf(columns, "futureNumeric")].ValueKind);
         Assert.Equal("FutureAxis", experiment.GetProperty("injections").GetProperty("heatObservations").GetProperty("rows")[0][3].GetString());
-        Assert.Equal(4, root.GetProperty("supportingExperiments")[0].GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][0].GetInt32());
+        Assert.False(root.GetProperty("supportingExperiments")[0].TryGetProperty("injections", out _));
+        Assert.Equal("blank", root.GetProperty("supportingExperiments")[0].GetProperty("experimentId").GetString());
         Assert.Equal(first, AnalysisInterpretationModelInputWriter.Write(first));
     }
 
     [Fact]
-    public void CompactsBaselineControlsOnEachExperimentAndPreservesExtensions()
+    public void CompactsMemberBaselineControlsAndKeepsOnlySupportingScalarSummary()
     {
         const string source = """
         {
+          "requestedInterpretation": {"includeProcessingInformation": true},
           "results": [
             {
               "reportReference": "1",
@@ -407,7 +469,9 @@ public sealed class CompactModelInputWriterTests
             }
           ],
           "supportingExperiments": [
-            {"reportReference": "S1", "injections": [], "baseline": {"landmarks": [{"timeSeconds": 11.1234567899, "powerMicrowatts": 12.1234567899}]}}
+            {"reportReference": "S1", "experimentId":"support-1", "injections": [],
+             "baselineProcessor":"Spline", "baseline": {"isAvailable":true,"netDriftMicrowatts":-0.25,
+               "landmarks": [{"timeSeconds": 11.1234567899, "powerMicrowatts": 12.1234567899}]}}
           ]
         }
         """;
@@ -457,9 +521,13 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal("centred", baseline.GetProperty("segmented").GetProperty("coefficientConvention").GetString());
         Assert.Equal("false", segmentTable.GetProperty("extensions")[0].GetProperty("values").GetProperty("futureSegment").GetRawText());
 
-        var supporting = root.GetProperty("supportingExperiments")[0].GetProperty("baseline").GetProperty("landmarks");
-        Assert.Equal("S1", supporting.GetProperty("reportReference").GetString());
-        Assert.Equal(11.1234568, supporting.GetProperty("rows")[0][0].GetDouble());
+        var supporting = root.GetProperty("supportingExperiments")[0];
+        Assert.False(supporting.TryGetProperty("injections", out _));
+        Assert.False(supporting.TryGetProperty("thermogram", out _));
+        Assert.Equal("Spline", supporting.GetProperty("baselineProcessor").GetString());
+        Assert.True(supporting.GetProperty("baseline").GetProperty("isAvailable").GetBoolean());
+        Assert.Equal(-0.25, supporting.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetDouble());
+        Assert.False(supporting.GetProperty("baseline").TryGetProperty("landmarks", out _));
         Assert.True(original.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].GetProperty("baseline").GetProperty("spline").GetProperty("controlPoints")[0].GetProperty("locked").GetBoolean());
     }
 
@@ -658,16 +726,15 @@ public sealed class CompactModelInputWriterTests
               "fittedHeatJoulesPerMole":1.23451,"confidence95LowerJoulesPerMole":1.23450,
               "confidence95UpperJoulesPerMole":1.23452,"futureNumeric":1.234567890123}]}],
           "advancedAnalyses":[{"values":[{"value":1.23451,"confidence95Lower":1.23450,"confidence95Upper":1.23452}]}]}],
-         "supportingExperiments":[{"reportReference":"S1","cellConcentrationMolar":0.000123456789,
-           "injections":[{"injectionId":2,"integratedHeatJoules":0.000123456789,"futureNumeric":1.234567890123}]}]}
+         "supportingExperiments":[{"reportReference":"S1","cellConcentrationMolar":0.000123456789}]}
         """;
 
         using var compact = Compact(source);
         var root = compact.RootElement;
         var result = root.GetProperty("results")[0];
         Assert.Equal(123.46, result.GetProperty("solver").GetProperty("unweightedRmsdMicrojoules").GetDouble());
-        Assert.Equal(0.999996, result.GetProperty("bootstrapCorrelation").GetProperty("pearsonMatrix")[0][1].GetDouble());
-        Assert.Equal(-0.999996, result.GetProperty("bootstrapCorrelation").GetProperty("pearsonMatrix")[1][0].GetDouble());
+        Assert.Equal(0.999996, result.GetProperty("bootstrapCorrelations")[0].GetProperty("pearsonMatrix")[0][1].GetDouble());
+        Assert.Equal(-0.999996, result.GetProperty("bootstrapCorrelations")[0].GetProperty("pearsonMatrix")[1][0].GetDouble());
 
         var experiment = result.GetProperty("experiments")[0];
         Assert.Equal(300.12, experiment.GetProperty("targetTemperatureKelvin").GetDouble());

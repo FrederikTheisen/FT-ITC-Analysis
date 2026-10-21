@@ -544,6 +544,45 @@ public sealed class OpenAIInterpretationProviderTests
         Assert.Equal(1, store.ReadExecutionAccounting(request.ServerExecutionId).AttemptCount);
     }
 
+    [Fact]
+    public async Task ProviderForwardsTheCompactProjectionWithoutRehydratingSupportingEvidence()
+    {
+        var requestBodies = new List<string>();
+        using var client = new HttpClient(new StubHttpMessageHandler(async (message, _) =>
+        {
+            requestBodies.Add(await message.Content!.ReadAsStringAsync());
+            return JsonResponse(HttpStatusCode.OK,
+                "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"## Overall interpretation\\nDone.\"}]}]}");
+        }));
+        var request = Request();
+        const string supportOmission = "Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.";
+        using var compact = JsonDocument.Parse("""
+        {"modelInputEncoding":"compact-tables-v1","omissions":["Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied."],
+         "results":[{"reportReference":"1","experiments":[{"reportReference":"1A","thermogram":{"powerMinMax":[[0,1]]}}]}],
+         "supportingExperiments":[{"experimentId":"support-1","sourceFileBasename":"support.ftxtc","baselineCompleted":true,
+           "baseline":{"isAvailable":true,"netDriftMicrowatts":1}}]}
+        """);
+        request.PackageJson = compact.RootElement.Clone();
+
+        var response = await Provider(client).GenerateAsync(request, CancellationToken.None);
+
+        Assert.Equal("## Overall interpretation\nDone.", response.InterpretationMarkdown);
+        var body = Assert.Single(requestBodies);
+        using var providerRequest = JsonDocument.Parse(body);
+        var input = providerRequest.RootElement.GetProperty("input").GetString()!;
+        const string marker = "PACKAGE_JSON\n";
+        var packageStart = input.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(packageStart >= 0);
+        using var forwarded = JsonDocument.Parse(input[(packageStart + marker.Length)..]);
+        var forwardedPackage = forwarded.RootElement;
+        Assert.Equal("support-1", forwardedPackage.GetProperty("supportingExperiments")[0].GetProperty("experimentId").GetString());
+        Assert.Equal(1, forwardedPackage.GetProperty("supportingExperiments")[0].GetProperty("baseline").GetProperty("netDriftMicrowatts").GetInt32());
+        Assert.False(forwardedPackage.GetProperty("supportingExperiments")[0].TryGetProperty("injections", out _));
+        Assert.False(forwardedPackage.GetProperty("supportingExperiments")[0].TryGetProperty("thermogram", out _));
+        Assert.True(forwardedPackage.GetProperty("results")[0].GetProperty("experiments")[0].TryGetProperty("thermogram", out _));
+        Assert.Contains(supportOmission, forwardedPackage.GetProperty("omissions").EnumerateArray().Select(item => item.GetString()));
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "retrieval_failed")]
     [InlineData(HttpStatusCode.Forbidden, "retrieval_failed")]

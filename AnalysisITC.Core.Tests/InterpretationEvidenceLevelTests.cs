@@ -55,22 +55,51 @@ public sealed class InterpretationEvidenceLevelTests
         Assert.Equal(expectedSchemas.OrderBy(x => x), root.GetProperty("tableSchemas").EnumerateObject().Select(p => p.Name).OrderBy(x => x));
         foreach (var schema in expectedSchemas)
             Assert.Equal(Columns[schema], root.GetProperty("tableSchemas").GetProperty(schema).GetProperty("columns").EnumerateArray().Select(c => c.GetString()));
-        foreach (var owner in new[] { result.GetProperty("experiments")[0], root.GetProperty("supportingExperiments")[0] })
+        var member = result.GetProperty("experiments")[0];
+        var support = root.GetProperty("supportingExperiments")[0];
+        foreach (var (owner, isMember) in new[] { (member, true), (support, false) })
         {
-            var keys = new List<string> { "reportReference", "experimentId", "name", "residualDiagnostics", "baselineCompleted", "integrationCompleted", "initialDelaySeconds" };
-            if (level > 0) keys.Add("injections");
-            if (level >= 2) keys.AddRange(new[] { "baseline", "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" });
-            if (level == 3) keys.Add("thermogram");
+            var keys = new List<string> { "reportReference", "experimentId", "name", "baselineCompleted", "integrationCompleted" };
+            if (isMember) keys.Add("residualDiagnostics");
+            if (isMember || level >= 2) keys.Add("initialDelaySeconds");
+            if (isMember)
+            {
+                if (level > 0) keys.Add("injections");
+                if (level >= 2) keys.AddRange(new[] { "baseline", "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" });
+                if (level == 3) keys.Add("thermogram");
+            }
+            else if (level >= 2)
+                keys.AddRange(new[] { "baseline", "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" });
             Assert.Equal(keys.OrderBy(x => x), owner.EnumerateObject().Select(p => p.Name).OrderBy(x => x));
-            if (level > 0)
+            Assert.False(owner.TryGetProperty("baselineLandmarks", out _));
+            if (isMember && level > 0)
             {
                 Assert.Equal(expectedTables.OrderBy(x => x), owner.GetProperty("injections").EnumerateObject().Select(p => p.Name).OrderBy(x => x));
                 Assert.Equal(-12, owner.GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][1].GetDouble());
             }
-            if (level >= 2)
+            if (isMember && level >= 2)
             {
                 Assert.Equal(4, owner.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetDouble());
                 Assert.Equal(2, owner.GetProperty("baseline").GetProperty("segmented").GetProperty("segments").GetProperty("rows")[0][5][1].GetDouble());
+            }
+            if (!isMember)
+            {
+                Assert.False(owner.TryGetProperty("injections", out _));
+                if (level >= 2)
+                {
+                    Assert.Equal(4, owner.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetDouble());
+                    Assert.False(owner.GetProperty("baseline").TryGetProperty("landmarks", out _));
+                    Assert.False(owner.GetProperty("baseline").TryGetProperty("spline", out _));
+                    Assert.False(owner.GetProperty("baseline").TryGetProperty("segmented", out _));
+                }
+                else
+                {
+                    Assert.False(owner.TryGetProperty("baseline", out _));
+                    Assert.False(owner.TryGetProperty("baselineProcessor", out _));
+                }
+                Assert.False(owner.TryGetProperty("thermogram", out _));
+                Assert.Equal("supporting", owner.GetProperty("experimentId").GetString());
+                Assert.False(owner.TryGetProperty("residualDiagnostics", out _));
             }
         }
         Assert.Equal(level >= 2, result.TryGetProperty("historicalFitInputs", out _));
@@ -92,6 +121,8 @@ public sealed class InterpretationEvidenceLevelTests
         {
             if (level < 3) Assert.DoesNotContain("Thermogram omitted because", reason.GetString());
         });
+        Assert.Contains("Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.",
+            root.GetProperty("omissions").EnumerateArray().Select(reason => reason.GetString()));
         Assert.Equal(level == 0 ? 1 : 0, root.GetProperty("omissions").EnumerateArray()
             .Count(reason => reason.GetString() == "Saved Null comparison points omitted by user choice."));
         Assert.Equal(written, AnalysisInterpretationModelInputWriter.Write(written));
@@ -137,6 +168,39 @@ public sealed class InterpretationEvidenceLevelTests
         Assert.Empty(root.GetProperty("tableSchemas").EnumerateObject());
         Assert.False(root.GetProperty("results")[0].GetProperty("experiments")[0].TryGetProperty("baseline", out _));
         AssertSchemasResolve(root, root.GetProperty("tableSchemas"));
+    }
+
+    [Fact]
+    public void SupportingProjectionOmitsDetailAndLeavesCanonicalCaptureUntouched()
+    {
+        var source = Source(3);
+        var support = source["supportingExperiments"]![0]!.AsObject();
+        var extraRows = new JsonArray();
+        for (var index = 0; index < 600; index++)
+            extraRows.Add(new JsonObject { ["injectionId"] = index + 1, ["included"] = true,
+                ["observedHeatJoulesPerMole"] = -1234.56789 + index, ["observedHeatErrorJoulesPerMole"] = 0.123456 });
+        support["injections"] = extraRows;
+        support["thermogram"] = new JsonObject
+        {
+            ["powerMinMax"] = new JsonArray(Enumerable.Range(0, 400).Select(index =>
+                (JsonNode)new JsonArray(index / 7.0, index / 7.0 + 0.25)).ToArray()),
+            ["baselineMinMax"] = new JsonArray(Enumerable.Range(0, 400).Select(index =>
+                (JsonNode)new JsonArray(index / 7.0 - 0.1, index / 7.0 + 0.1)).ToArray()),
+        };
+        var canonicalBefore = source.ToJsonString();
+        var transmitted = AnalysisInterpretationModelInputWriter.Write(canonicalBefore);
+        using var json = JsonDocument.Parse(transmitted);
+        var root = json.RootElement;
+        var member = root.GetProperty("results")[0].GetProperty("experiments")[0];
+        var sentSupport = root.GetProperty("supportingExperiments")[0];
+        Assert.True(member.GetProperty("thermogram").GetProperty("powerMinMax").GetArrayLength() > 0);
+        Assert.True(member.GetProperty("injections").GetProperty("fit").GetProperty("rows").GetArrayLength() > 0);
+        Assert.False(sentSupport.TryGetProperty("thermogram", out _));
+        Assert.False(sentSupport.TryGetProperty("injections", out _));
+        Assert.Contains("Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.",
+            root.GetProperty("omissions").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal(canonicalBefore, source.ToJsonString());
+        Assert.Equal(transmitted, AnalysisInterpretationModelInputWriter.Write(transmitted));
     }
 
     [Theory]
@@ -286,6 +350,115 @@ public sealed class InterpretationEvidenceLevelTests
         AssertSchemasResolve(root, root.GetProperty("tableSchemas"));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void SharedLayoutKeepsMemberEvidenceAndCompactsSupportOnlyRecordAtEveryLevel(int level)
+    {
+        var source = SharedSource(level);
+        var written = AnalysisInterpretationModelInputWriter.Write(source.ToJsonString());
+        using var document = JsonDocument.Parse(written);
+        var root = document.RootElement;
+        Assert.Equal("compact-tables-shared-evidence-v1", root.GetProperty("modelInputEncoding").GetString());
+        var member = root.GetProperty("results")[0].GetProperty("experiments")[0];
+        var memberRecord = FindEvidenceRecord(root.GetProperty("experimentEvidence"), "1A");
+        var support = root.GetProperty("supportingExperiments")[0];
+        var supportRecord = FindEvidenceRecord(root.GetProperty("experimentEvidence"), "S1");
+        Assert.Equal(member.GetProperty("experimentEvidenceRef").GetString(), memberRecord.GetProperty("evidenceReference").GetString());
+        Assert.Equal(support.GetProperty("experimentEvidenceRef").GetString(), supportRecord.GetProperty("evidenceReference").GetString());
+
+        Assert.Equal(level > 0, member.TryGetProperty("injections", out _));
+        Assert.Equal(level > 0, memberRecord.TryGetProperty("injections", out _));
+        Assert.Equal(level >= 2, memberRecord.TryGetProperty("baseline", out _));
+        Assert.Equal(level >= 2, supportRecord.TryGetProperty("baseline", out _));
+        Assert.Equal(level == 3, memberRecord.TryGetProperty("thermogram", out _));
+        Assert.False(supportRecord.TryGetProperty("thermogram", out _));
+        Assert.False(supportRecord.TryGetProperty("injections", out _));
+        if (level >= 2)
+        {
+            Assert.True(memberRecord.GetProperty("baseline").TryGetProperty("landmarks", out _));
+            Assert.Equal(4, supportRecord.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetDouble());
+            Assert.False(supportRecord.GetProperty("baseline").TryGetProperty("landmarks", out _));
+            Assert.False(supportRecord.GetProperty("baseline").TryGetProperty("spline", out _));
+            Assert.False(supportRecord.GetProperty("baseline").TryGetProperty("segmented", out _));
+        }
+        Assert.Equal(level == 3, root.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
+        Assert.Equal(level >= 2, root.GetProperty("dataBoundary").GetProperty("containsBaselineControlRepresentation").GetBoolean());
+        Assert.Contains("Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.",
+            root.GetProperty("omissions").EnumerateArray().Select(reason => reason.GetString()));
+        Assert.Equal(written, AnalysisInterpretationModelInputWriter.Write(written));
+        AssertSchemasResolve(root, root.GetProperty("tableSchemas"));
+    }
+
+    [Fact]
+    public void AlreadyCompactSharedPackageStripsLegacySupportRecordDetailsButKeepsMemberRecord()
+    {
+        var package = SharedSource(3);
+        var initial = JsonNode.Parse(AnalysisInterpretationModelInputWriter.Write(package.ToJsonString()))!.AsObject();
+        Assert.Equal("compact-tables-shared-evidence-v1", initial["modelInputEncoding"]!.GetValue<string>());
+        var records = initial["experimentEvidence"]!.AsArray().OfType<JsonObject>().ToArray();
+        var originalMemberRecord = FindEvidenceRecord(records, "1A");
+        var originalSupportRecord = FindEvidenceRecord(records, "S1");
+        originalSupportRecord["injections"] = originalMemberRecord["injections"]?.DeepClone();
+        originalSupportRecord["baseline"] = originalMemberRecord["baseline"]?.DeepClone();
+        originalSupportRecord["thermogram"] = originalMemberRecord["thermogram"]?.DeepClone();
+
+        var rewritten = AnalysisInterpretationModelInputWriter.Write(initial.ToJsonString());
+        using var document = JsonDocument.Parse(rewritten);
+        var root = document.RootElement;
+        var rewrittenMemberRecord = FindEvidenceRecord(root.GetProperty("experimentEvidence"), "1A");
+        var rewrittenSupportRecord = FindEvidenceRecord(root.GetProperty("experimentEvidence"), "S1");
+        Assert.True(rewrittenMemberRecord.TryGetProperty("injections", out _));
+        Assert.True(rewrittenMemberRecord.TryGetProperty("thermogram", out _));
+        Assert.True(rewrittenMemberRecord.GetProperty("baseline").TryGetProperty("landmarks", out _));
+        Assert.False(rewrittenSupportRecord.TryGetProperty("injections", out _));
+        Assert.False(rewrittenSupportRecord.TryGetProperty("thermogram", out _));
+        Assert.False(rewrittenSupportRecord.GetProperty("baseline").TryGetProperty("landmarks", out _));
+        Assert.True(root.GetProperty("modelInputDefinitions").TryGetProperty("baselineControls", out _));
+        Assert.Equal(rewritten, AnalysisInterpretationModelInputWriter.Write(rewritten));
+        AssertSchemasResolve(root, root.GetProperty("tableSchemas"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OlderCompactSupportingControlsDropUnusedDefinitionsWithoutRounding(bool shared)
+    {
+        var source = shared ? SharedSource(3) : Source(3);
+        var compact = JsonNode.Parse(AnalysisInterpretationModelInputWriter.Write(source.ToJsonString()))!.AsObject();
+        var member = compact["results"]![0]!["experiments"]![0]!.AsObject();
+        var support = compact["supportingExperiments"]![0]!.AsObject();
+        var records = compact["experimentEvidence"] as JsonArray;
+        var memberSource = shared ? FindEvidenceRecord(records!.OfType<JsonObject>(), "1A") : member;
+        var supportSource = shared ? FindEvidenceRecord(records!.OfType<JsonObject>(), "S1") : support;
+
+        // Restore older supporting controls; no fitted member supplies controls.
+        supportSource["baseline"] = memberSource["baseline"]!.DeepClone();
+        memberSource.Remove("baseline");
+        supportSource["baseline"]!["netDriftMicrowatts"] = JsonNode.Parse("0.1234567890123456789");
+        memberSource["targetTemperatureKelvin"] = JsonNode.Parse("298.1234567890123456789");
+        member["parameters"] = JsonNode.Parse("""
+        [{"bestFitValue":1.234567890123456789,"confidence95Lower":1.0,"confidence95Upper":2.0}]
+        """);
+
+        var rewritten = AnalysisInterpretationModelInputWriter.Write(compact.ToJsonString());
+        using var json = JsonDocument.Parse(rewritten);
+        var root = json.RootElement;
+        var memberOutput = root.GetProperty("results")[0].GetProperty("experiments")[0];
+        var memberEvidence = shared ? FindEvidenceRecord(root.GetProperty("experimentEvidence"), "1A") : memberOutput;
+        var supportEvidence = shared ? FindEvidenceRecord(root.GetProperty("experimentEvidence"), "S1") : root.GetProperty("supportingExperiments")[0];
+        Assert.False(root.GetProperty("dataBoundary").GetProperty("containsBaselineControlRepresentation").GetBoolean());
+        Assert.False(root.GetProperty("modelInputDefinitions").TryGetProperty("baselineControls", out _));
+        Assert.False(root.GetProperty("tableSchemas").TryGetProperty("baseline-landmarks-v1", out _));
+        Assert.Equal("0.1234567890123456789", supportEvidence.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetRawText());
+        Assert.Equal("298.1234567890123456789", memberEvidence.GetProperty("targetTemperatureKelvin").GetRawText());
+        Assert.Equal("1.234567890123456789", memberOutput.GetProperty("parameters")[0].GetProperty("bestFitValue").GetRawText());
+        Assert.Equal(rewritten, AnalysisInterpretationModelInputWriter.Write(rewritten));
+        AssertSchemasResolve(root, root.GetProperty("tableSchemas"));
+    }
+
     [Fact]
     public async Task MeasureRepresentativeProjectLoadFreshnessAndReportBuild()
     {
@@ -326,6 +499,26 @@ public sealed class InterpretationEvidenceLevelTests
         else if (node.ValueKind == JsonValueKind.Array) foreach (var item in node.EnumerateArray()) AssertSchemasResolve(item, schemas);
     }
 
+    static JsonElement FindEvidenceRecord(JsonElement records, string reportReference) =>
+        Assert.Single(records.EnumerateArray(), record => record.GetProperty("reportReferences").EnumerateArray()
+            .Any(reference => reference.GetString() == reportReference));
+
+    static JsonObject FindEvidenceRecord(IEnumerable<JsonObject> records, string reportReference) =>
+        Assert.Single(records, record => record["reportReferences"]!.AsArray()
+            .Any(reference => reference!.GetValue<string>() == reportReference));
+
+    static JsonObject SharedSource(int level)
+    {
+        var source = Source(level);
+        var first = source["results"]![0]!["experiments"]![0]!;
+        first["comments"] = new string('x', 3000);
+        var second = first.DeepClone();
+        second["reportReference"] = "2A";
+        source["results"].AsArray().Add(new JsonObject
+        { ["reportReference"] = "2", ["experiments"] = new JsonArray(second) });
+        return source;
+    }
+
     static JsonObject Source(int level)
     {
         var source = JsonNode.Parse("""
@@ -347,6 +540,7 @@ public sealed class InterpretationEvidenceLevelTests
         source["requestedInterpretation"] = new JsonObject { ["injectionRows"] = level > 0 ? "all" : "none", ["includeProcessingInformation"] = level >= 2, ["includeThermograms"] = level == 3 };
         var supporting = source["results"][0]["experiments"][0].DeepClone();
         supporting["reportReference"] = "S1"; supporting["experimentId"] = "supporting";
+        supporting["residualDiagnostics"] = new JsonObject { ["unavailableReason"] = "Supporting experiment has no report fit." };
         source["supportingExperiments"].AsArray().Add(supporting);
         return source;
     }

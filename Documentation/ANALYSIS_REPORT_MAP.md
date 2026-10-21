@@ -76,6 +76,12 @@ and below the text. A single-line row is 16 pt tall in both desktop renderers.
 
 ## I. Interpretation
 
+The interpretation evidence level applies fully to fitted result members.
+Selected supporting experiments always contribute summary metadata; Processing
+details and Thermograms add processing settings and scalar baseline statistics
+and reasons, while injection rows, traces, landmarks and baseline controls are
+omitted. These transmission rules do not change printed report contents.
+
 Whole chapter omitted when the report has no saved interpretation.
 
 Opening another report clears the builder's text undo and redo history.
@@ -555,6 +561,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportRenderer.cs` (Avalonia).
 
 ## Revision notes
+
+- 2026-10-21 (ITC-034): Supporting experiments transmit summary metadata at every evidence level; Processing details and Thermograms add processing settings and scalar baseline statistics/reasons. They never send injection rows, thermograms, landmarks or baseline control representations. Fitted result members retain the selected level. Printed report contents are unchanged.
 
 - 2026-10-19 (CR-034): Avalonia now includes Expanded explanations in its existing busy policy, matching native macOS. The option remains fixed during construction; later changes still invalidate the preview and rebuild on export. A09/A12/A14 explanation content and triggers are unchanged.
 

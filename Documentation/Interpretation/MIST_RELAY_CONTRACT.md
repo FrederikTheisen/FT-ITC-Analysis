@@ -297,30 +297,56 @@ model injection tables and both pooled and independent-member Null points;
 canonical capture retains all eligible rows. Within a dialog, changing levels
 preserves the saved `includedOnly` preference.
 
+The selected level applies fully to every fitted result member. A selected
+supporting experiment is transmitted as a summary at every level: identity,
+metadata, comments, conditions, provenance, relationships and processing
+completion. At Processing details and Thermograms, its summary also includes
+processing settings, scalar baseline statistics and baseline availability or
+unavailability reasons. Supporting experiments never transmit injection rows,
+thermograms, baseline landmarks or baseline control representations. Their
+summary is unchanged at Results and Injection data. Shared source evidence
+referenced by a fitted member follows that member's selected level; a
+supporting-only record uses the summary rule.
+
+`studyContext.experiments` annotations are filtered to experiment IDs retained
+as selected result members or supporting experiments. Other saved report
+context is retained. This filtering affects only the transmitted model payload;
+the complete local capture and freshness fingerprint remain unchanged. The
+payload keeps plural `bootstrapCorrelations`; a legacy singular-only
+`bootstrapCorrelation` is normalized to that plural form.
+
 #### Evidence ownership
 
 Here `E` means `results[].experiments[]`, `supportingExperiments[]`, or shared
 `experimentEvidence[]`. The table describes transmitted evidence; canonical
-capture remains complete. Applicable scientific output restrictions still apply.
+capture remains complete. Result members use the levels in the table. The table's
+fit and detailed source-evidence rows apply only to result members and shared
+records used by them; a supporting-only record retains only the summary metadata
+rows and, at Processing details or Thermograms, processing settings, scalar
+baseline statistics and availability/unavailability reasons. Applicable
+scientific output restrictions still apply.
 
 | JSON paths/evidence | First included level |
 |---|---|
 | `report`, `studyContext`; `results[].{reportReference,resultId,name,dateUtc,comments,health,validityStatus,validityReasons,matchedFitDiagnosticsUnavailableReason}` | Results |
-| Result `model`, `solver`, `informationCriteria`, `bindingAssessment` except points, `bootstrapCorrelation(s)`, `temperatureDependence`, `advancedAnalyses` | Results |
+| Result `model`, `solver`, `informationCriteria`, `bindingAssessment` except points, `bootstrapCorrelations`, `temperatureDependence`, `advancedAnalyses` | Results |
 | `E.{reportReference,experimentId,name,sourceFileBasename,dateProvenance,dateUtc,comments,sourceStateFingerprint,traceability}` | Results |
-| `E.{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason}` | Results |
+| Result-member `E.{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason}` | Results |
 | `E.{concentrationMethod,heatMethod,fittedHeatMethod,analysisAxis,instrument}` | Results |
 | `E.{targetTemperatureKelvin,measuredTemperatureKelvin,targetTemperatureCelsius,measuredTemperatureCelsius,cellConcentrationMolar,cellConcentrationSdMolar,syringeConcentrationMolar,syringeConcentrationSdMolar}` | Results |
-| `E.{attributes,modelOptions,parameters,cValues,tandemSegments,tandemSourceExperimentIds,blankReferenceExperimentId,blankSubtractionMethod,initialDelaySeconds,baselineCompleted,integrationCompleted,residualDiagnostics}` | Results |
-| `E.injections.{acquisition,heatObservations,fit}`; `results[].bindingAssessment.{members,nullMembers}[].points` | Injection data |
-| `E.injections.{integration,baseline}` | Processing details |
-| Entire `E.baseline`, including availability, drift/range/RMS statistics, landmarks, spline/segmented/polynomial representations | Processing details |
-| `E.{baselineProcessor,processorLocked,discardsIntegratedPointsForBaseline,integrationLengthMode,integrationLengthFactor}` | Processing details |
+| `E.{attributes,tandemSegments,tandemSourceExperimentIds,blankReferenceExperimentId,blankSubtractionMethod}`; all records' processing completion flags | Results |
+| Result-member `E.{initialDelaySeconds,modelOptions,parameters,cValues,residualDiagnostics}` | Results |
+| Result-member `E.injections.{acquisition,heatObservations,fit}`; `results[].bindingAssessment.{members,nullMembers}[].points` | Injection data |
+| Result-member `E.injections.{integration,baseline}` | Processing details |
+| Result-member `E.baseline`, including availability, drift/range/RMS statistics, landmarks, spline/segmented/polynomial representations | Processing details |
+| Result-member `E.{baselineProcessor,processorLocked,discardsIntegratedPointsForBaseline,integrationLengthMode,integrationLengthFactor}` | Processing details |
 | Entire `results[].historicalFitInputs` (saved metadata, injection data and processing snapshot); invalid-fit warning remains at Results | Processing details |
-| `E.thermogram`, aligned baseline arrays, trace-specific omission/unavailability reasons | Thermograms |
+| Result-member `E.thermogram`, aligned baseline arrays, trace-specific omission/unavailability reasons | Thermograms |
 | `packageSchemaVersion`, `modelInputEncoding`, `requestedInterpretation`, `omissions`, `dataBoundary`, `tableSchemas`, `modelInputDefinitions`; shared owner/reference links | Describe retained evidence at every level |
 
-Schemas are retained for the actual positional tables. Below Thermograms,
+For supporting-only records, the model package includes omission disclosures
+for the omitted injection rows, thermograms, landmarks and baseline controls.
+Schemas are retained only for actual positional tables. Below Thermograms,
 trace-specific unavailability reasons are replaced by the trace-selection
 omission; unrelated omissions remain intact. Selected traces are retained even
 when large: request-size or provider-context rejection fails visibly instead of

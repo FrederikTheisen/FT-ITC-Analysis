@@ -479,6 +479,141 @@ public sealed class AnalysisInterpretationCollectionTests
         Assert.True(Encoding.UTF8.GetByteCount(body) < FtItcInterpretationClient.MaximumRequestBytes);
     }
 
+    [Theory]
+    [InlineData("interpretation")]
+    [InlineData("summary")]
+    public async Task TransportSendsSupportingSummariesAndReducedCorrelationsAndAnnotations(string taskType)
+    {
+        var package = new AnalysisInterpretationPackage
+        {
+            RequestedInterpretation = new AnalysisInterpretationOptions
+            {
+                InjectionRows = AnalysisInterpretationInjectionRows.All,
+                IncludeProcessingInformation = true,
+                IncludeThermograms = true,
+            },
+            StudyContext = new AnalysisStudyContext
+            {
+                Experiments = new List<AnalysisExperimentContext>
+                {
+                    new() { ExperimentId = "member-id", Purpose = "member purpose", Annotation = "member note" },
+                    new() { ExperimentId = "support-id", Purpose = "support purpose", Annotation = "support note" },
+                    new() { ExperimentId = "orphan-id", Purpose = "stale purpose", Annotation = "stale note" },
+                },
+            },
+        };
+        var correlation = new InterpretationCorrelationEvidence
+        {
+            ScopeEvidenceId = "member-evidence",
+            Availability = "available",
+            CoordinateLabels = new List<string> { "K" },
+            PearsonMatrix = new List<List<double?>> { new() { 1 } },
+        };
+        package.Results.Add(new InterpretationResultEvidence
+        {
+            ResultId = "result-1",
+            ReportReference = "R1",
+            Experiments = new List<InterpretationExperimentEvidence>
+            {
+                new()
+                {
+                    EvidenceId = "member-evidence", ReportReference = "R1A", ExperimentId = "member-id", Name = "Member",
+                    Injections = new List<InterpretationInjectionEvidence> { new() { InjectionId = 2, Included = true, TimeSeconds = 15 } },
+                    Thermogram = new InterpretationThermogramEvidence { PowerMinMax = new List<double?[]> { new double?[] { 1, 2 } } },
+                },
+            },
+            BootstrapCorrelation = correlation,
+            BootstrapCorrelations = new List<InterpretationCorrelationEvidence> { correlation },
+        });
+        package.SupportingExperiments.Add(new InterpretationExperimentEvidence
+        {
+            EvidenceId = "support-evidence", ReportReference = "S1", ExperimentId = "support-id", Name = "Supporting source",
+            SourceFileBasename = "supporting.itc", Comments = "support comment", CellConcentrationMolar = 1.2e-5,
+            Instrument = new InterpretationInstrumentEvidence { ModelName = "Instrument A" },
+            Attributes = new List<InterpretationNamedValue> { new() { Name = "batch", TextValue = "B7" } },
+            BaselineCompleted = true, IntegrationCompleted = true,
+            BaselineProcessor = "Polynomial", ProcessorLocked = true, IntegrationLengthMode = "Fixed", IntegrationLengthFactor = 0.8,
+            Baseline = new InterpretationBaselineEvidence
+            {
+                IsAvailable = true, NetDriftMicrowatts = 0.25, UnavailableReason = "",
+                Landmarks = new List<InterpretationBaselineLandmark> { new() { TimeSeconds = 5, PowerMicrowatts = 0.2 } },
+                Spline = new InterpretationSplineBaselineControls
+                {
+                    Algorithm = "spline", ControlPoints = new List<InterpretationSplineControlPoint> { new() { TimeSeconds = 5, PowerMicrowatts = 0.2 } },
+                },
+                Segmented = new InterpretationSegmentedBaselineControls
+                { Segments = new List<InterpretationBaselineSegment> { new() { Scope = "wholeTrace", CoefficientsSi = new List<double?> { 1 } } } },
+                Polynomial = new InterpretationPolynomialBaselineControls { Degree = 2 },
+            },
+            Injections = new List<InterpretationInjectionEvidence> { new() { InjectionId = 1, Included = true } },
+            Thermogram = new InterpretationThermogramEvidence { PowerMinMax = new List<double?[]> { new double?[] { 1, 2 } } },
+        });
+
+        string body = null;
+        using var http = new HttpClient(new CaptureHandler(async request =>
+        {
+            body = await request.Content.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, taskType, requestId = "test", provider = "mock", model = "mock",
+                    effectivePreset = "instant", presetRevision = "test-1", generatedAtUtc = DateTime.UtcNow,
+                    interpretationMarkdown = "## Overall interpretation\nRetained evidence.",
+                    effectiveInputFingerprint = new string('a', 64), omissions = Array.Empty<string>(), knowledgeBaseIds = Array.Empty<string>(), retrievedSourceIds = Array.Empty<string>(),
+                    scientificGuidanceRevision = "test-revision", scientificInstructionsFingerprint = new string('b', 64), outputInstructionsFingerprint = new string('c', 64),
+                })),
+            };
+        }));
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package, "test", taskType);
+        var originalCanonical = prompt.CanonicalPackageJson;
+        var originalFingerprint = prompt.EvidenceFingerprint;
+        await new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(new AnalysisInterpretationGenerationRequest
+        {
+            ClientRequestId = "test", OperatorCode = "ftitc_pub_test", TaskType = taskType, Package = package, Prompt = prompt,
+        }, CancellationToken.None);
+
+        using var sent = JsonDocument.Parse(body);
+        var sentPackage = sent.RootElement.GetProperty("package");
+        var supporting = Assert.Single(sentPackage.GetProperty("supportingExperiments").EnumerateArray());
+        Assert.Equal("support-id", supporting.GetProperty("experimentId").GetString());
+        Assert.Equal("support comment", supporting.GetProperty("comments").GetString());
+        Assert.Equal("Instrument A", supporting.GetProperty("instrument").GetProperty("modelName").GetString());
+        Assert.Equal(0.25, supporting.GetProperty("baseline").GetProperty("netDriftMicrowatts").GetDouble());
+        Assert.False(supporting.TryGetProperty("injections", out _));
+        Assert.False(supporting.TryGetProperty("thermogram", out _));
+        var baseline = supporting.GetProperty("baseline");
+        Assert.False(baseline.TryGetProperty("landmarks", out _));
+        Assert.False(baseline.TryGetProperty("spline", out _));
+        Assert.False(baseline.TryGetProperty("segmented", out _));
+        Assert.False(baseline.TryGetProperty("polynomial", out _));
+        Assert.Contains("Supporting experiments contain summaries only; injection rows, baseline controls and thermograms are not supplied.",
+            sentPackage.GetProperty("omissions").EnumerateArray().Select(item => item.GetString()));
+
+        var member = sentPackage.GetProperty("results")[0].GetProperty("experiments")[0];
+        Assert.True(member.TryGetProperty("thermogram", out _));
+        Assert.Equal(2, member.GetProperty("injections").GetProperty("acquisition").GetProperty("rows")[0][0].GetInt32());
+        var correlations = sentPackage.GetProperty("results")[0].GetProperty("bootstrapCorrelations");
+        Assert.Single(correlations.EnumerateArray());
+        Assert.False(sentPackage.GetProperty("results")[0].TryGetProperty("bootstrapCorrelation", out _));
+        Assert.Equal("R1A", correlations[0].GetProperty("scopeReportReference").GetString());
+
+        var annotations = sentPackage.GetProperty("studyContext").GetProperty("experiments");
+        Assert.Equal(2, annotations.GetArrayLength());
+        Assert.Equal("member note", annotations[0].GetProperty("annotation").GetString());
+        Assert.Equal("support note", annotations[1].GetProperty("annotation").GetString());
+
+        Assert.Equal(originalCanonical, prompt.CanonicalPackageJson);
+        Assert.Equal(originalFingerprint, prompt.EvidenceFingerprint);
+        Assert.Equal(3, package.StudyContext.Experiments.Count);
+        using var canonical = JsonDocument.Parse(prompt.CanonicalPackageJson);
+        var canonicalSupport = canonical.RootElement.GetProperty("supportingExperiments")[0];
+        Assert.True(canonicalSupport.GetProperty("injections").GetArrayLength() > 0);
+        Assert.True(canonicalSupport.TryGetProperty("thermogram", out _));
+        Assert.True(canonical.RootElement.GetProperty("results")[0].TryGetProperty("bootstrapCorrelation", out _));
+        Assert.Equal("orphan-id", canonical.RootElement.GetProperty("studyContext").GetProperty("experiments")[2].GetProperty("experimentId").GetString());
+    }
+
     [Fact]
     public async Task VersionFourReplyWithoutEffectiveProvenanceIsRejected()
     {
