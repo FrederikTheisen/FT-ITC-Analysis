@@ -73,7 +73,7 @@ autosaves. Report installation problems through the
 - MicroCal-style raw data: `.itc`
 - TA Instruments NanoITC native data: `.nitc`
 - TA Instruments / NanoAnalyze exports: `.TA`
-- PEAQ-ITC projects: `.apj` (first experiment; raw data only)
+- PEAQ-ITC projects: `.apj` (every experiment; raw data only)
 - Legacy Origin ITC projects: `.opj` (first compatible worksheet)
 - Integrated heats: `.dat`, `.aff`, `.dh`
 - FT-ITC Analysis projects: `.ftxtc` (current), `.ftitc` (legacy import)

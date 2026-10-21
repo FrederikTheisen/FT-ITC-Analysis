@@ -31,11 +31,11 @@ namespace AnalysisITC.Core.DataReaders
     public static class PEAQReader
     {
         /// <summary>
-        /// Read a PEAQ .apj file and return an ExperimentData object.
+        /// Read a PEAQ .apj file and return one ExperimentData object per experiment.
         /// </summary>
         /// <param name="path">Path to the .apj file.</param>
-        /// <returns>A populated ExperimentData ready for analysis.</returns>
-        public static ExperimentData ReadFile(string path)
+        /// <returns>Populated experiments in file order, ready for analysis.</returns>
+        public static ExperimentData[] ReadFile(string path)
         {
             if (path == null) throw new ArgumentNullException(nameof(path));
             if (!File.Exists(path)) throw new FileNotFoundException("File not found", path);
@@ -46,12 +46,37 @@ namespace AnalysisITC.Core.DataReaders
             if (analysis == null || analysis.Name != "Analysis")
                 throw new FormatException("Invalid APJ file: missing <Analysis> root.");
 
-            // For simplicity, we handle only the first experiment in the file.
-            // PEAQ exports may contain multiple experiments, but FT‑ITC Analysis
-            // currently imports one at a time.
-            var experimentElement = analysis.Element("Experiments")?.Element("Experiment");
-            if (experimentElement == null) throw new FormatException("No <Experiment> element found in APJ file.");
+            var experimentElements = analysis.Element("Experiments")?.Elements("Experiment").ToList();
+            if (experimentElements == null || experimentElements.Count == 0)
+                throw new FormatException("No <Experiment> element found in APJ file.");
 
+            // A single-experiment file keeps the file name; multiple experiments use their PEAQ names.
+            if (experimentElements.Count == 1)
+                return new[] { ReadExperiment(experimentElements[0], path) };
+
+            var experiments = new ExperimentData[experimentElements.Count];
+            for (int i = 0; i < experimentElements.Count; i++)
+            {
+                var name = experimentElements[i].Element("Name")?.Value;
+                if (string.IsNullOrWhiteSpace(name))
+                    name = $"{Path.GetFileNameWithoutExtension(path)} {i + 1}";
+
+                try
+                {
+                    experiments[i] = ReadExperiment(experimentElements[i], path);
+                    experiments[i].Name = name.Trim();
+                }
+                catch (Exception ex)
+                {
+                    throw new FormatException($"Could not read experiment {i + 1} (\"{name.Trim()}\") in APJ file: {ex.Message}", ex);
+                }
+            }
+
+            return experiments;
+        }
+
+        static ExperimentData ReadExperiment(XElement experimentElement, string path)
+        {
             // Parse basic metadata
             double cellVolume = ParseDouble(experimentElement.Element("CellVolume")?.Value);
             double cellConcentration = ParseDouble(experimentElement.Element("CellConcentration")?.Value);
@@ -79,7 +104,7 @@ namespace AnalysisITC.Core.DataReaders
                 temperature = ParseDouble(methodElement.Element("Temperature")?.Value);
                 initialDelay = ParseDouble(methodElement.Element("InitialDelay")?.Value);
                 stirringSpeed = ParseDouble(methodElement.Element("StirSpeed")?.Value);
-                feedback = methodElement.Element("Feedback")?.Value.ToLower() switch
+                feedback = methodElement.Element("Feedback")?.Value.ToLowerInvariant() switch
                 {
                     "high" => FeedbackMode.High,
                     "low" => FeedbackMode.Low,
@@ -154,16 +179,27 @@ namespace AnalysisITC.Core.DataReaders
             {
                 // Sort injections by index to ensure correct order
                 var injElements = injectionsElement.Elements("Injection")
-                    .OrderBy(elem => ParseInt(elem.Element("Index")?.Value));
-                foreach (var injElem in injElements)
+                    .OrderBy(elem => ParseInt(elem.Element("Index")?.Value))
+                    .ToList();
+                for (int i = 0; i < injElements.Count; i++)
                 {
+                    var injElem = injElements[i];
                     int id = ParseInt(injElem.Element("Index")?.Value);
                     double vol = ParseDouble(injElem.Element("Volume")?.Value);
                     double startTime = ParseDouble(injElem.Element("StartTime")?.Value);
                     double duration = ParseDouble(injElem.Element("Duration")?.Value);
                     bool include = ParseBool(injElem.Element("IsValid")?.Value);
 
-                    var plannedInj = plannedInjectionScheme[id];
+                    // Use the planned spacing; without it, use the time until the next recorded injection or the trace end.
+                    double delay = id >= 0 && id < plannedInjectionScheme.Count ? plannedInjectionScheme[id].Delay : 0;
+                    if (delay <= 0)
+                    {
+                        double nextTime = i + 1 < injElements.Count
+                            ? ParseDouble(injElements[i + 1].Element("StartTime")?.Value)
+                            : dpList.Count > 0 ? dpList[dpList.Count - 1].Time : startTime;
+                        delay = nextTime - startTime;
+                    }
+
                     // Injections beyond the trace are left for import validation to report.
                     var temperatureIndex = experiment.DataPoints.FindIndex(dp => dp.Time > startTime);
                     var injectionTemperature = temperatureIndex >= 0
@@ -175,7 +211,7 @@ namespace AnalysisITC.Core.DataReaders
                         include,
                         startTime,
                         vol,
-                        plannedInj.Delay,
+                        delay,
                         duration,
                         injectionTemperature);
 
@@ -213,7 +249,7 @@ namespace AnalysisITC.Core.DataReaders
         private static bool ParseBool(string s, bool fallback = true)
         {
             if (string.IsNullOrWhiteSpace(s)) return fallback;
-            return s.ToLower() == "true";
+            return s.Equals("true", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

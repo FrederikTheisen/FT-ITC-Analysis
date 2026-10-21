@@ -38,14 +38,14 @@ Choose the input that matches the stage of your work. A **raw thermogram** conta
 | `.itc` | MicroCal-style raw data | Raw thermogram and injections |
 | `.nitc` | TA Instruments NanoITC native data | Raw thermogram and injections |
 | `.ta` | TA Instruments/NanoAnalyze export | Raw thermogram and injections |
-| `.apj` | PEAQ-ITC project | Raw thermogram and injections from the first experiment |
+| `.apj` | PEAQ-ITC project | Raw thermogram and injections from each experiment |
 | `.opj` | Origin project file | Raw thermogram or integrated heats, according to the recognized worksheet |
 | `.dat` | Integrated-heats table | Integrated heats and injections |
 | `.aff` | Integrated-heats table | Integrated heats and injections |
 | `.dh` | Fixed-layout integrated-heats file | Integrated heats, injections, and experiment metadata |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
 
-Raw thermogram imports (`.itc`, `.nitc`, `.ta`, and `.apj`) open as unprocessed Experiment Data. Process and fit them in FT-ITC Analysis. A PEAQ-ITC `.apj` import uses only the first experiment; its existing processing and fits are not imported.
+Raw thermogram imports (`.itc`, `.nitc`, `.ta`, and `.apj`) open as unprocessed Experiment Data. Process and fit them in FT-ITC Analysis. A PEAQ-ITC `.apj` import adds every experiment in the file; its existing processing and fits are not imported.
 
 For an Origin `.opj` file, FT-ITC Analysis uses the first recognized ITC worksheet. It imports the raw thermogram when available, or integrated heats otherwise. Origin processing and fits are not imported. The newer `.opju` format is unsupported.
 

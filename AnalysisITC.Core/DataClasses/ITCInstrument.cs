@@ -49,6 +49,8 @@ namespace AnalysisITC.Core.Data
 
         public static ITCInstrument TryResolveMicroCalInstrument(string line)
         {
+            if (string.IsNullOrEmpty(line)) return ITCInstrument.Unknown;
+
             foreach (var instrument in GetITCInstruments())
             {
                 if (line.Contains(instrument.GetProperties().InstrumentCode)) return instrument;

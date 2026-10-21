@@ -660,7 +660,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void PeaqApjFixtureLoadsRawAndInjectionData()
         {
-            var experiment = PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj"));
+            var experiment = Assert.Single(PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj")));
 
             AssertExperiment(experiment, ITCDataFormat.PEAQITCProject, injectionCount: 20, dataPointCount: 745);
         }

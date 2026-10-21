@@ -91,7 +91,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
     [InlineData("de-DE")]
     public void PeaqFixtureDateIsIndependentOfCurrentCulture(string locale)
     {
-        var experiment = WithCulture(locale, () => PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj")));
+        var experiment = WithCulture(locale, () => Assert.Single(PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj"))));
 
         Assert.Equal(new DateTime(2023, 6, 26, 12, 9, 22), experiment.Date);
         Assert.Equal(DateTimeKind.Unspecified, experiment.Date.Kind);
@@ -109,7 +109,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
     {
         var path = WritePeaq(dateText);
 
-        var experiment = WithCulture(locale, () => PEAQReader.ReadFile(path));
+        var experiment = WithCulture(locale, () => Assert.Single(PEAQReader.ReadFile(path)));
 
         Assert.Equal(new DateTime(2023, 6, day, 12, 9, 22), experiment.Date);
         Assert.Equal(DateTimeKind.Unspecified, experiment.Date.Kind);
@@ -131,11 +131,122 @@ public sealed class ImportReaderRegressionTests : IDisposable
         var path = WritePeaq(dateText);
         var expected = File.GetCreationTime(path);
 
-        var experiment = WithCulture(locale, () => PEAQReader.ReadFile(path));
+        var experiment = WithCulture(locale, () => Assert.Single(PEAQReader.ReadFile(path)));
 
         Assert.Equal(expected, experiment.Date);
         Assert.Equal(expected.Kind, experiment.Date.Kind);
         Assert.Equal(ExperimentDateSource.FileSystem, experiment.DateSource);
+    }
+
+    [Fact]
+    public void PeaqImportsEveryExperimentInFileOrder()
+    {
+        var path = WritePeaqXml(xml =>
+        {
+            var first = xml.Root.Element("Experiments").Element("Experiment");
+            var second = new XElement(first);
+            second.Element("Name").Value = " ";
+            first.AddAfterSelf(second);
+        });
+
+        var experiments = PEAQReader.ReadFile(path);
+
+        Assert.Equal(2, experiments.Length);
+        Assert.Equal("MP08nr1", experiments[0].Name);
+        Assert.Equal("experiment 2", experiments[1].Name);
+        Assert.All(experiments, experiment => Assert.Equal(20, experiment.Injections.Count));
+        Assert.All(experiments, experiment => Assert.Equal("experiment.apj", experiment.FileName));
+    }
+
+    [Fact]
+    public void PeaqUnreadableExperimentFailsWholeFileAndNamesIt()
+    {
+        var path = WritePeaqXml(xml =>
+        {
+            var first = xml.Root.Element("Experiments").Element("Experiment");
+            var second = new XElement(first);
+            second.Element("Name").Value = "Broken run";
+            second.Element("CellVolume").Value = "not a number";
+            first.AddAfterSelf(second);
+        });
+
+        var error = Assert.Throws<FormatException>(() => PEAQReader.ReadFile(path));
+
+        Assert.Contains("experiment 2 (\"Broken run\")", error.Message);
+    }
+
+    [Fact]
+    public void PeaqWithoutMethodUsesRecordedInjectionSpacing()
+    {
+        var path = WritePeaqXml(xml => xml.Root.Element("Experiments").Element("Experiment").Element("Method").Remove());
+
+        var experiment = Assert.Single(PEAQReader.ReadFile(path));
+
+        // Fixture StartTime values 120, 300 … 2280, 2465 … 3545; last data point T = 3725.
+        Assert.Equal(20, experiment.Injections.Count);
+        Assert.Equal(180f, experiment.Injections[0].Delay);
+        Assert.Equal(185f, experiment.Injections[12].Delay);
+        Assert.Equal(180f, experiment.Injections[19].Delay);
+    }
+
+    [Fact]
+    public void PeaqWithMethodKeepsPlannedInjectionSpacing()
+    {
+        var experiment = Assert.Single(PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj")));
+
+        // The recorded gap after injection 12 is 185 s; the Method plans 180 s.
+        Assert.Equal(180f, experiment.Injections[12].Delay);
+    }
+
+    [Fact]
+    public void PeaqWithoutCellIdStillImports()
+    {
+        var path = WritePeaqXml(xml => xml.Root.Element("Experiments").Element("Experiment").Element("CellID").Remove());
+
+        var experiment = Assert.Single(PEAQReader.ReadFile(path));
+
+        Assert.Equal(20, experiment.Injections.Count);
+        Assert.Equal(ITCInstrument.Unknown, ITCInstrumentAttribute.TryResolveMicroCalInstrument(null));
+    }
+
+    [Theory]
+    [InlineData("tr-TR")]
+    [InlineData("en-US")]
+    public void UppercaseExtensionsAndPeaqFeedbackAreIndependentOfCulture(string locale)
+    {
+        var path = WritePeaqXml(xml => xml.Root.Element("Experiments").Element("Experiment").Element("Method").Element("Feedback").Value = "HIGH");
+
+        var experiment = WithCulture(locale, () => Assert.Single(PEAQReader.ReadFile(path)));
+        var formats = WithCulture(locale, () => new[] { DataReader.GetFormat("RUN.ITC"), DataReader.GetFormat("RUN.NITC"), DataReader.GetFormat("RUN.APJ") });
+
+        Assert.Equal(FeedbackMode.High, experiment.FeedBackMode);
+        Assert.Equal(new[] { ITCDataFormat.ITC200, ITCDataFormat.NanoITC, ITCDataFormat.PEAQITCProject }, formats);
+    }
+
+    [Theory]
+    [InlineData("Xt", "n/a")]
+    [InlineData("Mt", "#N/A")]
+    [InlineData("Xmt", "abc")]
+    [InlineData("Mt", "Infinity")]
+    public void DelimitedImportRejectsMalformedConcentration(string column, string token)
+    {
+        var values = new Dictionary<string, string> { ["Xt"] = "0.05", ["Mt"] = "0.1", ["Xmt"] = "0.5" };
+        values[column] = token;
+        var path = WriteDelimited(';', "DH;INJV;Xt;Mt;Xmt", $"1e-6;2;{values["Xt"]};{values["Mt"]};{values["Xmt"]}");
+
+        var error = Assert.Throws<FormatException>(() => ReadIntegrated(path));
+
+        Assert.Contains($"Invalid {column} value on line 2", error.Message);
+    }
+
+    [Fact]
+    public void DelimitedImportKeepsBlankDashAndZeroConcentrations()
+    {
+        var path = WriteDelimited(';', "DH;INJV;Xt;Mt;Xmt", "1e-6;2;;--;0", "2e-6;2;0;0.1;0");
+
+        var experiment = ReadIntegrated(path);
+
+        Assert.Equal(2, experiment.Injections.Count);
     }
 
     [Theory]
@@ -220,6 +331,15 @@ public sealed class ImportReaderRegressionTests : IDisposable
     static ExperimentData ReadIntegrated(string path) =>
         IntegratedHeatReader.ReadFile(path, true, DilutionMethod.MicroCal, reprocessIntegratedHeatData: false);
 
+    string WritePeaqXml(Action<XDocument> edit)
+    {
+        var xml = XDocument.Load(Fixture("TpxWT_CtFT(1).apj"));
+        edit(xml);
+        var path = Path.Combine(directory, "experiment.apj");
+        xml.Save(path);
+        return path;
+    }
+
     string WritePeaq(string dateText)
     {
         var xml = XDocument.Load(Fixture("TpxWT_CtFT(1).apj"));
@@ -246,7 +366,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
         return path;
     }
 
-    static ExperimentData WithCulture(string locale, Func<ExperimentData> read)
+    static T WithCulture<T>(string locale, Func<T> read)
     {
         var previous = CultureInfo.CurrentCulture;
         try

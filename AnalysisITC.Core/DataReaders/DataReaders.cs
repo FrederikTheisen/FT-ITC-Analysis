@@ -60,7 +60,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             try
             {
-                var ext = System.IO.Path.GetExtension(path).ToLower();
+                var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
 
                 foreach (var format in ITCFormatAttribute.GetAllFormats())
                 {
@@ -300,7 +300,7 @@ namespace AnalysisITC.Core.DataReaders
                     case ITCDataFormat.IntegratedHeats:
                         return new ExperimentData[] { IntegratedHeatReader.ReadFile(path) };
                     case ITCDataFormat.PEAQITCProject:
-                        return new ExperimentData[] { PEAQReader.ReadFile(path) };
+                        return PEAQReader.ReadFile(path);
                     case ITCDataFormat.OriginProject:
                         return new ExperimentData[] { OriginProjectReader.ReadFile(path) };
                     case ITCDataFormat.NanoITC:

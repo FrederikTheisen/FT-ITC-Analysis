@@ -192,6 +192,11 @@ namespace AnalysisITC.Core.DataReaders
                 TryGet(parts, col, "Xt", out var xt);
                 TryGet(parts, col, "Mt", out var mt);
                 TryGet(parts, col, "Xmt", out var xmt);
+                foreach (var (name, value) in new[] { ("Xt", xt), ("Mt", mt), ("Xmt", xmt) })
+                {
+                    if (HasValueToken(parts, col, name) && !FWEMath.IsFinite(value))
+                        throw new FormatException($"Invalid {name} value on line {i + 1}: \"{lines[i]}\"");
+                }
                 var isInjection = injvValid;
                 var hasState = FWEMath.IsFinite(xt) || FWEMath.IsFinite(mt);
                 if (!isInjection && !hasState)
@@ -647,7 +652,10 @@ namespace AnalysisITC.Core.DataReaders
             // Handle both "." and "," decimals defensively
             s = s.Replace(',', '.');
 
-            return double.TryParse(s, NumStyle, Inv, out value);
+            if (double.TryParse(s, NumStyle, Inv, out value)) return true;
+
+            value = double.NaN;
+            return false;
         }
 
         private static bool HasValueToken(string[] parts, Dictionary<string, int> col, string name)
