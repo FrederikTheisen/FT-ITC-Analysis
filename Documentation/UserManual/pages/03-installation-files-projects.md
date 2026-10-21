@@ -63,7 +63,7 @@ Choose **File > Open...**, use the welcome-screen action, or drag files into the
 
 If a project file contains experiments, Analysis Results, reports, or saved fits already loaded, choose **Skip Duplicates** to keep the existing objects and add new content, including new results that use existing experiments. Choose **Import Copies** to add separate copies while keeping their references connected to the copied content. **Skip Duplicates** is the default.
 
-> **Caution:** After an `.ftxtc` project adds content to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
+Opening one complete `.ftxtc` project into an empty document makes that file the destination for **Save**. Adding files to an existing document keeps its current save destination. If the document has not been named, or you open multiple projects together into an empty document, **Save** asks for a name and location.
 
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 
