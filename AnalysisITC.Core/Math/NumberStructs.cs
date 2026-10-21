@@ -121,11 +121,13 @@ namespace AnalysisITC.Core.Numerics
 
         public FloatWithError(List<FloatWithError> distribution, double? mean = null)
         {
-            if (distribution != null && distribution.Any())
+            if (distribution?.Count == 1 && (!mean.HasValue || mean.Value == distribution[0].Value))
+                this = distribution[0];
+            else if (distribution != null && distribution.Any())
             {
                 asymmscore = 0;
                 isnan = false;
-                var rng = new Random();
+                var rng = new Random(0);
                 double error = 0;
                 double average = 0;
                 int n = FWEMath.Clamp(10000 / distribution.Count(), 10, 200);
@@ -175,16 +177,9 @@ namespace AnalysisITC.Core.Numerics
             // Sort the data in ascending order
             distribution.Sort();
 
-            // Set the desired confidence level (e.g., 95%)
-            double confidenceLevel = 0.95;
-
-            // Calculate lower and upper percentiles
-            double lowerPercentile = (1 - confidenceLevel) / 2 * 100;
-            double upperPercentile = (1 + confidenceLevel) / 2 * 100;
-
-            // Calculate the indices corresponding to the percentiles
-            int lowerIndex = (int)Math.Ceiling(lowerPercentile * distribution.Count / 100) - 1;
-            int upperIndex = (int)Math.Floor(upperPercentile * distribution.Count / 100);
+            // Outward 95% bounds: ceil(n/40)-1 and floor(39n/40), without floating rounding.
+            int lowerIndex = (distribution.Count - 1) / 40;
+            int upperIndex = distribution.Count - 1 - lowerIndex;
 
             // Retrieve the values at the calculated indices
             double lowerValue = distribution[lowerIndex];

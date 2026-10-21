@@ -80,7 +80,7 @@ namespace AnalysisITC.Core.Numerics
         public FloatWithError GetXAxisIntersect()
         {
             if (FixedZeroX.HasValue) return new FloatWithError(FixedZeroX.Value);
-            var rand = new Random();
+            var rand = new Random(0);
             var results = new List<double>();
 
             var exact = -Intercept.Value / Slope.Value + ReferenceT;
