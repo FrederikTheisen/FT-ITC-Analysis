@@ -22,7 +22,15 @@ namespace AnalysisITC.Core.Application
         public static event EventHandler SettingsDidUpdate;
         public static event EventHandler SettingsApplied;
 
-        static AppSettings() => PreferencesState.Defaults().ApplyToSettings();
+        static PreferencesState lastEffectivePreferences;
+        static string lastPersistedInterpretationPublicClientCode;
+
+        static AppSettings()
+        {
+            PreferencesState.Defaults().ApplyToSettings();
+            lastEffectivePreferences = PreferencesState.FromSettings();
+            lastPersistedInterpretationPublicClientCode = InterpretationPublicClientCode;
+        }
 
         static ISettingsStore Storage => PlatformServices.SettingsStore;
         public static string Locale { get; set; } = "en-US";
@@ -43,6 +51,7 @@ namespace AnalysisITC.Core.Application
         public static ColorSchemes ColorScheme { get; set; }
         public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; }
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; }
+        public static TemperatureUnit DefaultTemperatureUnit { get; set; } = TemperatureUnit.Celsius;
         public static ITCInstrument DefaultDesignerInstrument { get; set; }
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; }
@@ -115,11 +124,12 @@ namespace AnalysisITC.Core.Application
         /// </summary>
         public static void PersistInterpretationAccessVerification(string operatorCode, InterpretationOperatorOptionsResponse options)
         {
+            var previous = PreferencesState.FromSettings();
             InterpretationOperatorCode = operatorCode ?? "";
             CacheInterpretationAccess(InterpretationOperatorCode, options);
             SaveToStorage();
             Storage.Synchronize();
-            NotifySettingsChanged(applied: false, updated: true);
+            NotifySuccessfulPersistence(previous, applied: false, updated: true, advanceOnlyChangedFields: true);
         }
 
         public static bool TryGetInterpretationAccount(string operatorCode, out InterpretationAccountResponse account, out DateTime? fetchedAtUtc)
@@ -142,12 +152,13 @@ namespace AnalysisITC.Core.Application
         public static void PersistInterpretationAccount(string operatorCode, InterpretationAccountResponse account)
         {
             if (account == null) return;
+            var previous = PreferencesState.FromSettings();
             InterpretationAccountCodeHash = InterpretationAccessHash(operatorCode);
             InterpretationAccountJson = JsonSerializer.Serialize(account);
             InterpretationAccountFetchedAtUtc = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
             SaveToStorage();
             Storage.Synchronize();
-            NotifySettingsChanged(applied: false, updated: true);
+            NotifySuccessfulPersistence(previous, applied: false, updated: true, advanceOnlyChangedFields: true);
         }
 
         public static void ClearInterpretationAccessVerification()
@@ -246,10 +257,31 @@ namespace AnalysisITC.Core.Application
 
         public static void Save()
         {
+            var previous = lastEffectivePreferences ?? PreferencesState.FromSettings();
             UpdateDerivedSettings();
             SaveToStorage();
             Storage.Synchronize();
-            NotifySettingsChanged(applied: true, updated: true);
+            NotifySuccessfulPersistence(previous, applied: true, updated: true, advanceOnlyChangedFields: false);
+        }
+
+        static void NotifySuccessfulPersistence(PreferencesState previous, bool applied, bool updated, bool advanceOnlyChangedFields)
+        {
+            var current = PreferencesState.FromSettings();
+            var changes = PreferencesChangeSet.Between(previous, current);
+            if (advanceOnlyChangedFields && lastEffectivePreferences != null)
+                lastEffectivePreferences = PreferencesState.MergeEditedFields(lastEffectivePreferences, current, lastEffectivePreferences, changes.ChangedProperties);
+            else
+                lastEffectivePreferences = current;
+            var publicClientCodeChanged = !string.Equals(
+                lastPersistedInterpretationPublicClientCode, InterpretationPublicClientCode, StringComparison.Ordinal);
+            lastPersistedInterpretationPublicClientCode = InterpretationPublicClientCode;
+            if (changes == PreferencesChangeSet.Empty || changes.ChangedProperties.Count == 0)
+            {
+                if (updated && publicClientCodeChanged)
+                    NotifySettingsChanged(applied: false, updated: true, PreferencesChangeSet.Empty);
+                return;
+            }
+            NotifySettingsChanged(applied, updated, changes);
         }
 
         static void SaveToStorage()
@@ -272,6 +304,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
             Storage.SetBool("ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             Storage.SetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            Storage.SetInt("DefaultTemperatureUnit", (int)DefaultTemperatureUnit);
             Storage.SetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument);
             Storage.SetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             Storage.SetString("LastDocumentUrl", LastDocumentPath);
@@ -377,6 +410,17 @@ namespace AnalysisITC.Core.Application
             FinalFigureDimensions = Storage.GetDoubleArray("FinalFigureDimensions", FinalFigureDimensions);
             ExportBaselineCorrectedData = Storage.GetBool("ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             DefaultConcentrationUnit = (ConcentrationUnit)Storage.GetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            if (Storage.Contains("DefaultTemperatureUnit"))
+            {
+                DefaultTemperatureUnit = NormalizeTemperatureUnit(Storage.GetInt("DefaultTemperatureUnit", (int)DefaultTemperatureUnit));
+            }
+            else
+            {
+                DefaultTemperatureUnit = Storage.GetBool("AnalysisResultUseKelvin")
+                    ? TemperatureUnit.Kelvin : TemperatureUnit.Celsius;
+                Storage.SetInt("DefaultTemperatureUnit", (int)DefaultTemperatureUnit);
+                Storage.Synchronize();
+            }
             DefaultDesignerInstrument = NormalizeDesignerInstrument(Storage.GetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument));
             InputAffinityAsDissociationConstant = Storage.GetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentPath = NormalizeDocumentPath(Storage.GetString("LastDocumentUrl"));
@@ -451,7 +495,7 @@ namespace AnalysisITC.Core.Application
             lastDocumentPaths = NormalizeDocumentPaths(Storage.GetStringArray("LastDocumentUrls"));
 
             FittingOptionsController.ResetToPreferenceDefaults();
-            ApplySettings();
+            ApplySettings(fullApply: true);
 
             StatusBarManager.ClearAppStatus();
         }
@@ -553,16 +597,31 @@ namespace AnalysisITC.Core.Application
         /// </summary>
         public static void ApplySettings()
         {
-            UpdateDerivedSettings();
-            NotifySettingsChanged(applied: true, updated: false);
+            ApplySettings(fullApply: false);
         }
 
-        static void NotifySettingsChanged(bool applied, bool updated)
+        static void ApplySettings(bool fullApply)
+        {
+            UpdateDerivedSettings();
+            var current = PreferencesState.FromSettings();
+            var changes = fullApply ? PreferencesChangeSet.Full
+                : PreferencesChangeSet.Between(lastEffectivePreferences, current);
+            if (!fullApply && changes.ChangedProperties.Count == 0) return;
+            lastEffectivePreferences = current;
+            NotifySettingsChanged(applied: true, updated: false, changes);
+        }
+
+        static TemperatureUnit NormalizeTemperatureUnit(int unit)
+            => Enum.IsDefined(typeof(TemperatureUnit), unit) ? (TemperatureUnit)unit : TemperatureUnit.Celsius;
+
+        static void NotifySettingsChanged(bool applied, bool updated, PreferencesChangeSet changes)
         {
             PlatformServices.MainThreadDispatcher.Invoke(() =>
             {
-                if (applied) SettingsApplied?.Invoke(null, null);
-                if (updated) SettingsDidUpdate?.Invoke(null, null);
+                if (changes.Contains(nameof(PreferencesState.DefaultTemperatureUnit)))
+                    TemperatureUnitSession.Reset(DefaultTemperatureUnit);
+                if (applied) SettingsApplied?.Invoke(null, changes);
+                if (updated) SettingsDidUpdate?.Invoke(null, changes);
             });
         }
     }

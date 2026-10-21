@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -15,12 +16,16 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 
 static class ResultExporterTemperatureTests
 {
     const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     static int failures;
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    static extern IntPtr Send(IntPtr receiver, IntPtr selector);
 
     static int Main(string[] args)
     {
@@ -29,10 +34,15 @@ static class ResultExporterTemperatureTests
         PreferencesState.Defaults().Apply();
         AppSettings.ReferenceTemperature = 27;
         new Class(typeof(AnalysisResultExporterViewController));
+        new Class(typeof(AnalysisResultTabViewController));
         new Class(typeof(ExperimentMergerListViewCell));
         using (var resources = NSBundle.FromPath(Path.GetDirectoryName(args[1])))
         using (var storyboard = NSStoryboard.FromName("Main", resources))
         {
+            Run("exporter temperature choice survives rebuilding the native exporter", () =>
+                VerifySessionChoiceSurvivesRebuild(storyboard));
+            Run("native Results temperature menu does not write the legacy preference", VerifyResultsTemperatureIsSessionOnly);
+            Run("native Results temperature text retains fractional precision across units", VerifyResultsTemperaturePrecision);
             foreach (var allRows in new[] { false, true })
                 foreach (var tsv in new[] { false, true })
                 {
@@ -45,6 +55,104 @@ static class ResultExporterTemperatureTests
         return failures == 0 ? 0 : 1;
     }
 
+    static void VerifyResultsTemperatureIsSessionOnly()
+    {
+        const string legacyKey = "AnalysisResultUseKelvin";
+        var defaults = NSUserDefaults.StandardUserDefaults;
+        var legacyKeyObject = new NSString(legacyKey);
+        var previousLegacyValue = defaults.ValueForKey(legacyKeyObject) as NSObject;
+        var sentinel = new NSString("itc156-session-only-test");
+        try
+        {
+            defaults.SetValueForKey(sentinel, legacyKeyObject);
+            defaults.Synchronize();
+            TemperatureUnitSession.Reset(TemperatureUnit.Celsius);
+            using (var resultsController = Allocate<AnalysisResultTabViewController>())
+            using (var mainController = Allocate<MainWindowController>())
+            {
+                var menuItem = (NSMenuItem)typeof(MainWindowController).GetMethod("CreateTemperatureUnitMenuItem", Instance)
+                    .Invoke(mainController, new object[] { true });
+                var kelvin = menuItem.Submenu.ItemAt(1);
+                Check(kelvin.Title == "Kelvin" && kelvin.Enabled, "Native Results temperature menu is missing Kelvin");
+                Check(NSApplication.SharedApplication.SendAction(kelvin.Action, kelvin.Target, kelvin),
+                    "Native Results Kelvin menu action did not dispatch");
+                typeof(AnalysisResultTabViewController).GetMethod("ApplyTemperatureUnit", Instance)
+                    .Invoke(resultsController, new object[] { true });
+                Check(AnalysisResultTabViewController.CurrentUseKelvin, "Results session did not accept Kelvin");
+                Check(Equals(defaults.ValueForKey(legacyKeyObject), sentinel),
+                    "Results temperature selector wrote the legacy persistent preference");
+            }
+        }
+        finally
+        {
+            if (previousLegacyValue == null) defaults.RemoveObject(legacyKeyObject);
+            else defaults.SetValueForKey(previousLegacyValue, legacyKeyObject);
+            defaults.Synchronize();
+        }
+    }
+
+    static void VerifyResultsTemperaturePrecision()
+    {
+        TemperatureUnitSession.Reset(TemperatureUnit.Celsius);
+        using (var resultsController = Allocate<AnalysisResultTabViewController>())
+        {
+            var type = typeof(AnalysisResultTabViewController);
+            var result = CreateResult();
+            type.GetField("analysisResult", Instance).SetValue(resultsController, result);
+            type.GetMethod("BuildParameterEvaluationSection", Instance).Invoke(resultsController, null);
+            var field = (NSTextField)type.GetField("evaluationTemperatureControl", Instance).GetValue(resultsController);
+            resultsController.View = new NSView(new CGRect(0, 0, 100, 100));
+            const double originalCelsius = 31.123456789;
+
+            type.GetField("evaluationTextUsesKelvin", Instance).SetValue(resultsController, false);
+            field.StringValue = originalCelsius.ToString("G15", System.Globalization.CultureInfo.InvariantCulture);
+            type.GetMethod("ApplyTemperatureUnit", Instance).Invoke(resultsController, new object[] { true });
+            Check(Math.Abs(double.Parse(field.StringValue, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.CurrentCulture)
+                - (originalCelsius + 273.15)) < 1e-13,
+                "Native Results C-to-K conversion did not use the live edited field: " + field.StringValue
+                    + "; unit=" + TemperatureUnitSession.Results
+                    + "; priorUnit=" + type.GetField("evaluationTextUsesKelvin", Instance).GetValue(resultsController));
+
+            type.GetMethod("ApplyTemperatureUnit", Instance).Invoke(resultsController, new object[] { false });
+            Check(Math.Abs(double.Parse(field.StringValue, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.CurrentCulture)
+                - originalCelsius) < 1e-13,
+                "Native Results K-to-C conversion lost fractional precision");
+        }
+    }
+
+    static T Allocate<T>() where T : NSObject
+    {
+        var type = typeof(T);
+        var handle = Send(Send(new Class(type).Handle, Selector.GetHandle("alloc")), Selector.GetHandle("init"));
+        return Runtime.GetNSObject<T>(handle);
+    }
+
+    static void VerifySessionChoiceSurvivesRebuild(NSStoryboard storyboard)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        TemperatureUnitSession.Reset(AppSettings.DefaultTemperatureUnit);
+        var result = CreateResult();
+        DataManager.AddData(result.Solution.Solutions.Select(s => (ITCDataContainer)s.Data).Concat(new ITCDataContainer[] { result }));
+        using (var first = (AnalysisResultExporterViewController)storyboard.InstantiateControllerWithIdentifier("NSViewController-y9t-uG-ZTy"))
+        {
+            var firstTemperature = Descendants(first.View).OfType<NSPopUpButton>()
+                .Single(p => p.ItemTitles().SequenceEqual(new[] { "Celsius", "Kelvin" }));
+            firstTemperature.SelectItem(1);
+            Check(firstTemperature.SendAction(firstTemperature.Action, firstTemperature.Target),
+                "Actual exporter temperature action did not dispatch");
+            Check(firstTemperature.IndexOfSelectedItem == 1, "Actual exporter did not accept Kelvin");
+        }
+        using (var rebuilt = (AnalysisResultExporterViewController)storyboard.InstantiateControllerWithIdentifier("NSViewController-y9t-uG-ZTy"))
+        {
+            var rebuiltTemperature = Descendants(rebuilt.View).OfType<NSPopUpButton>()
+                .Single(p => p.ItemTitles().SequenceEqual(new[] { "Celsius", "Kelvin" }));
+            Check(rebuiltTemperature.IndexOfSelectedItem == 1,
+                "Rebuilt exporter discarded the process-session temperature choice");
+        }
+    }
+
     static void Run(string name, Action test)
     {
         try { test(); Console.WriteLine("PASS: " + name); }
@@ -54,6 +162,7 @@ static class ResultExporterTemperatureTests
     static void Verify(NSStoryboard storyboard, bool allRows, bool tsv, bool switchUnits)
     {
         DataManager.Clear(DataClearMode.ResetSession);
+        TemperatureUnitSession.Reset(AppSettings.DefaultTemperatureUnit);
         var result = CreateResult();
         DataManager.AddData(result.Solution.Solutions.Select(s => (ITCDataContainer)s.Data).Concat(new ITCDataContainer[] { result }));
         // Present the archived view as a sheet so AppKit resolves its control sizes.

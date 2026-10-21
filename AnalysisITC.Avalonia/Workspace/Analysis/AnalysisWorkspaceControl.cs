@@ -127,11 +127,19 @@ namespace AnalysisITC.Avalonia.Analysis
         }
 
         void OnSettingsDidUpdate(object? sender, EventArgs e)
-            => Dispatcher.UIThread.Post(() =>
+        {
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (!changes.ContainsAny(
+                nameof(PreferencesState.EnergyUnitFamily),
+                nameof(PreferencesState.NumberPrecision),
+                nameof(PreferencesState.UncertaintyDisplayStyle))) return;
+
+            Dispatcher.UIThread.Post(() =>
             {
                 RefreshFitSummary();
                 RefreshNullComparisonPresentation();
             });
+        }
 
         public ExperimentData? Experiment
         {

@@ -121,7 +121,7 @@ public sealed class ResultExporterTemperatureTests
             Assert.Equal(before[row].Where((_, i) => i != column), after[row].Where((_, i) => i != column));
     }
 
-    static AnalysisResult CreateResult()
+    internal static AnalysisResult CreateResult()
     {
         var models = new List<Model>();
         foreach (var temperature in new[] { 20.0, 30.0 })

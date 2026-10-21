@@ -621,7 +621,7 @@ public partial class MainWindow : Window
         var dialog = new PreferencesWindow();
         var applied = await dialog.ShowDialog<bool?>(this);
         if (applied == true || dialog.Applied)
-            RefreshAfterPreferencesApplied();
+            RefreshAfterPreferencesApplied(dialog.AppliedChanges);
     }
 
     internal async Task OpenHelpGuideAsync()
@@ -1920,20 +1920,34 @@ public partial class MainWindow : Window
         RefreshMenuState();
     }
 
-    void RefreshAfterPreferencesApplied()
+    internal void RefreshAfterPreferencesApplied(PreferencesChangeSet changes)
     {
         RefreshDataList();
         RefreshOverview();
         ProcessingWorkspace.Experiment = selectedItem as ExperimentData;
-        // A family preference changes the display scale even when the selected
-        // experiment instance itself did not change. Re-fit both thermogram
-        // surfaces so their stored display-space view bounds use the new unit.
-        ProcessingWorkspace.FitToData();
-        OverviewThermogram.FitToData();
+        if (changes.Contains(nameof(PreferencesState.EnergyUnitFamily)))
+        {
+            // The family preference changes the display scale even when the
+            // selected experiment instance itself did not change.
+            ProcessingWorkspace.FitToData();
+            OverviewThermogram.FitToData();
+        }
         AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
-        AnalysisWorkspace.RefreshIncludedDataState();
-        ResultWorkspace.Refresh();
-        FinalFigureWorkspace.ApplySettingsDefaults();
+        if (changes.ContainsAny(
+            nameof(PreferencesState.ParameterLimitSetting),
+            nameof(PreferencesState.InputAffinityAsDissociationConstant),
+            nameof(PreferencesState.DefaultConcentrationUnit)))
+            AnalysisWorkspace.RefreshIncludedDataState();
+        if (changes.ContainsAny(
+            nameof(PreferencesState.EnergyUnitFamily),
+            nameof(PreferencesState.NumberPrecision),
+            nameof(PreferencesState.UncertaintyDisplayStyle),
+            nameof(PreferencesState.DefaultConcentrationUnit),
+            nameof(PreferencesState.MinimumTemperatureSpanForFitting),
+            nameof(PreferencesState.MinimumIonSpanForFitting),
+            nameof(PreferencesState.IncludeBufferInIonicStrengthCalc)))
+            ResultWorkspace.Refresh();
+        FinalFigureWorkspace.ApplySettingsDefaults(changes);
         InvalidateFinalFigurePreview();
         RefreshMenuState();
         StatusBarManager.SetStatus("Preferences updated", 2500);

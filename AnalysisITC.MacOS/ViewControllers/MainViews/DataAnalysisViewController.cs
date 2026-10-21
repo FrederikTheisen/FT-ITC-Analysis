@@ -266,11 +266,39 @@ namespace AnalysisITC
 
         void OnSettingsDidUpdate(object sender, EventArgs e)
         {
-            RefreshAnalysisResultCreationControl();
-            Workspace.TryRebuild();
-            GraphView.Invalidate();
-            RefreshFitSummary();
-            RefreshAnalysisSummary();
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (changes.ContainsAny(
+                    nameof(PreferencesState.CreateSingleAnalysisResult),
+                    nameof(PreferencesState.CreateGlobalAnalysisResult)))
+                RefreshAnalysisResultCreationControl();
+
+            if (changes.ContainsAny(
+                    nameof(PreferencesState.ParameterLimitSetting),
+                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
+                    nameof(PreferencesState.DefaultConcentrationUnit)))
+                Workspace.TryRebuild();
+
+            if (changes.ContainsAny(
+                    nameof(PreferencesState.AnalysisParameterDisplay),
+                    nameof(PreferencesState.EnergyUnitFamily),
+                    nameof(PreferencesState.NumberPrecision),
+                    nameof(PreferencesState.UncertaintyDisplayStyle),
+                    nameof(PreferencesState.ParameterLimitSetting),
+                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
+                    nameof(PreferencesState.DefaultConcentrationUnit)))
+                GraphView.Invalidate();
+
+            if (changes.ContainsAny(
+                    nameof(PreferencesState.ParameterLimitSetting),
+                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
+                    nameof(PreferencesState.DefaultConcentrationUnit),
+                    nameof(PreferencesState.EnergyUnitFamily),
+                    nameof(PreferencesState.NumberPrecision),
+                    nameof(PreferencesState.UncertaintyDisplayStyle)))
+            {
+                RefreshFitSummary();
+                RefreshAnalysisSummary();
+            }
         }
 
         void OnResetStoredAnalysisStateRequested(object sender, EventArgs e)

@@ -6,6 +6,8 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 using Xunit;
 using AnalysisITC.Core.Interpretation;
@@ -29,6 +31,117 @@ public sealed class PreferencesStateTests : IDisposable
         original.ApplyToSettings();
         AppSettings.ApplySettings();
         PlatformServices.RegisterSettingsStore(originalStore);
+    }
+
+    [Fact]
+    public void EditedPreferenceMergePreservesConcurrentAndFullPrecisionUntouchedValues()
+    {
+        var baseline = PreferencesState.FromSettings();
+        var draft = baseline.Clone();
+        draft.ReferenceTemperature = 31.5;
+        draft.FinalFigureWidthCentimeters = 6.5; // A UI may have rounded this untouched value.
+
+        var latest = baseline.Clone();
+        latest.DefaultBootstrapIterations = 731;
+        latest.FinalFigureWidthCentimeters = 6.543210987654321;
+
+        var merged = PreferencesState.MergeEditedFields(
+            baseline, draft, latest, new[] { nameof(PreferencesState.ReferenceTemperature) });
+
+        Assert.Equal(31.5, merged.ReferenceTemperature);
+        Assert.Equal(731, merged.DefaultBootstrapIterations);
+        Assert.Equal(6.543210987654321, merged.FinalFigureWidthCentimeters);
+    }
+
+    [Fact]
+    public void MergeInfersEditedFieldsAgainstOpeningBaseline()
+    {
+        var baseline = PreferencesState.FromSettings();
+        var draft = baseline.Clone();
+        draft.ReferenceTemperature = 32;
+        var latest = baseline.Clone();
+        latest.DefaultBootstrapIterations = 612;
+
+        var merged = PreferencesState.MergeEditedFields(baseline, draft, latest);
+
+        Assert.Equal(32, merged.ReferenceTemperature);
+        Assert.Equal(612, merged.DefaultBootstrapIterations);
+    }
+
+    [Fact]
+    public void PreferencesChangeSetIdentifiesChangedFieldsAndTreatsUnknownEventsAsFullApply()
+    {
+        var before = PreferencesState.Defaults();
+        var after = before.Clone();
+        after.ReferenceTemperature = 27;
+
+        var changes = PreferencesChangeSet.Between(before, after);
+
+        Assert.False(changes.IsFullApply);
+        Assert.True(changes.Contains(nameof(PreferencesState.ReferenceTemperature)));
+        Assert.False(changes.Contains(nameof(PreferencesState.DefaultBootstrapIterations)));
+        Assert.Empty(PreferencesChangeSet.Empty.ChangedProperties);
+        Assert.True(PreferencesChangeSet.Full.IsFullApply);
+        Assert.True(PreferencesChangeSet.Full.Contains(nameof(PreferencesState.DefaultBootstrapIterations)));
+        Assert.True(PreferencesChangeSet.FromEventArgs(EventArgs.Empty).IsFullApply);
+    }
+
+    [Fact]
+    public void TemperatureUnitDefaultsPersistAndLegacySettingMigratesOnlyWhenNewSettingIsAbsent()
+    {
+        Assert.Equal(0, (int)TemperatureUnit.Celsius);
+        Assert.Equal(1, (int)TemperatureUnit.Kelvin);
+        Assert.Equal(TemperatureUnit.Celsius, PreferencesState.Defaults().DefaultTemperatureUnit);
+
+        store.SetBool("AnalysisResultUseKelvin", true);
+        AppSettings.Load();
+        Assert.Equal(TemperatureUnit.Kelvin, AppSettings.DefaultTemperatureUnit);
+        Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.Results);
+        Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.ResultExporter);
+        Assert.Equal(1, store.GetInt("DefaultTemperatureUnit"));
+
+        store.SetInt("DefaultTemperatureUnit", (int)TemperatureUnit.Celsius);
+        store.SetBool("AnalysisResultUseKelvin", true);
+        AppSettings.Load();
+        Assert.Equal(TemperatureUnit.Celsius, AppSettings.DefaultTemperatureUnit);
+        Assert.Equal(TemperatureUnit.Celsius, TemperatureUnitSession.Results);
+        Assert.Equal(TemperatureUnit.Celsius, TemperatureUnitSession.ResultExporter);
+
+        TemperatureUnitSession.Results = TemperatureUnit.Kelvin;
+        TemperatureUnitSession.ResultExporter = TemperatureUnit.Kelvin;
+        Assert.Equal((int)TemperatureUnit.Celsius, store.GetInt("DefaultTemperatureUnit"));
+        Assert.True(store.GetBool("AnalysisResultUseKelvin"));
+    }
+
+    [Fact]
+    public void ResultTemperatureUnitSessionsRemainIndependentAndResetTogether()
+    {
+        TemperatureUnitSession.Reset(TemperatureUnit.Celsius);
+        var resultsChanges = 0;
+        var exporterChanges = 0;
+        EventHandler onResults = (_, _) => resultsChanges++;
+        EventHandler onExporter = (_, _) => exporterChanges++;
+        TemperatureUnitSession.ResultsChanged += onResults;
+        TemperatureUnitSession.ResultExporterChanged += onExporter;
+        try
+        {
+            TemperatureUnitSession.Results = TemperatureUnit.Kelvin;
+            Assert.Equal(TemperatureUnit.Celsius, TemperatureUnitSession.ResultExporter);
+            TemperatureUnitSession.ResultExporter = TemperatureUnit.Kelvin;
+            Assert.Equal(1, resultsChanges);
+            Assert.Equal(1, exporterChanges);
+
+            TemperatureUnitSession.Reset(TemperatureUnit.Celsius);
+            Assert.Equal(TemperatureUnit.Celsius, TemperatureUnitSession.Results);
+            Assert.Equal(TemperatureUnit.Celsius, TemperatureUnitSession.ResultExporter);
+            Assert.Equal(2, resultsChanges);
+            Assert.Equal(2, exporterChanges);
+        }
+        finally
+        {
+            TemperatureUnitSession.ResultsChanged -= onResults;
+            TemperatureUnitSession.ResultExporterChanged -= onExporter;
+        }
     }
 
     [Fact]

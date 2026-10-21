@@ -58,6 +58,7 @@ internal sealed class PreferencesWindow : Window
     readonly TextBlock statusText = Text("");
 
     readonly ComboBox energyUnitCombo;
+    readonly ComboBox defaultTemperatureUnitCombo;
     readonly ComboBox concentrationUnitCombo;
     readonly ComboBox designerInstrumentCombo;
     readonly TextBox referenceTemperatureBox = Box("");
@@ -153,6 +154,7 @@ internal sealed class PreferencesWindow : Window
     int loadedBootstrapIterations;
     int loadedMaximumIterations;
     double loadedOptimizerTolerance;
+    PreferencesState? openingBaseline;
     bool autoSaveIntervalChanged;
     bool bootstrapIterationsChanged;
     bool maximumIterationsChanged;
@@ -160,6 +162,7 @@ internal sealed class PreferencesWindow : Window
     bool loadingDiscreteValues;
 
     public bool Applied { get; private set; }
+    internal PreferencesChangeSet AppliedChanges { get; private set; } = PreferencesChangeSet.Empty;
 
     internal Slider AutoSaveIntervalSlider => autoSaveIntervalSlider;
     internal TextBlock AutoSaveIntervalValueLabel => autoSaveIntervalValueLabel;
@@ -194,6 +197,12 @@ internal sealed class PreferencesWindow : Window
             Option("Joule", EnergyUnitFamily.Joules),
             Option("Calories", EnergyUnitFamily.Calories)
         });
+        defaultTemperatureUnitCombo = Combo(new[]
+        {
+            Option(AnalysisResultExportPresentation.CelsiusLabel, TemperatureUnit.Celsius),
+            Option(AnalysisResultExportPresentation.KelvinLabel, TemperatureUnit.Kelvin)
+        });
+        ToolTip.SetTip(defaultTemperatureUnitCombo, AnalysisResultExportPresentation.DefaultTemperatureUnitToolTip);
         concentrationUnitCombo = Combo(Enum.GetValues<ConcentrationUnit>().Select(unit => Option(unit.GetProperties().Name, unit)));
         designerInstrumentCombo = Combo(ITCInstrumentAttribute.GetITCInstruments().Select(instrument => Option(instrument.GetProperties().Name, instrument)));
         numberPrecisionCombo = Combo(new[]
@@ -364,6 +373,7 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section("Units and formatting", new Control[]
         {
             Row("Energy unit", energyUnitCombo),
+            Row(AnalysisResultExportPresentation.DefaultTemperatureUnitLabel, defaultTemperatureUnitCombo),
             Row("Concentration unit", concentrationUnitCombo),
             Row("Designer instrument", designerInstrumentCombo),
             Row("Number precision", numberPrecisionCombo),
@@ -510,14 +520,16 @@ internal sealed class PreferencesWindow : Window
         return panel;
     }
 
-    internal void LoadState(PreferencesState state)
+    internal void LoadState(PreferencesState state, bool establishBaseline = true)
     {
         CancelInterpretationOperations();
         verifyInterpretationAccessButton.IsEnabled = true;
         if (interpretationLifetime.IsCancellationRequested) interpretationLifetime = new CancellationTokenSource();
         interpretationWindowActive = true;
         restoreDefaults = false;
+        if (establishBaseline) openingBaseline = state.Clone();
         SetCombo(energyUnitCombo, state.EnergyUnitFamily);
+        SetCombo(defaultTemperatureUnitCombo, state.DefaultTemperatureUnit);
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
         SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
@@ -643,7 +655,14 @@ internal sealed class PreferencesWindow : Window
 
     internal async System.Threading.Tasks.Task ApplyAsync()
     {
-        if (!TryBuildState(out var state)) return;
+        if (!TryBuildState(out var draft)) return;
+        var allProperties = restoreDefaults
+            ? PreferencesChangeSet.Full.ChangedProperties
+            : null;
+        var baseline = openingBaseline ?? PreferencesState.FromSettings();
+        var state = PreferencesState.MergeEditedFields(
+            baseline, draft,
+            PreferencesState.FromSettings(), allProperties);
         if (!PreferencesState.TryValidateTraceability(state.TraceabilityModeEnabled, state.UserName, out var traceabilityError))
         {
             SetStatus(traceabilityError);
@@ -664,9 +683,21 @@ internal sealed class PreferencesWindow : Window
 
         try
         {
+            var latest = PreferencesState.FromSettings();
+            state = PreferencesState.MergeEditedFields(baseline, draft, latest, allProperties);
+            if (!PreferencesState.TryValidateTraceability(state.TraceabilityModeEnabled, state.UserName, out traceabilityError))
+            {
+                SetStatus(traceabilityError);
+                if (preferencesTabs != null) preferencesTabs.SelectedIndex = 0;
+                userNameBox.Focus();
+                return;
+            }
+
             if (updateExisting)
                 RawDataReader.ReprocessInjections(existingExperiments, state.DilutionCalculationMethod);
+            var beforeApply = PreferencesState.FromSettings();
             state.Apply();
+            AppliedChanges = PreferencesChangeSet.Between(beforeApply, PreferencesState.FromSettings());
             if (updateExisting)
             {
                 DataManager.InvokeDataDidChange();
@@ -684,7 +715,11 @@ internal sealed class PreferencesWindow : Window
 
     internal bool TryBuildState(out PreferencesState state)
     {
-        state = restoreDefaults ? PreferencesState.Defaults() : PreferencesState.FromSettings();
+        state = restoreDefaults
+            ? PreferencesState.Defaults()
+            : openingBaseline?.Clone() ?? PreferencesState.FromSettings();
+
+        var numericBaseline = restoreDefaults ? PreferencesState.Defaults() : openingBaseline;
 
         if (!TryReadDouble(referenceTemperatureBox, "reference temperature", -273.15, 500, out var referenceTemperature)) return false;
         if (!TryReadDouble(minimumTemperatureSpanBox, "minimum temperature span", 0, 100, out var minimumTemperatureSpan)) return false;
@@ -694,15 +729,22 @@ internal sealed class PreferencesWindow : Window
         if (!TryReadDouble(figureHeightBox, "figure height", 1, 50, out var figureHeight)) return false;
         if (!TryReadInt(autoSaveFileLimitBox, "autosave file limit", 1, 100, out var autoSaveFileLimit)) return false;
 
-        state.ReferenceTemperature = referenceTemperature;
+        state.ReferenceTemperature = PreserveDisplayedNumber(
+            referenceTemperatureBox, referenceTemperature, numericBaseline?.ReferenceTemperature);
         state.UserName = userNameBox.Text ?? "";
         state.TraceabilityModeEnabled = traceabilityModeCheck.IsChecked == true;
         state.PromptForIdentifiersOnImport = promptForIdentifiersCheck.IsChecked == true;
         state.EnergyUnitFamily = Value(energyUnitCombo, AppSettings.EnergyUnitFamily);
+        state.DefaultTemperatureUnit = Value(defaultTemperatureUnitCombo, AppSettings.DefaultTemperatureUnit);
         state.DefaultConcentrationUnit = Value(concentrationUnitCombo, AppSettings.DefaultConcentrationUnit);
         state.DefaultDesignerInstrument = Value(designerInstrumentCombo, AppSettings.DefaultDesignerInstrument);
-        state.MinimumTemperatureSpanForFitting = minimumTemperatureSpan;
-        state.MinimumIonSpanForFitting = minimumIonSpanMm / 1000.0;
+        state.MinimumTemperatureSpanForFitting = PreserveDisplayedNumber(
+            minimumTemperatureSpanBox, minimumTemperatureSpan, numericBaseline?.MinimumTemperatureSpanForFitting);
+        state.MinimumIonSpanForFitting = numericBaseline != null
+            && string.Equals(minimumIonSpanBox.Text,
+                Format(numericBaseline.MinimumIonSpanForFitting * 1000), StringComparison.Ordinal)
+                    ? numericBaseline.MinimumIonSpanForFitting
+                    : minimumIonSpanMm / 1000.0;
         state.NumberPrecision = Value(numberPrecisionCombo, AppSettings.NumberPrecision);
         state.UncertaintyDisplayStyle = Value(uncertaintyStyleCombo, AppSettings.UncertaintyDisplayStyle);
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
@@ -762,8 +804,10 @@ internal sealed class PreferencesWindow : Window
         state.NumOfDecimalsToExport = decimals;
         state.ExportBaselineCorrectedData = exportCorrectedDataCheck.IsChecked == true;
         state.ExportFitPointsWithPeaks = exportFitPointsCheck.IsChecked == true;
-        state.FinalFigureWidthCentimeters = figureWidth;
-        state.FinalFigureHeightCentimeters = figureHeight;
+        state.FinalFigureWidthCentimeters = PreserveDisplayedNumber(
+            figureWidthBox, figureWidth, numericBaseline?.FinalFigureWidthCentimeters);
+        state.FinalFigureHeightCentimeters = PreserveDisplayedNumber(
+            figureHeightBox, figureHeight, numericBaseline?.FinalFigureHeightCentimeters);
         state.PublicationFigureFont = Value(publicationFontCombo, AppSettings.PublicationFigureFont);
         state.ShowResidualGraph = residualGraphCheck.IsChecked == true;
         state.ShowResidualGraphGap = residualGapCheck.IsChecked == true;
@@ -781,10 +825,16 @@ internal sealed class PreferencesWindow : Window
 
     internal void RestoreDefaults()
     {
-        LoadState(PreferencesState.Defaults());
+        LoadState(PreferencesState.Defaults(), establishBaseline: false);
         restoreDefaults = true;
         SetStatus("Defaults staged. Apply to save them.");
     }
+
+    static double PreserveDisplayedNumber(TextBox box, double parsed, double? original)
+        => original.HasValue
+            && string.Equals(box.Text, Format(original.Value), StringComparison.Ordinal)
+                ? original.Value
+                : parsed;
 
     void AutoSaveIntervalChanged()
     {

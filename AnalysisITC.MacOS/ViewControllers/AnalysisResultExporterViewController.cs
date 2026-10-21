@@ -29,6 +29,7 @@ namespace AnalysisITC
         AnalysisResultExporterDelegate tableDelegate;
         readonly NSPopUpButton outputPurposePopup = new NSPopUpButton();
         readonly NSPopUpButton temperaturePopup = new NSPopUpButton();
+        bool temperatureSessionSubscribed;
 
         public AnalysisResultExporterViewController(IntPtr handle) : base(handle)
         {
@@ -57,12 +58,25 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
+            if (!temperatureSessionSubscribed)
+            {
+                TemperatureUnitSession.ResultExporterChanged += TemperatureUnitSession_ResultExporterChanged;
+                temperatureSessionSubscribed = true;
+            }
+            SyncTemperatureUnit();
+
             StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.ResultExporter), -1);
         }
 
         public override void ViewWillDisappear()
         {
             base.ViewWillDisappear();
+
+            if (temperatureSessionSubscribed)
+            {
+                TemperatureUnitSession.ResultExporterChanged -= TemperatureUnitSession_ResultExporterChanged;
+                temperatureSessionSubscribed = false;
+            }
 
             StatusBarManager.ClearAppStatus();
         }
@@ -142,8 +156,11 @@ namespace AnalysisITC
         void SetupTemperatureControl()
         {
             temperaturePopup.AddItems(new[] { AnalysisResultExportPresentation.CelsiusLabel, AnalysisResultExportPresentation.KelvinLabel });
-            temperaturePopup.SelectItem(0);
+            temperaturePopup.SelectItem(TemperatureUnitSession.ResultExporter == TemperatureUnit.Kelvin ? 1 : 0);
             temperaturePopup.ToolTip = AnalysisResultExportPresentation.TemperatureToolTip;
+            temperaturePopup.Activated += (_, _) =>
+                TemperatureUnitSession.ResultExporter = temperaturePopup.IndexOfSelectedItem == 1
+                    ? TemperatureUnit.Kelvin : TemperatureUnit.Celsius;
             var label = new NSTextField { StringValue = AnalysisResultExportPresentation.TemperatureLabel, Editable = false, Bordered = false,
                 DrawsBackground = false, Font = NSFont.SystemFontOfSize(12) };
             label.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
@@ -164,6 +181,14 @@ namespace AnalysisITC
             root.InsertArrangedSubview(row, formatRow + 1);
             row.WidthAnchor.ConstraintEqualToAnchor(root.WidthAnchor, 1, -36).Active = true;
         }
+
+        void TemperatureUnitSession_ResultExporterChanged(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(SyncTemperatureUnit);
+        }
+
+        void SyncTemperatureUnit() => temperaturePopup.SelectItem(
+            TemperatureUnitSession.ResultExporter == TemperatureUnit.Kelvin ? 1 : 0);
 
         NSStackView FindPurposeHost(NSView view)
         {

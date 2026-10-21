@@ -38,9 +38,6 @@ namespace AnalysisITC
             "Counter Ion Release",
         };
 
-        const string TemperatureUnitPreferenceKey =
-            "AnalysisResultUseKelvin";
-
         readonly List<ResultGraphView.ResultGraphType> availableGraphTypes = new();
         readonly Dictionary<NSStackView, NSView> pageSpacers = new();
 
@@ -120,9 +117,13 @@ namespace AnalysisITC
         public static event EventHandler DisplayOptionsDidChange;
         public static event EventHandler RefreshDisplayRequested;
         public static event Action<bool> TemperatureUnitRequested;
-        public static bool CurrentUseKelvin { get; private set; } =
-            NSUserDefaults.StandardUserDefaults.BoolForKey(
-                TemperatureUnitPreferenceKey);
+        public static bool CurrentUseKelvin
+        {
+            get => TemperatureUnitSession.Results == TemperatureUnit.Kelvin;
+            private set => TemperatureUnitSession.Results = value
+                ? TemperatureUnit.Kelvin
+                : TemperatureUnit.Celsius;
+        }
 
         public static void RequestDisplayRefresh() =>
             RefreshDisplayRequested?.Invoke(null, EventArgs.Empty);
@@ -209,6 +210,7 @@ namespace AnalysisITC
                 AnalysisResultTabViewController_RefreshDisplayRequested;
             TemperatureUnitRequested +=
                 AnalysisResultTabViewController_TemperatureUnitRequested;
+            TemperatureUnitSession.ResultsChanged += TemperatureUnitSession_ResultsChanged;
             AppSettings.SettingsDidUpdate +=
                 AppSettings_SettingsDidUpdate;
         }
@@ -229,6 +231,21 @@ namespace AnalysisITC
             bool useKelvin)
         {
             BeginInvokeOnMainThread(() => ApplyTemperatureUnit(useKelvin));
+        }
+
+        void TemperatureUnitSession_ResultsChanged(object sender, EventArgs e)
+        {
+            BeginInvokeOnMainThread(() =>
+            {
+                var temperatureCelsius = TryReadEvaluationTemperature(out var parsed)
+                    ? parsed
+                    : analysisResult == null ? 25
+                    : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(analysisResult);
+                evaluationTextUsesKelvin = CurrentUseKelvin;
+                SetEvaluationTemperatureText(temperatureCelsius);
+                QueueRefresh();
+                NotifyDisplayOptionsDidChange();
+            });
         }
 
         void DataManager_AnalysisResultSelected(
@@ -1995,22 +2012,27 @@ namespace AnalysisITC
                             .DefaultEvaluationTemperatureCelsius(
                                 analysisResult);
 
-            CurrentUseKelvin = useKelvin;
-            NSUserDefaults.StandardUserDefaults.SetBool(
-                useKelvin,
-                TemperatureUnitPreferenceKey);
-            NSUserDefaults.StandardUserDefaults.Synchronize();
-            evaluationTextUsesKelvin = useKelvin;
-            SetEvaluationTemperatureText(temperatureCelsius);
-            QueueRefresh();
-            NotifyDisplayOptionsDidChange();
+            var selectedUnit = useKelvin ? TemperatureUnit.Kelvin : TemperatureUnit.Celsius;
+            if (TemperatureUnitSession.Results == selectedUnit)
+            {
+                evaluationTextUsesKelvin = useKelvin;
+                SetEvaluationTemperatureText(temperatureCelsius);
+                QueueRefresh();
+                NotifyDisplayOptionsDidChange();
+            }
+            else
+            {
+                evaluationTextUsesKelvin = useKelvin;
+                SetEvaluationTemperatureText(temperatureCelsius);
+                TemperatureUnitSession.Results = selectedUnit;
+            }
         }
 
         bool TryReadEvaluationTemperature(
             out double temperatureCelsius)
         {
             temperatureCelsius = 0;
-            var text = evaluationTemperatureText?.Trim();
+            var text = (evaluationTemperatureControl?.StringValue ?? evaluationTemperatureText)?.Trim();
             if (string.IsNullOrWhiteSpace(text)) return false;
 
             if (!double.TryParse(
@@ -2042,8 +2064,10 @@ namespace AnalysisITC
                 : temperatureCelsius;
             evaluationTemperatureText =
                 displayed.ToString(
-                    "G6",
+                    "G15",
                     CultureInfo.CurrentCulture);
+            if (evaluationTemperatureControl != null)
+                evaluationTemperatureControl.StringValue = evaluationTemperatureText;
         }
 
         void NotifyDisplayOptionsDidChange()
@@ -2553,6 +2577,7 @@ namespace AnalysisITC
                 AnalysisResultTabViewController_TemperatureUnitRequested;
             AppSettings.SettingsDidUpdate -=
                 AppSettings_SettingsDidUpdate;
+            TemperatureUnitSession.ResultsChanged -= TemperatureUnitSession_ResultsChanged;
         }
 
         void CalculationActivityChanged(object sender, EventArgs e) => BeginInvokeOnMainThread(() =>

@@ -155,6 +155,39 @@ namespace AnalysisITC
             UpdateAttributeDisplayMenu(controls.AttributeDisplayOptionsControl);
         }
 
+        internal static void SyncChangedDefaults(
+            GeneralControls general,
+            FitControls fit,
+            PreferencesChangeSet changes,
+            bool widthValid,
+            bool heightValid)
+        {
+            if (changes.Contains(nameof(PreferencesState.FinalFigureWidthCentimeters)))
+                SyncDimension(general?.WidthLabel, FinalFigureGraphView.Width, widthValid,
+                    MinimumWidthCentimeters, MaximumWidthCentimeters, "Plot-area width in centimeters");
+            if (changes.Contains(nameof(PreferencesState.FinalFigureHeightCentimeters)))
+                SyncDimension(general?.HeightLabel, FinalFigureGraphView.Height, heightValid,
+                    MinimumHeightCentimeters, MaximumHeightCentimeters, "Plot-area height in centimeters");
+            if (changes.Contains(nameof(PreferencesState.FinalFigureShowDetailsAsDefault)))
+                SetState(general?.ShowParametersControl, FinalFigureGraphView.DrawExpDetails);
+            if (changes.Contains(nameof(PreferencesState.FinalFigureShowModelInfoAsDefault)))
+                SetState(general?.ModelInfoControl, FinalFigureGraphView.DrawModelInfo);
+            if (changes.Contains(nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault)))
+                SetState(general?.FitParametersControl, FinalFigureGraphView.DrawFitParameterValues);
+            if (changes.Contains(nameof(PreferencesState.UncertaintyDisplayStyle)))
+                general?.TextUncertaintyStyleControl?.SelectSegment((int)FinalFigureGraphView.TextUncertaintyStyle);
+            if (changes.Contains(nameof(PreferencesState.FinalFigureParameterDisplay)))
+                UpdateParameterDisplayMenu(general?.ParameterDisplayOptionsControl);
+            if (changes.Contains(nameof(PreferencesState.ShowResidualGraph)))
+                SetState(fit?.ShowResiduals, FinalFigureGraphView.ShowResiduals);
+            if (changes.Contains(nameof(PreferencesState.ShowResidualGraphGap)))
+                SetState(fit?.AddGapToResidualPlot, FinalFigureGraphView.GapResidualGraph);
+            if (changes.Contains(nameof(PreferencesState.AutoAxesIgnoresBadData)))
+                SetState(fit?.IncludeBadDataInAutoYScaling, !FinalFigureGraphView.AutoAxesIgnoresBadData);
+            if (changes.Contains(nameof(PreferencesState.FitLineSmoothness)))
+                fit?.SplineInterpolationControl?.SelectSegment((int)FinalFigureGraphView.FitLineSmoothness);
+        }
+
         internal static (bool WidthValid, bool HeightValid) ApplyGeneral(GeneralControls controls)
         {
             if (controls == null) return (true, true);

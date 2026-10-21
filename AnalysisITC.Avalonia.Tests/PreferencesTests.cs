@@ -230,8 +230,124 @@ public sealed class PreferencesTests
 
             Assert.False(window.Applied);
             Assert.Equal("An operator name is required when Traceability Mode is enabled.", window.StatusText.Text);
+            Assert.True(window.TraceabilityModeCheck.IsChecked);
+            Assert.Equal("   ", window.UserNameBox.Text);
             Assert.False(AppSettings.TraceabilityModeEnabled);
             Assert.Equal("Previous operator", AppSettings.UserName);
+
+            window.UserNameBox.Text = "Corrected operator";
+            window.ApplyAsync().GetAwaiter().GetResult();
+            Assert.True(window.Applied);
+            Assert.Equal("Corrected operator", AppSettings.UserName);
+        }
+        finally
+        {
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PersistenceFailureKeepsThePreferencesDraftEditable()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var failingStore = new FailingSettingsStore("EnergyUnitFamily");
+        PlatformServices.RegisterSettingsStore(failingStore);
+        PreferencesWindow? window = null;
+        try
+        {
+            PreferencesState.Defaults().ApplyToSettings();
+            window = new PreferencesWindow();
+            ((TextBox)typeof(PreferencesWindow).GetField("referenceTemperatureBox",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!).Text = "25";
+            window.UserNameBox.Text = "Draft operator";
+
+            await window.ApplyAsync();
+
+            Assert.False(window.Applied);
+            Assert.Equal("25", ((TextBox)typeof(PreferencesWindow).GetField("referenceTemperatureBox",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!).Text);
+            Assert.Equal("Draft operator", window.UserNameBox.Text);
+            Assert.Contains("Simulated settings write failure", window.StatusText.Text);
+            Assert.Equal(PreferencesState.Defaults().ReferenceTemperature, AppSettings.ReferenceTemperature);
+            Assert.NotEqual("Draft operator", AppSettings.UserName);
+
+            failingStore.AllowWrites();
+            await window.ApplyAsync();
+            Assert.True(window.Applied);
+            Assert.Equal(25, AppSettings.ReferenceTemperature);
+            Assert.Equal("Draft operator", AppSettings.UserName);
+        }
+        finally
+        {
+            window?.Close();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task OpeningPreferencesAndChangingOneValueKeepsANewerExternalSetting()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        PreferencesWindow? window = null;
+        try
+        {
+            var initial = PreferencesState.Defaults();
+            initial.ReferenceTemperature = 24;
+            initial.UserName = "Opening value";
+            initial.Apply();
+
+            window = new PreferencesWindow();
+            // This change represents another settings writer while the dialog is open.
+            AppSettings.UserName = "Newer value";
+            AppSettings.Save();
+            ((TextBox)typeof(PreferencesWindow).GetField("referenceTemperatureBox",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!).Text = "25";
+
+            await window.ApplyAsync();
+
+            Assert.True(window.Applied);
+            Assert.Equal(25, AppSettings.ReferenceTemperature);
+            Assert.Equal("Newer value", AppSettings.UserName);
+        }
+        finally
+        {
+            window?.Close();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [AvaloniaFact]
+    public void UntouchedReferenceTemperatureRetainsItsFullPrecision()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        try
+        {
+            var state = PreferencesState.Defaults();
+            state.ReferenceTemperature = 25.1234567890123;
+            state.MinimumTemperatureSpanForFitting = 3.1234567890123;
+            state.MinimumIonSpanForFitting = 0.4487989505128276;
+            state.FinalFigureWidthCentimeters = 8.1234567890123;
+            state.FinalFigureHeightCentimeters = 6.1234567890123;
+            state.Apply();
+
+            var window = new PreferencesWindow();
+            Assert.True(window.TryBuildState(out var staged));
+            Assert.Equal(25.1234567890123, staged.ReferenceTemperature);
+            Assert.Equal(3.1234567890123, staged.MinimumTemperatureSpanForFitting);
+            Assert.Equal(0.4487989505128276, staged.MinimumIonSpanForFitting);
+            Assert.Equal(8.1234567890123, staged.FinalFigureWidthCentimeters);
+            Assert.Equal(6.1234567890123, staged.FinalFigureHeightCentimeters);
         }
         finally
         {
@@ -322,6 +438,59 @@ public sealed class PreferencesTests
         window.LoadState(state);
         Assert.True(window.TryBuildState(out var result));
         Assert.Equal(EnergyUnitFamily.Joules, result.EnergyUnitFamily);
+    }
+
+    [AvaloniaFact]
+    public void DefaultTemperatureUnitLoadsAndRoundTrips()
+    {
+        var window = new PreferencesWindow();
+        var combo = (ComboBox)typeof(PreferencesWindow).GetField("defaultTemperatureUnitCombo",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+        Assert.Equal(new[] { "Celsius", "Kelvin" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
+
+        var state = PreferencesState.Defaults();
+        Assert.Equal(TemperatureUnit.Celsius, state.DefaultTemperatureUnit);
+        state.DefaultTemperatureUnit = TemperatureUnit.Kelvin;
+        window.LoadState(state);
+        Assert.Equal(1, combo.SelectedIndex);
+        Assert.Equal(AnalysisResultExportPresentation.DefaultTemperatureUnitToolTip, ToolTip.GetTip(combo));
+        Assert.True(window.TryBuildState(out var staged));
+        Assert.Equal(TemperatureUnit.Kelvin, staged.DefaultTemperatureUnit);
+    }
+
+    [AvaloniaFact]
+    public async Task ApplyingStagedDefaultsOverridesNewerValuesFromTheOpeningBaseline()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        PreferencesWindow? window = null;
+        try
+        {
+            var custom = PreferencesState.Defaults();
+            custom.ReferenceTemperature = 25.0000001;
+            custom.UserName = "Opening operator";
+            custom.DefaultTemperatureUnit = TemperatureUnit.Kelvin;
+            custom.Apply();
+            window = new PreferencesWindow();
+            window.RestoreDefaults();
+
+            AppSettings.UserName = "Newer operator";
+            AppSettings.Save();
+            await window.ApplyAsync();
+
+            Assert.True(window.Applied);
+            Assert.Equal(PreferencesState.Defaults().ReferenceTemperature, AppSettings.ReferenceTemperature);
+            Assert.Equal(PreferencesState.Defaults().UserName, AppSettings.UserName);
+            Assert.Equal(TemperatureUnit.Celsius, AppSettings.DefaultTemperatureUnit);
+        }
+        finally
+        {
+            window?.Close();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
     }
 
     [AvaloniaTheory]
@@ -688,6 +857,35 @@ public sealed class PreferencesTests
             PlatformServices.RegisterSettingsStore(originalStore);
             if (Directory.Exists(directory)) Directory.Delete(directory, true);
         }
+    }
+
+    sealed class FailingSettingsStore : ISettingsStore
+    {
+        readonly InMemorySettingsStore inner = new();
+        readonly string failingKey;
+        bool failWrites = true;
+
+        public FailingSettingsStore(string failingKey) => this.failingKey = failingKey;
+        public void AllowWrites() => failWrites = false;
+        public int Count => inner.Count;
+        public bool Contains(string key) => inner.Contains(key);
+        public bool GetBool(string key, bool defaultValue = false) => inner.GetBool(key, defaultValue);
+        public int GetInt(string key, int defaultValue = 0) => inner.GetInt(key, defaultValue);
+        public double GetDouble(string key, double defaultValue = 0) => inner.GetDouble(key, defaultValue);
+        public string GetString(string key, string defaultValue = null) => inner.GetString(key, defaultValue);
+        public double[] GetDoubleArray(string key, double[] defaultValue = null) => inner.GetDoubleArray(key, defaultValue);
+        public string[] GetStringArray(string key, string[] defaultValue = null) => inner.GetStringArray(key, defaultValue);
+        public void SetBool(string key, bool value) => inner.SetBool(key, value);
+        public void SetInt(string key, int value)
+        {
+            if (failWrites && key == failingKey) throw new IOException("Simulated settings write failure.");
+            inner.SetInt(key, value);
+        }
+        public void SetDouble(string key, double value) => inner.SetDouble(key, value);
+        public void SetString(string key, string value) => inner.SetString(key, value);
+        public void SetDoubleArray(string key, double[] value) => inner.SetDoubleArray(key, value);
+        public void SetStringArray(string key, string[] value) => inner.SetStringArray(key, value);
+        public void Synchronize() => inner.Synchronize();
     }
 
     sealed class PreferencesHttpHandler : HttpMessageHandler

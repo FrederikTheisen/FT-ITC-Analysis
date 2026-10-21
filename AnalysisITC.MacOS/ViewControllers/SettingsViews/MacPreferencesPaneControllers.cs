@@ -43,6 +43,13 @@ namespace AnalysisITC
                     : "Calories");
             PopulatePopup(ConcentrationUnitPopup, EnumValues<ConcentrationUnit>(),
                 value => value.GetProperties().Name);
+            PopulatePopup(TemperatureUnitPopup, EnumValues<TemperatureUnit>(), value => value switch
+            {
+                TemperatureUnit.Celsius => AnalysisResultExportPresentation.CelsiusLabel,
+                TemperatureUnit.Kelvin => AnalysisResultExportPresentation.KelvinLabel,
+                _ => value.ToString(),
+            });
+            TemperatureUnitPopup.ToolTip = AnalysisResultExportPresentation.DefaultTemperatureUnitToolTip;
             PopulatePopup(NumberPrecisionPopup, EnumValues<NumberPrecision>(), FriendlyName);
             NumberPrecisionPopup.ToolTip = "Controls how displayed values are rounded. Values of magnitude 10¹⁰ or more use scientific notation with up to six significant digits, and infinite interval bounds show as ∞. This changes presentation only.";
             PopulatePopup(UncertaintyPopup, EnumValues<UncertaintyDisplayStyle>(), FriendlyName);
@@ -57,6 +64,7 @@ namespace AnalysisITC
         {
             SelectPopup(EnergyUnitPopup, state.EnergyUnitFamily);
             SelectPopup(ConcentrationUnitPopup, state.DefaultConcentrationUnit);
+            SelectPopup(TemperatureUnitPopup, state.DefaultTemperatureUnit);
             SelectPopup(NumberPrecisionPopup, state.NumberPrecision);
             SelectPopup(UncertaintyPopup, state.UncertaintyDisplayStyle);
             SelectPopup(InstrumentPopup, state.DefaultDesignerInstrument);
@@ -84,11 +92,14 @@ namespace AnalysisITC
 
         internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
-            if (!ReadDouble(ReferenceTemperatureField, "reference temperature", -273.15, 500,
+            if (!ReadDoublePreservingUnchanged(ReferenceTemperatureField, "reference temperature",
+                state.ReferenceTemperature, state.ReferenceTemperature, -273.15, 500,
                 out var referenceTemperature, out error)) return false;
-            if (!ReadDouble(MinimumTemperatureSpanField, "minimum temperature span", 0, 100,
+            if (!ReadDoublePreservingUnchanged(MinimumTemperatureSpanField, "minimum temperature span",
+                state.MinimumTemperatureSpanForFitting, state.MinimumTemperatureSpanForFitting, 0, 100,
                 out var minimumTemperatureSpan, out error)) return false;
-            if (!ReadDouble(MinimumIonSpanField, "minimum ionic-strength span", 0, 10000,
+            if (!ReadDoublePreservingUnchanged(MinimumIonSpanField, "minimum ionic-strength span",
+                state.MinimumIonSpanForFitting, state.MinimumIonSpanForFitting * 1000, 0, 10000,
                 out var minimumIonSpan, out error)) return false;
             if (!ReadInt(AutoSaveLimitField, "autosave file limit", 1, 100,
                 out var autoSaveLimit, out error)) return false;
@@ -100,12 +111,15 @@ namespace AnalysisITC
 
             state.EnergyUnitFamily = PopupValue<EnergyUnitFamily>(EnergyUnitPopup);
             state.DefaultConcentrationUnit = PopupValue<ConcentrationUnit>(ConcentrationUnitPopup);
+            state.DefaultTemperatureUnit = PopupValue<TemperatureUnit>(TemperatureUnitPopup);
             state.NumberPrecision = PopupValue<NumberPrecision>(NumberPrecisionPopup);
             state.UncertaintyDisplayStyle = PopupValue<UncertaintyDisplayStyle>(UncertaintyPopup);
             state.DefaultDesignerInstrument = PopupValue<ITCInstrument>(InstrumentPopup);
             state.ReferenceTemperature = referenceTemperature;
             state.MinimumTemperatureSpanForFitting = minimumTemperatureSpan;
-            state.MinimumIonSpanForFitting = minimumIonSpan / 1000;
+            if (!string.Equals(MinimumIonSpanField.StringValue,
+                Format(state.MinimumIonSpanForFitting * 1000), StringComparison.Ordinal))
+                state.MinimumIonSpanForFitting = minimumIonSpan / 1000;
             state.IncludeBufferInIonicStrengthCalc = IsOn(IncludeBufferCheck);
             state.PerformOnlineChecksOnLaunch = IsOn(OnlineChecksCheck);
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
@@ -823,20 +837,24 @@ namespace AnalysisITC
         {
             if (!ReadInt(ExportDecimalsField, "export decimals", 0, 12,
                 out var exportDecimals, out error)) return false;
-            if (!ReadDouble(FigureWidthField, "figure width", 1, 50,
+            if (!ReadDoublePreservingUnchanged(FigureWidthField, "figure width",
+                state.FinalFigureWidthCentimeters, state.FinalFigureWidthCentimeters, 1, 50,
                 out var figureWidth, out error)) return false;
-            if (!ReadDouble(FigureHeightField, "figure height", 1, 50,
+            if (!ReadDoublePreservingUnchanged(FigureHeightField, "figure height",
+                state.FinalFigureHeightCentimeters, state.FinalFigureHeightCentimeters, 1, 50,
                 out var figureHeight, out error)) return false;
 
             state.ExportSelectionMode = PopupValue<ExportDataSelection>(ExportSelectionPopup);
             state.FitLineSmoothness = PopupValue<LineSmoothness>(FitLinePopup);
             state.DisplayAttributeOptions = PopupValue<DisplayAttributeOptions>(AttributeDisplayPopup);
             state.NumOfDecimalsToExport = exportDecimals;
-            state.FinalFigureWidthCentimeters = figureWidth;
-            state.FinalFigureHeightCentimeters = figureHeight;
+            if (!string.Equals(FigureWidthField.StringValue, Format(state.FinalFigureWidthCentimeters), StringComparison.Ordinal))
+                state.FinalFigureWidthCentimeters = figureWidth;
+            if (!string.Equals(FigureHeightField.StringValue, Format(state.FinalFigureHeightCentimeters), StringComparison.Ordinal))
+                state.FinalFigureHeightCentimeters = figureHeight;
             state.ExportBaselineCorrectedData = IsOn(ExportCorrectedCheck);
             state.ExportFitPointsWithPeaks = IsOn(ExportFitPointsCheck);
-            state.ExportColumns = BuildExportColumns();
+            state.ExportColumns = BuildExportColumns(state.ExportColumns);
             state.ShowResidualGraph = IsOn(ShowResidualCheck);
             state.ShowResidualGraphGap = IsOn(ResidualGapCheck);
             state.UnifyResidualGraphAxis = IsOn(UnifyResidualAxisCheck);
@@ -844,7 +862,7 @@ namespace AnalysisITC
             state.FinalFigureShowDetailsAsDefault = IsOn(ExperimentDetailsCheck);
             state.FinalFigureShowModelInfoAsDefault = IsOn(ModelInfoCheck);
             state.AutoAxesIgnoresBadData = IsOn(AutoAxesCheck);
-            state.FinalFigureParameterDisplay = BuildFigureDisplay();
+            state.FinalFigureParameterDisplay = BuildFigureDisplay(state.FinalFigureParameterDisplay);
             error = null;
             return true;
         }
@@ -859,9 +877,11 @@ namespace AnalysisITC
             UnifyResidualAxisCheck.Enabled = enabled;
         }
 
-        ExportColumns BuildExportColumns()
+        ExportColumns BuildExportColumns(ExportColumns existing)
         {
-            var columns = ExportColumns.None;
+            const ExportColumns known = ExportColumns.MolarRatio | ExportColumns.InjectionInfo
+                | ExportColumns.Concentrations | ExportColumns.Included | ExportColumns.Peak | ExportColumns.Fit;
+            var columns = existing & ~known;
             if (IsOn(ExportMolarRatioCheck)) columns |= ExportColumns.MolarRatio;
             if (IsOn(ExportInjectionInfoCheck)) columns |= ExportColumns.InjectionInfo;
             if (IsOn(ExportConcentrationsCheck)) columns |= ExportColumns.Concentrations;
@@ -871,9 +891,14 @@ namespace AnalysisITC
             return columns;
         }
 
-        FinalFigureDisplayParameters BuildFigureDisplay()
+        FinalFigureDisplayParameters BuildFigureDisplay(FinalFigureDisplayParameters existing)
         {
-            var display = FinalFigureDisplayParameters.None;
+            const FinalFigureDisplayParameters known = FinalFigureDisplayParameters.Model
+                | FinalFigureDisplayParameters.Thermodynamic | FinalFigureDisplayParameters.Offset
+                | FinalFigureDisplayParameters.Derived | FinalFigureDisplayParameters.Temperature
+                | FinalFigureDisplayParameters.Concentrations | FinalFigureDisplayParameters.InjectionDelay
+                | FinalFigureDisplayParameters.Instrument | FinalFigureDisplayParameters.Attributes;
+            var display = existing & ~known;
             if (IsOn(ModelInfoCheck)) display |= FinalFigureDisplayParameters.Model;
             if (IsOn(ThermodynamicCheck)) display |= FinalFigureDisplayParameters.Thermodynamic;
             if (IsOn(OffsetCheck)) display |= FinalFigureDisplayParameters.Offset;

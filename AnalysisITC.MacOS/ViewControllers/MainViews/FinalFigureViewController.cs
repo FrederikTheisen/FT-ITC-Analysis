@@ -180,7 +180,27 @@ namespace AnalysisITC
 
         void OnSettingsDidUpdate(object sender, EventArgs e)
         {
-            NSApplication.SharedApplication.InvokeOnMainThread(SyncEmbeddedOptions);
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (!changes.ContainsAny(
+                    nameof(PreferencesState.FinalFigureWidthCentimeters),
+                    nameof(PreferencesState.FinalFigureHeightCentimeters),
+                    nameof(PreferencesState.FinalFigureShowDetailsAsDefault),
+                    nameof(PreferencesState.FinalFigureShowModelInfoAsDefault),
+                    nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault),
+                    nameof(PreferencesState.UncertaintyDisplayStyle),
+                    nameof(PreferencesState.FinalFigureParameterDisplay),
+                    nameof(PreferencesState.ShowResidualGraph),
+                    nameof(PreferencesState.ShowResidualGraphGap),
+                    nameof(PreferencesState.AutoAxesIgnoresBadData),
+                    nameof(PreferencesState.FitLineSmoothness))) return;
+
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+                FinalFigureOptionsController.SyncChangedDefaults(
+                    EmbeddedGeneralControls,
+                    EmbeddedFitControls,
+                    changes,
+                    _widthDimensionValid,
+                    _heightDimensionValid));
         }
 
         void OnFigureInvalidated(object sender, EventArgs e)

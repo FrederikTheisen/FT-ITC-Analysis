@@ -17,7 +17,7 @@ Open **Preferences...**, edit the relevant tab, and choose **Apply**. Defaults i
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
-Choosing **Apply** also preserves settings that are not shown in that application's Preferences window.
+**Apply** saves only the settings you edited and updates their related views. Untouched settings retain changes made elsewhere while Preferences was open. **Restore Defaults** explicitly stages every built-in preference, including settings not shown in that application's window.
 
 ## General
 
@@ -28,6 +28,7 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 | **Prompt for experiment and sample IDs after import** | While Traceability Mode is enabled, asks for experiment, cell sample, and syringe sample IDs after data files are imported. All IDs are optional. The setting is kept, but has no effect, while the mode is off. |
 | **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix according to the magnitude of the displayed central values; empty groups default to kJ or kcal. |
 | **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
+| **Temperature units** | Sets the Celsius or Kelvin default for Results and Analysis Result Exporter tables. Each keeps its own choice for the current application session. Changing this preference resets both choices immediately. |
 | **Designer instrument** | Shared default instrument for the Experiment Designer and its instrument-specific volumes. |
 | **Number precision** | Controls numeric presentation: **Strict**, **Standard**, **Single decimal**, or **All decimals**. Under every setting, an estimate, SD, or confidence-interval bound with a magnitude of 10¹⁰ or more is shown in scientific notation with up to six significant digits, and an infinite bound is shown as ∞ or −∞. This changes presentation only. It does not set export decimal places. |
 | **Uncertainty display** | Shared uncertainty presentation: **Automatic**, **Standard deviation**, **Confidence interval**, **SD + confidence interval**, or **None**. Automatic uses the confidence interval for a quantity whose stored 95% interval is materially asymmetric around its best-fit value; otherwise it uses SD. This changes presentation, not the underlying fit or calculated uncertainty. |

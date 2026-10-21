@@ -12,6 +12,7 @@ namespace AnalysisITC
     {
         [Outlet] AppKit.NSPopUpButton EnergyUnitPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton ConcentrationUnitPopup { get; set; }
+        [Outlet] AppKit.NSPopUpButton TemperatureUnitPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton NumberPrecisionPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton UncertaintyPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton InstrumentPopup { get; set; }
@@ -46,6 +47,7 @@ namespace AnalysisITC
         {
             EnergyUnitPopup = Release(EnergyUnitPopup);
             ConcentrationUnitPopup = Release(ConcentrationUnitPopup);
+            TemperatureUnitPopup = Release(TemperatureUnitPopup);
             NumberPrecisionPopup = Release(NumberPrecisionPopup);
             UncertaintyPopup = Release(UncertaintyPopup);
             InstrumentPopup = Release(InstrumentPopup);

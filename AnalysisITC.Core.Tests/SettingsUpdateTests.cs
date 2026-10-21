@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Platform;
 using Xunit;
@@ -37,6 +39,7 @@ public sealed class SettingsUpdateTests : IDisposable
         AppSettings.DefaultBootstrapIterations = 10;
         AppSettings.IncludeConcentrationErrorsInBootstrap = false;
         AppSettings.UseInjectionErrorWeightedFitting = false;
+        AppSettings.ApplySettings();
         new LiveOptions(SolverAlgorithm.LevenbergMarquardt, ErrorEstimationMethod.BootstrapResiduals,
             1000, true, true, true).Restore();
     }
@@ -113,7 +116,8 @@ public sealed class SettingsUpdateTests : IDisposable
 
     [Theory]
     [InlineData("save", true, true)]
-    [InlineData("apply", true, false)]
+    [InlineData("apply", false, false)]
+    [InlineData("apply-changed", true, false)]
     [InlineData("verification", false, true)]
     [InlineData("account", false, true)]
     public async Task WorkerNotificationsRunOnDispatcherInOrderAfterPersistence(string action, bool applied, bool updated)
@@ -133,18 +137,27 @@ public sealed class SettingsUpdateTests : IDisposable
                 switch (action)
                 {
                     case "apply": AppSettings.ApplySettings(); break;
+                    case "apply-changed":
+                        AppSettings.ReferenceTemperature += 0.5;
+                        AppSettings.ApplySettings();
+                        break;
                     case "verification": AppSettings.PersistInterpretationAccessVerification("test-code", AccessOptions()); break;
                     case "account": AppSettings.PersistInterpretationAccount("test-code", new InterpretationAccountResponse()); break;
-                    default: AppSettings.Save(); break;
+                    default:
+                        AppSettings.ReferenceTemperature += 0.5;
+                        AppSettings.Save();
+                        break;
                 }
             });
             Assert.Empty(observed);
-            Assert.Equal(1, dispatcher.Count);
+            Assert.Equal(applied || updated ? 1 : 0, dispatcher.Count);
             // The dispatcher owner is the thread draining its queue, independent of xUnit continuations.
             thread = Environment.CurrentManagedThreadId;
             dispatcher.Drain();
-            Assert.Equal(applied ? (updated ? new[] { "applied", "updated" } : new[] { "applied" })
-                : new[] { "updated" }, observed);
+            var expectedEvents = new List<string>();
+            if (applied) expectedEvents.Add("applied");
+            if (updated) expectedEvents.Add("updated");
+            Assert.Equal(expectedEvents, observed);
         }
         finally
         {
@@ -155,7 +168,7 @@ public sealed class SettingsUpdateTests : IDisposable
         void Observe(string name)
         {
             Assert.Equal(thread, Environment.CurrentManagedThreadId);
-            if (action != "apply") Assert.True(store.Synchronizations > 0);
+            if (action != "apply" && action != "apply-changed") Assert.True(store.Synchronizations > 0);
             observed.Add(name);
         }
     }
@@ -184,6 +197,99 @@ public sealed class SettingsUpdateTests : IDisposable
     }
 
     [Fact]
+    public void FailedPreferenceApplyRestoresSettingsAndCanRetryWithoutResettingSessionUnitsEarly()
+    {
+        AppSettings.DefaultTemperatureUnit = TemperatureUnit.Celsius;
+        AppSettings.ApplySettings();
+        TemperatureUnitSession.Results = TemperatureUnit.Kelvin;
+        TemperatureUnitSession.ResultExporter = TemperatureUnit.Kelvin;
+        var draft = PreferencesState.FromSettings();
+        draft.DefaultTemperatureUnit = TemperatureUnit.Kelvin;
+        var appliedEvents = 0;
+        var updatedEvents = 0;
+        EventHandler onApplied = (_, _) => appliedEvents++;
+        EventHandler onUpdated = (_, _) => updatedEvents++;
+        AppSettings.SettingsApplied += onApplied;
+        AppSettings.SettingsDidUpdate += onUpdated;
+        try
+        {
+            store.FailSynchronization = true;
+            Assert.Throws<IOException>(draft.Apply);
+            Assert.Equal(TemperatureUnit.Celsius, AppSettings.DefaultTemperatureUnit);
+            Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.Results);
+            Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.ResultExporter);
+            Assert.Equal(0, appliedEvents);
+            Assert.Equal(0, updatedEvents);
+
+            store.FailSynchronization = false;
+            draft.Apply();
+            Assert.Equal(TemperatureUnit.Kelvin, AppSettings.DefaultTemperatureUnit);
+            Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.Results);
+            Assert.Equal(TemperatureUnit.Kelvin, TemperatureUnitSession.ResultExporter);
+            Assert.Equal(1, appliedEvents);
+            Assert.Equal(1, updatedEvents);
+        }
+        finally
+        {
+            store.FailSynchronization = false;
+            AppSettings.SettingsApplied -= onApplied;
+            AppSettings.SettingsDidUpdate -= onUpdated;
+        }
+    }
+
+    [Fact]
+    public void NoOpAndDocumentMetadataSavesDoNotPublishPreferenceEvents()
+    {
+        AppSettings.ApplySettings();
+        var observed = new List<PreferencesChangeSet>();
+        EventHandler onApplied = (_, args) => observed.Add(PreferencesChangeSet.FromEventArgs(args));
+        EventHandler onUpdated = (_, args) => observed.Add(PreferencesChangeSet.FromEventArgs(args));
+        AppSettings.SettingsApplied += onApplied;
+        AppSettings.SettingsDidUpdate += onUpdated;
+        try
+        {
+            AppSettings.Save();
+            AppSettings.LastDocumentPath = "/tmp/metadata-only.ftxtc";
+            Assert.Empty(observed);
+        }
+        finally
+        {
+            AppSettings.SettingsApplied -= onApplied;
+            AppSettings.SettingsDidUpdate -= onUpdated;
+        }
+    }
+
+    [Fact]
+    public void SavePublishesOnlyEffectivePreferenceChangesAfterPersistence()
+    {
+        AppSettings.ApplySettings();
+        var observed = new List<PreferencesChangeSet>();
+        EventHandler onApplied = (_, args) => observed.Add(PreferencesChangeSet.FromEventArgs(args));
+        EventHandler onUpdated = (_, args) => observed.Add(PreferencesChangeSet.FromEventArgs(args));
+        AppSettings.SettingsApplied += onApplied;
+        AppSettings.SettingsDidUpdate += onUpdated;
+        try
+        {
+            AppSettings.ReferenceTemperature = 27.125;
+            AppSettings.Save();
+
+            Assert.Equal(2, observed.Count);
+            Assert.All(observed, changes =>
+            {
+                Assert.False(changes.IsFullApply);
+                Assert.True(changes.Contains(nameof(PreferencesState.ReferenceTemperature)));
+                Assert.False(changes.Contains("LastDocumentPath"));
+            });
+            Assert.True(store.Synchronizations > 0);
+        }
+        finally
+        {
+            AppSettings.SettingsApplied -= onApplied;
+            AppSettings.SettingsDidUpdate -= onUpdated;
+        }
+    }
+
+    [Fact]
     public async Task AsynchronousEnrollmentDispatchesNotificationsPreservesFitAndReusesPersistedCredential()
     {
         var dispatcher = new QueuedDispatcher();
@@ -194,8 +300,13 @@ public sealed class SettingsUpdateTests : IDisposable
         using var http = new HttpClient(handler);
         var client = new FtItcInterpretationClient(http, new Uri("https://example.invalid"));
         var observed = new List<string>();
+        PreferencesChangeSet updatedChanges = null;
         EventHandler onApplied = (_, _) => observed.Add("applied");
-        EventHandler onUpdated = (_, _) => observed.Add("updated");
+        EventHandler onUpdated = (_, args) =>
+        {
+            updatedChanges = PreferencesChangeSet.FromEventArgs(args);
+            observed.Add("updated");
+        };
         AppSettings.SettingsApplied += onApplied;
         AppSettings.SettingsDidUpdate += onUpdated;
         try
@@ -209,7 +320,10 @@ public sealed class SettingsUpdateTests : IDisposable
             Assert.Equal("ftitc_pub_thread_test", store.GetString("InterpretationPublicClientCode"));
             Assert.Equal(expected, LiveOptions.Capture());
             dispatcher.Drain();
-            Assert.Equal(new[] { "applied", "updated" }, observed);
+            Assert.Equal(new[] { "updated" }, observed);
+            Assert.NotNull(updatedChanges);
+            Assert.False(updatedChanges.IsFullApply);
+            Assert.Empty(updatedChanges.ChangedProperties);
             Assert.Equal(expected, LiveOptions.Capture());
             await client.GetInterpretationOptionsAsync("");
             Assert.Equal(1, handler.Enrollments);

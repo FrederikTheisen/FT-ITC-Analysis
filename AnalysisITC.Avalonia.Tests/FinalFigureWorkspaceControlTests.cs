@@ -4,6 +4,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Platform;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -20,6 +21,55 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FinalFigureWorkspaceControlTests
 {
+    [AvaloniaFact]
+    public void UnrelatedFigureDefaultChangePreservesManualDimensionsAndDisplayChoices()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        Window? window = null;
+        try
+        {
+            var initial = PreferencesState.Defaults();
+            initial.FinalFigureWidthCentimeters = 9;
+            initial.FitLineSmoothness = LineSmoothness.Smooth;
+            initial.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
+            initial.ShowResidualGraph = false;
+            initial.Apply();
+
+            var workspace = new FinalFigureWorkspaceControl();
+            window = new Window { Content = workspace };
+            window.Show();
+            var width = (NumericUpDown)typeof(FinalFigureWorkspaceControl)
+                .GetField("widthStepper", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            var smoothness = (ComboBox)typeof(FinalFigureWorkspaceControl)
+                .GetField("fitLineSmoothnessCombo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            var uncertainty = (ComboBox)typeof(FinalFigureWorkspaceControl)
+                .GetField("uncertaintyCombo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            var residuals = (CheckBox)typeof(FinalFigureWorkspaceControl)
+                .GetField("residualsCheck", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+
+            width.Value = 7;
+            smoothness.SelectedIndex = 2;
+            uncertainty.SelectedIndex = 3;
+            AppSettings.ShowResidualGraph = true;
+            AppSettings.Save();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(7, width.Value);
+            Assert.Equal(2, smoothness.SelectedIndex);
+            Assert.Equal(3, uncertainty.SelectedIndex);
+            Assert.True(residuals.IsChecked);
+        }
+        finally
+        {
+            window?.Close();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(false, false, false)]
     [InlineData(false, false, true)]

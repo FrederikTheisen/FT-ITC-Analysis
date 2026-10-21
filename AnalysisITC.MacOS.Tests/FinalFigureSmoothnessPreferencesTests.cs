@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using AppKit;
 using Foundation;
 using ObjCRuntime;
@@ -12,6 +13,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 using AnalysisITC.Platform.MacOS;
 using AnalysisITC.UI.MacOS;
@@ -31,6 +33,9 @@ static class FinalFigureSmoothnessPreferencesTests
     static ExperimentData data;
     static string resourcesPath;
     static int passed, failed;
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    static extern IntPtr Send(IntPtr receiver, IntPtr selector);
 
     static int Main(string[] args)
     {
@@ -73,11 +78,11 @@ static class FinalFigureSmoothnessPreferencesTests
                         Check(Pixels(FinalFigureGraphView.SetupForExport(data)) != before, "Rendered export did not change");
                         Check(oldCapture.FitLineSmoothness == other, "Existing Supporting Figure capture changed");
                     });
-                    Run("unchanged preference " + mode + " replaces a manual override", () =>
+                    Run("unchanged preference " + mode + " preserves a manual override", () =>
                     {
                         SaveDefault(mode); SelectFigure(other);
                         using (var editor = new PreferencesEditor()) { Check(editor.Selected == mode, "Preferences did not show saved mode"); editor.Apply(); }
-                        Verify(mode, mode);
+                        Verify(other, mode);
                     });
                     Run("opening and cancelling Preferences preserves " + other, () =>
                     {
@@ -90,7 +95,12 @@ static class FinalFigureSmoothnessPreferencesTests
                     Run("rejected Preferences Apply preserves " + other, () =>
                     {
                         SaveDefault(mode); SelectFigure(other);
-                        using (var editor = new PreferencesEditor()) { editor.Select(other); editor.RejectWidth(); editor.Apply(); }
+                        using (var editor = new PreferencesEditor())
+                        {
+                            editor.Select(other); editor.RejectWidth(); editor.Apply();
+                            Check(editor.FigureWidthText == "invalid width",
+                                "Rejected Apply discarded the editable draft");
+                        }
                         Verify(other, mode);
                     });
                     Run("ordinary settings save and view reentry preserve " + other, () =>
@@ -109,6 +119,129 @@ static class FinalFigureSmoothnessPreferencesTests
                         Verify(other, mode);
                     });
                 }
+                Run("unchanged G6 figure width preserves its full precision", () =>
+                {
+                    var dimensions = AppSettings.FinalFigureDimensions.ToArray();
+                    const double width = 12.345678901234;
+                    try
+                    {
+                        AppSettings.FinalFigureDimensions = new[] { width, dimensions[1] };
+                        AppSettings.Save();
+                        using (var editor = new PreferencesEditor())
+                        {
+                            Check(editor.FigureWidthText == width.ToString("G6", System.Globalization.CultureInfo.CurrentCulture),
+                                "Preferences did not display the expected G6 width");
+                            editor.Apply();
+                        }
+                        Check(AppSettings.FinalFigureDimensions[0] == width,
+                            "Applying unchanged G6 text rounded the saved figure width");
+                    }
+                    finally
+                    {
+                        AppSettings.FinalFigureDimensions = dimensions;
+                        AppSettings.Save();
+                    }
+                });
+                Run("Preferences Apply merges newer untouched settings", () =>
+                {
+                    var original = AppSettings.ShowResidualGraph;
+                    try
+                    {
+                        using (var editor = new PreferencesEditor())
+                        {
+                            AppSettings.ShowResidualGraph = !original;
+                            AppSettings.Save();
+                            editor.Apply();
+                        }
+                        Check(AppSettings.ShowResidualGraph == !original,
+                            "Preferences Apply overwrote a newer untouched setting");
+                    }
+                    finally
+                    {
+                        AppSettings.ShowResidualGraph = original;
+                        AppSettings.Save();
+                    }
+                });
+                Run("Restore Defaults stays staged until Apply", () =>
+                {
+                    var original = PreferencesState.FromSettings();
+                    using (var editor = new PreferencesEditor())
+                    {
+                        editor.SetDefaultTemperature(TemperatureUnit.Kelvin);
+                        editor.RestoreDefaults();
+                        Check(AppSettings.DefaultTemperatureUnit == original.DefaultTemperatureUnit,
+                            "Restore Defaults changed saved preferences before Apply");
+                        editor.Cancel();
+                    }
+                    Check(AppSettings.DefaultTemperatureUnit == original.DefaultTemperatureUnit,
+                        "Cancelling staged defaults changed the saved temperature unit");
+                });
+                Run("default temperature preference resets both open temperature workflows", () =>
+                {
+                    var original = AppSettings.DefaultTemperatureUnit;
+                    TemperatureUnitSession.Reset(TemperatureUnit.Celsius);
+                    var result = ResultForTemperatureUnitTest();
+                    DataManager.Clear(DataClearMode.ResetSession);
+                    DataManager.AddData(result.Solution.Solutions
+                        .Select(solution => (ITCDataContainer)solution.Data)
+                        .Concat(new ITCDataContainer[] { result }));
+                    using (var mainResources = NSBundle.FromPath(resourcesPath))
+                    using (var mainStoryboard = NSStoryboard.FromName("Main", mainResources))
+                    using (var exporter = (AnalysisResultExporterViewController)mainStoryboard
+                        .InstantiateControllerWithIdentifier("NSViewController-y9t-uG-ZTy"))
+                    using (var results = Allocate<AnalysisResultTabViewController>())
+                    {
+                        exporter.ViewWillAppear();
+                        var selector = exporter.View.Subviews.SelectMany(Descendants)
+                            .OfType<NSPopUpButton>().Single(popup => popup.ItemTitles()
+                                .SequenceEqual(new[] { "Celsius", "Kelvin" }));
+                        Check(selector.IndexOfSelectedItem == 0,
+                            "Exporter did not open with the Celsius session default");
+                        var resultsType = typeof(AnalysisResultTabViewController);
+                        resultsType.GetField("analysisResult", Instance).SetValue(results, result);
+                        resultsType.GetMethod("BuildParameterEvaluationSection", Instance).Invoke(results, null);
+                        var evaluationField = (NSTextField)resultsType.GetField("evaluationTemperatureControl", Instance)
+                            .GetValue(results);
+                        evaluationField.StringValue = "31.123456789";
+                        resultsType.GetField("evaluationTextUsesKelvin", Instance).SetValue(results, false);
+                        results.View = new NSView(new CoreGraphics.CGRect(0, 0, 100, 100));
+                        // Keep the actual field alive while the queued display refresh is skipped.
+                        resultsType.GetField("analysisResult", Instance).SetValue(results, null);
+                        EventHandler resultsChanged = (sender, eventArgs) =>
+                            resultsType.GetMethod("TemperatureUnitSession_ResultsChanged", Instance)
+                                .Invoke(results, new[] { sender, eventArgs });
+                        TemperatureUnitSession.ResultsChanged += resultsChanged;
+                        using (var editor = new PreferencesEditor())
+                        {
+                            Check(editor.TemperatureTooltip == AnalysisResultExportPresentation.DefaultTemperatureUnitToolTip,
+                                "Default temperature control is missing its shared tooltip");
+                            Check(editor.TemperatureControlIsVisible,
+                                "Default temperature control is clipped in Preferences");
+                            editor.SetDefaultTemperature(TemperatureUnit.Kelvin);
+                            editor.Apply();
+                        }
+                        NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+                        Check(AppSettings.DefaultTemperatureUnit == TemperatureUnit.Kelvin,
+                            "Preferences control did not save Kelvin as the default");
+                        Check(TemperatureUnitSession.Results == TemperatureUnit.Kelvin,
+                            "Default change did not reset the Results session");
+                        Check(TemperatureUnitSession.ResultExporter == TemperatureUnit.Kelvin,
+                            "Default change did not reset the exporter session");
+                        Check(selector.IndexOfSelectedItem == 1,
+                            "Open exporter control did not follow the changed default");
+                        Check(Math.Abs(double.Parse(evaluationField.StringValue,
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.CurrentCulture)
+                            - 304.273456789) < 1e-12,
+                            "Open Results field did not preserve its edited Celsius temperature across the default reset");
+                        TemperatureUnitSession.ResultsChanged -= resultsChanged;
+                        exporter.ViewWillDisappear();
+                    }
+                    DataManager.Clear(DataClearMode.ResetSession);
+                    var restored = PreferencesState.FromSettings();
+                    restored.DefaultTemperatureUnit = original;
+                    restored.Apply();
+                });
                 Run("invalidation synchronizes only the smoothness selector", () =>
                 {
                     SelectFigure(LineSmoothness.Spline);
@@ -136,10 +269,18 @@ static class FinalFigureSmoothnessPreferencesTests
 
     static int Startup(int mode)
     {
+        var defaultTemperatureUnit = mode % 2 == 0
+            ? TemperatureUnit.Kelvin
+            : TemperatureUnit.Celsius;
         PlatformServices.SettingsStore.SetBool("IsSaved", true);
         PlatformServices.SettingsStore.SetInt("FitLineSmoothness", mode);
+        PlatformServices.SettingsStore.SetInt("DefaultTemperatureUnit", (int)defaultTemperatureUnit);
         AppSettings.Load();
         Check((int)AppSettings.FitLineSmoothness == mode && (int)ReadNativeMode() == mode, "Startup did not load saved smoothness");
+        Check(AppSettings.DefaultTemperatureUnit == defaultTemperatureUnit
+            && TemperatureUnitSession.Results == defaultTemperatureUnit
+            && TemperatureUnitSession.ResultExporter == defaultTemperatureUnit,
+            "Fresh startup did not initialize both temperature workflows from the saved default");
         Console.WriteLine("PASS: fresh-process startup " + AppSettings.FitLineSmoothness);
         return 0;
     }
@@ -199,6 +340,18 @@ static class FinalFigureSmoothnessPreferencesTests
         catch (Exception error) { failed++; Console.WriteLine("FAIL: " + name + ": " + error); }
     }
     static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+    static T Allocate<T>() where T : NSObject
+    {
+        var type = typeof(T);
+        var handle = Send(Send(new Class(type).Handle, Selector.GetHandle("alloc")), Selector.GetHandle("init"));
+        return Runtime.GetNSObject<T>(handle);
+    }
+    static IEnumerable<NSView> Descendants(NSView view)
+    {
+        yield return view;
+        foreach (var child in view.Subviews)
+            foreach (var descendant in Descendants(child)) yield return descendant;
+    }
 
     sealed class PreferencesEditor : IDisposable
     {
@@ -206,22 +359,43 @@ static class FinalFigureSmoothnessPreferencesTests
         readonly NSStoryboard storyboard;
         readonly NSWindowController window;
         readonly object exportPane;
+        readonly object generalPane;
         readonly NSPopUpButton popup;
+        readonly NSPopUpButton temperaturePopup;
         public PreferencesEditor()
         {
             resources = NSBundle.FromPath(resourcesPath); storyboard = NSStoryboard.FromName("Preferences", resources);
             window = (NSWindowController)storyboard.InstantiateControllerWithIdentifier("PreferencesWindowController");
             Check(window.Window != null, "Preferences window did not load");
-            window.GetType().GetMethod("LoadState", Instance).Invoke(window, new object[] { PreferencesState.FromSettings() });
+            window.GetType().GetMethod("LoadState", Instance).Invoke(window,
+                new object[] { PreferencesState.FromSettings(), true });
             var panes = (Array)window.GetType().GetField("panes", Instance).GetValue(window);
             exportPane = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("FitLinePopup", Instance) != null);
+            generalPane = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("TemperatureUnitPopup", Instance) != null);
             popup = (NSPopUpButton)exportPane.GetType().GetProperty("FitLinePopup", Instance).GetValue(exportPane);
+            temperaturePopup = (NSPopUpButton)generalPane.GetType().GetProperty("TemperatureUnitPopup", Instance).GetValue(generalPane);
         }
         public LineSmoothness Selected => (LineSmoothness)(int)popup.SelectedItem.Tag;
         public void Select(LineSmoothness mode) => popup.SelectItemWithTag((int)mode);
         public void Apply() => window.GetType().GetMethod("ApplyPreferences", Instance).Invoke(window, null);
         public void Cancel() => window.GetType().GetMethod("CancelPreferences", Instance).Invoke(window, null);
         public void RejectWidth() => ((NSTextField)exportPane.GetType().GetProperty("FigureWidthField", Instance).GetValue(exportPane)).StringValue = "invalid width";
+        public string FigureWidthText => ((NSTextField)exportPane.GetType().GetProperty("FigureWidthField", Instance).GetValue(exportPane)).StringValue;
+        public string TemperatureTooltip => temperaturePopup.ToolTip;
+        public bool TemperatureControlIsVisible
+        {
+            get
+            {
+                var paneView = ((NSViewController)generalPane).View;
+                paneView.LayoutSubtreeIfNeeded();
+                var frame = temperaturePopup.ConvertRectToView(temperaturePopup.Bounds, paneView);
+                var bounds = paneView.Bounds;
+                return frame.Width > 0 && frame.Height > 0 && frame.X >= 0 && frame.Y >= 0
+                    && frame.X + frame.Width <= bounds.Width && frame.Y + frame.Height <= bounds.Height;
+            }
+        }
+        public void SetDefaultTemperature(TemperatureUnit unit) => temperaturePopup.SelectItemWithTag((int)unit);
+        public void RestoreDefaults() => window.GetType().GetMethod("RestoreDefaults", Instance).Invoke(window, null);
         public void Dispose() { window.Dispose(); storyboard.Dispose(); resources.Dispose(); }
     }
     sealed class FixedPrompt : IFileSavePromptService
@@ -249,6 +423,20 @@ static class FinalFigureSmoothnessPreferencesTests
         var converged = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot { Termination = SolverTermination.Converged, Loss = 1e-6 });
         model.Solution = SolutionInterface.FromModel(model, converged); data.Model = model;
         return data;
+    }
+
+    static AnalysisResult ResultForTemperatureUnitTest()
+    {
+        var model = Experiment().Model;
+        var global = new GlobalModel(new List<Model> { model });
+        global.Parameters.AddIndivdualParameter(model.Parameters);
+        var solution = new GlobalSolution(
+            new GlobalSolver { Model = global },
+            new List<SolutionInterface> { model.Solution },
+            model.Solution.Convergence,
+            reconstructBootstrap: false);
+        global.Solution = solution;
+        return new AnalysisResult(solution);
     }
 
 }

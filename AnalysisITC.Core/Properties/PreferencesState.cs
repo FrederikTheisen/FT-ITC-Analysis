@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -30,6 +31,7 @@ namespace AnalysisITC.Core.Application
         public ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
         public ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
         public ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
+        public TemperatureUnit DefaultTemperatureUnit { get; set; } = TemperatureUnit.Celsius;
         public ITCInstrument DefaultDesignerInstrument { get; set; } = ITCInstrument.MicroCalITC200;
         public bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public string InterpretationOperatorCode { get; set; } = "";
@@ -166,6 +168,7 @@ namespace AnalysisITC.Core.Application
                 ColorScheme = AppSettings.ColorScheme,
                 ColorSchemeGradientMode = AppSettings.ColorSchemeGradientMode,
                 DefaultConcentrationUnit = AppSettings.DefaultConcentrationUnit,
+                DefaultTemperatureUnit = AppSettings.DefaultTemperatureUnit,
                 DefaultDesignerInstrument = AppSettings.DefaultDesignerInstrument,
                 PerformOnlineChecksOnLaunch = AppSettings.PerformOnlineChecksOnLaunch,
                 InterpretationOperatorCode = AppSettings.InterpretationOperatorCode,
@@ -247,13 +250,59 @@ namespace AnalysisITC.Core.Application
 
         public void Apply()
         {
+            var original = FromSettings();
             ApplyToSettings();
-            AppSettings.Save();
+            try
+            {
+                AppSettings.Save();
+            }
+            catch
+            {
+                original.ApplyToSettings(validateTraceability: false);
+                throw;
+            }
         }
 
-        internal void ApplyToSettings()
+        public PreferencesState Clone() => (PreferencesState)MemberwiseClone();
+
+        /// <summary>
+        /// Copies explicitly edited fields from a dialog draft into the latest preferences.
+        /// When no edited-field list is supplied, differences from the opening baseline are inferred.
+        /// </summary>
+        public static PreferencesState MergeEditedFields(
+            PreferencesState baseline,
+            PreferencesState draft,
+            PreferencesState latest,
+            IEnumerable<string> editedPropertyNames = null)
         {
-            if (!TryValidateTraceability(TraceabilityModeEnabled, UserName, out var error))
+            if (baseline == null) throw new ArgumentNullException(nameof(baseline));
+            if (draft == null) throw new ArgumentNullException(nameof(draft));
+            if (latest == null) throw new ArgumentNullException(nameof(latest));
+
+            var merged = latest.Clone();
+            var explicitNames = editedPropertyNames == null
+                ? null
+                : new HashSet<string>(editedPropertyNames, StringComparer.Ordinal);
+            var properties = typeof(PreferencesState).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(property => property.CanRead && property.CanWrite);
+            foreach (var property in properties)
+            {
+                if (explicitNames != null && !explicitNames.Contains(property.Name)) continue;
+                if (explicitNames == null && Equals(property.GetValue(baseline), property.GetValue(draft))) continue;
+                property.SetValue(merged, property.GetValue(draft));
+            }
+            if (explicitNames != null)
+            {
+                var knownNames = new HashSet<string>(PreferencesChangeSet.Full.ChangedProperties, StringComparer.Ordinal);
+                var unknown = explicitNames.FirstOrDefault(name => !knownNames.Contains(name));
+                if (unknown != null) throw new ArgumentException($"Unknown preference property '{unknown}'.", nameof(editedPropertyNames));
+            }
+            return merged;
+        }
+
+        internal void ApplyToSettings(bool validateTraceability = true)
+        {
+            if (validateTraceability && !TryValidateTraceability(TraceabilityModeEnabled, UserName, out var error))
                 throw new InvalidOperationException(error);
 
             AppSettings.ReferenceTemperature = ReferenceTemperature;
@@ -262,6 +311,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.ColorScheme = ColorScheme;
             AppSettings.ColorSchemeGradientMode = ColorSchemeGradientMode;
             AppSettings.DefaultConcentrationUnit = DefaultConcentrationUnit;
+            AppSettings.DefaultTemperatureUnit = DefaultTemperatureUnit;
             AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch;
             AppSettings.InterpretationOperatorCode = InterpretationOperatorCode ?? "";

@@ -220,34 +220,52 @@ namespace AnalysisITC.Avalonia.FinalFigure
         }
 
         public void ApplySettingsDefaults()
+            => ApplySettingsDefaults(PreferencesChangeSet.Full);
+
+        internal void ApplySettingsDefaults(PreferencesChangeSet changes)
         {
+            bool Changed(params string[] names) => changes.IsFullApply || changes.ContainsAny(names);
             try
             {
                 isApplyingSettingsDefaults = true;
 
                 var dimensions = AppSettings.FinalFigureDimensions;
-                if (dimensions.Length > 0) widthStepper.Value = (decimal)dimensions[0];
-                if (dimensions.Length > 1) heightStepper.Value = (decimal)dimensions[1];
+                if (Changed(nameof(PreferencesState.FinalFigureWidthCentimeters)) && dimensions.Length > 0)
+                    widthStepper.Value = (decimal)dimensions[0];
+                if (Changed(nameof(PreferencesState.FinalFigureHeightCentimeters)) && dimensions.Length > 1)
+                    heightStepper.Value = (decimal)dimensions[1];
 
-                fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
-                uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
-                experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
-                modelInfoCheck.IsChecked = AppSettings.FinalFigureShowModelInfoAsDefault;
-                fitParametersCheck.IsChecked = AppSettings.FinalFigureShowParameterBoxAsDefault;
-                residualsCheck.IsChecked = AppSettings.ShowResidualGraph;
-                residualGapCheck.IsChecked = AppSettings.ShowResidualGraphGap;
-                includeExcludedInAutoYScaleCheck.IsChecked = !AppSettings.AutoAxesIgnoresBadData;
-                UpdateExcludedInjectionControl();
+                if (Changed(nameof(PreferencesState.FitLineSmoothness)))
+                    fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
+                if (Changed(nameof(PreferencesState.UncertaintyDisplayStyle)))
+                    uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
+                if (Changed(nameof(PreferencesState.FinalFigureShowDetailsAsDefault)))
+                    experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
+                if (Changed(nameof(PreferencesState.FinalFigureShowModelInfoAsDefault)))
+                    modelInfoCheck.IsChecked = AppSettings.FinalFigureShowModelInfoAsDefault;
+                if (Changed(nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault)))
+                    fitParametersCheck.IsChecked = AppSettings.FinalFigureShowParameterBoxAsDefault;
+                if (Changed(nameof(PreferencesState.ShowResidualGraph)))
+                    residualsCheck.IsChecked = AppSettings.ShowResidualGraph;
+                if (Changed(nameof(PreferencesState.ShowResidualGraphGap)))
+                    residualGapCheck.IsChecked = AppSettings.ShowResidualGraphGap;
+                if (Changed(nameof(PreferencesState.AutoAxesIgnoresBadData)))
+                    includeExcludedInAutoYScaleCheck.IsChecked = !AppSettings.AutoAxesIgnoresBadData;
+                if (Changed(nameof(PreferencesState.TraceabilityModeEnabled), nameof(PreferencesState.AutoAxesIgnoresBadData)))
+                    UpdateExcludedInjectionControl();
 
-                var display = AppSettings.FinalFigureParameterDisplay;
-                thermodynamicCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Thermodynamic);
-                derivedCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Derived);
-                offsetParameterCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Offset);
-                temperatureCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Temperature);
-                concentrationsCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Concentrations);
-                injectionDelayCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.InjectionDelay);
-                instrumentCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Instrument);
-                attributesCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Attributes);
+                if (Changed(nameof(PreferencesState.FinalFigureParameterDisplay)))
+                {
+                    var display = AppSettings.FinalFigureParameterDisplay;
+                    thermodynamicCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Thermodynamic);
+                    derivedCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Derived);
+                    offsetParameterCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Offset);
+                    temperatureCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Temperature);
+                    concentrationsCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Concentrations);
+                    injectionDelayCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.InjectionDelay);
+                    instrumentCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Instrument);
+                    attributesCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Attributes);
+                }
             }
             finally
             {
@@ -285,7 +303,36 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void OnSettingsDidUpdate(object? sender, EventArgs e)
         {
-            Dispatcher.UIThread.Post(InvalidatePreview);
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            var refreshDefaults = changes.IsFullApply || changes.ContainsAny(
+                nameof(PreferencesState.FinalFigureWidthCentimeters),
+                nameof(PreferencesState.FinalFigureHeightCentimeters),
+                nameof(PreferencesState.FitLineSmoothness),
+                nameof(PreferencesState.UncertaintyDisplayStyle),
+                nameof(PreferencesState.FinalFigureShowDetailsAsDefault),
+                nameof(PreferencesState.FinalFigureShowModelInfoAsDefault),
+                nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault),
+                nameof(PreferencesState.ShowResidualGraph),
+                nameof(PreferencesState.ShowResidualGraphGap),
+                nameof(PreferencesState.AutoAxesIgnoresBadData),
+                nameof(PreferencesState.FinalFigureParameterDisplay),
+                nameof(PreferencesState.TraceabilityModeEnabled));
+            var refreshPreview = refreshDefaults || changes.ContainsAny(
+                nameof(PreferencesState.EnergyUnitFamily),
+                nameof(PreferencesState.NumberPrecision),
+                nameof(PreferencesState.DefaultConcentrationUnit),
+                nameof(PreferencesState.UnifyResidualGraphAxis),
+                nameof(PreferencesState.DisplayAttributeOptions),
+                nameof(PreferencesState.PublicationFigureFont),
+                nameof(PreferencesState.ColorScheme),
+                nameof(PreferencesState.ColorSchemeGradientMode));
+            if (!refreshPreview) return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (refreshDefaults) ApplySettingsDefaults(changes);
+                else InvalidatePreview();
+            });
         }
 
         void BuildLayout()

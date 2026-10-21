@@ -12,6 +12,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
@@ -63,7 +64,28 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
             BuildLayout();
+            temperatureCombo.SelectedIndex = (int)TemperatureUnitSession.ResultExporter;
+            temperatureCombo.SelectionChanged += (_, _) =>
+            {
+                if (temperatureCombo.SelectedIndex >= 0)
+                    TemperatureUnitSession.ResultExporter = (TemperatureUnit)temperatureCombo.SelectedIndex;
+            };
+            Opened += (_, _) =>
+            {
+                TemperatureUnitSession.ResultExporterChanged += OnResultExporterTemperatureUnitChanged;
+                temperatureCombo.SelectedIndex = (int)TemperatureUnitSession.ResultExporter;
+            };
+            Closed += (_, _) => TemperatureUnitSession.ResultExporterChanged -= OnResultExporterTemperatureUnitChanged;
             PopulateResults();
+        }
+
+        void OnResultExporterTemperatureUnitChanged(object? sender, EventArgs e)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                temperatureCombo.SelectedIndex = (int)TemperatureUnitSession.ResultExporter;
+            else
+                Dispatcher.UIThread.Post(
+                    () => temperatureCombo.SelectedIndex = (int)TemperatureUnitSession.ResultExporter);
         }
 
         void BuildLayout()

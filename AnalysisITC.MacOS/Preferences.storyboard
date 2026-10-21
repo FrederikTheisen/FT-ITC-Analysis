@@ -269,6 +269,46 @@
                                                                 <real value="3.4028234663852886e+38"/>
                                                             </customSpacing>
                                                         </stackView>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TemperatureUnitPopup-row">
+                                                            <rect key="frame" x="0.0" y="838" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TemperatureUnitPopup-label">
+                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Default temperature unit" id="general-TemperatureUnitPopup-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TemperatureUnitPopup">
+                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
+                                                                    <popUpButtonCell key="cell" type="push" title="Celsius" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-TemperatureUnitPopup-celsius" id="general-TemperatureUnitPopup-cell">
+                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="message"/>
+                                                                        <menu key="menu" title="OtherViews" id="general-TemperatureUnitPopup-menu">
+                                                                            <items>
+                                                                                <menuItem title="Celsius" state="on" id="general-TemperatureUnitPopup-celsius"/>
+                                                                                <menuItem title="Kelvin" id="general-TemperatureUnitPopup-kelvin"/>
+                                                                            </items>
+                                                                        </menu>
+                                                                    </popUpButtonCell>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="240" id="general-TemperatureUnitPopup-width"/>
+                                                                    </constraints>
+                                                                </popUpButton>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="general-TemperatureUnitPopup-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup-row">
                                                             <rect key="frame" x="0.0" y="838" width="600" height="26"/>
                                                             <subviews>
@@ -948,6 +988,7 @@ DQ
                         <outlet property="ConcentrationUnitPopup" destination="general-ConcentrationUnitPopup" id="general-ConcentrationUnitPopup-outlet"/>
                         <outlet property="ConfirmDeleteCheck" destination="general-ConfirmDeleteCheck" id="general-ConfirmDeleteCheck-outlet"/>
                         <outlet property="EnergyUnitPopup" destination="general-EnergyUnitPopup" id="general-EnergyUnitPopup-outlet"/>
+                        <outlet property="TemperatureUnitPopup" destination="general-TemperatureUnitPopup" id="general-TemperatureUnitPopup-outlet"/>
                         <outlet property="IncludeBufferCheck" destination="general-IncludeBufferCheck" id="general-IncludeBufferCheck-outlet"/>
                         <outlet property="InstrumentPopup" destination="general-InstrumentPopup" id="general-InstrumentPopup-outlet"/>
                         <outlet property="MinimumIonSpanField" destination="general-MinimumIonSpanField" id="general-MinimumIonSpanField-outlet"/>

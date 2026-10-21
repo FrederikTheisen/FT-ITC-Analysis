@@ -279,6 +279,11 @@ namespace AnalysisITC.Avalonia.Tools
 
         void OnSettingsDidUpdate(object? sender, EventArgs e)
         {
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (!changes.ContainsAny(
+                nameof(PreferencesState.TraceabilityModeEnabled),
+                nameof(PreferencesState.UserName))) return;
+
             void ApplyUpdate()
             {
                 var modeChanged = lastTraceabilityMode != AppSettings.TraceabilityModeEnabled;

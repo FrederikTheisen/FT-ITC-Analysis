@@ -236,7 +236,7 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.ResultLinkedExperimentHighlightDidChange += DataManager_SelectionDidChange;
             Invalidated += FinalFigureGraphView_Invalidated;
-            AppSettings.SettingsDidUpdate += FinalFigureGraphView_Invalidated;
+            AppSettings.SettingsDidUpdate += FinalFigureGraphView_SettingsDidUpdate;
 
             LayerContentsRedrawPolicy = NSViewLayerContentsRedrawPolicy.OnSetNeedsDisplay;
 		}
@@ -247,6 +247,31 @@ namespace AnalysisITC
             InitializeGraph();
 
             this.NeedsDisplay = true;
+        }
+
+        private void FinalFigureGraphView_SettingsDidUpdate(object sender, EventArgs e)
+        {
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (!changes.ContainsAny(
+                    nameof(PreferencesState.ReferenceTemperature),
+                    nameof(PreferencesState.EnergyUnitFamily),
+                    nameof(PreferencesState.NumberPrecision),
+                    nameof(PreferencesState.UncertaintyDisplayStyle),
+                    nameof(PreferencesState.ColorScheme),
+                    nameof(PreferencesState.PublicationFigureFont),
+                    nameof(PreferencesState.FinalFigureWidthCentimeters),
+                    nameof(PreferencesState.FinalFigureHeightCentimeters),
+                    nameof(PreferencesState.FinalFigureShowDetailsAsDefault),
+                    nameof(PreferencesState.FinalFigureShowModelInfoAsDefault),
+                    nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault),
+                    nameof(PreferencesState.FinalFigureParameterDisplay),
+                    nameof(PreferencesState.DisplayAttributeOptions),
+                    nameof(PreferencesState.ShowResidualGraph),
+                    nameof(PreferencesState.ShowResidualGraphGap),
+                    nameof(PreferencesState.AutoAxesIgnoresBadData),
+                    nameof(PreferencesState.FitLineSmoothness))) return;
+
+            FinalFigureGraphView_Invalidated(sender, e);
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
@@ -969,7 +994,7 @@ namespace AnalysisITC
                 subscribedFigureResult.BindingAssessmentChanged -= FigureAssessmentChanged;
             subscribedFigureResult = null;
             Invalidated -= FinalFigureGraphView_Invalidated;
-            AppSettings.SettingsDidUpdate -= FinalFigureGraphView_Invalidated;
+            AppSettings.SettingsDidUpdate -= FinalFigureGraphView_SettingsDidUpdate;
         }
 
         protected override void Dispose(bool disposing)

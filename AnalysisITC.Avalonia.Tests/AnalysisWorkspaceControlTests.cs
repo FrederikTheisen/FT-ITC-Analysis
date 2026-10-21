@@ -1017,6 +1017,7 @@ public sealed class AnalysisWorkspaceControlTests
         var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
         var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
         var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousUserName = AppSettings.UserName;
         var previousFittingOptions = CaptureFittingOptions();
         DataManager.Clear(DataClearMode.ResetSession);
         var first = CreateFitExperiment("successful-selection-A.itc", 2000);
@@ -1092,6 +1093,14 @@ public sealed class AnalysisWorkspaceControlTests
             Assert.Same(second, workspace.ContextForTesting!.SingleModel.Data);
             Assert.True(workspace.CanRunFit);
 
+            var preferencesBefore = PreferencesState.FromSettings();
+            AppSettings.UserName = "Refreshed operator";
+            AppSettings.Save();
+            var appliedChanges = PreferencesChangeSet.Between(preferencesBefore, PreferencesState.FromSettings());
+            window.RefreshAfterPreferencesApplied(appliedChanges);
+            Assert.Equal(completionStatus, workspace.FitStatusForTesting);
+            Assert.Same(second, workspace.ContextForTesting!.SingleModel.Data);
+
             // The next fit starts immediately from the selected B context.
             runButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await WaitForFitToFinish();
@@ -1122,6 +1131,8 @@ public sealed class AnalysisWorkspaceControlTests
             DataManager.Clear(DataClearMode.ResetSession);
             AppSettings.CreateSingleAnalysisResult = previousCreateResult;
             AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            AppSettings.UserName = previousUserName;
+            AppSettings.Save();
             RestoreFittingOptions(previousFittingOptions);
             application.Styles.Remove(theme);
         }

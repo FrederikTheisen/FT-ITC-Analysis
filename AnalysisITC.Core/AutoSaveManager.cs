@@ -224,6 +224,13 @@ namespace AnalysisITC.Core.Application
 
         void OnSettingsDidUpdate(object sender, EventArgs e)
         {
+            var changes = PreferencesChangeSet.FromEventArgs(e);
+            if (!changes.IsFullApply && !changes.ContainsAny(
+                    nameof(PreferencesState.AutoSaveEnabled),
+                    nameof(PreferencesState.AutoSaveIntervalMinutes),
+                    nameof(PreferencesState.AutoSaveFileLimit)))
+                return;
+
             lock (sync)
             {
                 if (!started) return;

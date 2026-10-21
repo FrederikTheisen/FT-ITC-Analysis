@@ -20,8 +20,15 @@ internal static class AvaloniaSettingsApplier
 
     static void Apply(object? sender, EventArgs e)
     {
-        SplineInterpolator.DefaultPointDensity = AppSettings.DefaultSplinePointDensity;
-        SplineInterpolator.DefaultHandleMode = AppSettings.DefaultSplineHandleMode;
-        SplineInterpolator.DefaultAllowPointTimeDragging = AppSettings.DefaultSplinePointTimeDragging;
+        var changes = PreferencesChangeSet.FromEventArgs(e);
+        if (changes.ContainsAny(
+            nameof(PreferencesState.DefaultSplinePointDensity),
+            nameof(PreferencesState.DefaultSplineHandleMode),
+            nameof(PreferencesState.DefaultSplinePointTimeDragging)))
+        {
+            SplineInterpolator.DefaultPointDensity = AppSettings.DefaultSplinePointDensity;
+            SplineInterpolator.DefaultHandleMode = AppSettings.DefaultSplineHandleMode;
+            SplineInterpolator.DefaultAllowPointTimeDragging = AppSettings.DefaultSplinePointTimeDragging;
+        }
     }
 }

@@ -17,6 +17,7 @@ namespace AnalysisITC
         NSTabViewController tabController;
         bool hasShown;
         bool restoreDefaults;
+        PreferencesState openingBaseline;
 
         public MacPreferencesWindowController(IntPtr handle) : base(handle)
         {
@@ -52,14 +53,31 @@ namespace AnalysisITC
             Window.MakeFirstResponder(null);
             ClearStatus();
 
-            var state = restoreDefaults ? PreferencesState.Defaults() : PreferencesState.FromSettings();
+            var latest = PreferencesState.FromSettings();
+            var draft = restoreDefaults
+                ? PreferencesState.Defaults()
+                : (openingBaseline ?? latest).Clone();
             foreach (var pane in panes.OrderBy(item => item.PaneIndex))
             {
-                if (pane.TryUpdateState(state, out var error)) continue;
+                if (pane.TryUpdateState(draft, out var error)) continue;
 
                 tabController.SelectedTabViewItemIndex = pane.PaneIndex;
                 pane.SetStatus(error.Message, true);
                 if (error.Control != null) Window.MakeFirstResponder(error.Control);
+                return;
+            }
+
+            var state = restoreDefaults
+                ? draft
+                : PreferencesState.MergeEditedFields(openingBaseline ?? latest, draft, latest);
+            if (!PreferencesState.TryValidateTraceability(
+                    state.TraceabilityModeEnabled,
+                    state.UserName,
+                    out var traceabilityError))
+            {
+                tabController.SelectedTabViewItemIndex = 0;
+                var generalPane = panes.First(item => item.PaneIndex == 0);
+                generalPane.SetStatus(traceabilityError, true);
                 return;
             }
 
@@ -70,10 +88,29 @@ namespace AnalysisITC
 
             try
             {
+                // The confirmation sheet runs a modal event loop. Merge the
+                // same staged intent again so settings changed while it was
+                // open are retained, then validate before mutating experiments.
+                state = restoreDefaults
+                    ? draft
+                    : PreferencesState.MergeEditedFields(
+                        openingBaseline ?? latest,
+                        draft,
+                        PreferencesState.FromSettings());
+                if (!PreferencesState.TryValidateTraceability(
+                        state.TraceabilityModeEnabled,
+                        state.UserName,
+                        out traceabilityError))
+                {
+                    tabController.SelectedTabViewItemIndex = 0;
+                    var generalPane = panes.First(item => item.PaneIndex == 0);
+                    generalPane.SetStatus(traceabilityError, true);
+                    return;
+                }
+
                 if (updateExisting)
                     RawDataReader.ReprocessInjections(existingExperiments, state.DilutionCalculationMethod);
                 state.Apply();
-                FinalFigureGraphView.FitLineSmoothness = (GraphBase.LineSmoothness)(int)AppSettings.FitLineSmoothness;
                 if (updateExisting)
                 {
                     DataManager.InvokeDataDidChange();
@@ -113,7 +150,7 @@ namespace AnalysisITC
 
         internal void RestoreDefaults()
         {
-            LoadState(PreferencesState.Defaults());
+            LoadState(PreferencesState.Defaults(), establishBaseline: false);
             restoreDefaults = true;
             CurrentPane.SetStatus("Defaults staged. Choose Apply to save them.", false);
         }
@@ -123,9 +160,10 @@ namespace AnalysisITC
             CurrentPane.SetStatus(message, error);
         }
 
-        void LoadState(PreferencesState state)
+        void LoadState(PreferencesState state, bool establishBaseline = true)
         {
             restoreDefaults = false;
+            if (establishBaseline) openingBaseline = state.Clone();
             foreach (var pane in panes.OrderBy(item => item.PaneIndex))
             {
                 _ = pane.View;
@@ -212,6 +250,26 @@ namespace AnalysisITC
             error = new PreferencesValidationError(
                 $"{label} must be between {minimum:G5} and {maximum:G5}.", field);
             return false;
+        }
+
+        protected static bool ReadDoublePreservingUnchanged(
+            NSTextField field,
+            string label,
+            double baselineValue,
+            double displayedBaselineValue,
+            double minimum,
+            double maximum,
+            out double value,
+            out PreferencesValidationError error)
+        {
+            if (string.Equals(field?.StringValue, Format(displayedBaselineValue), StringComparison.Ordinal))
+            {
+                value = baselineValue;
+                error = null;
+                return true;
+            }
+
+            return ReadDouble(field, label, minimum, maximum, out value, out error);
         }
 
         protected static bool ReadInt(

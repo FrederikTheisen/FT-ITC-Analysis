@@ -128,6 +128,7 @@ namespace AnalysisITC.Avalonia.Results
             resultViewSection = BuildResultViewSection();
 
             SyncDisplayControls();
+            temperatureUnitCombo.SelectedIndex = (int)TemperatureUnitSession.Results;
             resultViewCombo.SelectionChanged += (_, _) => ChangeResultViewModeFromCombo(resultViewCombo);
             showNullPredictionCheck.IsCheckedChanged += (_, _) =>
             {
@@ -363,6 +364,8 @@ namespace AnalysisITC.Avalonia.Results
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            TemperatureUnitSession.ResultsChanged += OnResultTemperatureUnitChanged;
+            temperatureUnitCombo.SelectedIndex = (int)TemperatureUnitSession.Results;
             DataManager.ResultSolutionSelectionDidChange += OnResultSolutionSelectionChanged;
             ProcessingActivity.Changed += OnCalculationActivityChanged;
             ResultAnalysisController.AnalysisStarted += OnAdvancedAnalysisStarted;
@@ -372,6 +375,7 @@ namespace AnalysisITC.Avalonia.Results
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            TemperatureUnitSession.ResultsChanged -= OnResultTemperatureUnitChanged;
             DataManager.ResultSolutionSelectionDidChange -= OnResultSolutionSelectionChanged;
             ProcessingActivity.Changed -= OnCalculationActivityChanged;
             ResultAnalysisController.AnalysisStarted -= OnAdvancedAnalysisStarted;
@@ -427,6 +431,14 @@ namespace AnalysisITC.Avalonia.Results
                 RefreshParameterEvaluation();
                 e.Handled = true;
             };
+        }
+
+        void OnResultTemperatureUnitChanged(object? sender, EventArgs e)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                temperatureUnitCombo.SelectedIndex = (int)TemperatureUnitSession.Results;
+            else
+                Dispatcher.UIThread.Post(() => temperatureUnitCombo.SelectedIndex = (int)TemperatureUnitSession.Results);
         }
 
         MenuFlyout BuildAssessmentMenu(AnalysisResult owner)
@@ -909,6 +921,8 @@ namespace AnalysisITC.Avalonia.Results
         void ChangeTemperatureDisplay()
         {
             if (isUpdatingEvaluationControls) return;
+
+            TemperatureUnitSession.Results = UseKelvin ? TemperatureUnit.Kelvin : TemperatureUnit.Celsius;
 
             var temperatureCelsius = TryReadEvaluationTemperatureCelsius(out var parsedTemperature)
                 ? parsedTemperature
@@ -1746,7 +1760,7 @@ namespace AnalysisITC.Avalonia.Results
         void SetEvaluationTemperatureText(double temperatureCelsius)
         {
             var displayed = evaluationUseKelvin ? temperatureCelsius + 273.15 : temperatureCelsius;
-            evaluationTemperatureBox.Text = displayed.ToString("G6", CultureInfo.CurrentCulture);
+            evaluationTemperatureBox.Text = displayed.ToString("G15", CultureInfo.CurrentCulture);
         }
 
         bool UseKelvin => temperatureUnitCombo.SelectedIndex == 1;

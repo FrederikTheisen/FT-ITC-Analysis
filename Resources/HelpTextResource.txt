@@ -235,6 +235,8 @@ Use **Update Result** after changing inputs. Existing results retain the values 
 
 Choose an evaluation temperature to inspect thermodynamic quantities. The default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Evaluation does not refit the data.
 
+Results and the Analysis Result Exporter each remember their Celsius/Kelvin choice for the current application session. Both start from **Preferences > Temperature units**. Changing that preference resets both choices immediately; changing either workflow's selector affects only that workflow. Switching units preserves the physical evaluation temperature.
+
 Use **Export result...** to choose results, summary or individual rows, value and uncertainty columns, and CSV or TSV output. The same table can be copied. Numeric tables use decimal points regardless of regional settings.
 
 Distinguish **Combined SD** and **Approximate propagated interval** in local summaries from model-estimated SDs and CI95 intervals. See **Parameter uncertainty** for the refitting methods and **Binding assessment** for model comparisons and output restrictions.
@@ -539,6 +541,6 @@ Edit experiment attributes in experiment details to supply metadata for derived 
 
 # Restoring preferences
 
-In Preferences, **Restore Defaults** restores built-in values, including the 20,000 optimizer iteration limit. Choose **Apply** to save changes or **Cancel** to discard them.
+In Preferences, **Apply** saves only edited settings and preserves untouched settings changed elsewhere while the window was open. **Restore Defaults** stages all built-in values, including the 20,000 optimizer iteration limit. Choose **Apply** to save staged changes or **Cancel** to discard them.
 
 Saving a project or applying Preferences preserves the solver and uncertainty choices in the Analysis inspector. Their saved defaults are loaded at application startup or through **Restore defaults** in Analysis; that action also clears stored analysis inputs and **Unlock parameters**.
