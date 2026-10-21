@@ -56,7 +56,8 @@ static class AnalysisReportReferencesTests
         finally
         {
             DataManager.Clear(DataClearMode.ResetSession);
-            typeof(PreferencesState).GetMethod("ApplyToSettings", PrivateInstance).Invoke(original, null);
+            // Restore the original snapshot without preference validation.
+            typeof(PreferencesState).GetMethod("ApplyToSettings", PrivateInstance).Invoke(original, new object[] { false });
         }
     }
 
