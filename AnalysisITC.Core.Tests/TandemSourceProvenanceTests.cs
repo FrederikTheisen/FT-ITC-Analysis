@@ -39,7 +39,7 @@ public sealed class TandemSourceProvenanceTests : IDisposable
     [InlineData("fixed")]
     [InlineData("per-transition")]
     [InlineData("automatic")]
-    public void EveryMergeModeRecordsOrderedReadOnlySourceIdentities(string mode)
+    public async Task EveryMergeModeRecordsOrderedReadOnlySourceIdentities(string mode)
     {
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         var sources = new List<ExperimentData> { Source("second"), Source("first"), Source("third") };
@@ -57,6 +57,9 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         sources.Reverse();
         Assert.Equal(new[] { "second", "first", "third" }, tandem.TandemSourceExperimentIds);
         Assert.Throws<NotSupportedException>(() => ((IList<string>)tandem.TandemSourceExperimentIds)[0] = "changed");
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { tandem });
+        FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
     }
 
     [Fact]
@@ -150,6 +153,7 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         Assert.Equal(comments, imported.Comments);
         using var package = new MemoryStream();
         await FTXTCWriter.WriteStream(package, new[] { imported });
+        FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
         package.Position = 0;
         var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
         Assert.Equal(imported.TandemMergeDescription, restored.TandemMergeDescription);

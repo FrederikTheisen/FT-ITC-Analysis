@@ -24,6 +24,45 @@ namespace AnalysisITC.Core.Tests
     public sealed class FtxtcJsonSchemaValidationTests
     {
         [Theory]
+        [InlineData("originDescription", "null")]
+        [InlineData("originDescription", "\"\"")]
+        [InlineData("originDescription", "\"Recorded merge\\nSources: first + second\"")]
+        [InlineData("tandemSourceExperimentIds", "null")]
+        [InlineData("tandemSourceExperimentIds", "[]")]
+        [InlineData("tandemSourceExperimentIds", "[\"second\",\"first\",\"unavailable\"]")]
+        public async Task ExperimentProvenanceIsOptionalAndAcceptsDocumentedValues(string property, string value)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { new ExperimentData("ordinary.itc") });
+            AssertPackageJsonValidates(package);
+            var experiment = ReadJson(package, "experiments/000000/experiment.json").AsObject();
+            Assert.False(experiment.ContainsKey("originDescription"));
+            Assert.False(experiment.ContainsKey("tandemSourceExperimentIds"));
+            experiment[property] = JsonNode.Parse(value);
+            AssertValid("component.schema.json", JsonSerializer.SerializeToElement(experiment), property);
+        }
+
+        [Theory]
+        [InlineData("originDescription", "42")]
+        [InlineData("originDescription", "true")]
+        [InlineData("originDescription", "[]")]
+        [InlineData("originDescription", "{}")]
+        [InlineData("tandemSourceExperimentIds", "\"first\"")]
+        [InlineData("tandemSourceExperimentIds", "42")]
+        [InlineData("tandemSourceExperimentIds", "{}")]
+        [InlineData("tandemSourceExperimentIds", "[42]")]
+        [InlineData("tandemSourceExperimentIds", "[null]")]
+        [InlineData("tandemSourceExperimentIds", "[\"\"]")]
+        public async Task ExperimentProvenanceRejectsInvalidTypesAndEmptyIdentities(string property, string value)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { new ExperimentData("ordinary.itc") });
+            var experiment = ReadJson(package, "experiments/000000/experiment.json");
+            experiment[property] = JsonNode.Parse(value);
+            AssertInvalid("component.schema.json", experiment);
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task CompletedSaltPolicyIsOptionalOnWireAndMustBeBooleanWhenPresent(bool policy)

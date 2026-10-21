@@ -1190,14 +1190,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-149 - Published experiment schema rejects saved tandem provenance fields
 
-- Priority: Low; documentation and external tooling.
-- Status: Open (2026-10-20); recorded from the project persistence/export review. No fix implemented.
-- Confidence: Confirmed by code inspection.
-- Location: `Documentation/Schemas/FTXTC/component.schema.json`, `$defs/experiment`; `Documentation/Schemas/FTXTC/FTXTC_FORMAT.md`, experiment provenance; `AnalysisITC.Core/DataExport/FTXTCFormat.cs`, `FtxtcExperimentState` and `CaptureExperiment`.
-- Problem: The experiment schema sets `additionalProperties:false` but omits `originDescription` and `tandemSourceExperimentIds`. The writer emits these optional fields when present, and the format document describes them, so a conforming external schema validator rejects valid saved provenance.
-- Qualification: This includes merge-tool tandem experiments and concatenated imports carrying `originDescription`. The app's reader does not enforce this published JSON schema; an application reopen failure is not established by this finding. These two omissions are confirmed, without claiming an exhaustive absence of other schema drift.
-- Suggested solution direction: Add the existing optional wire properties to the experiment schema with types/nullability matching the format contract; do not rename fields or change application serialization. Extend published-schema coverage to writer-produced merged and concatenated experiments with provenance, as well as ordinary experiments without it.
-- Validation boundary: Read-only source/schema inspection; no builds or tests run for this review.
+- Status: Resolved locally (2026-10-21).
+- Problem: The published experiment schema rejected valid writer output from tandem merges and concatenated imports because `additionalProperties:false` disallowed the existing optional `originDescription` and `tandemSourceExperimentIds` fields. This affected published-schema validation; the application's reader does not enforce that schema.
+- Resolution: `Documentation/Schemas/FTXTC/component.schema.json` now declares the optional nullable description string and optional nullable source-ID array, whose items use the existing nonempty-ID definition. All other schema content, the writer, reader and format version remain unchanged. `TandemSourceProvenanceTests` validates actual writer output for all four merge modes and three concatenated-import paths. `FtxtcJsonSchemaValidationTests` covers ordinary experiments without provenance, absent/null/empty/populated values, and rejection of invalid property types, non-string/null array items and empty IDs.
 
 ## ITC-150 - Native Final Figure ignores the experiment-details default
 
