@@ -16,7 +16,7 @@ namespace AnalysisITC.Core.Analysis
             var unavailable = new List<string>();
             foreach (var solution in solutions ?? Enumerable.Empty<SolutionInterface>())
             {
-                if (BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, solution?.Temp ?? double.NaN, out var enthalpy))
+                if (BufferAttribute.TryGetIonizationEnthalpy(solution?.Data, solution?.Temp ?? double.NaN, out var enthalpy))
                 {
                     enthalpies.Add(enthalpy.Value);
                     continue;

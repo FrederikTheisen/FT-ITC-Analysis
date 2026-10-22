@@ -148,7 +148,7 @@ namespace AnalysisITC
             Graph = new ParameterDependenceGraph(this)
             {
                 YLabel = "∆*H*{obs} (" + energyUnit.GetUnit() + ")",
-                XLabel = "∆*H*{buffer,protonation} (" + energyUnit.GetUnit() + ")",
+                XLabel = "∆*H*{buffer,ionization} (" + energyUnit.GetUnit() + ")",
                 XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
                 YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
                 XScaleFactor = Energy.ScaleFactor(energyUnit),

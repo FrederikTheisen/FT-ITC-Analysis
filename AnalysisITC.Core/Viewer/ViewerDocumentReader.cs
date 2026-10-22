@@ -876,7 +876,7 @@ namespace AnalysisITC.Core.Viewer
             const double energyScale = 1.0 / 1000.0;
             var fit = analysis.Fit as LinearFitWithError;
             var plot = BuildPointPlot(
-                "protonation", "Protonation dependence", "Buffer protonation enthalpy (kJ/mol)",
+                "protonation", "Protonation dependence", "Buffer ionization enthalpy (kJ/mol)",
                 "Observed enthalpy (kJ/mol)", analysis.DataPoints, energyScale, energyScale);
             if (fit != null && analysis.DataPoints.Count > 0)
             {

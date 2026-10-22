@@ -61,6 +61,7 @@ static class LinearDependenceEnvelopeTests
             view.Setup(analysis);
             var graph = ProductionGraph(view);
             Check(ReferenceEquals(graph.Fit, savedFit), "production setup uses the completed fit");
+            Check(graph.XLabel.Contains("buffer,ionization"), "x axis identifies buffer ionization enthalpy");
             graph.SetXAxisRange(0, 30000);
             graph.SetYAxisRange(0, 15000);
             var recorded = RenderAndRecord(graph, name);
@@ -254,7 +255,7 @@ static class LinearDependenceEnvelopeTests
             attribute.DoubleValue = 7;
             attribute.ParameterValue = new FloatWithError(saltSeries ? salts[index] : 0.05);
             data.Attributes.Add(attribute);
-            var enthalpy = saltSeries ? -25000 : 1000 + 0.3 * buffers[index].GetProtonationEnthalpy(25);
+            var enthalpy = saltSeries ? -25000 : 1000 + 0.3 * buffers[index].GetIonizationEnthalpy(25);
             var logKa = saltSeries ? (10 - 0.5 * Math.Log(salts[index] * salts[index])) / Math.Log(10) : 6;
             var model = new OneSetOfSites(data);
             model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);

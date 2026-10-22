@@ -432,9 +432,13 @@ function renderAdvancedAnalysis(result) {
     ];
     plots = value.plots || [];
   } else {
+    metadataRows = [...metadataRows,
+      ["Sign convention", "Positive: uptake; negative: release."],
+      ["Intercept meaning", "At experimental pH; retains binding-partner protonation heat."]
+    ];
     parameters = [
-      advancedParameter("Binding enthalpy", value.bindingEnthalpyKilojoulesPerMole, "kJ/mol"),
-      advancedParameter("Protonation change", value.protonationChange, "")
+      advancedParameter("Buffer-independent enthalpy", value.bindingEnthalpyKilojoulesPerMole, "kJ/mol"),
+      advancedParameter("Net proton uptake", value.protonationChange, "")
     ];
     if (value.plot) plots = [value.plot];
   }

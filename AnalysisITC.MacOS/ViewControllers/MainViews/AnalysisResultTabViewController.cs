@@ -105,7 +105,7 @@ namespace AnalysisITC
 
             foreach (var solution in analysisResult?.Solution?.Solutions ?? new List<SolutionInterface>())
             {
-                if (BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, out var protonation))
+                if (BufferAttribute.TryGetIonizationEnthalpy(solution?.Data, out var protonation))
                     values.Add(protonation.Value);
             }
 
@@ -1162,7 +1162,7 @@ namespace AnalysisITC
                 && !isUpdatingResult && !ProcessingActivity.IsBusy;
             runButton.ToolTip =
                 ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
-                    : "Calculate proton uptake and intrinsic binding enthalpy from buffer-dependent data.";
+                    : ProtonationPresentation.RunToolTip;
             runButton.Activated += (_, _) => RunProtonationAnalysis();
 
             AddPageView(
@@ -1178,26 +1178,13 @@ namespace AnalysisITC
                 return;
             }
 
-            var fit = analysis.Fit as LinearFitWithError;
             AddPageView(analysisStack, Section(
                 "Output",
-                Pair(
-                    "Protons",
-                    fit == null
-                        ? analysis.ProtonationChange.AsNumber()
-                        : (-1 * fit.Slope).AsNumber()),
-                Pair(
-                    "Binding H",
-                    fit == null
-                        ? analysis.BindingEnthalpy.ToFormattedString(
-                            EnergyUnit,
-                            permole: true)
-                        : new Energy(fit.Evaluate(0))
-                            .ToFormattedString(
-                                EnergyUnit,
-                                true,
-                                true,
-                                false))));
+                Pair(ProtonationPresentation.UptakeLabel, analysis.ProtonationChange.AsNumber(),
+                    ProtonationPresentation.UptakeToolTip),
+                Pair(ProtonationPresentation.EnthalpyLabel,
+                    analysis.BindingEnthalpy.ToFormattedString(EnergyUnit, permole: true),
+                    ProtonationPresentation.EnthalpyToolTip)));
         }
 
         void RunTemperatureAnalysis()

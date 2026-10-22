@@ -33,12 +33,12 @@ internal static class EnergyDisplay
             .Select(pair => pair.Value.Value)
             .ToList();
 
-        // Protonation enthalpy is part of the same visible molar-energy group in
+        // Ionization enthalpy is part of the same visible molar-energy group in
         // result tables. Include its central value when the source buffer exposes
         // it, while leaving uncertainty/error magnitudes out of unit selection.
         values.AddRange(result.Solution.Solutions
-            .Where(solution => BufferAttribute.TryGetProtonationEnthalpy(solution.Data, out _))
-            .Select(solution => BufferAttribute.GetProtonationEnthalpy(solution.Data).Value));
+            .Where(solution => BufferAttribute.TryGetIonizationEnthalpy(solution.Data, out _))
+            .Select(solution => BufferAttribute.GetIonizationEnthalpy(solution.Data).Value));
 
         return Resolve(AppSettings.EnergyUnitFamily, values);
     }

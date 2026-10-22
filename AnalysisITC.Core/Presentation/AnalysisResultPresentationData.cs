@@ -101,8 +101,8 @@ namespace AnalysisITC.Core.Presentation
                 .Where(item => IsMolarEnergy(item.Key))
                 .Select(item => item.Value.Value)
                 .Concat(Result?.IsProtonationAnalysisEnabled == true
-                    ? Members.Where(member => BufferAttribute.TryGetProtonationEnthalpy(member.Solution.Data, out _))
-                        .Select(member => BufferAttribute.GetProtonationEnthalpy(member.Solution.Data).Value)
+                    ? Members.Where(member => BufferAttribute.TryGetIonizationEnthalpy(member.Solution.Data, out _))
+                        .Select(member => BufferAttribute.GetIonizationEnthalpy(member.Solution.Data).Value)
                     : Enumerable.Empty<double>()));
 
         public EnergyUnit ResolveHeatCapacityUnit(EnergyUnitFamily family, EnergyUnit? overrideUnit = null)

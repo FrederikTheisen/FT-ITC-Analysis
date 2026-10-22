@@ -462,7 +462,7 @@ namespace AnalysisITC.Avalonia.Results
                 .Select(solution =>
                 {
                     var buffer = (AnalysisITC.Core.Data.Buffer)solution.Data.Attributes.Find(att => att.Key == AttributeKey.Buffer)!.IntValue;
-                    var x = buffer.GetProtonationEnthalpy(solution.Temp);
+                    var x = buffer.GetIonizationEnthalpy(solution.Temp);
                     return PointFrom(x, solution.TotalEnthalpy, solution, 1);
                 })
                 .Where(point => point.HasValue)
@@ -473,7 +473,7 @@ namespace AnalysisITC.Avalonia.Results
                 AppSettings.EnergyUnitFamily,
                 rawPoints.SelectMany(point => new[] { point.Y, point.X }));
             var scale = Energy.ScaleFactor(unit);
-            xLabel = $"Buffer protonation enthalpy ({unit.GetUnit()}/mol)";
+            xLabel = $"Buffer ionization enthalpy ({unit.GetUnit()}/mol)";
             yLabel = $"Observed enthalpy ({unit.GetUnit()}/mol)";
 
             var points = result?.Solution?.Solutions
@@ -481,8 +481,8 @@ namespace AnalysisITC.Avalonia.Results
                 .Select(solution =>
                 {
                     var buffer = (AnalysisITC.Core.Data.Buffer)solution.Data.Attributes.Find(att => att.Key == AttributeKey.Buffer)!.IntValue;
-                    var x = buffer.GetProtonationEnthalpy(solution.Temp);
-                    // The protonation enthalpy is an energy-valued x-axis too. Keep
+                    var x = buffer.GetIonizationEnthalpy(solution.Temp);
+                    // The ionization enthalpy is an energy-valued x-axis too. Keep
                     // it in the same resolved display unit as the observed y-axis.
                     return PointFrom(x * scale, solution.TotalEnthalpy, solution, scale);
                 })

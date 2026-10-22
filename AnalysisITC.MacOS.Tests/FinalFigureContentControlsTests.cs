@@ -114,7 +114,7 @@ static class FinalFigureContentControlsTests
                     Tuple.Create("Used in analysis", DisplayAttributeOptions.UsedInAnalysis),
                     Tuple.Create("Buffer", DisplayAttributeOptions.Buffer), Tuple.Create("Salt", DisplayAttributeOptions.Salt),
                     Tuple.Create("Ionic strength", DisplayAttributeOptions.IonicStrength),
-                    Tuple.Create("Protonation enthalpy", DisplayAttributeOptions.ProtonationEnthalpy),
+                    Tuple.Create("Ionization enthalpy", DisplayAttributeOptions.ProtonationEnthalpy),
                     Tuple.Create("Competitor", DisplayAttributeOptions.Competitor) })
                 {
                     var before = AppSettings.DisplayAttributeOptions;

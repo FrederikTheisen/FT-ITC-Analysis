@@ -21,6 +21,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
+[Collection("Preferences")]
 public sealed partial class AnalysisReportBuilderTests
 {
     [Theory]
@@ -2708,6 +2709,64 @@ public sealed partial class AnalysisReportBuilderTests
         Assert.Equal(3, details.Count);
         Assert.All(details, block => Assert.Contains(block.Items,
             item => item.Label == "Wiseman c-value"));
+    }
+
+    [Theory]
+    [InlineData(UncertaintyDisplayStyle.None, "10.0")]
+    [InlineData(UncertaintyDisplayStyle.StandardDeviation, "10.0 ± 1.0")]
+    [InlineData(UncertaintyDisplayStyle.ConfidenceInterval, "10.0 [8.0, 12.0]")]
+    [InlineData(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, "10.0 ± 1.0 [8.0, 12.0]")]
+    [InlineData(UncertaintyDisplayStyle.Automatic, "10.0 ± 1.0")]
+    public void ReportCValuesUseReportUncertaintyStyleWithoutChangingConcentrationErrors(
+        UncertaintyDisplayStyle style, string expected)
+    {
+        var originalStyle = AppSettings.UncertaintyDisplayStyle;
+        var originalPrecision = AppSettings.NumberPrecision;
+        try
+        {
+            AppSettings.UncertaintyDisplayStyle = style == UncertaintyDisplayStyle.StandardDeviation
+                || style == UncertaintyDisplayStyle.Automatic
+                ? UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval
+                : UncertaintyDisplayStyle.StandardDeviation;
+            AppSettings.NumberPrecision = NumberPrecision.Standard;
+            var results = new[] { CreateResult(1), CreateResult(2) };
+            foreach (var member in results.SelectMany(result => result.Solution.Solutions))
+            {
+                // N = 1 and Kd = 1 µM: 10 ± 1 µM gives c = 10 ± 1,
+                // with the existing symmetric interval [8.04, 11.96].
+                member.Data.CellConcentration = new FloatWithError(10e-6, 1e-6);
+                member.Data.SyringeConcentration = new FloatWithError(100e-6, 10e-6);
+            }
+
+            var baseline = AnalysisReportBuilder.Build(results,
+                new AnalysisReportOptions { UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle });
+            var document = AnalysisReportBuilder.Build(results,
+                new AnalysisReportOptions { UncertaintyDisplayStyle = style });
+            var chapters = document.Sections
+                .Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+            Assert.Equal(3, chapters.Count);
+            foreach (var chapter in chapters)
+            {
+                var details = chapter.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                    .Single(block => block.Title == "Fit details");
+                Assert.Equal(expected, details.Items.Single(item => item.Label == "Wiseman c-value").Value);
+            }
+
+            string[] ConcentrationRows(AnalysisReportDocument report) => report.Sections
+                .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                .SelectMany(block => block.Items)
+                .Where(item => item.Label == "Cell concentration" || item.Label == "Syringe concentration")
+                .Select(item => item.Value).ToArray();
+            var concentrations = ConcentrationRows(document);
+            Assert.Equal(6, concentrations.Length);
+            Assert.All(concentrations, text => Assert.Contains("±", text));
+            Assert.Equal(ConcentrationRows(baseline), concentrations);
+        }
+        finally
+        {
+            AppSettings.UncertaintyDisplayStyle = originalStyle;
+            AppSettings.NumberPrecision = originalPrecision;
+        }
     }
 
     [Fact]

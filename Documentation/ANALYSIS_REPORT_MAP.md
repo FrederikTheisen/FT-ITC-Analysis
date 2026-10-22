@@ -235,7 +235,7 @@ between Std. and Diag.
 | Experiment | "1A. Name", with assessment on a second line when applicable. |
 | Temperature (°C) | Temperature dependence enabled. |
 | [Ions] (mM) | Uses the captured run buffer policy. Electrostatics enabled: one-set-of-sites model, salt metadata for every member, and three usable ionic strengths selected by the strict greedy half-minimum-span spacing rule. |
-| ∆H,prot (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
+| ∆H,ion (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
 | One column per binding model parameter | Saved model parameters only: N (or α), Kd, and ΔH as applicable per site/step. Offset and derived values (including apparent Kd, ΔG, and −TΔS) are omitted from this overview. Fixed and free affinities use the unit in their column header. "(fixed)" for fixed values, without uncertainty; "—" for non-finite values. |
 | RMSD (µJ) | Member fit RMSD. |
 
@@ -358,10 +358,12 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line (legend: "Fitted line") | |
 | | · Saved result: same lines as X04 | |
 | **X06** | **Protonation dependence** | |
-| | · [Plot] Observed enthalpy vs Buffer protonation enthalpy; points + fitted line (legend: "Fitted line") | |
+| | · [Plot] Observed enthalpy vs Buffer ionization enthalpy; points + fitted line (legend: "Fitted line") | |
 | | · Saved result heading | |
-| | · Binding enthalpy | |
-| | · Protonation change | |
+| | · Buffer-independent enthalpy (at the experimental pH) | |
+| | · Net proton uptake (positive uptake; negative release) | |
+| | · Sign convention: positive uptake; negative release | |
+| | · Intercept meaning: at experimental pH; retains binding-partner protonation heat | |
 | | · Uncertainty | |
 | | · Completed | |
 
@@ -437,7 +439,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E07** | **[Info] Reading parameter correlations** | expanded + E06 |
 | **E08** | **Fit details** | |
 | | · RMSD / Molar RMSD | omitted for no-binding |
-| | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
+| | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; uses the report uncertainty style; omitted for no-binding |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
 | | · Uncertainty: same form as A10, including "not estimated (no binding detected)" and preserved profile/cancellation outcomes | omitted for global or constrained fits |
 | | · Binding assessment + "(manual)" if overridden | independent collection, assessed |

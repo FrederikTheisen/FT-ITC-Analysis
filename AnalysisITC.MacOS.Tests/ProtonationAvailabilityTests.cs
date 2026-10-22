@@ -12,6 +12,7 @@ using CoreGraphics;
 using ObjCRuntime;
 using AnalysisITC;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
@@ -32,10 +33,44 @@ static class ProtonationAvailabilityTests
             var result = CreateResult(Buffer.MES, Buffer.Hepes, Buffer.Succinate);
             result.Solution.Solutions[2].Data.Name = "Succinate experiment with a deliberately long descriptive name covering several solution conditions and sample identifiers";
             CheckView(new AnalysisResult(result.Solution), false);
-            Console.WriteLine("PASS: native protonation availability, shared visible reason, and narrow wrapped layout");
+            CheckOutput();
+            Console.WriteLine("PASS: native protonation availability, signed uptake, complete intervals and shared guidance");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+
+    static void CheckOutput()
+    {
+        var result = CreateResult(Buffer.MES, Buffer.Hepes);
+        var previousStyle = AppSettings.UncertaintyDisplayStyle;
+        try
+        {
+            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            foreach (var uptake in new[] { new FloatWithError(0.5, 0.1, 0.2, 0.9),
+                new FloatWithError(-0.5, 0.1, -0.9, -0.2), new FloatWithError(0, 0.1, -0.2, 0.4) })
+            {
+                var enthalpy = new FloatWithError(-40000, 500, -41200, -39400);
+                result.ProtonationAnalysis.ProtonationChange = uptake;
+                result.ProtonationAnalysis.BindingEnthalpy = enthalpy.Energy;
+                result.ProtonationAnalysis.Fit = new LinearFitWithError(uptake, enthalpy, 0);
+                var handle = Send(Send(new Class(typeof(AnalysisResultTabViewController)).Handle,
+                    Selector.GetHandle("alloc")), Selector.GetHandle("init"));
+                var controller = Runtime.GetNSObject<AnalysisResultTabViewController>(handle);
+                using (var stack = new NSStackView())
+                {
+                    typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+                    typeof(AnalysisResultTabViewController).GetField("analysisStack", Instance).SetValue(controller, stack);
+                    typeof(AnalysisResultTabViewController).GetMethod("AddProtonationAnalysisSections", Instance).Invoke(controller, null);
+                    var fields = Descendants(stack).OfType<NSTextField>().ToList();
+                    Check(fields.Any(field => field.StringValue == uptake.AsNumber()), "saved uptake and complete interval");
+                    Check(fields.Any(field => field.StringValue == "Net proton uptake"
+                        && field.ToolTip == "Positive: uptake; negative: release."), "shared uptake meaning");
+                    Check(fields.Any(field => field.StringValue == "Buffer-independent enthalpy"), "intercept meaning");
+                }
+            }
+        }
+        finally { AppSettings.UncertaintyDisplayStyle = previousStyle; }
     }
 
     static void CheckView(AnalysisResult result, bool available)

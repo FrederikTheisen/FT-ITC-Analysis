@@ -1381,7 +1381,7 @@ namespace AnalysisITC.Avalonia.Results
             var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
             runButton.IsEnabled = !isRunningAdvancedAnalysis && !ProcessingActivity.IsBusy;
             runButton.Click += async (_, _) => await RunProtonationAnalysisAsync();
-            ToolTip.SetTip(runButton, "Propagate fitted parameter uncertainty");
+            ToolTip.SetTip(runButton, ProtonationPresentation.RunToolTip);
             CalculationControlAvailability.Update(runButton, !isRunningAdvancedAnalysis);
 
             analysisPanel.Children.Add(Section("Protonation", new Control[]
@@ -1392,17 +1392,17 @@ namespace AnalysisITC.Avalonia.Results
             var analysis = result.ProtonationAnalysis;
             if (analysis.Fit == null)
             {
-                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate protonation-corrected binding parameters.") }));
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text(ProtonationPresentation.NotRunMessage) }));
                 return;
             }
 
-            var fit = analysis.Fit as LinearFitWithError;
             analysisPanel.Children.Add(Section("Output", new Control[]
             {
-                Pair("Protons", fit == null ? analysis.ProtonationChange.AsNumber() : (-1 * fit.Slope).AsNumber()),
-                Pair("Binding H", fit == null
-                    ? analysis.BindingEnthalpy.ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)
-                    : new Energy(fit.Evaluate(0)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), true, true, false)),
+                Pair(ProtonationPresentation.UptakeLabel, analysis.ProtonationChange.AsNumber(),
+                    rowTooltip: ProtonationPresentation.UptakeToolTip),
+                Pair(ProtonationPresentation.EnthalpyLabel,
+                    analysis.BindingEnthalpy.ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
+                    rowTooltip: ProtonationPresentation.EnthalpyToolTip),
             }));
         }
 

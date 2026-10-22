@@ -19,7 +19,7 @@ namespace AnalysisITC.Core.Tests;
 
 using Buffer = AnalysisITC.Core.Data.Buffer;
 
-public sealed class AdvancedAnalysisInterpretationTests
+public sealed partial class AdvancedAnalysisInterpretationTests
 {
     [Fact]
     public async Task BuilderUsesCompletedSettingsAndExportsAllAdvancedMappings()
@@ -68,7 +68,7 @@ public sealed class AdvancedAnalysisInterpretationTests
         Assert.Equal(0.3, Value(electrostatics, "curvature").Value);
 
         var protonation = Assert.Single(package.Result.AdvancedAnalyses, item => item.Type == "protonation");
-        Assert.Equal("buffer-protonation-enthalpy", protonation.XAxis);
+        Assert.Equal("buffer-ionization-enthalpy", protonation.XAxis);
         Assert.Equal("observed-binding-enthalpy", protonation.YAxis);
         Assert.Equal("protonation-change", protonation.SlopeParameter);
         Assert.Equal("binding-enthalpy", protonation.InterceptParameter);

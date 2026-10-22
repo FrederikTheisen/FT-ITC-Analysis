@@ -879,9 +879,9 @@ namespace AnalysisITC.Core.Analysis.Models
             }
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy)
-                && BufferAttribute.TryGetProtonationEnthalpy(Model.Data, out var bufferEnthalpy))
+                && BufferAttribute.TryGetIonizationEnthalpy(Model.Data, out var bufferEnthalpy))
             {
-                output.Add(new(MarkdownStrings.ProtonationEnthalpy, bufferEnthalpy.ToString(ReportEnergyUnit, "F1", true, true)));
+                output.Add(new(MarkdownStrings.IonizationEnthalpy, bufferEnthalpy.ToString(ReportEnergyUnit, "F1", true, true)));
             }
 
             return output;

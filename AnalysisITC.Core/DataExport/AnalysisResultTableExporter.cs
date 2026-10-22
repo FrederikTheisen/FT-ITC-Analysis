@@ -326,7 +326,7 @@ namespace AnalysisITC.Core.Export
                     }
 
                     if (result.IsProtonationAnalysisEnabled
-                        && BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, out var protonation))
+                        && BufferAttribute.TryGetIonizationEnthalpy(solution?.Data, out var protonation))
                         molarValues.Add(protonation.Value);
                 }
 
@@ -375,7 +375,7 @@ namespace AnalysisITC.Core.Export
                 + " (" + (options.UseKelvin ? "K" : "°C") + ")");
 
             if (includeIonicStrength) header.Add("IS (mM)");
-            if (includeProtonation) header.Add("∆H,prot (" + energyUnits.molar.GetUnit() + "/mol)");
+            if (includeProtonation) header.Add("∆H,ion (" + energyUnits.molar.GetUnit() + "/mol)");
 
             var numberFirstSite = results.Any(result => HasExportableBindingMember(result, options)
                 && result.Model.ModelType == AnalysisModel.TwoSetsOfSites);
@@ -521,12 +521,12 @@ namespace AnalysisITC.Core.Export
             };
 
             var suppressBinding = !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose);
-            // Ionic strength and protonation enthalpy are experimental conditions, kept for no-binding members.
+            // Ionic strength and ionization enthalpy are experimental conditions, kept for no-binding members.
             if (includeIonicStrength)
                 row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * result.GetSaltAnalysisIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
-                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
+                row.Add(result.IsProtonationAnalysisEnabled ? FormatIonizationEnthalpy(solution.Data, energyUnits.molar) : "");
 
             foreach (var column in columns)
             {
@@ -657,9 +657,9 @@ namespace AnalysisITC.Core.Export
                 : NullModelComparisonPresentation.ComparisonReason(comparison));
         }
 
-        static string FormatProtonationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
+        static string FormatIonizationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
         {
-            return BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)
+            return BufferAttribute.TryGetIonizationEnthalpy(data, out var enthalpy)
                 ? enthalpy.ToString(energyUnit, "F1", withunit: false)
                 : "";
         }

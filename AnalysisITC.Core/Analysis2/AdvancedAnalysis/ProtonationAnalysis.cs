@@ -11,7 +11,9 @@ namespace AnalysisITC.Core.Analysis
 {
     public class ProtonationAnalysis : AdvancedAnalysis
     {
+        /// <summary>Buffer-independent intercept at experimental pH, including binding-partner protonation heat.</summary>
         public Energy BindingEnthalpy { get; set; }
+        /// <summary>Saved slope against buffer ionization enthalpy: positive uptake, negative release per binding event.</summary>
         public FloatWithError ProtonationChange { get; set; }
 
         public ProtonationAnalysis(AnalysisResult result) : base(result)
@@ -20,7 +22,7 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var sol in Data.Solution.Solutions)
             {
-                if (!BufferAttribute.TryGetProtonationEnthalpy(sol.Data, sol.Temp, out var bufferEnthalpy))
+                if (!BufferAttribute.TryGetIonizationEnthalpy(sol.Data, sol.Temp, out var bufferEnthalpy))
                     throw new InvalidOperationException(ProtonationAnalysisAvailability.GetUnavailableReason(Data.Solution.Solutions));
                 DataPoints.Add(new Tuple<double, FloatWithError>(
                     bufferEnthalpy.Value,
@@ -36,7 +38,7 @@ namespace AnalysisITC.Core.Analysis
             {
                 results.Add(Analyze(witherror: true));
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Protonation Change");
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Net proton uptake");
 
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }

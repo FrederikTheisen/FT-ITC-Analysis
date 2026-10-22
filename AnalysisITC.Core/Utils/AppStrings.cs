@@ -17,7 +17,7 @@ namespace AnalysisITC.Core.Utilities
         public const string StandardEnthalpy = "∆*H*°";
         public const string GibbsFreeEnergy = "∆*G*";
         public const string EntropyContribution = "-*T*∆*S*";
-        public const string ProtonationEnthalpy = "∆*H*{buffer}";
+        public const string IonizationEnthalpy = "∆*H*{buffer,ion}";
         public const string HeatCapacityChange = "∆*C*{p}";
         public const string Sigma = "σ";
         public const string Alpha = "α";

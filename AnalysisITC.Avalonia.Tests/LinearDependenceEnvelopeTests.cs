@@ -35,6 +35,8 @@ public sealed class LinearDependenceEnvelopeTests
                 100, DateTime.UtcNow, ErrorEstimationMethod.BootstrapResiduals);
             var graph = new ResultDependenceGraphControl { Result = result, Mode = ResultAnalysisViewMode.Protonation };
             var fit = GraphFit(graph);
+            Assert.Equal("Buffer ionization enthalpy (kJ/mol)",
+                typeof(ResultDependenceGraphControl).GetField("xLabel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(graph));
             // MES/Hepes at 25 C: midpoint x = 17600 J/mol, displayed in kJ/mol.
             AssertCoordinate(Points(fit, "Line")[150], 17.6, 6.28);
             if (uncertainty)

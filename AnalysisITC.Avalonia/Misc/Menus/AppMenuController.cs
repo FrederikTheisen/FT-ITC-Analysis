@@ -144,7 +144,7 @@ internal sealed class AppMenuController
         Add("sorttemperature", "By Temperature", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.Temperature), window.HasDataLoaded);
         Add("sorttype", "By Type", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.Type), window.HasDocumentContent);
         Add("sortionic", "By Ionic Strength", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.IonicStrength), window.HasExperimentsWithAttributes);
-        Add("sortprotonation", "By Protonation Enthalpy", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.ProtonationEnthalpy), window.HasExperimentsWithAttributes);
+        Add("sortprotonation", "By Ionization Enthalpy", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.ProtonationEnthalpy), window.HasExperimentsWithAttributes);
 
         Add("experimentdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedExperiment);
         Add("exportselecteddata", "Export Selected Data...", () => window.ExportDataAsync(selectedOnly: true), window.HasSelectedExperiment);

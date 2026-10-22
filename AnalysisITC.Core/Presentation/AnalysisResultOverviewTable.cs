@@ -133,7 +133,7 @@ namespace AnalysisITC.Core.Presentation
                 columns.Add(new AnalysisResultOverviewColumn("IS", "[Ions] (mM)", AnalysisResultColumnAlignment.Right, 96));
 
             if (result?.IsProtonationAnalysisEnabled == true)
-                columns.Add(new AnalysisResultOverviewColumn("HPROT", "∆H,prot (" + molarEnergyUnit.GetUnit() + "/mol)", AnalysisResultColumnAlignment.Right, 126));
+                columns.Add(new AnalysisResultOverviewColumn("HPROT", "∆H,ion (" + molarEnergyUnit.GetUnit() + "/mol)", AnalysisResultColumnAlignment.Right, 126));
 
             var members = data?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
             var solutions = members.Select(member => member.Solution).ToList();
@@ -189,7 +189,7 @@ namespace AnalysisITC.Core.Presentation
                 ["Experiment"] = member?.Solution?.Data?.Name ?? "",
                 ["Temp"] = member == null ? "" : (member.TemperatureCelsius + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
                 ["IS"] = member?.Solution?.Data == null ? "" : (1000 * result.GetSaltAnalysisIonicStrength(member.Solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
-                ["HPROT"] = FormatProtonationEnthalpy(member?.Solution?.Data, molarEnergyUnit),
+                ["HPROT"] = FormatIonizationEnthalpy(member?.Solution?.Data, molarEnergyUnit),
                 ["Loss"] = member?.Solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
                 ["InformationCriteria"] = member?.Solution == null ? ""
                     : FormatInformationCriteria(result.GetMemberInformationCriteria(member.Solution))
@@ -251,9 +251,9 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        static string FormatProtonationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
+        static string FormatIonizationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
         {
-            return BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)
+            return BufferAttribute.TryGetIonizationEnthalpy(data, out var enthalpy)
                 ? enthalpy.ToString(energyUnit, "F1", withunit: false)
                 : "";
         }

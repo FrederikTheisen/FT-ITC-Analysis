@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Xunit;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
@@ -72,6 +73,39 @@ public sealed class ProtonationAvailabilityTests
                 label => label.Text?.Contains("Protonation analysis requires") == true);
         }
         finally { AnalysisResultWorkspaceControl.ResetSessionViewForTesting(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0.5, 0.2, 0.9)]
+    [InlineData(-0.5, -0.9, -0.2)]
+    [InlineData(0.0, -0.2, 0.4)]
+    public void OutputUsesSavedSignedUptakeAndCompleteInterval(double center, double lower, double upper)
+    {
+        AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+        var result = CreateResult(Buffer.MES, Buffer.Hepes);
+        var uptake = new FloatWithError(center, 0.1, lower, upper);
+        var enthalpy = new FloatWithError(-40000, 500, -41200, -39400);
+        result.ProtonationAnalysis.ProtonationChange = uptake;
+        result.ProtonationAnalysis.BindingEnthalpy = enthalpy.Energy;
+        result.ProtonationAnalysis.Fit = new LinearFitWithError(uptake, enthalpy, 0);
+        var previousStyle = AppSettings.UncertaintyDisplayStyle;
+        AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+        var workspace = new AnalysisResultWorkspaceControl { Result = result };
+        try
+        {
+            typeof(AnalysisResultWorkspaceControl).GetMethod("RefreshProtonationAnalysis",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(workspace, null);
+            var labels = workspace.GetLogicalDescendants().OfType<TextBlock>().ToList();
+            Assert.Contains(labels, label => label.Text == uptake.AsNumber());
+            Assert.Contains(labels, label => label.Text == "Net proton uptake"
+                && Equals(ToolTip.GetTip(label), "Positive: uptake; negative: release."));
+            Assert.Contains(labels, label => label.Text == "Buffer-independent enthalpy");
+        }
+        finally
+        {
+            AppSettings.UncertaintyDisplayStyle = previousStyle;
+            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+        }
     }
 
     static ExperimentData CreateData(Buffer? buffer, string name)

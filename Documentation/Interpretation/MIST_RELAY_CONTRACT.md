@@ -174,10 +174,17 @@ Electrostatics adds `usesCurvature`, `ionicStrengthAvailable` and
 An unavailable component has no inferred estimate, sampling count or failure
 reason. The enclosing completion status does not certify both components.
 
-Protonation adds `xAxis: buffer-protonation-enthalpy`,
+Protonation adds `xAxis: buffer-ionization-enthalpy`,
 `yAxis: observed-binding-enthalpy`, `slopeParameter: protonation-change` and
 `interceptParameter: binding-enthalpy`. Both enthalpy axes use J/mol. These
-identify FT-ITC's existing regression convention without recalculating inputs.
+identify the regression without recalculating inputs. `protonation-change` is
+net proton uptake per binding event: positive uptake by the binding system,
+negative release. `binding-enthalpy` is the buffer-independent intercept at the
+experimental pH and retains protonation contributions from the binding partners;
+it is not fully intrinsic binding enthalpy. Earlier packages used the misleading
+axis identifier `buffer-protonation-enthalpy` for the same ionization-enthalpy
+coordinates. That historical label must not trigger sign conversion of saved
+values or intervals.
 
 `uncertaintyPropagation: random-input-sampling` describes propagation of input
 uncertainties by repeated random sampling. The reported point estimate still

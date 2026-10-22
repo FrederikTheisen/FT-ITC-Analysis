@@ -858,7 +858,7 @@ namespace AnalysisITC.Core.Interpretation
                     CompletedAtUtc = analysis.CompletedAtUtc.HasValue ? Utc(analysis.CompletedAtUtc.Value) : null,
                     UncertaintyMethod = analysis.CompletedErrorEstimationMethod?.ToString(),
                     UncertaintyPropagation = "random-input-sampling",
-                    XAxis = "buffer-protonation-enthalpy",
+                    XAxis = "buffer-ionization-enthalpy",
                     YAxis = "observed-binding-enthalpy",
                     SlopeParameter = "protonation-change",
                     InterceptParameter = "binding-enthalpy",

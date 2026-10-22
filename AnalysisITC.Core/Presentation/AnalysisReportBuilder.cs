@@ -448,7 +448,7 @@ namespace AnalysisITC.Core.Presentation
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.Protonation,
                     AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.Protonation),
-                    "Saved buffer-protonation dependence and fitted line."));
+                    "Saved buffer-ionization enthalpy dependence and fitted line."));
             }
 
             AddCorrelationDescriptors(output, result);
@@ -1139,7 +1139,7 @@ namespace AnalysisITC.Core.Presentation
                         "Fitted and derived parameters", result, solution, overview, options));
                 if (members.Count > 1 && CorrelationRequested(options, index))
                     AddCorrelation(section, result, index, options);
-                var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose).ToList();
+                var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose, options.UncertaintyDisplayStyle).ToList();
                 if (result.IsIndependentAssessmentCollection)
                     AddMemberAssessmentItems(fitItems, result, solution);
                 section.Add(new AnalysisReportKeyValueBlock("Fit details", fitItems));
@@ -2464,7 +2464,8 @@ namespace AnalysisITC.Core.Presentation
             items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
         }
 
-        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution, ResultOutputPurpose purpose = ResultOutputPurpose.Standard)
+        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution,
+            ResultOutputPurpose purpose, UncertaintyDisplayStyle uncertaintyStyle)
         {
             var items = new List<AnalysisReportKeyValueItem>();
             if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose))
@@ -2472,7 +2473,7 @@ namespace AnalysisITC.Core.Presentation
             var cValues = AnalysisCValueCalculator.Calculate(solution);
             foreach (var cValue in cValues.Where(_ => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
                 items.Add(Item(cValue.Label,
-                    cValue.IsAvailable ? cValue.Estimate.Value.ToString() : "Unavailable"));
+                    cValue.IsAvailable ? cValue.Estimate.Value.ToString(style: uncertaintyStyle) : "Unavailable"));
             if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose) && cValues.Any(item => item.ConcentrationBasis == "initial-tandem-segment"))
                 items.Add(Item("c-value concentration basis", "Initial tandem segment"));
             var isGlobal = result?.Model?.Parameters?.RequiresGlobalFitting == true
@@ -2858,7 +2859,7 @@ namespace AnalysisITC.Core.Presentation
             }
             return new AnalysisReportPlotBlock(
                 "Protonation dependence",
-                "Buffer protonation enthalpy (" + unit.GetUnit() + "/mol)",
+                "Buffer ionization enthalpy (" + unit.GetUnit() + "/mol)",
                 "Observed enthalpy (" + unit.GetUnit() + "/mol)",
                 series);
         }
@@ -2897,9 +2898,11 @@ namespace AnalysisITC.Core.Presentation
             var unit = ResolveMolarEnergyUnit(result, options);
             section.Add(new AnalysisReportKeyValueBlock("Saved result", new[]
             {
-                Item("Binding enthalpy", analysis.BindingEnthalpy.ToFormattedString(
+                Item(ProtonationPresentation.EnthalpyLabel, analysis.BindingEnthalpy.ToFormattedString(
                     unit, permole: true, style: options.UncertaintyDisplayStyle)),
-                Item("Protonation change", analysis.ProtonationChange.ToString("G5", options.UncertaintyDisplayStyle)),
+                Item(ProtonationPresentation.UptakeLabel, analysis.ProtonationChange.ToString("G5", options.UncertaintyDisplayStyle)),
+                Item("Sign convention", ProtonationPresentation.UptakeToolTip),
+                Item("Intercept meaning", "At experimental pH; retains binding-partner protonation heat."),
                 Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()),
                 Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)),
             }));
