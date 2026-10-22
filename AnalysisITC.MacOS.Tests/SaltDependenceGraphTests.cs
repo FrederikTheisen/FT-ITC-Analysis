@@ -68,6 +68,12 @@ static class SaltDependenceGraphTests
             {
                 view.Setup(analysis, mode);
                 var graph = (ParameterDependenceGraph)typeof(ResultGraphView).GetProperty("Graph", Instance).GetValue(view);
+                if (mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease)
+                {
+                    Check(graph.XLabel == "ln(Salt concentration / M)", "concentration axis label");
+                    Check(graph.YLabel == "ln(Kd / M)", "affinity axis label");
+                    Check(graph.Caption == "Salt dependence (NaCl)", "caption identifies salt");
+                }
                 Check(graph.XValues.Length == salts.Length && graph.YValues.Length == salts.Length,
                     "each experiment must retain its own point, including repeated conditions");
                 Check(ReferenceEquals(graph.Fit, mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease
@@ -77,7 +83,7 @@ static class SaltDependenceGraphTests
                     var logK = logAffinities[index];
                     var counterIon = mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease;
                     var factor = counterIon ? Math.Log(10) : 1;
-                    Near(graph.XValues[index].Value, counterIon ? Math.Log(salts[index] * salts[index]) : Math.Sqrt(salts[index]), "condition coordinate");
+                    Near(graph.XValues[index].Value, counterIon ? Math.Log(salts[index]) : Math.Sqrt(salts[index]), "condition coordinate");
                     Near(graph.YValues[index].Value, -logK * factor, "original fitted center");
                     Near(graph.YValues[index].Lower, -(logK + (uncertainty ? 0.3 : 0)) * factor, "transformed lower interval");
                     Near(graph.YValues[index].Upper, -(logK - (uncertainty ? 0.1 : 0)) * factor, "transformed upper interval");

@@ -835,6 +835,9 @@ namespace AnalysisITC.Core.Viewer
             {
                 Metadata = BuildAdvancedMetadata(analysis),
                 CounterIonReleaseIterations = analysis.CounterIonReleaseIterations,
+                CounterIonUnavailableReason = analysis.CounterIonUnavailableReason,
+                SaltDependenceLabel = ElectrostaticsAnalysisAvailability.SaltDependenceLabel,
+                SaltDependenceToolTip = ElectrostaticsAnalysisAvailability.SaltDependenceToolTip,
                 Kd0Micromolar = !analysis.HasIonicStrengthResult ? null : BuildValueWithError(fit.Kd0, 1e6),
                 SaltSensitivity = !analysis.HasIonicStrengthResult ? null : BuildValueWithError(fit.SaltSensitivity, 1),
                 Curvature = !analysis.HasIonicStrengthResult || !ElectrostaticsAnalysisAvailability.IsUsable(fit.Curvature)
@@ -860,7 +863,7 @@ namespace AnalysisITC.Core.Viewer
             viewer.Plots.Add(debye);
 
             var counterPoints = analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease);
-            var counter = BuildPointPlot("counter-ion-release", "Counter-ion release", "ln(Salt activity)", "ln(Kd / M)", counterPoints, 1, 1);
+            var counter = BuildPointPlot("counter-ion-release", analysis.SaltDependenceCaption, ElectrostaticsAnalysisAvailability.SaltDependenceXAxis, ElectrostaticsAnalysisAvailability.SaltDependenceYAxis, counterPoints, 1, 1);
             if (analysis.HasCounterIonResult && counterPoints.Count > 0)
             {
                 var domain = PlotDomain(counterPoints.Select(point => point.Item1), 0);

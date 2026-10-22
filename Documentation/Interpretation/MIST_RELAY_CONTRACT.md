@@ -173,6 +173,11 @@ Electrostatics adds `usesCurvature`, `ionicStrengthAvailable` and
 `counterIonReleaseCompletedIterations` scoped to their respective components.
 An unavailable component has no inferred estimate, sampling count or failure
 reason. The enclosing completion status does not certify both components.
+When the salt-dependence component is available, electrostatics also adds
+`xAxis: ln-salt-concentration`, `yAxis: ln-dissociation-constant` and
+`slopeParameter: salt-dependence-slope`. Both axes are natural logarithms of
+values in mol/L: the recorded single-salt concentration and Kd. These axes
+describe only that slope, not the ionic-strength values in the same record.
 
 Protonation adds `xAxis: buffer-ionization-enthalpy`,
 `yAxis: observed-binding-enthalpy`, `slopeParameter: protonation-change` and

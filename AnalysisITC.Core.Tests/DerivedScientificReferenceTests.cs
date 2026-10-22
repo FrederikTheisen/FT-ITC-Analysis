@@ -117,7 +117,7 @@ public sealed class DerivedScientificReferenceTests
     }
 
     [Fact]
-    public void CounterIonReleaseRouteMapsSaltActivityAndAffinityInLogSpace()
+    public void SaltDependenceRouteMapsConcentrationAndAffinityInLogSpace()
     {
         var result = LoadSyntheticTemperatureResult();
         for (var index = 0; index < result.Solution.Model.Models.Count; index++)
@@ -137,11 +137,8 @@ public sealed class DerivedScientificReferenceTests
         {
             var point = points[index];
             var concentration = 0.01 * (index + 1);
-            // NaCl contributes one cation and one anion, so this route's
-            // concentration-power proxy is c² before taking ln(activity).
-            var expectedActivity = concentration * concentration;
             Assert.True(double.IsFinite(point.Item1));
-            Assert.Equal(Math.Log(expectedActivity), point.Item1, 12);
+            Assert.Equal(Math.Log(concentration), point.Item1, 12);
             Assert.Equal(Math.Log(1.0e-6), point.Item2.Value, 12);
         }
     }

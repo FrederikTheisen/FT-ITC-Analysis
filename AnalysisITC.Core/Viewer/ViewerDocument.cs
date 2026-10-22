@@ -213,6 +213,9 @@ namespace AnalysisITC.Core.Viewer
     {
         public ViewerAdvancedAnalysisMetadataDto Metadata { get; internal set; }
         public int CounterIonReleaseIterations { get; internal set; }
+        public string CounterIonUnavailableReason { get; internal set; }
+        public string SaltDependenceLabel { get; internal set; }
+        public string SaltDependenceToolTip { get; internal set; }
         public ViewerValueWithErrorDto Kd0Micromolar { get; internal set; }
         public ViewerValueWithErrorDto SaltSensitivity { get; internal set; }
         public ViewerValueWithErrorDto Curvature { get; internal set; }

@@ -846,7 +846,12 @@ namespace AnalysisITC.Core.Interpretation
                         AddAdvancedValue(value, "curvature", "(mol/L)^-1", analysis.IonicStrengthDependenceFit.Curvature);
                 }
                 if (analysis.HasCounterIonResult)
-                    AddAdvancedValue(value, "counter-ion-release", "1", analysis.CounterIonRelease);
+                {
+                    value.XAxis = "ln-salt-concentration";
+                    value.YAxis = "ln-dissociation-constant";
+                    value.SlopeParameter = "salt-dependence-slope";
+                    AddAdvancedValue(value, "salt-dependence-slope", "1", analysis.CounterIonRelease);
+                }
                 output.Add(value);
             }
             if (result.ProtonationAnalysis?.Fit is AnalysisITC.Core.Numerics.LinearFitWithError)

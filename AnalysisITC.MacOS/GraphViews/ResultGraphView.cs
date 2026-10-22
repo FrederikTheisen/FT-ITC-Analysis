@@ -26,6 +26,7 @@ namespace AnalysisITC
         AnalysisResult Result { get; set; }
         new GraphBase Graph { get; set; }
         CorrelationGraphControl correlationControl;
+        string saltDependenceEmptyMessage;
 
         #region Constructors
 
@@ -166,6 +167,8 @@ namespace AnalysisITC
             HideCorrelationHost();
             Type = ResultGraphType.IonicStrengthDependence;
             var dataPoints = analysis.GetDataPoints(mode);
+            saltDependenceEmptyMessage = mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease && dataPoints.Count == 0
+                ? analysis.CounterIonUnavailableReason : null;
 
             switch (mode)
             {
@@ -201,8 +204,9 @@ namespace AnalysisITC
                     {
                         Graph = new ParameterDependenceGraph(this)
                         {
-                            XLabel = "ln(*a*{salt})",
-                            YLabel = $"ln({MarkdownStrings.DissociationConstant})",
+                            XLabel = ElectrostaticsAnalysisAvailability.SaltDependenceXAxis,
+                            Caption = analysis.SaltDependenceCaption,
+                            YLabel = ElectrostaticsAnalysisAvailability.SaltDependenceYAxis,
                             XValues = dataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
                             YValues = dataPoints.Select(dp => dp.Item2).ToArray(),
                             XScaleFactor = 1,
@@ -282,7 +286,14 @@ namespace AnalysisITC
             if (Graph == null)
             {
                 if (Type == ResultGraphType.SelectedFit)
-                    DrawSelectedFitEmptyState();
+                    DrawEmptyState("No experiment selected",
+                        "Select an experiment in the result table or an overview graph to inspect its fit in this analysis result.");
+                return;
+            }
+
+            if (Type == ResultGraphType.IonicStrengthDependence && saltDependenceEmptyMessage != null)
+            {
+                DrawEmptyState("Salt dependence is not available.", saltDependenceEmptyMessage);
                 return;
             }
 
@@ -291,7 +302,7 @@ namespace AnalysisITC
             Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
         }
 
-        void DrawSelectedFitEmptyState()
+        void DrawEmptyState(string titleText, string messageText)
         {
             var paragraph = new NSMutableParagraphStyle
             {
@@ -299,7 +310,7 @@ namespace AnalysisITC
                 LineBreakMode = NSLineBreakMode.ByWordWrapping,
             };
             var title = new NSAttributedString(
-                "No experiment selected",
+                titleText,
                 new NSStringAttributes
                 {
                     Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold),
@@ -307,7 +318,7 @@ namespace AnalysisITC
                     ParagraphStyle = paragraph,
                 });
             var message = new NSAttributedString(
-                "Select an experiment in the result table or an overview graph to inspect its fit in this analysis result.",
+                messageText,
                 new NSStringAttributes
                 {
                     Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),

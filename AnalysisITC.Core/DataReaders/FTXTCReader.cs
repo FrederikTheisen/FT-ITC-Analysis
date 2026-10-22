@@ -1524,7 +1524,7 @@ namespace AnalysisITC.Core.DataReaders
             RestoreOne("electrostatics", state.Electrostatics != null, () =>
             {
                 var value = state.Electrostatics;
-                if (value.SchemaVersion != 1 || value.IonicStrengthIterations < 0 || value.CounterIonReleaseIterations < 0
+                if ((value.SchemaVersion != 1 && value.SchemaVersion != 2) || value.IonicStrengthIterations < 0 || value.CounterIonReleaseIterations < 0
                     || !result.CanRestoreElectrostaticsAnalysis)
                     throw new InvalidDataException("The saved electrostatics analysis has an invalid schema or is unavailable for this result.");
                 var errorMethod = ParseErrorMethod(value.ErrorMethod);
@@ -1534,15 +1534,16 @@ namespace AnalysisITC.Core.DataReaders
                     || (value.IonicStrengthFit != null && (value.IonicStrengthFit.Kd0 == null
                         || value.IonicStrengthFit.Sensitivity == null || value.IonicStrengthFit.Curvature == null
                         || !value.IonicStrengthFit.UsesCurvature.HasValue))
-                    || (value.CounterIonReleaseFit != null && (value.CounterIonReleaseFit.Slope == null
+                    || (value.SchemaVersion == 2 && value.CounterIonReleaseFit != null && (value.CounterIonReleaseFit.Slope == null
                         || value.CounterIonReleaseFit.Intercept == null || !value.CounterIonReleaseFit.ReferenceX.HasValue)))
                     return;
                 result.EnsureElectrostaticsAnalysisForRestore();
                 result.ElectrostaticsAnalysis.RestoreResult(
                     RestoreIonicStrengthFit(value.IonicStrengthFit),
-                    RestoreLinearFit(value.CounterIonReleaseFit),
+                    // Version 1 used powered concentrations; its slope cannot be reused.
+                    value.SchemaVersion == 2 ? RestoreLinearFit(value.CounterIonReleaseFit) : null,
                     value.IonicStrengthIterations,
-                    value.CounterIonReleaseIterations,
+                    value.SchemaVersion == 2 ? value.CounterIonReleaseIterations : 0,
                     value.CompletedAtUtc,
                     errorMethod,
                     value.IncludeBufferInIonicStrengthCalc.Value);

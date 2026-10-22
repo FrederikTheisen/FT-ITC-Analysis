@@ -351,11 +351,11 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Kd at zero ionic strength | only when the ionic-strength component is available |
 | | · Salt sensitivity | only when the ionic-strength component is available |
 | | · Curvature | only when the ionic-strength component is available and curvature is used |
-| | · Counter-ion release | only when the shared Core component-availability check passes |
+| | · Salt-dependence slope | only when the shared Core component-availability check passes |
 | | · Uncertainty | |
 | | · Completed | |
-| **X05** | **Counter-ion release** | requested and completed counter-ion component has usable slope/intercept centers; saved outputs remain eligible when current spacing fails |
-| | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line (legend: "Fitted line") | |
+| **X05** | **Salt dependence** | requested and completed concentration-slope component has usable slope/intercept centers; saved outputs remain eligible when current spacing fails |
+| | · [Plot] ln(Kd / M) vs ln(Salt concentration / M); points + fitted line (legend: "Fitted line"); caption identifies salt | Same single-salt Core coordinates as desktop/viewer. Version-1 counter-ion fits are omitted on read; recalculate to obtain this component. |
 | | · Saved result: same lines as X04 | |
 | **X06** | **Protonation dependence** | |
 | | · [Plot] Observed enthalpy vs Buffer ionization enthalpy; points + fitted line (legend: "Fitted line") | |

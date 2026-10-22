@@ -11,7 +11,28 @@ namespace AnalysisITC.Core.Analysis
     {
         public const string MinimumSpanToolTip = "Requires three ionic strengths separated by over half this span.";
         public const string Kd0ToolTip = "Model-estimated Kd extrapolated to zero ionic strength.";
-        public const string CounterIonRequirement = "Requires three distinct positive ion activities with usable affinities.";
+        public const string SaltDependenceLabel = "Salt-dependence slope";
+        public const string SaltDependenceModeLabel = "Salt Dependence";
+        public const string SaltDependenceToolTip = "Change in log Kd per log salt concentration.";
+        public const string SaltDependenceXAxis = "ln(Salt concentration / M)";
+        public const string SaltDependenceYAxis = "ln(Kd / M)";
+        public const string CounterIonRequirement = "Requires three distinct positive salt concentrations with usable affinities.";
+        public const string SingleSaltRequirement = "Requires valid recorded concentrations of the same single salt throughout the collection.";
+
+        public static string GetSaltDependenceMetadataReason(IEnumerable<SolutionInterface> solutions, out Salt? identity)
+        {
+            identity = null;
+            foreach (var solution in solutions)
+            {
+                if (solution?.Data == null) continue;
+                if (!SaltAttribute.TryGetSingleSaltConcentration(solution.Data, out var salt, out _))
+                    return SingleSaltRequirement;
+                if (!salt.HasValue) continue; // Zero-concentration controls do not add a salt species.
+                if (identity.HasValue && identity != salt) return SingleSaltRequirement;
+                identity = salt;
+            }
+            return string.Empty;
+        }
 
         public static string GetMissingSaltReason(IEnumerable<SolutionInterface> solutions)
         {

@@ -174,6 +174,10 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             DrawAxes(context, plot, range, yTicks);
+            if (mode == ResultAnalysisViewMode.Salt && saltMode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease)
+                DrawRightAlignedText(context, result!.ElectrostaticsAnalysis.SaltDependenceCaption,
+                    new Point(plot.Right, plot.Top - AvaloniaGraphSettings.AxisTitleOffset),
+                    AvaloniaGraphSettings.AxisTitleFontSize, GraphTheme.TextBrush);
 
             foreach (var series in cachedSeries)
             {
@@ -398,25 +402,17 @@ namespace AnalysisITC.Avalonia.Results
                     }
                 case ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease:
                     {
-                        xLabel = "ln(a salt)";
-                        yLabel = "ln(Kd)";
-                        var points = members
-                            .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
-                            .Select(member =>
-                            {
-                                var activity = SaltAttribute.GetIonActivity(member.Solution.Data);
-                                var affinity = member.Parameters[ParameterType.Affinity1];
-                                return activity > 0 && affinity.Value > 0
-                                    ? PointFrom(Math.Log(activity), FWEMath.Log(affinity), member.Solution, 1)
-                                    : GraphPoint.None;
-                            })
+                        xLabel = ElectrostaticsAnalysisAvailability.SaltDependenceXAxis;
+                        yLabel = ElectrostaticsAnalysisAvailability.SaltDependenceYAxis;
+                        var points = analysis.GetSaltDependencePoints()
+                            .Select(point => PointFrom(point.X, point.Y, point.Solution, 1))
                             .Where(point => point.HasValue)
                             .OrderBy(point => point.X)
                             .ToList();
                         return new[]
                         {
                             new GraphSeries(
-                                "Counter Ion Release",
+                                analysis.SaltDependenceCaption,
                                 points,
                                 BuildLinearFit(points, analysis.HasCounterIonResult ? analysis.CounterIonReleaseFit : null, 1))
                         };
@@ -716,6 +712,8 @@ namespace AnalysisITC.Avalonia.Results
             return mode switch
             {
                 ResultAnalysisViewMode.Temperature => "Temperature dependence is not available.",
+                ResultAnalysisViewMode.Salt when saltMode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease
+                    => result?.ElectrostaticsAnalysis?.CounterIonUnavailableReason ?? ElectrostaticsAnalysisAvailability.SingleSaltRequirement,
                 ResultAnalysisViewMode.Salt => "Salt dependence is not available.",
                 ResultAnalysisViewMode.Protonation => "Protonation analysis is not available.",
                 _ => "No advanced analysis selected."

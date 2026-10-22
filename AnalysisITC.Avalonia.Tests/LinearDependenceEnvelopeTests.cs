@@ -65,7 +65,7 @@ public sealed class LinearDependenceEnvelopeTests
     }
 
     [AvaloniaFact]
-    public void CounterIonGraphAndReportCombineBoundsCorrectlyAtNegativeActivityCoordinates()
+    public void CounterIonGraphAndReportCombineBoundsCorrectlyAtNegativeConcentrationCoordinates()
     {
         var result = CreateResult(saltSeries: true);
         result.ElectrostaticsAnalysis.RestoreResult(
@@ -79,15 +79,15 @@ public sealed class LinearDependenceEnvelopeTests
             SaltMode = ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease,
         };
         var fit = GraphFit(graph);
-        AssertCoordinate(Points(fit, "Line")[150], -4, -12);
-        AssertCoordinate(Points(fit, "Lower")[150], -4, -12.8);
-        AssertCoordinate(Points(fit, "Upper")[150], -4, -11.2);
-        var line = ReportLine(result, AnalysisReportAdvancedSectionKind.CounterIonRelease, "Counter-ion release");
+        AssertCoordinate(Points(fit, "Line")[150], -2, -11);
+        AssertCoordinate(Points(fit, "Lower")[150], -2, -11.6);
+        AssertCoordinate(Points(fit, "Upper")[150], -2, -10.4);
+        var line = ReportLine(result, AnalysisReportAdvancedSectionKind.CounterIonRelease, "Salt dependence (NaCl)");
         var midpoint = line.Points[40];
-        Near(midpoint.X, -4);
-        Near(midpoint.Y, -12);
-        Near(midpoint.Lower!.Value, -12.8);
-        Near(midpoint.Upper!.Value, -11.2);
+        Near(midpoint.X, -2);
+        Near(midpoint.Y, -11);
+        Near(midpoint.Lower!.Value, -11.6);
+        Near(midpoint.Upper!.Value, -10.4);
         AssertFinite(fit, line);
     }
 

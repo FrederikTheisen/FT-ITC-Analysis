@@ -64,7 +64,7 @@ static class SaltAnalysisPresentationTests
             typeof(AnalysisResultTabViewController).GetMethod("AddSaltAnalysisSections", Instance).Invoke(controller, null);
             var rows = Descendants(stack).OfType<NSStackView>().ToList();
             CheckRow(rows, "Kd0", ionic, ionic ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : result.ElectrostaticsAnalysis.IonicStrengthUnavailableReason);
-            CheckRow(rows, "Counter ion", counter, counter ? null : result.ElectrostaticsAnalysis.CounterIonUnavailableReason);
+            CheckRow(rows, "Salt-dependence slope", counter, counter ? ElectrostaticsAnalysisAvailability.SaltDependenceToolTip : result.ElectrostaticsAnalysis.CounterIonUnavailableReason);
         }
     }
 

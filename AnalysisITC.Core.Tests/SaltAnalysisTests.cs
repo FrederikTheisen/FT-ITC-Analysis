@@ -21,7 +21,7 @@ using Xunit;
 namespace AnalysisITC.Core.Tests;
 
 [Collection("Solver events")]
-public sealed class SaltAnalysisTests : IDisposable
+public sealed partial class SaltAnalysisTests : IDisposable
 {
     readonly double oldSpan = AppSettings.MinimumIonSpanForFitting;
     readonly bool oldBuffer = AppSettings.IncludeBufferInIonicStrengthCalc;
@@ -133,7 +133,7 @@ public sealed class SaltAnalysisTests : IDisposable
         for (var i = 0; i < logKd.Length; i++)
             result.Solution.Solutions[i].Parameters[ParameterType.Affinity1] = new(-logKd[i] / Math.Log(10));
         Assert.True(await result.ElectrostaticsAnalysis.PerformAnalysisAsync());
-        var x = new[] { .05, .05, .1, .15 }.Select(c => Math.Log(c * c)).ToArray();
+        var x = new[] { .05, .05, .1, .15 }.Select(c => Math.Log(c)).ToArray();
         var meanX = x.Average();
         var meanY = logKd.Average();
         var expected = x.Select((value, i) => (value - meanX) * (logKd[i] - meanY)).Sum()
@@ -174,9 +174,9 @@ public sealed class SaltAnalysisTests : IDisposable
             .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
             .Where(block => block.Title == "Saved result").SelectMany(block => block.Items).ToArray();
         Assert.Equal(!badIonic, items.Any(item => item.Label == "Kd at zero ionic strength"));
-        Assert.Equal(!badCounter, items.Any(item => item.Label == "Counter-ion release"));
+        Assert.Equal(!badCounter, items.Any(item => item.Label == "Salt-dependence slope"));
         Assert.Equal(!badIonic, evidence.Values.Any(value => value.Id == "kd-zero-ionic-strength"));
-        Assert.Equal(!badCounter, evidence.Values.Any(value => value.Id == "counter-ion-release"));
+        Assert.Equal(!badCounter, evidence.Values.Any(value => value.Id == "salt-dependence-slope"));
         var dto = (ViewerElectrostaticsDto)typeof(ViewerDocumentReader).GetMethod("BuildElectrostatics", BindingFlags.Static | BindingFlags.NonPublic)
             .Invoke(null, new object[] { analysis });
         Assert.Equal(badIonic, dto.Kd0Micromolar == null);

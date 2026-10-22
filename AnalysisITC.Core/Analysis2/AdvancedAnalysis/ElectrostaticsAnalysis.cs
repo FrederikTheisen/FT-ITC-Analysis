@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
@@ -38,10 +39,29 @@ namespace AnalysisITC.Core.Analysis
             : !Data.IsElectrostaticsAnalysisDependenceEnabled ? Data.ElectrostaticsAnalysisUnavailableReason
             : (Calculated ? "No usable ionic-strength fit was obtained. " : string.Empty)
                 + ElectrostaticsAnalysisAvailability.IonicStrengthRequirement(Data.SaltAnalysisMinimumSpan);
-        public string CounterIonUnavailableReason => HasCounterIonResult ? string.Empty
-            : (Calculated && DistinctCounterIonActivities() >= 3
-                ? "No usable counter-ion fit was obtained. " : string.Empty)
-                + ElectrostaticsAnalysisAvailability.CounterIonRequirement;
+        public string CounterIonUnavailableReason
+        {
+            get
+            {
+                if (HasCounterIonResult) return string.Empty;
+                var reason = ElectrostaticsAnalysisAvailability.GetSaltDependenceMetadataReason(Data.Solution.Solutions, out _);
+                if (reason.Length > 0) return reason;
+                if (!Data.IsElectrostaticsAnalysisDependenceEnabled) return Data.ElectrostaticsAnalysisUnavailableReason;
+                return GetSaltDependencePoints().Select(point => point.X).Distinct().Count() < 3
+                    ? ElectrostaticsAnalysisAvailability.CounterIonRequirement
+                    : Calculated ? "No salt-dependence result is available. Recalculate the analysis."
+                    : "Run the analysis to calculate the salt-dependence slope.";
+            }
+        }
+
+        public string SaltDependenceCaption
+        {
+            get
+            {
+                var reason = ElectrostaticsAnalysisAvailability.GetSaltDependenceMetadataReason(Data.Solution.Solutions, out var salt);
+                return reason.Length == 0 && salt.HasValue ? "Salt dependence (" + salt.Value.GetProperties().Name + ")" : "Salt dependence";
+            }
+        }
 
         public override Task<bool> PerformAnalysisAsync()
             => Data.IsElectrostaticsAnalysisDependenceEnabled ? base.PerformAnalysisAsync() : Task.FromResult(false);
@@ -72,14 +92,8 @@ namespace AnalysisITC.Core.Analysis
                         dataPoints.Add(new Tuple<double, FloatWithError>(ions, kd));
                     }
                     break;
-                case DissocFitMode.CounterIonRelease: // Join data points
-                    foreach (var sol in Data.Solution.Solutions)
-                    {
-                        if (SaltAttribute.GetIonActivity(sol.Data) > 0)
-                            dataPoints.Add(new Tuple<double, FloatWithError>(
-                                Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-                                FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
-                    }
+                case DissocFitMode.CounterIonRelease:
+                    dataPoints.AddRange(GetSaltDependencePoints().Select(point => Tuple.Create(point.X, point.Y)));
                     break;
                 case DissocFitMode.DebyeHuckel: // Join data points
                     foreach (var sol in Data.Solution.Solutions)
@@ -112,40 +126,28 @@ namespace AnalysisITC.Core.Analysis
             Calculated = true;
         }
 
-        int DistinctCounterIonActivities() => Data.Solution.Solutions
-            .Where(ElectrostaticsAnalysisAvailability.HasUsableAffinity)
-            .Select(solution => SaltAttribute.GetIonActivity(solution.Data))
-            .Where(activity => FWEMath.IsFinite(activity) && activity > 0).Distinct().Count();
-
-        List<(double x, FloatWithError y)> GetCounterIonData()
+        // All fitting and plotting consumers use these same coordinates and complete intervals.
+        public List<(SolutionInterface Solution, double X, FloatWithError Y)> GetSaltDependencePoints()
         {
-            var dps = new List<(double x, FloatWithError y)>();
-
-            foreach (var sol in Data.Solution.Solutions)
+            var points = new List<(SolutionInterface Solution, double X, FloatWithError Y)>();
+            if (ElectrostaticsAnalysisAvailability.GetSaltDependenceMetadataReason(Data.Solution.Solutions, out _).Length > 0)
+                return points;
+            foreach (var solution in Data.Solution.Solutions)
             {
-                var activity = SaltAttribute.GetIonActivity(sol.Data);
-                var affinity = sol.ReportParameters[ParameterType.Affinity1];
-
-                if (!FWEMath.IsFinite(activity) || activity <= 0) continue;
-                if (!ElectrostaticsAnalysisAvailability.IsUsable(affinity) || affinity.Value <= 0) continue;
-
-                var x = Math.Log(activity);
-                var y = FWEMath.Log(affinity);
-
-                if (!FWEMath.IsFinite(x) || !FWEMath.IsFinite(y.Value)) continue;
-
-                dps.Add((x, y));
+                if (solution?.Data == null) continue;
+                SaltAttribute.TryGetSingleSaltConcentration(solution.Data, out _, out var concentration);
+                if (concentration <= 0 || !ElectrostaticsAnalysisAvailability.HasUsableAffinity(solution)) continue;
+                points.Add((solution, Math.Log(concentration), FWEMath.Log(solution.ReportParameters[ParameterType.Affinity1])));
             }
-
-            return dps;
+            return points;
         }
 
         IonTransferResult CalculateIonTransfer()
         {
-            AppEventHandler.PrintAndLog("Performing Ion Release Analysis...");
+            AppEventHandler.PrintAndLog("Performing Salt-dependence Analysis...");
 
-            var dps = GetCounterIonData();
-            if (DistinctCounterIonActivities() < 3)
+            var dps = GetSaltDependencePoints().Select(point => (point.X, point.Y)).ToList();
+            if (dps.Select(point => point.Item1).Distinct().Count() < 3)
                 return new IonTransferResult(FloatWithError.NaN, null, 0);
 
             var result = FitLinear(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray());
@@ -159,7 +161,7 @@ namespace AnalysisITC.Core.Analysis
                 var fitted = FitLinear(_dps.Select(dp => dp.Item1).ToArray(), _dps.Select(dp => dp.Item2).ToArray());
                 if (fitted != null) results.Add(fitted);
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Ion Transfer");
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Salt Dependence");
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
@@ -210,7 +212,7 @@ namespace AnalysisITC.Core.Analysis
 
                 if (r != null) results.Add(r);
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Salt Dependence");
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Ionic Strength");
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
@@ -322,7 +324,7 @@ namespace AnalysisITC.Core.Analysis
             AffinityVsSalt,
             [Description("Debye-Hückel")]
             DebyeHuckel,
-            [Description("Counter Ion Release")]
+            [Description(ElectrostaticsAnalysisAvailability.SaltDependenceModeLabel)]
             CounterIonRelease,
         }
     }

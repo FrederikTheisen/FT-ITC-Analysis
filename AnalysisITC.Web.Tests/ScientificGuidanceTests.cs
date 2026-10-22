@@ -209,10 +209,23 @@ public sealed class ScientificGuidanceTests
         var text = ScientificGuidance.TextFor("3.6.0");
         Assert.Contains("Advanced-analysis evidence", text, StringComparison.Ordinal);
         Assert.Contains("buffer ionization enthalpy on the x axis", text, StringComparison.Ordinal);
-        Assert.Contains("ionic-strength dependence fit from the counter-ion regression", text, StringComparison.Ordinal);
+        Assert.Contains("ionic-strength dependence fit from the salt-dependence regression", text, StringComparison.Ordinal);
         Assert.Contains("residue estimate is not a directly observed residue count", text, StringComparison.Ordinal);
         Assert.Contains("uncertain inputs, including fitted parameter uncertainties", text, StringComparison.Ordinal);
         Assert.Contains("nullable historical uncertainty-method field does not mean", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AllActiveGuidanceUsesConcentrationSlopeWithoutClaimingAnIonCount()
+    {
+        foreach (var text in ScientificGuidance.Variants.Select(variant => variant.Text).Append(SummaryGuidance.Text))
+        {
+            Assert.Contains("salt-dependence-slope", text);
+            Assert.Contains("ln(Kd / M) against ln(recorded single-salt concentration / M)", text);
+            Assert.Contains("Positive means weaker binding", text);
+            Assert.Contains("not a measured ion count", text);
+            Assert.Contains("without activity corrections", text);
+        }
     }
 
     [Fact]

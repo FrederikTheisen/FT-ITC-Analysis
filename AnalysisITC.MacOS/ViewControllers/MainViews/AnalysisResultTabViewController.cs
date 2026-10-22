@@ -35,7 +35,7 @@ namespace AnalysisITC
         {
             "Affinity vs Salt",
             "Debye-Hückel",
-            "Counter Ion Release",
+            ElectrostaticsAnalysisAvailability.SaltDependenceModeLabel,
         };
 
         readonly List<ResultGraphView.ResultGraphType> availableGraphTypes = new();
@@ -1116,7 +1116,7 @@ namespace AnalysisITC
                 && !isUpdatingResult && !ProcessingActivity.IsBusy;
             runButton.ToolTip =
                 ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
-                    : "Calculate electrostatic and counter-ion-release parameters from the result.";
+                    : "Calculate ionic-strength and salt-dependence parameters from the result.";
             runButton.Activated += (_, _) => RunSaltAnalysis();
 
             AddPageView(analysisStack, Section(
@@ -1140,9 +1140,9 @@ namespace AnalysisITC
                     analysis.HasIonicStrengthResult ? analysis.Kd0.AsFormattedConcentration(withunit: true) : "Unavailable",
                     analysis.HasIonicStrengthResult ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : analysis.IonicStrengthUnavailableReason),
                 Pair(
-                    "Counter ion",
+                    ElectrostaticsAnalysisAvailability.SaltDependenceLabel,
                     analysis.HasCounterIonResult ? analysis.CounterIonRelease.AsNumber() : "Unavailable",
-                    analysis.HasCounterIonResult ? null : analysis.CounterIonUnavailableReason)));
+                    analysis.HasCounterIonResult ? ElectrostaticsAnalysisAvailability.SaltDependenceToolTip : analysis.CounterIonUnavailableReason)));
         }
 
         void AddProtonationAnalysisSections()

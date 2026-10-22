@@ -747,7 +747,7 @@ namespace AnalysisITC.Core.Export
     internal sealed class FtxtcElectrostaticsState
     {
         public bool? IncludeBufferInIonicStrengthCalc { get; set; }
-        public int SchemaVersion { get; set; } = 1;
+        public int SchemaVersion { get; set; } = 1; // Missing historical version must not imply the corrected method.
         public FtxtcIonicStrengthFitState IonicStrengthFit { get; set; }
         public FtxtcLinearFitState CounterIonReleaseFit { get; set; }
         public string ErrorMethod { get; set; }
@@ -1995,6 +1995,7 @@ namespace AnalysisITC.Core.Export
             {
                 state.Electrostatics = new FtxtcElectrostaticsState
                 {
+                    SchemaVersion = 2,
                     IncludeBufferInIonicStrengthCalc = electrostatics.CompletedIncludeBufferInIonicStrengthCalc,
                     IonicStrengthFit = CaptureIonicStrengthFit(electrostatics.IonicStrengthDependenceFit),
                     CounterIonReleaseFit = CaptureLinearFit(electrostatics.CounterIonReleaseFit),

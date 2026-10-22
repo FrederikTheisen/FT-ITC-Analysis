@@ -96,10 +96,10 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | $R$ | Gas constant. |
 | $T$ | Absolute temperature, in kelvin, for thermodynamic relationships. |
 | $I$ | Ionic strength used in salt analysis. |
-| $a_{\mathrm{ion}}$ | Ion activity used in Counter Ion Release analysis. |
+| $c_{\mathrm{salt}}$ | Recorded concentration of the single salt used for Salt Dependence. |
 | $\Delta n_{\mathrm{H}^{+}}$ | Fitted slope of observed binding enthalpy against buffer ionization enthalpy: net proton uptake (positive) or release (negative) per binding event. |
 | $\Delta H_{0}$ | Buffer-independent binding enthalpy at the experimental pH: the Protonation intercept, retaining binding-partner protonation heat. |
-| $n_{\mathrm{ion}}$ | Counter-ion slope reported by Counter Ion Release analysis. |
+| $s$ | Salt-dependence slope: change in ln(Kd / M) per change in ln(Salt concentration / M). |
 | $\mathrm{RSS}$ | Raw residual sum of squares, $\sum r_i^2$, over included injections. |
 | $Q$ | Standardized residual sum of squares, $\sum (r_i/\sigma_i)^2$. Weighted AIC/AICc estimates a common variance multiplier as $Q/n$. |
 | $L$ | Gaussian likelihood used for AIC/AICc. |

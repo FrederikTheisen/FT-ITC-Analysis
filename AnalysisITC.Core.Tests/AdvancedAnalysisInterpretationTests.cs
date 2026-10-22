@@ -98,8 +98,8 @@ public sealed partial class AdvancedAnalysisInterpretationTests
         Assert.False(electrostatics.CounterIonReleaseAvailable);
         Assert.Equal(0, electrostatics.IonicStrengthCompletedIterations);
         Assert.Null(electrostatics.CounterIonReleaseCompletedIterations);
-        Assert.Null(electrostatics.CounterIonReleaseAvailable == true ? Value(electrostatics, "counter-ion-release") : null);
-        Assert.DoesNotContain(electrostatics.Values, item => item.Id == "counter-ion-release");
+        Assert.Null(electrostatics.CounterIonReleaseAvailable == true ? Value(electrostatics, "salt-dependence-slope") : null);
+        Assert.DoesNotContain(electrostatics.Values, item => item.Id == "salt-dependence-slope");
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed partial class AdvancedAnalysisInterpretationTests
         Assert.Null(electrostatics.IonicStrengthCompletedIterations);
         Assert.Equal(16, electrostatics.CounterIonReleaseCompletedIterations);
         Assert.DoesNotContain(electrostatics.Values, item => item.Id == "kd-zero-ionic-strength");
-        Assert.Contains(electrostatics.Values, item => item.Id == "counter-ion-release");
+        Assert.Contains(electrostatics.Values, item => item.Id == "salt-dependence-slope");
     }
 
     [Fact]

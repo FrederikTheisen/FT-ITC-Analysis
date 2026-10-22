@@ -369,11 +369,15 @@ For one-set-of-sites results, open the additional analysis tabs when the experim
 
 **Temperature:** inspect temperature dependence and run Spolar–Record structuring analysis when the temperature span is sufficient.
 
-**Ionic strength:** requires salt metadata for every experiment and three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** above the previous selected condition. Counter-ion analysis requires three distinct positive ion activities with usable affinities. Repeated observations remain part of each fit.
+**Ionic strength:** requires salt metadata for every experiment and three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** above the previous selected condition. Repeated observations remain part of each fit.
+
+**Salt-dependence slope:** use the same single salt throughout the collection and at least three distinct positive concentrations with usable affinities. Repeated entries of that salt are summed; repeated observations remain in the fit. Zero concentrations are excluded from logarithmic fitting. Mixed or changing salts disable only this slope component.
+
+**Salt Dependence** plots ln(Kd / M) against ln(Salt concentration / M), with the salt named in the caption. Positive slope means salt weakens binding; negative means salt strengthens binding. A slope of +2 means doubling salt increases Kd fourfold. Monovalent and multivalent salts use the same definition. The calculation uses recorded concentration without activity corrections or inferred buffer/pH-adjustment ions. Ion release or uptake requires an appropriate model; this slope alone is not an ion count. Recalculate older counter-ion results to obtain this slope; primary and ionic-strength fits remain available.
 
 Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
 
-Each salt-plot point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Counter Ion Release views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
+Each salt-plot point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Salt Dependence views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
 
 **Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection. The plot uses buffer ionization enthalpy. **Net proton uptake** is the fitted slope: positive means uptake by the binding system, negative means release; fractional values are average net exchange per binding event. **Buffer-independent enthalpy** is the intercept at the experimental pH; it retains binding-partner protonation contributions and is not fully intrinsic binding enthalpy. Interpret experiments under comparable pH, temperature and other conditions.
 

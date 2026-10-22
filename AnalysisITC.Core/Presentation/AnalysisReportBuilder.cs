@@ -440,7 +440,7 @@ namespace AnalysisITC.Core.Presentation
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.CounterIonRelease,
                     AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.CounterIonRelease),
-                    "Saved counter-ion release dependence and fitted line."));
+                    "Saved salt-concentration dependence and fitted line."));
             }
 
             if (result.ProtonationAnalysis?.Fit is LinearFitWithError)
@@ -2806,20 +2806,9 @@ namespace AnalysisITC.Core.Presentation
         static AnalysisReportPlotBlock BuildCounterIonReleasePlot(AnalysisResult result)
         {
             var analysis = result.ElectrostaticsAnalysis;
-            var points = result.Solution.Solutions
-                .Where(solution => solution?.Data != null
-                    && solution.ReportParameters.ContainsKey(ParameterType.Affinity1))
-                .Select(solution =>
-                {
-                    var activity = SaltAttribute.GetIonActivity(solution.Data);
-                    var affinity = solution.ReportParameters[ParameterType.Affinity1];
-                    return activity > 0 && affinity.Value > 0
-                        ? PlotPoint(Math.Log(activity), FWEMath.Log(affinity), 1, solution.Data.Name)
-                        : null;
-                })
-                .Where(point => point != null)
-                .OrderBy(point => point.X)
-                .ToList();
+            var points = analysis.GetSaltDependencePoints()
+                .Select(point => PlotPoint(point.X, point.Y, 1, point.Solution.Data.Name))
+                .OrderBy(point => point.X).ToList();
             var series = new List<AnalysisReportPlotSeries>
             {
                 new AnalysisReportPlotSeries("Saved observations", AnalysisReportPlotSeriesKind.Points, points)
@@ -2831,7 +2820,7 @@ namespace AnalysisITC.Core.Presentation
                     Sample(domain.min, domain.max, 81), 1));
             }
             return new AnalysisReportPlotBlock(
-                "Counter-ion release", "ln(Salt activity)", "ln(Kd / M)", series);
+                analysis.SaltDependenceCaption, ElectrostaticsAnalysisAvailability.SaltDependenceXAxis, ElectrostaticsAnalysisAvailability.SaltDependenceYAxis, series);
         }
 
         static AnalysisReportPlotBlock BuildProtonationPlot(
@@ -2883,7 +2872,7 @@ namespace AnalysisITC.Core.Presentation
                     items.Add(Item("Curvature", fit.Curvature.ToString("G5", options.UncertaintyDisplayStyle)));
             }
             if (analysis.HasCounterIonResult)
-                items.Add(Item("Counter-ion release", analysis.CounterIonRelease.ToString("G5", options.UncertaintyDisplayStyle)));
+                items.Add(Item(ElectrostaticsAnalysisAvailability.SaltDependenceLabel, analysis.CounterIonRelease.ToString("G5", options.UncertaintyDisplayStyle)));
             items.Add(Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()));
             items.Add(Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)));
             section.Add(new AnalysisReportKeyValueBlock("Saved result", items));
@@ -2918,7 +2907,7 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportAdvancedSectionKind.SpolarRecord => "Structuring",
             AnalysisReportAdvancedSectionKind.AffinityVersusSalt => "Affinity versus salt",
             AnalysisReportAdvancedSectionKind.DebyeHuckel => "Debye-Huckel dependence",
-            AnalysisReportAdvancedSectionKind.CounterIonRelease => "Counter-ion release",
+            AnalysisReportAdvancedSectionKind.CounterIonRelease => "Salt dependence",
             AnalysisReportAdvancedSectionKind.Protonation => "Protonation dependence",
             AnalysisReportAdvancedSectionKind.Correlation => "Parameter correlations",
             _ => "Advanced analysis",

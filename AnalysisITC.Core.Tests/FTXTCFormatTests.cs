@@ -1177,6 +1177,28 @@ namespace AnalysisITC.Core.Tests
                 Assert.Null(temperature.Metadata.ErrorEstimationMethod);
                 Assert.Null(viewerResult.AdvancedAnalyses.Electrostatics.Metadata.ErrorEstimationMethod);
                 Assert.Null(viewerResult.AdvancedAnalyses.Protonation.Metadata.ErrorEstimationMethod);
+
+                using var legacyPackage = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                {
+                    if (!path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
+                    var json = JsonNode.Parse(bytes);
+                    var salt = json["advancedAnalyses"]["electrostatics"];
+                    salt["schemaVersion"] = 1;
+                    // Even an incomplete obsolete slope must not hide surviving components.
+                    salt["counterIonReleaseFit"].AsObject().Remove("slope");
+                    return Encoding.UTF8.GetBytes(json.ToJsonString(FTXTCFormat.JsonOptions));
+                }, schemaMinor: 6);
+                var beforeRead = legacyPackage.ToArray();
+                var legacy = Assert.Single((await FTXTCReader.ReadStream(legacyPackage)).OfType<AnalysisResult>());
+                Assert.Equal(beforeRead, legacyPackage.ToArray());
+                Assert.False(legacy.IsModified);
+                Assert.Equal(expectedResidues.Value, legacy.SpolarRecordAnalysis.Result.Rvalue.Value);
+                Assert.Equal(expectedProtonation.BindingEnthalpy.Value, legacy.ProtonationAnalysis.BindingEnthalpy.Value);
+                Assert.Equal(expectedProtonation.ProtonationChange.Upper, legacy.ProtonationAnalysis.ProtonationChange.Upper);
+                Assert.Equal(expectedElectrostatics.Kd0.Value, legacy.ElectrostaticsAnalysis.Kd0.Value);
+                Assert.Equal(4, legacy.ElectrostaticsAnalysis.CompletedIterations);
+                Assert.False(legacy.ElectrostaticsAnalysis.HasCounterIonResult);
+                Assert.Equal(0, legacy.ElectrostaticsAnalysis.CounterIonReleaseIterations);
             }
             finally
             {

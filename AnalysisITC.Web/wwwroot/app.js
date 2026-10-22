@@ -421,14 +421,14 @@ function renderAdvancedAnalysis(result) {
     if (value.temperatureDependencePlot) plots = [value.temperatureDependencePlot];
   } else if (state.advancedAnalysisKind === "electrostatics") {
     metadataRows = [
-      ["Counter-ion iterations", String(value.counterIonReleaseIterations ?? 0)],
+      ["Salt-dependence iterations", String(value.counterIonReleaseIterations ?? 0)],
       ...metadataRows
     ];
     parameters = [
       advancedParameter("Kd0", value.kd0Micromolar, "µM"),
       advancedParameter("Salt sensitivity", value.saltSensitivity, ""),
       advancedParameter("Curvature", value.curvature, ""),
-      advancedParameter("Counter-ion release", value.counterIonRelease, "")
+      advancedParameter(value.saltDependenceLabel, value.counterIonRelease, "", value.counterIonRelease ? value.saltDependenceToolTip : value.counterIonUnavailableReason)
     ];
     plots = value.plots || [];
   } else {
@@ -472,8 +472,8 @@ function advancedMetadataRows(metadata) {
   ];
 }
 
-function advancedParameter(label, value, unit) {
-  return { label, value, unit };
+function advancedParameter(label, value, unit, tooltip) {
+  return { label, value, unit, tooltip };
 }
 
 function renderAdvancedSummary(metadataRows, parameters) {
@@ -499,6 +499,7 @@ function renderAdvancedSummary(metadataRows, parameters) {
   const body = document.createElement("tbody");
   parameters.forEach((parameter) => {
     const row = document.createElement("tr");
+    if (parameter.tooltip) row.title = parameter.tooltip;
     appendAdvancedCell(row, "Parameter", parameter.label);
     const value = parameter.value;
     if (!value || value.value == null || !Number.isFinite(Number(value.value))) {

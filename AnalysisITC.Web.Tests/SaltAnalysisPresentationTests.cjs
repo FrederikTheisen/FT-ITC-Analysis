@@ -26,19 +26,23 @@ test('saved complete and partial electrostatics remain visible despite current i
     const { context, elements } = browser();
     context.result = { advancedAnalyses: { electrostaticsUnavailableReason: 'Requires three spaced conditions.',
       electrostatics: { kd0Micromolar: { value: 2 }, counterIonRelease: counter,
+        saltDependenceLabel: "Salt-dependence slope", saltDependenceToolTip: "Change in log Kd per log salt concentration.",
+        counterIonUnavailableReason: "No salt-dependence result is available. Recalculate the analysis.",
         plots: [{ key: 'debye-huckel', title: 'Debye-Huckel', series: [{ x: [0, 1], y: [0, 1] }] }] } } };
     vm.runInContext('renderAdvancedAnalysis(result)', context);
     assert.equal(elements.get('result-advanced-card').hidden, false);
     assert.equal(elements.get('advanced-analysis-message').hidden, true);
     assert.equal(context.parameters.find(value => value.label === 'Kd0').value.value, 2);
-    assert.equal(context.parameters.find(value => value.label === 'Counter-ion release').value, counter);
+    const slope = context.parameters.find(value => value.label === 'Salt-dependence slope');
+    assert.equal(slope.value, counter);
+    assert.match(slope.tooltip, counter ? /log Kd/ : /Recalculate/);
   }
 });
 
 test('missing electrostatics values render as unavailable while a zero remains numeric', () => {
   const { context, elements } = browser();
   vm.runInContext(source.slice(source.indexOf('function renderAdvancedSummary('), source.indexOf('function renderAdvancedPlot(')), context);
-  vm.runInContext(`renderAdvancedSummary([], [advancedParameter('Kd0', null, 'µM'), advancedParameter('Counter-ion release', {value: 0}, '')])`, context);
+  vm.runInContext(`renderAdvancedSummary([], [advancedParameter('Kd0', null, 'µM'), advancedParameter('Salt-dependence slope', {value: 0}, '')])`, context);
   const table = elements.get('advanced-analysis-parameter-table').children[0];
   const rows = table.children[1].children;
   assert.equal(rows[0].children[1].textContent, 'Unavailable');

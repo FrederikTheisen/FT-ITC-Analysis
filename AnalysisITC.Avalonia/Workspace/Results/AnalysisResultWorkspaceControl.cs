@@ -38,7 +38,7 @@ namespace AnalysisITC.Avalonia.Results
         const double ResultTableResizeGripWidth = 8;
         const double ResultTableMeasurementSafety = 4;
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
-        static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
+        static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", ElectrostaticsAnalysisAvailability.SaltDependenceModeLabel };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
 
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
@@ -1365,8 +1365,8 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Pair("Kd0", analysis.HasIonicStrengthResult ? analysis.Kd0.AsFormattedConcentration(withunit: true) : "Unavailable",
                     rowTooltip: analysis.HasIonicStrengthResult ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : analysis.IonicStrengthUnavailableReason),
-                Pair("Counter ion", analysis.HasCounterIonResult ? analysis.CounterIonRelease.AsNumber() : "Unavailable",
-                    rowTooltip: analysis.HasCounterIonResult ? null : analysis.CounterIonUnavailableReason),
+                Pair(ElectrostaticsAnalysisAvailability.SaltDependenceLabel, analysis.HasCounterIonResult ? analysis.CounterIonRelease.AsNumber() : "Unavailable",
+                    rowTooltip: analysis.HasCounterIonResult ? ElectrostaticsAnalysisAvailability.SaltDependenceToolTip : analysis.CounterIonUnavailableReason),
             }));
         }
 

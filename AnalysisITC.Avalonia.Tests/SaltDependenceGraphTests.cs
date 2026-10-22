@@ -82,6 +82,52 @@ public sealed class SaltDependenceGraphTests
         finally { AppSettings.IncludeBufferInIonicStrengthCalc = previous; }
     }
 
+    [AvaloniaFact]
+    public void SaltConcentrationGraphKeepsEveryObservationAndIntervalAcrossRebuilds()
+    {
+        var result = CreateSaltResult(new[] { .04, .04, .16, .36 });
+        foreach (var member in result.Solution.Solutions)
+        {
+            member.Data.Attributes.Single(a => a.Key == AttributeKey.Salt).IntValue = (int)Salt.MgCl2;
+            member.Parameters[ParameterType.Affinity1] = new(6, .1, 5.8, 6.4);
+        }
+        result.UpdateSolution(result.Solution);
+        result.ElectrostaticsAnalysis.RestoreResult(new(new(1e-6), new(2), new(0)),
+            new(new(.5, .1, .4, .6), new(-12, .2, -12.4, -11.6), 0),
+            8, 7, DateTime.UtcNow, ErrorEstimationMethod.None, false);
+        var graph = new ResultDependenceGraphControl { Result = result, Mode = ResultAnalysisViewMode.Salt,
+            SaltMode = ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease };
+        for (var repeat = 0; repeat < 3; repeat++)
+        {
+            Assert.Equal(new[] { "Salt dependence (MgCl2)" }, graph.SeriesLabelsForTesting);
+            Assert.Equal("ln(Salt concentration / M)", typeof(ResultDependenceGraphControl).GetField("xLabel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(graph));
+            Assert.Equal("ln(Kd / M)", typeof(ResultDependenceGraphControl).GetField("yLabel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(graph));
+            var series = (IEnumerable)typeof(ResultDependenceGraphControl).GetField("cachedSeries", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(graph)!;
+            var item = Assert.Single(series.Cast<object>());
+            var points = ((IEnumerable)item.GetType().GetProperty("Points")!.GetValue(item)!).Cast<object>().ToArray();
+            Assert.Equal(4, points.Length);
+            for (var i = 0; i < points.Length; i++)
+            {
+                double Value(string name) => (double)points[i].GetType().GetProperty(name)!.GetValue(points[i])!;
+                Assert.Equal(Math.Log(new[] { .04, .04, .16, .36 }[i]), Value("X"), 12);
+                Assert.Equal(-6 * Math.Log(10), Value("Y"), 12);
+                Assert.Equal(-6.4 * Math.Log(10), Value("LowerY"), 12);
+                Assert.Equal(-5.8 * Math.Log(10), Value("UpperY"), 12);
+            }
+            graph.Rebuild();
+        }
+        var directory = Environment.GetEnvironmentVariable("FTITC_SALT_QA_DIRECTORY");
+        if (!string.IsNullOrEmpty(directory))
+        {
+            System.IO.Directory.CreateDirectory(directory);
+            graph.Measure(new global::Avalonia.Size(800, 550));
+            graph.Arrange(new global::Avalonia.Rect(0, 0, 800, 550));
+            using var bitmap = new global::Avalonia.Media.Imaging.RenderTargetBitmap(new global::Avalonia.PixelSize(800, 550));
+            bitmap.Render(graph);
+            bitmap.Save(System.IO.Path.Combine(directory, "avalonia-salt-dependence.png"));
+        }
+    }
+
     internal static AnalysisResult CreateSaltResult(double[]? strengths = null)
     {
         var models = new List<Model>();

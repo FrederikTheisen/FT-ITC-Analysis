@@ -245,25 +245,29 @@ Structuring analysis is evaluated at the **Isoentropic point**, where the model-
 
 ### Salt
 
-The **Salt** view requires a **Salt** attribute for every member and at least three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** preference above the previous selected condition. Repeated conditions remain part of the fit. Its **Graph mode** values are **Affinity vs Salt**, **Debye-Huckel**, and **Counter Ion Release**. Counter-ion release is a salt analysis mode and is presented in the Salt view rather than as a separate advanced analysis.
+The **Salt** view requires a **Salt** attribute for every member and at least three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** preference above the previous selected condition. Its **Graph mode** values are **Affinity vs Salt**, **Debye-Huckel**, and **Salt Dependence**.
 
-The Salt output includes the extrapolated **Kd0** and **Counter ion** result. Counter-ion analysis requires at least three distinct positive ion activities with usable affinities; repeated observations remain part of the fit. The graph mode determines whether the displayed dependence is expressed against salt, ionic strength using Debye-Huckel behavior, or ion activity for counter-ion release. The result is limited by the recorded salt identities, ionic-strength values, and the quality and span of the member affinity values.
+**Salt-dependence slope** describes how the fitted dissociation constant, Kd, changes with recorded salt concentration. Use the same single salt throughout the collection, with at least three distinct positive concentrations and usable affinities. Repeated entries of that salt are added together, and repeated experiments remain separate observations. Zero-concentration controls are excluded from logarithmic fitting. Mixed salts or changing salt identities make this slope unavailable; the separate ionic-strength analysis may still be available.
 
-Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
+The **Salt Dependence** graph identifies the salt and plots `ln(Kd / M)` against `ln(Salt concentration / M)`:
 
-Each point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Counter Ion Release views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
+$$
+\ln(K_{\mathrm d}/1\,\mathrm M)=b+s\ln(c_{\mathrm{salt}}/1\,\mathrm M).
+$$
 
-> **Calculation:**
->
-> $$
-> \ln K_{\mathrm{d}}(I) = \ln K_{\mathrm{d},0} + s\sqrt{I}
-> $$
->
-> $$
-> \ln K_{\mathrm{d}} = b + n_{\mathrm{ion}} \ln a_{\mathrm{ion}}
-> $$
->
-> $I$ is ionic strength, $s$ is the fitted sensitivity, $a_{\mathrm{ion}}$ is ion activity, and $b$ is the fitted intercept. $K_{\mathrm{d},0}$ is the extrapolated value in the Debye–Hückel view. $n_{\mathrm{ion}}$ is the reported slope for Counter Ion Release; its sign is reported by the analysis and is not assigned an interpretation here.
+Here, $s$ is the **Salt-dependence slope**, $b$ is the fitted intercept, and $c_{\mathrm{salt}}$ is the recorded salt concentration. A positive slope means salt weakens binding; a negative slope means salt strengthens binding. For example, a slope of +2 means doubling salt concentration increases Kd fourfold. The same definition applies to monovalent and multivalent salts.
+
+This calculation uses concentration without activity corrections or inferred ions from buffers and pH adjustment. Ion release or uptake is a possible interpretation under an appropriate binding model; the slope alone does not establish an ion count. Keep pH, temperature and other conditions comparable when interpreting a salt series. The distinction between salt activity and mean ionic activity follows [IUPAC, Green Book, §4.13](https://iupac.org/wp-content/uploads/2025/03/IUPAC-GB4Abridged.pdf#page=71); the model dependence of ion-release interpretations is discussed by [Record et al. (1976)](https://doi.org/10.1016/S0022-2836(76)80023-X) and [Chowdhury et al. (2023), Eq. 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC10576128/).
+
+**Kd0** is the extrapolated dissociation constant at zero ionic strength from the separate ionic-strength fit:
+
+$$
+\ln K_{\mathrm d}(I)=\ln K_{\mathrm d,0}+s_I\sqrt I,
+$$
+
+where $I$ is ionic strength and $s_I$ is that fit's salt sensitivity. Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
+
+Each point represents one experiment's fitted affinity and complete uncertainty interval, transformed to the graph's scale. The reported slope is the regression of the original fitted affinities; random input sampling estimates its uncertainty. Recalculate older counter-ion results to obtain the concentration-based slope; their primary fits and saved ionic-strength results remain available.
 
 ### Protonation
 

@@ -22,6 +22,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 	{
         public string XLabel { get; set; } = "";
         public string YLabel { get; set; } = "";
+        public string Caption { get; set; } = "";
 
         public FloatWithError[] XValues { get; set; }
         public FloatWithError[] YValues { get; set; }
@@ -57,6 +58,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             YAxis.LegendTitle = YLabel;
         }
 
+        public override void AutoSetFrame()
+        {
+            base.AutoSetFrame();
+            if (Caption.Length > 0) PlotSize = new CGSize(PlotSize.Width, PlotSize.Height - 22);
+        }
+
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             if (XValues == null || YValues == null) return;
@@ -77,6 +84,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
+            if (Caption.Length > 0)
+            {
+                using (var layer = CGLayer.Create(gc, new CGSize(Frame.Width, 22)))
+                {
+                    DrawString(layer, Caption, new CGPoint(Frame.Width / 2, 11), GraphAxis.TickFont, textcolor: StrokeColor);
+                    gc.DrawLayer(layer, new CGPoint(Frame.X, Frame.Y + Frame.Height));
+                }
+            }
         }
 
         void SetupAxisScalingUnits()

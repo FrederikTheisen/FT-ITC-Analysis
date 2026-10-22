@@ -35,7 +35,7 @@ public sealed class SaltAnalysisPresentationTests
         var panel = (StackPanel)typeof(AnalysisResultWorkspaceControl).GetField("analysisPanel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
         var text = panel.GetLogicalDescendants().OfType<TextBlock>().ToArray();
         CheckRow("Kd0", ionic, result.ElectrostaticsAnalysis.IonicStrengthUnavailableReason);
-        CheckRow("Counter ion", counter, result.ElectrostaticsAnalysis.CounterIonUnavailableReason);
+        CheckRow("Salt-dependence slope", counter, result.ElectrostaticsAnalysis.CounterIonUnavailableReason);
         void CheckRow(string label, bool available, string missingReason)
         {
             var heading = text.Single(value => value.Text == label);
@@ -43,7 +43,7 @@ public sealed class SaltAnalysisPresentationTests
             var value = grid.Children.OfType<TextBlock>().Last();
             Assert.Equal(!available, value.Text == "Unavailable");
             if (!available) Assert.Equal(missingReason, ToolTip.GetTip(value));
-            else if (label == "Kd0") Assert.Equal(ElectrostaticsAnalysisAvailability.Kd0ToolTip, ToolTip.GetTip(value));
+            else Assert.Equal(label == "Kd0" ? ElectrostaticsAnalysisAvailability.Kd0ToolTip : ElectrostaticsAnalysisAvailability.SaltDependenceToolTip, ToolTip.GetTip(value));
         }
     }
 
