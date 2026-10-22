@@ -375,7 +375,7 @@ Saved ionic-strength plots retain the buffer-inclusion setting used for their fi
 
 Each salt-plot point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Counter Ion Release views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
 
-**Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection.
+**Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection. The plot uses buffer ionization enthalpy. **Net proton uptake** is the fitted slope: positive means uptake by the binding system, negative means release; fractional values are average net exchange per binding event. **Buffer-independent enthalpy** is the intercept at the experimental pH; it retains binding-partner protonation contributions and is not fully intrinsic binding enthalpy. Interpret experiments under comparable pH, temperature and other conditions.
 
 Check buffer constants and conditions before interpreting these analyses. Completed structuring outputs retain their saved estimates and evaluation temperature until rerun.
 
@@ -394,7 +394,7 @@ Displayed limits for \dg, \tds, and other derived quantities can use transformat
 For linked temperature relationships, profile intervals propagate reference Gibbs energy and enthalpy coordinates approximately, omitting their correlations. Bootstrap and leave-one-out evaluate complete refitted relationships. Spolar–Record Monte Carlo samples its linked inputs independently, so its uncertainty also omits their correlations.
 
 ## Analysis reports
-Use **Tools > Analysis Report...** or **Export Analysis Report...** to create a PDF from saved Analysis Results and optional supporting experiments. Choose contents, title, units, uncertainty style, and completed advanced analyses. Add your interpretation, or see **Online interpretation** to request a draft.
+Use **Tools > Analysis Report...** or **Export Analysis Report...** to create a PDF from saved Analysis Results and optional supporting experiments. Choose contents, title, units, uncertainty style (also used for c-values), and completed advanced analyses. Add your interpretation, or see **Online interpretation** to request a draft.
 
 Select **Preview**, review warnings and contents, then **Export PDF...**. Use **Update Preview** after editing. **Expanded explanations** adds notes on approximate summary uncertainty, weighted diagnostics, and correlations.
 
