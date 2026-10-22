@@ -236,7 +236,7 @@ between Std. and Diag.
 | Temperature (°C) | Temperature dependence enabled. |
 | [Ions] (mM) | Uses the captured run buffer policy. Electrostatics enabled: one-set-of-sites model, salt metadata for every member, and three usable ionic strengths selected by the strict greedy half-minimum-span spacing rule. |
 | ∆H,prot (kJ/mol) | Protonation enabled: every member has usable buffer thermochemistry and at least two distinct finite buffer enthalpies exist. Missing values never supply a zero. |
-| One column per binding model parameter | Saved model parameters only: N (or α), Kd, and ΔH as applicable per site/step. Offset and derived values (including apparent Kd, ΔG, and −TΔS) are omitted from this overview. "(fixed)" for fixed values; "—" for non-finite values. |
+| One column per binding model parameter | Saved model parameters only: N (or α), Kd, and ΔH as applicable per site/step. Offset and derived values (including apparent Kd, ΔG, and −TΔS) are omitted from this overview. Fixed and free affinities use the unit in their column header. "(fixed)" for fixed values, without uncertainty; "—" for non-finite values. |
 | RMSD (µJ) | Member fit RMSD. |
 
 AIC/AICc are omitted from this overview. Full parameter tables and the separate fit

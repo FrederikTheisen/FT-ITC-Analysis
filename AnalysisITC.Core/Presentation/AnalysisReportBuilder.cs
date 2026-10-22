@@ -1473,7 +1473,8 @@ namespace AnalysisITC.Core.Presentation
                                 ? fixedValue
                                 : row.Solution?.Parameters != null && row.Solution.Parameters.TryGetValue(column.Parameter.Value, out var parameterValue)
                                     ? parameterValue
-                                    : new FloatWithError(double.NaN), overview, options.Copy(), noUncertainty: true).value + " (fixed)"
+                                    : new FloatWithError(double.NaN), overview, options.Copy(), noUncertainty: true,
+                            affinityUnit: column.AffinityUnit).value + " (fixed)"
                         : PutConfidenceIntervalOnNewLine(row[column.Id])
                     : column.Id == "Experiment"
                         ? LabeledExperimentName(labels, index, row[column.Id]) + OverviewAssessmentLine(result, row.Solution, options)
@@ -3168,7 +3169,8 @@ namespace AnalysisITC.Core.Presentation
             FloatWithError value,
             AnalysisResultOverviewTable overview,
             AnalysisReportOptions options,
-            bool noUncertainty = false)
+            bool noUncertainty = false,
+            ConcentrationUnit? affinityUnit = null)
         {
             if (FloatWithError.IsNaN(value) || !IsFinite(value.Value)) return ("—", "");
             var uncertaintyStyle = noUncertainty ? UncertaintyDisplayStyle.None : options.UncertaintyDisplayStyle;
@@ -3177,7 +3179,8 @@ namespace AnalysisITC.Core.Presentation
             string unit;
             if (parent == ParameterType.Affinity1 || parameter == ParameterType.ApparentAffinity)
             {
-                var concentrationUnit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value.Value));
+                var concentrationUnit = affinityUnit
+                    ?? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value.Value));
                 formattedValue = value.AsFormattedConcentration(
                     concentrationUnit,
                     withunit: false,

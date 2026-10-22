@@ -22,13 +22,15 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class AnalysisResultOverviewColumn
     {
-        public AnalysisResultOverviewColumn(string id, string title, AnalysisResultColumnAlignment alignment, double preferredWidth, ParameterType? parameter = null)
+        public AnalysisResultOverviewColumn(string id, string title, AnalysisResultColumnAlignment alignment, double preferredWidth,
+            ParameterType? parameter = null, ConcentrationUnit? affinityUnit = null)
         {
             Id = id;
             Title = title;
             Alignment = alignment;
             PreferredWidth = preferredWidth;
             Parameter = parameter;
+            AffinityUnit = affinityUnit;
         }
 
         public string Id { get; }
@@ -36,6 +38,7 @@ namespace AnalysisITC.Core.Presentation
         public AnalysisResultColumnAlignment Alignment { get; }
         public double PreferredWidth { get; }
         public ParameterType? Parameter { get; }
+        public ConcentrationUnit? AffinityUnit { get; }
     }
 
     public sealed class AnalysisResultOverviewRow
@@ -151,7 +154,8 @@ namespace AnalysisITC.Core.Presentation
                     : AppSettings.DefaultConcentrationUnit;
                 var parameterUnit = IsHeatCapacityParameter(parameter) ? heatCapacityUnit : molarEnergyUnit;
                 var title = ParameterTypeAttribute.TableHeader(options, parameter, containsTwo == true, parameterUnit, affinityUnit.GetName());
-                columns.Add(new AnalysisResultOverviewColumn(ParameterColumnId(parameter), title, AnalysisResultColumnAlignment.Right, 108, parameter));
+                columns.Add(new AnalysisResultOverviewColumn(ParameterColumnId(parameter), title, AnalysisResultColumnAlignment.Right, 108,
+                    parameter, IsAffinityParameter(parameter) ? affinityUnit : (ConcentrationUnit?)null));
             }
 
             columns.Add(new AnalysisResultOverviewColumn("Loss", "RMSD (µJ)", AnalysisResultColumnAlignment.Right, 76));
