@@ -111,6 +111,10 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Reassessment: The original header-prefix and missing-conditions complaints are outdated in the current code. The first header begins with "Analysis Result", with a separate Output purpose column; no-binding experiment chapters retain their conditions and applicable identifiers.
 - Validation: All 31 new Core cases pass, covering missing/non-finite/zero/fractional RMSD in Joules and Calories, whole-table equality under en-US/da-DK/fr-FR across both formats, row modes, uncertainty layouts and output purposes, pooled diagnostics, literal numeric cells, quoted names, and culture restoration after success, empty input and exceptions. All 225 focused Core checks, 33 isolated Avalonia report checks and native `AnalysisReportReferencesTests` pass. Full Core suite: 2,457 passed, one skipped, one failure in `CompetitorSourceSaveSelectedTests.ResultSaveIncludesCompetitorSourceAndItsMembers`, also reproduced in isolation: its `Single` assertion finds multiple saved experiments with competitor references. That save/reopen test does not exercise the changed formatting paths and was left unchanged. `git diff --check` passes.
 - Deferred decision: Standard/Diagnostic report purpose is not persisted or restored with report presentation settings, so reopened windows default to Standard. Decide whether to remember it separately; this change does not alter that behavior or the project format.
+- C-value display correction (2026-10-21, D1/D5): E08 c-values followed the application uncertainty preference instead of the report selector. The shared report builder now passes the selected report style to the existing formatter, preserving its numerical format and calculations for all c-value variants. Runtime reproduction disproved the earlier debug-suffix claim: the existing call selected the ordinary numeric overload, not the debug formatter.
+- Scope decision (2026-10-21): User-entered concentration errors in P01/E02/E03 retain their existing display; the report selector does not override them. Shared Null-parameter formatting and report-purpose persistence remain outside this correction.
+- C-value validation (2026-10-21): All five report-selector regressions fail before the fix and pass afterward, using literal expected c-values across three experiment chapters in a multi-result report while checking that concentration-error text stays unchanged. All 502 focused report/c-value/number-formatting checks pass. Full Core suite: 4,874 passed, one existing opt-in skip, no failures. The report map E08, manual, and shared help are updated; `git diff --check` passes.
+
 
 ## ITC-016 — Independent multi-experiment fits share one binding assessment
 
@@ -423,6 +427,8 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: The interpretation access code is sent as a Bearer credential to the relay, but it is saved unencrypted in NSUserDefaults on macOS and in the Avalonia JSON settings file. Any process running as the user, and any backup of those files, can read it. Only a SHA-256 hash is needed for the cached-access checks, but the plain value is stored as well.
 - Suggestion: Store the code in the OS credential store (Keychain on macOS; the platform equivalent for Avalonia) and keep only the hash in preferences. Migrate existing values on first load.
 - Comment: the interpretation access code is not super secret and I would prefer not starting to mess with platform secure storage if possible. It should be considered as an activation code, not a personal secret.
+- Additional finding (2026-10-21, F11; Plausible credential-retention question by source review only): sent `registration_delivery.protected_code` remains recoverable using the database plus usable Data Protection keys; it is encrypted outbox material, distinct from plaintext client preferences. Decide whether to clear it after successful delivery, retain it for justified resend/reconciliation with bounded expiry, or use narrower recovery storage. Check startup reconciliation/resend dependencies and deployed key protection before choosing. Preserve the maintainer’s activation-code sensitivity assessment above. No runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+
 
 ## ITC-058 - Asymmetric least squares baseline has no effect
 
@@ -979,6 +985,8 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: Reading a missing or malformed mail configuration can throw `IOException` or `JsonException`. `ProcessOneAsync` does not catch either, so the worker retries without recording an attempt or advancing the delivery's next-attempt time. The five-attempt retry cycle therefore never exhausts for these configuration failures.
 - Consequence: A pending delivery can remain at the front of the queue indefinitely while its retry count and delivery failure summary do not describe the configuration failure.
 - Boundary: Preserve the ITC-113 distinction between a provisioned credential and failed email delivery. Decide and test how configuration failures should affect retry scheduling and administrative diagnostics before changing the sender.
+- Additional finding (2026-10-21, F2; Confirmed by source review only): `ReadConfigAsync` can also throw InvalidOperationException for JSON null. Worker logging does not advance attempts/next_attempt_utc, so a persistently failing due row can starve later deliveries. The original poison protected-payload claim is already handled: GetPending catches CryptographicException/FormatException/InvalidDataException and marks that cycle failed. Direction/Verify: extend this entry’s existing configuration-failure policy and queue-advancement checks; no separate poison-row issue is opened. No runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+
 
 ## ITC-121 - Same-named inconclusive members collapse in app health reasons
 
@@ -1095,12 +1103,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-132 - One-site heat content loses precision through subtractive cancellation
 
-- Priority: Low; numerical stability follow-up.
-- Status: Open (2026-10-20); binding-model review finding 5. Algebraic/source review only; no builds, tests or numerical sweep.
-- Location: `AnalysisITC.Core/Analysis2/Models/OneSetOfSites.cs`, `GetHeatContent`; related rationalized calculation in `CompetitiveBinding.OneLigandState`.
-- Problem: With `s = 1 + XnM + nKM`, the bound-fraction term is evaluated as `s - sqrt(s*s - 4*XnM)`, subtracting nearly equal values. Its algebraically equivalent rationalized form is `4*XnM / (s + sqrt(s*s - 4*XnM))`. At `XnM` around 1e-3 and negligible `nKM`, the original term is about 2e-3 and loses roughly three decimal digits of precision.
-- Consequence and qualification: The cited example has small relative error, but it does not establish a universal 1e-13 bound. Cancellation can worsen for smaller ligand ratios or larger `nKM`, potentially rounding a positive contribution to zero. Practical impact across supported parameter ranges and injection heat differences has not been measured; it is not established that the issue affects only floating-point-precision forward comparisons.
-- Suggested direction: Evaluate the algebraically equivalent rationalized term while preserving the binding equation, syringe correction and injection bookkeeping. Check independent numerical expectations across tight/weak binding, small ratios and supported limits, including integrated injection heats; do not use solver recovery as evidence of forward-model accuracy.
+- Status: Closed (2026-10-21); maintainer decision: the numerical improvement is not worth the implementation effort.
+- Problem: `AnalysisITC.Core/Analysis2/Models/OneSetOfSites.cs`, `GetHeatContent`, subtracts nearly equal terms. Comparison of production injection predictions against an independent high-precision mass-action solution confirmed cancellation, but the maximum absolute error was only 6.9e-12 µcal per injection in the plausible-input sweep and 1.4e-12 µcal in saved fixture fits. The latter was at most 1.7e-11 of the stored heat SD. These measurements audit arithmetic at fixed inputs, not solver behavior or the physical injection protocol.
+- Resolution: Retain the current implementation. No meaningful experimental impact was demonstrated in the plausible-input sweep or saved fits. Extreme weak-binding trials can still lose tiny contributions, and deliberately forced near-equivalence cases at extreme affinity can produce non-finite predictions; these limitations are accepted. Rationalizing the outer subtraction alone would not resolve the discriminant failure. No application code changed.
 
 ## ITC-133 - Microcalorie scale is missing from the shared Energy scaling API
 
@@ -1327,6 +1332,175 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Next verification: Once a handling policy is chosen, add focused regression tests through the real local/global bootstrap entry points for attempted/successful/failed counts, retained inputs, cancellation and all-invalid behavior. Preserve the original best-fit center and verify that valid uncertain options and zero-error options retain their agreed behavior.
 - Evidence: `/private/tmp/itc129-option-sampling-probe.log`, `/private/tmp/itc162-refit-accounting.log`, and source inspection of evaluation and bootstrap exception paths. No implementation code was changed.
 
+## ITC-163 - TA injection duration mixes volume and time units
+
+- Priority: Low.
+- Status: Open question (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, A2; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `InjectionData.FromTAFileLine` (`DataClasses/InjectionData.cs:90–111`); `TAFileReader.AddInjection`; `PeakShapeIntegrationEstimator.EstimateEndOffset`.
+- Problem: TA volumes are converted to litres, then assigned as `Duration = 2 * (float)v`; 2 µL therefore becomes 4e-6 seconds. The peak-shape fallback `max(Duration, 0.05 * Delay)` masks some effects; an actual duration error in rendered or integrated output was not reproduced.
+- Suggested direction: Establish the intended TA duration source: recorded timing, a documented instrument assumption, or unavailable duration. Do not infer a seconds value directly from litres.
+- Verify: Check an independently understood TA file and all duration consumers, including peak-shape integration; preserve injection volumes and bookkeeping.
+
+## ITC-164 - TA filesystem dates are formatted as UTC clock time
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, A3; current-tree verification 2026-10-21.
+- Location: `DataReaders/TAFileReader.cs:18`; `DataClasses/ITCDataContainer.cs`, date presentation; `Presentation/LocalDateTimeFormatter.cs` (Core).
+- Problem: TA stores `File.GetLastWriteTimeUtc`, whereas peer filesystem-date readers store local times. Experiment date labels format the stored clock directly without converting UTC to local time, so TA and peer readers can display different local clock conventions.
+- Suggested direction: Choose a consistent timezone convention for imported filesystem dates and their display, retaining accurate FileSystem provenance. Creation-versus-modification timestamp policy is a separate choice.
+- Verify: Compare source timestamp, stored kind and displayed time outside UTC, including a daylight-saving boundary; no date probe was run.
+
+## ITC-165 - PEAQ import assumes complete method and instrument metadata
+
+- Priority: Medium.
+- Status: Resolved locally (2026-10-21).
+- Origin: Read-only code review 2026-10-20/21, A5; current-tree verification 2026-10-21.
+- Location: Core `DataReaders/PEAQReader.cs`, `ReadFile` (`CellID`, `plannedInjectionScheme[id]`, first `Experiment`); `DataClasses/ITCInstrument.cs`, `TryResolveMicroCalInstrument`.
+- Problem: Missing CellID reaches a null-unsafe string lookup, and recorded injections index the planned scheme without checking coverage. Missing/short Method data can abort import. Only the first APJ experiment is imported; its source comment is not a user-facing warning. ModifiedDate parsing itself is already invariant and null-safe (A4 rejected).
+- Suggested direction: Validate instrument/scheme assumptions and report actionable import failures. Separately choose whether multi-experiment APJ files should warn, import all members, or retain the current first-member scope.
+- Verify: Missing CellID, absent/short Method, sparse/out-of-range indices, and an APJ with two experiments; check which inputs the supported export specification permits.
+- Resolution: APJ import reads every experiment in file order. A single experiment keeps the file name; multiple experiments use their PEAQ Name, or file name plus number when blank. An experiment that fails to read is skipped and logged; the readable ones are kept. The file fails only when no experiment can be read. Planned Method spacing is still used when present; without it, delay is the gap to the next recorded injection, or to the trace end for the last one. A missing or unrecognized CellID leaves the instrument Unknown; PEAQ imports skip cell-volume inference. No new validation rules for injection history were added. Manual and README updated.
+
+## ITC-166 - Malformed integrated concentration tokens become zero
+
+- Priority: Medium.
+- Status: Resolved locally (2026-10-21).
+- Origin: Read-only code review 2026-10-20/21, A7; current-tree verification 2026-10-21.
+- Location: Core `DataReaders/IntegratedHeatReader.cs`, `TryGet` and delimited Xt/Mt/Xmt reads (`192–194`, `636–650`).
+- Problem: `TryGet` initially assigns NaN, but failed `double.TryParse(..., out value)` overwrites it with zero. Xt/Mt/Xmt callers ignore the return flag, so n/a or #N/A can become finite zero state/ratio values. Blank and -- tokens take a different absence path.
+- Suggested direction: Preserve parse validity through concentration-state handling; distinguish absent, malformed and real zero values without silently replacing malformed input with zero.
+- Verify: Reader-level Xt/Mt/Xmt cases for n/a, #N/A, blank, -- and genuine zero; inspect resulting concentrations, inferred metadata and row classification.
+- Resolution: A failed parse now leaves NaN. A present Xt/Mt/Xmt token that is not a finite number stops import with the column and line, matching the existing INJV check. Blank and -- remain unavailable; numeric zero is unchanged.
+
+## ITC-167 - Import protocol casing depends on the current culture
+
+- Priority: Low.
+- Status: Resolved locally (2026-10-21).
+- Origin: Read-only code review 2026-10-20/21, A8; current-tree verification 2026-10-21.
+- Location: Core `DataReaders/DataReaders.cs:63`, `GetFormat`; `DataReaders/PEAQReader.cs`, Feedback parsing.
+- Problem: Extension detection uses current-culture `ToLower()`, so uppercase .ITC becomes .ıtc under tr-TR and misses the expected format. PEAQ Feedback uses the same casing pattern for protocol tokens such as HIGH. The boolean token true has no analogous Turkish-I failure.
+- Suggested direction: Use ordinal case-insensitive matching or invariant casing for extensions and file-format tokens, preserving the accepted token set.
+- Verify: Recognize uppercase/lowercase supported extensions and HIGH/LOW feedback under tr-TR and en-US.
+- Resolution: Extension and Feedback casing use `ToLowerInvariant`; the PEAQ boolean uses ordinal case-insensitive comparison. Accepted tokens unchanged.
+- Validation (ITC-165/166/167): New `ImportReaderRegressionTests` cover two-experiment APJ naming, an empty experiment skipped between two readable ones, all-unreadable files, missing Method (recorded gaps 180/185/180 s from fixture start times and trace end), planned spacing retained when Method exists, missing/blank/unrecognized CellID staying Unknown, uppercase extensions and HIGH feedback under tr-TR/en-US, and n/a, #N/A, text and Infinity in Xt/Mt/Xmt. Full Core suite: 4,878 passed, 1 skipped, 0 failed. Tests were not first run against the old code; desktop clients not checked by hand.
+
+## ITC-168 - Origin cell-volume inference uses a different displacement assumption
+
+- Priority: Medium-low; scientific convention question.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, A9; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `DataReaders/OriginProjectReader.cs`, `InferCellVolume`, neighboring syringe-concentration and actual-concentration fallbacks (`718–790`).
+- Problem: Without ITC_CELL_VOL, inferred volume is q/(1−r), where q is injection volume and r the successive Mt ratio. Neighboring fallbacks use the symmetric MicroCal concentration update. For one symmetric step, inversion gives q(1+r)/(2(1−r)), differing by q/2. Cumulative-row conventions can change that comparison; the correct Origin fallback convention remains unverified.
+- Suggested direction: Choose a source-supported bookkeeping convention, require missing volume metadata, or retain inference with an explicit assumption. This concerns concentration bookkeeping, not dilution-heat models.
+- Verify: Use an independently understood Origin dataset lacking ITC_CELL_VOL, including variable injection volumes and row timing; compare inferred volume and concentrations.
+
+## ITC-169 - Buffer-reference refresh bypasses target processing invalidation
+
+- Priority: High.
+- Status: Resolved locally (2026-10-21). Existing uncommitted candidate reviewed and verified; no additional production change was required by this review.
+- Origin: Read-only code review 2026-10-20/21, B1; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/ExperimentData.cs`, `SetBufferSubtraction`, `ClearBufferSubtraction`, `Reference_ProcessingUpdated`, `RefreshBufferSubtraction`, `UpdateProcessing`; `AnalysisResult.ValidityReport`.
+- Problem: Reference updates refresh corrected PeakArea and the stored target reference snapshot when one exists, without its processing revision, prediction-cache invalidation, solution invalidation or ProcessingUpdated event. Set/Clear also refresh outside UpdateProcessing. On-demand saved-result comparison can detect changed heats/settings when queried, so universal silent validity is not established; it does not supply the missing target events/cache reset.
+- Suggested direction: Route corrected-heat changes through the target processing lifecycle while preserving raw heats and avoiding duplicate notifications. Keep on-demand validity and immediate cache/event behavior distinct.
+- Verify: Fit a target, change/reference-toggle/clear subtraction, and check corrected heats, revision, prediction cache, attached solutions, notifications and saved-result validity, including changes near snapshot tolerances.
+- Resolution: The existing `ChangeBufferSubtraction` candidate compares the net reference/method and corrected heat/SD state, routes real changes through `UpdateProcessing` once, and avoids duplicate processing publication for nested apply/copy/clear operations and unchanged refreshes. The existing invalidation path clears prediction caches and invalidates attached and saved solution graphs while retaining the solution objects and raw heats. `RestoreBufferSubtraction`, used by `DataManager.ApplyOptions`, reattaches restored corrections without invalidating matching saved fits.
+- Comparison policy (maintainer decision, 2026-10-21): In-session change detection remains exact; on-demand saved-result comparison keeps its existing tolerance. `SameDouble` and all validity tolerances are unchanged. The `below-snapshot-tolerance` regression still expects immediate in-session invalidation while `IsValidForCurrentData` remains true. ITC-187 is closed as “Reviewed, no change.”
+- Validation (2026-10-21, preceding ITC-169 review): Full Debug `AnalysisITC.Core.Tests`: 4,889 passed, one skipped, zero failed (the existing opt-in external-reference diagnostic was skipped). Avalonia Debug build succeeded; all 59 focused checks in `TandemBufferSubtractionTests`, `BufferSubtractionGraphControlTests` and `DetailsValuePreservationTests` passed on macOS. Native managed macOS build and the existing `TandemBufferSubtractionTests`, `DetailsValuePreservationTests` and `ProcessingInitializationTests` harnesses passed. Corrected-heat and save/reopen expectations use constructed target/reference values. Prediction-cache evidence combines source tracing through the target revision/cache invalidation path with the existing cache lifecycle tests in the full Core suite; no separate buffer-specific cache fixture was added.
+- Coverage and boundary: Windows, Linux and the Web viewer were not attempted; interactive desktop workflows and separate architecture coverage were not tested. These results verify the existing dirty-tree candidate, not a packaged release. This follow-up only updates documentation: no additional code/test changes, tolerance changes, commits or pushes. Other uncommitted work is outside this review.
+
+
+## ITC-170 - Comment parsing reuses the first buffer default pH
+
+- Priority: Medium.
+- Status: Reviewed, no change (2026-10-21). A sample has one pH, so buffers parsed from one comment share it; separate per-buffer defaults were not introduced.
+- Origin: Read-only code review 2026-10-20/21, B2; current-tree verification 2026-10-21.
+- Location: Core `DataReaders/DataReaders.cs`, `RawDataReader.ProcessExperiment`, shared pH variable and buffer loop (`492–560`).
+- Problem: Without explicit comment pH, the first matched buffer assigns its default into the shared nullable pH. Later buffers enter the HasValue branch and inherit that first default instead of their own. The assignment depends on buffer enumeration order.
+- Suggested direction: Keep explicitly parsed global pH separate from each buffer fallback. Preserve the chosen global-pH behavior and determine each missing-pH default independently.
+- Verify: A comment naming Hepes and Tris without pH, both orders, plus an explicit global pH; compare stored buffer values with independent defaults.
+
+## ITC-171 - Duplicating an experiment omits its comments
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B3; current-tree verification 2026-10-21.
+- Location: Core `DataManager.cs`, `DuplicateSelectedData` (`643–686`).
+- Problem: The duplicate initializer copies other metadata and copied attributes but omits Comments. This loses user/import notes on duplication. Resolved ITC-060 covered applied buffer correction and remains unchanged; comments are a separate omitted field.
+- Suggested direction: Preserve comments through ordinary duplication, following existing metadata-copy conventions.
+- Verify: Duplicate a commented experiment and check text equality, edit independence, attributes and correction retention; leave ITC-060 resolved.
+
+## ITC-172 - Locked spline merge indexes a list after changing its positions
+
+- Priority: Medium-low.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B4; current-tree verification 2026-10-21.
+- Location: Core `DataProcessing.cs`, `MergeLockedSplinePoints` (`1782–1805`).
+- Problem: Earlier locked-point iterations remove matching generated points and append replacements. A later non-user locked point with no nearby generated match indexes that changed list by its old ID. Bounds checks prevent an invalid index, but do not establish identity; the wrong point could be replaced. A triggering ordering was not reproduced.
+- Suggested direction: Resolve replacements using stable identity/time or preserve the original indexing during merge, keeping position and slope locks intact.
+- Verify: Construct multiple locked points with earlier removals and a later no-match generated point; check retained points, ordering and locked values independently.
+
+## ITC-173 - Baseline subtraction publishes a list before filling it
+
+- Priority: Medium.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B5; current-tree verification 2026-10-21.
+- Location: Core `DataProcessing.cs`, `SubtractBaselineCore` (`868–880`), asynchronous peak/integration processing; corrected-trace consumers.
+- Problem: The method assigns a new empty BaseLineCorrectedDataPoints list, then appends into that published instance. Worker processing can overlap readers unless their synchronization prevents it, creating a possible partial trace or enumeration failure. No actual reader interleaving was established.
+- Suggested direction: Build a complete replacement before publication, after checking current processing ownership and UI-read guarantees. Preserve existing success/failure behavior.
+- Verify: Trace graph/export/autosave consumers during worker processing; controlled interruption or concurrent enumeration should establish whether partial state is observable before implementation.
+
+## ITC-174 - Choose fitted buffer-subtraction uncertainty at saturated fits
+
+- Priority: Medium-low; scientific decision.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B7; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `DataClasses/BufferSubtraction.cs`, fitted models and `EstimateResidualSd` (`269–309`, `452–463`).
+- Problem: Residual SD is zero when points do not exceed parameter count (two for Linear, three for exponential decay). Fitted-heat SD is based on residual scatter rather than the reference injections’ integration SDs. This does not establish an unintended omission: zero error means no error, and the statistical convention needs a decision.
+- Suggested direction: Choose whether saturated fits report no residual error, unavailable fitted uncertainty, or another justified estimate; separately choose whether measured reference SDs enter weighting/propagation. Distinguish input measurement SD from residual scatter.
+- Verify: Specify independent expectations for saturated/overdetermined fits, zero/nonzero reference SDs and fitted predictions; preserve exact zero-error inputs and best-fit centers.
+
+## ITC-175 - Choose compatibility requirements for matched buffer injections
+
+- Priority: Medium-low; scientific decision.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B8; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `DataClasses/BufferSubtraction.cs`, `BuildMatchedInjectionModel` and reference injection-number lookup.
+- Problem: Matched subtraction selects reference heats by injection number without comparing target/reference volumes. A differing injection program can therefore pair different injected amounts. The mechanism is present; whether those pairs are scientifically acceptable is unproven.
+- Suggested direction: Choose number-only matching, a volume-compatibility requirement/warning, or an explicitly justified scaling/interpolation rule. Do not silently select a new subtraction model.
+- Verify: Specify expected corrected heats for matched and mismatched programs, variable volumes, missing reference injections and excluded injections.
+
+## ITC-176 - Experiment information formatting fails with no injections
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B9; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/ExperimentData.cs`, `GetInfoString` (`894–935`).
+- Problem: An empty injection list leaves the description empty, then Substring(0, Length−2) requests a negative length. The formatting method can throw; reachability through an ordinary accepted import was not established.
+- Suggested direction: Handle an empty injection summary explicitly, retaining existing nonempty text.
+- Verify: Format an empty experiment and ordinary single/grouped injection descriptions; inspect actual details-view admission of empty data.
+
+## ITC-177 - Clone attribute isolation is incomplete
+
+- Priority: Medium-low.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B10; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/ExperimentData.cs`, synthetic clone attribute copy; `TandemConcatenationTool.ConcatCore`; `RefreshBufferSubtraction`.
+- Problem: Synthetic clones reuse ExperimentAttribute instances. Tandem concatenation copies the BufferSubtraction attribute but shares other attribute instances. Reference refresh can replace BufferReferenceSnapshot on a synthetic clone's shared attribute; that specific mechanism does not apply to the copied tandem buffer attribute. No workflow producing an incorrect result from the remaining sharing was established.
+- Suggested direction: Define clone ownership for mutable attributes and captured reference evidence; use existing copying semantics where isolation is required.
+- Verify: Trace synthetic and concatenated data through reference refreshes and attribute edits; check original/clone independence and preserved captured evidence without changing primary inputs.
+
+## ITC-178 - Concentration perturbation overwrites clone Ratio with molar ratio
+
+- Priority: Low; consumer impact unproven.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, B11; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/ExperimentData.cs`, `AddConcentrationVariance` (`704–724`); `InjectionDisplacementCalculator.ApplyToInjection`; `Analysis2/BootstrapModelSnapshot.cs`.
+- Problem: Concentration perturbation assigns Ratio=titrant/cell regardless of AxisType, whereas normal displacement selects the requested coordinate. Ratio is retained in bootstrap snapshots, but no consequential clone consumer was established. Resolved ITC-135 fixed GuessN using physical concentrations and remains unchanged.
+- Suggested direction: Trace clone-coordinate consumers before choosing whether to recompute the selected coordinate or retain the internal molar-ratio convention. Do not reopen the settled stoichiometry-guess change.
+- Verify: Dissociation/concentration-axis clones with concentration variation on/off; inspect bootstrap snapshot/restoration and any prediction/plot consumer before asserting user-visible impact.
+
 ## ITC-179 - Percentile confidence-bound indexing is sensitive to floating rounding
 
 - Priority: Medium.
@@ -1352,6 +1526,16 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Boundary: The linear isoentropic-temperature calculation is repeatable. Explicit Spolar–Record reruns still execute the `FTSRMethod.Calculate` Monte Carlo loop calling `Evaluate(exact: false)` with the existing stochastic stream; downstream uncertainty may change. This does not make Spolar–Record fully repeatable. CR-068 remains unchanged.
 - Full validation (2026-10-21): `dotnet test AnalysisITC.Core.Tests/AnalysisITC.Core.Tests.csproj --no-build --no-restore` passed 4,928 tests, skipped 1, failed 0 after rebuilding and passing all 39 focused ITC-179/180 cases. The skipped case is `ExternalIntegratedHeatReferenceTests.NativePytcHigherStepProtocolRetainsStrictRecoveryDiagnostic`.
 
+## ITC-181 - Choose the autocorrelation ceiling for integration uncertainty
+
+- Priority: Medium; scientific decision.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, C3; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `Math/Statistics.cs`, `EstimateAutoCorrelation` (`59–85`), and integration variance inflation consumers.
+- Problem: After clamping r to ±0.999, the method returns min(r,0.85). Positive r above 0.85 is therefore capped, limiting the AR(1) factor (1+r)/(1−r) to about 12.3. The earlier upper 0.999 clamp is ineffective; its lower clamp still matters. Source review did not establish the rationale or actual underestimation.
+- Suggested direction: Choose whether to retain a justified ceiling, use a different documented bound/estimator, or decline uncertainty when correlation cannot be estimated reliably. Do not assume stronger correlation from filtering alone.
+- Verify: Independent covariance/variance expectations across known AR(1) correlations, sampling gaps and integration lengths; distinguish an intentional regularization policy from accuracy claims.
+
 ## ITC-182 - Optimizer fallback tolerance may dominate small unweighted objectives
 
 - Priority: Medium.
@@ -1362,6 +1546,56 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Resolution (2026-10-22): Removed `IsMeaningfullyWorse`; both acceptance paths compare the recomputed original and final objectives directly. Ordinary starts accept only a valid candidate with objective <= the original; inward-adjusted starts retain their existing strict-improvement rule. The LM zero-value kick can change the optimizer start without setting `usedInward`, and now also restores the exact original parameters when its final objective is worse. Existing restoration, validity checks, tie handling, optimizer initialization, stopping tolerances, and separate objective/unweighted RMSD reporting are retained.
 - Validation: Before the fix, the focused solver/recoverable-candidate run had 192 passed and five failed: four local/global unweighted worsening cases at heat scales 1 and 30, plus the production LM default-bounds zero-start case. Larger scales 100 and 1,000, weighted controls, improvements, ordinary ties, and the existing inward cases already passed. After the fix all 197 focused tests pass, including retained-parameter objective and independently calculated unweighted RMSD checks. Full baseline: 5,019 passed, five identical failures, one existing opt-in skip; final full Core suite: 5,024 passed, zero failed, the same skip. All five reproduced failures now pass; no other test outcome changed. The older ITC-015/ITC-090 failures mentioned in the implementation plan did not occur in either full run. These are fitting-robustness tests, not external forward-model validation. Evidence: `/private/tmp/itc182-20261022/` (logs and TRX files).
 - Bootstrap scope: Bootstrap refits share this final parameter-selection path; ITC-185's refit effort and retained-refit eligibility policy are unchanged.
+
+## ITC-183 - Scalar reciprocal lacks the shared zero-crossing interval guard
+
+- Priority: Medium.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, C5; current-tree verification 2026-10-21.
+- Location: Core `Math/NumberStructs.cs`, `operator /(double, FloatWithError)`; `Math/FWEMath.cs`, `Divide`; stoichiometry-guide calculation.
+- Problem: The scalar reciprocal transforms endpoints without checking whether the denominator interval spans zero, unlike FWEMath.Divide. It can produce a finite interval excluding the estimate across a singularity. The operator is used by syringe-correction stoichiometry guides; occurrence in actual fitted inputs was not established.
+- Suggested direction: Choose consistent interval handling with the guarded division policy for singular denominators, retaining exact values and zero-error semantics.
+- Verify: Independent positive, negative, crossing-zero and endpoint-zero intervals and zero-SD values, through both shared arithmetic and stoichiometry guides.
+
+## ITC-184 - Log transforms silently lose invalid confidence bounds
+
+- Priority: Medium-low.
+- Status: Open question (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, C6; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `Math/FWEMath.cs`, `Log`/`Log10`; `Math/NumberStructs.cs`, interval availability/formatting.
+- Problem: Both logarithms transform Lower directly. A negative lower bound yields NaN and can hide the interval; a zero bound yields −∞, so behavior depends on availability/formatting. A positive best-fit value can remain visible while uncertainty is lost. This does not establish an invalid positive center.
+- Suggested direction: Choose explicit domain handling for nonpositive bounds: retain a supported one-sided/unbounded interval, report unavailable uncertainty with a reason, or require positive-domain inputs. Preserve valid saved intervals and zero-error quantities.
+- Verify: Independent strictly positive, lower-zero and lower-negative intervals with positive centers; check salt transforms and scientific text output as well as arithmetic.
+
+## ITC-185 - Choose bootstrap refit effort and acceptance policy
+
+- Priority: Medium; scientific decision.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, C7; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `Analysis2/Solver2.cs`, bootstrap max iterations/tolerance and local/global retained-refit filters.
+- Problem: Bootstrap refits use max(10, MaxIterations/3) and a doubled tolerance. Limit-terminated/non-usable refits are excluded and counted as failures. This is explicit behavior; selection could affect uncertainty for difficult parameters, but narrowing/coverage impact was not measured.
+- Suggested direction: Choose reduced or full/adaptive refit effort and whether unsuccessful refits remain excluded, trigger retries or make uncertainty unavailable. Retain failure accounting and the original-data best-fit center; do not substitute a bootstrap mean.
+- Verify: Independently specified acceptance cases for local/global fits, retained/failed counts, iteration limits and weakly determined parameters; evaluate uncertainty effects separately from parameter recovery.
+
+## ITC-186 - Name-tag tokenization contains an invalid regex range
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, D2; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/AnalysisResultNameParser.cs`, name tokenization (`279–292`) and exception fallback.
+- Problem: The fallback character class `[\s_-.+]+` places a hyphen between _ and ., forming a reversed range. Regex construction throws and the outer catch returns no suggestion. Names with whitespace/underscores use a separate branch.
+- Suggested direction: Escape/place the hyphen so the intended punctuation is matched, retaining the existing naming scope and fallback.
+- Verify: Multi-experiment names containing neither whitespace nor underscore, including plain and hyphen/dot/plus names; ordinary safe-branch controls.
+
+## ITC-187 - Validity tolerance hides small heat and concentration-SD changes
+
+- Priority: Medium.
+- Status: Reviewed, no change (2026-10-21). Changes below the current floor (~1 nJ heat, ~1 nM concentration SD) are below measurement noise and cannot materially change a fit. Processing edits are detected through their own snapshot fields, and buffer-reference changes invalidate fits immediately in session (ITC-169). A stricter rule risks false stale flags on near-zero corrected heats. Revisit if low-nM cell concentrations show a concentration edit failing to flag a fit.
+- Origin: Read-only code review 2026-10-20/21, D3; current-tree verification 2026-10-21.
+- Location: Core `DataClasses/AnalysisResultValiditySnapshot.cs`, `SameDouble`, concentration snapshots and `InjectionFitInputSnapshot.Compare`.
+- Problem: SameDouble uses max(1, abs(values)), giving sub-unit fields a tolerance near 1e-9. Corrected PeakArea/PeakAreaSD (J) and concentration SDs still use it. Changes below that floor can compare equal even when material relative to those quantities. Resolved ITC-055 covers Kd/prebound ligand, and ITC-153 covers browser membership; neither is reopened.
+- Suggested direction: Choose field-appropriate physical/relative tolerances rather than applying a unit-sized floor across all quantities. Coordinate with target invalidation after buffer refresh.
+- Verify: Independent small-J heat/SD and concentration-SD changes on both sides of the chosen tolerances; verify full validity status and ordinary unchanged values.
 
 ## ITC-188 - Fixed affinity cells can use a different unit from the overview header
 
@@ -1392,3 +1626,294 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: With a complete baseline but partial integration, Insert(2) puts Integrated injections after Injection use; the map specifies it before. An incomplete baseline inserts another row and masks that ordering difference. E11 observed/residual heats follow the selected heat unit while the map says µJ. The separate existing Saved ratio heading note is unchanged.
 - Resolution: Removed E04’s “Integrated injections” count and S03’s “Integration: n of m injections integrated” note, including unused counting variables. Baseline status, injection-use details, integration settings, saved bookkeeping, subtraction notes and heat-only availability rows remain. Removed both count rows from the map; E11 observed heat and residual now say “selected heat unit,” matching the existing µJ/µcal headers and conversions. E11 report code, processing, fitting readiness, validity and scientific calculations are unchanged.
 - Validation: Six report-builder cases cross complete/incomplete baselines with all/some/no injections integrated, checking both result and supporting chapters; four failed before the removal and all six pass afterward. The existing Joules/Calories E11 theory now checks all three heat headers and observed/predicted/residual values using an independent 1 cal = 4.184 J conversion; both cases pass without changing E11 code. All 275 focused report checks pass, including existing baseline-status and heat-only availability coverage. Full Core run: 5,047 passed, one skipped, five failures outside these report paths: `CompetitiveBindingModelTests.StateResolverHasNoSteadyStateAllocation` measured 2,072 bytes instead of zero, and four `SolverInitialParameterTests.ZeroStartOffsetMovesToIndependentTarget` cases returned 2,500 instead of 2,000. The allocation test passes in isolation. Concurrent solver edits/rebuilds replaced the original failing solver cases; the subsequent isolated run passes all 24 current cases and is not a reproduction of those original failures. Unrelated solver code/tests were left untouched. `git diff --check` passes.
+
+## ITC-191 - Profile duration formatting does not carry rounded units
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, D9; current-tree verification 2026-10-21.
+- Location: Core `Presentation/ProfileLikelihoodDisplayFormatter.cs`, `Duration`; compare `FittingStatusPresentation.Duration`.
+- Problem: Unit selection precedes rounding: 999.6 ms formats as 1000 ms and 119.97 s as 1 min 60.0 s. The general fitting-duration formatter rounds before splitting. This is presentation only.
+- Suggested direction: Use a consistent rounding/carry convention for profile and fitting durations.
+- Verify: Formatting boundaries near 1000 ms, 60 seconds and 120 seconds, including localized decimal separators.
+
+## ITC-192 - Report labels use different member index spaces
+
+- Priority: Medium-low.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, D10; current-tree verification 2026-10-21.
+- Location: Core `Presentation/AnalysisReportBuilder.cs`, filtered member-label construction and original-index consumers; `AnalysisResultHealthReasonFormatter.FormatReport`.
+- Problem: Labels are built after filtering solutions with Data==null, while several report/health paths index them using unfiltered positions. A null-data member before a usable one can misalign labels or force fallback labels. A supported saved-result path producing such members was not established.
+- Suggested direction: Use one explicit original-member-to-label mapping if null-data members are supported; otherwise establish and enforce the invariant at the owning boundary.
+- Verify: Members with missing Data at start/middle/end, warning references and injection diagnostics; compare report labels with actual experiment identity.
+
+## ITC-193 - Report date display assumes Unspecified dates are UTC
+
+- Priority: Low; legacy/input compatibility edge.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, D11; current-tree verification 2026-10-21.
+- Location: Core `Presentation/ProjectInformationPresentation.cs`, `DetailsText`/`LastEditedText`; `DataClasses/AnalysisReportDefinition.cs`; `FTXTCReader.RestoreReports`.
+- Problem: Details calls report.Date.ToLocalTime(); .NET interprets Unspecified as UTC for that conversion. Current reports are created with UtcNow and are correct. Restore accepts saved Date unchanged, so a local-clock Unspecified value could shift. No actual legacy report carrying that convention was established, and no existing user artifacts are assumed.
+- Suggested direction: Establish supported saved-date semantics before adding normalization; retain correct UTC behavior and choose explicit handling only if Unspecified local-clock dates are supported.
+- Verify: UTC, Local and Unspecified report dates outside UTC, backed by a source-supported saved-date convention; no serialization change is authorized.
+
+## ITC-194 - Choose one proton sign and buffer-enthalpy convention across surfaces
+
+- Priority: Medium; scientific/design decision.
+- Status: Resolved (2026-10-21). Published convention selected and implemented; desktop sign regression reproduced before the fix.
+- Origin: Read-only code review 2026-10-20/21, E1; current-tree verification 2026-10-21. Scientific/design choice resolved using Coussens, Schuck and Zhao (2012), equations 3–6, and Goldberg, Kishore and Lennen (2002).
+- Location: Core `ProtonationAnalysis`, reports, viewer, interpretation package and FTXTC capture; both desktop Protonation output inspectors; `Buffers.cs`; manual advanced-analysis/reference pages; report map X06.
+- Problem: Desktop Protons displays −fit.Slope, while ProtonationChange stores/reports/exports +slope. The manual specifies −m. Buffer x-coordinates use tabulated ionization enthalpies but are stored/labelled as protonation enthalpy. The surfaces disagree; this review does not choose a physically preferred sign.
+- Resolution: Use buffer ionization enthalpy on x, retaining the tabulated values and temperature corrections. Net proton uptake is +slope: positive uptake by the binding system, negative release per binding event. The intercept is buffer-independent binding enthalpy at the experimental pH, retaining binding-partner protonation heat. Both desktop inspectors now show saved outputs directly with shared labels/tooltips; reports, graphs, tables, viewer, interpretation metadata/instructions, manual/help and report map X06 agree. `.ftxtc` keys, centers, SDs and interval endpoints retain their meaning without migration or recalculation. The registry's correct opposite-sign protonation API is unchanged. Eligibility and buffer-series requirements remain with ITC-195.
+- Validation: The new Avalonia inspector regression failed before the fix. Full Core suite: 4,999 passed, one existing opt-in skip, no failures. All 46 focused Core tests pass, covering independent positive/negative/zero signed examples, buffer reference values/temperature corrections, overview/export coordinates, asymmetric intervals through reports/viewer/packages and save/reopen. All eight selected Avalonia tests, native protonation inspector checks and five native linear-envelope cases pass. Web guidance/viewer tests: 109 passed; JavaScript rendering checks: five passed. An additional native figure-content suite has one failure in unchanged model-only parameter-box visibility; it is outside ITC-194 and was not changed.
+
+- Native figure-control follow-up: Closed as not reproduced in the actual UI (2026-10-22). The model-only box remained visible after the user's repeated Preferences Apply workflow. Actual native UI checks also confirmed independent Model info/Fit parameters visibility, Binding/None/Null switching with retained choices, residual visibility, and preservation of session figure choices after an unrelated Preferences Apply. `FinalFigureContentControlsTests` still fails in its harness; its alleged visual failure does not reproduce using the actual UI. The failing test and visibility implementation are unchanged; the test has not been established to be stale. The separate incorrect Show data graph tooltip found during these checks was corrected to "Include the differential-power trace above the fit graph.", shared with Avalonia through Core.
+
+## ITC-195 - Choose protonation spacing and multiple-buffer requirements
+
+- Priority: Medium-low; scientific decision.
+- Status: Open question (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E2; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `Analysis2/AdvancedAnalysis/ProtonationAnalysisAvailability.cs`; `DataClasses/Buffers.cs`, `TryGetProtonationEnthalpy`; contrast electrostatics spacing policy.
+- Problem: Eligibility requires exact Distinct count≥2 with no minimum enthalpy span, and the lookup uses only the first Buffer attribute. Near-identical x values or mixed buffers can therefore pass under first-buffer metadata. Conditioning and physical consequences are unmeasured. Resolved CR-021 correctly handles missing thermochemistry and remains untouched.
+- Suggested direction: Choose exact distinction or a justified conditioning/span requirement; separately decide whether mixed buffers are unsupported, require an explicit representative buffer, or need a scientifically defined combined coordinate.
+- Verify: Independent near-coincident enthalpy regressions, normal separated buffers, genuine zero thermochemistry and multiple-buffer order; no subset filtering or invented values.
+
+## ITC-196 - Reset can suppress the workspace invalidation event
+
+- Priority: Low; latent event contract.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E4; current-tree verification 2026-10-21.
+- Location: Core `Analysis2/AnalysisWorkspace.cs`, `ResetStoredAnalysisState`, `TryRebuild`, `InvalidateContext`; both desktop reset callers.
+- Problem: Reset nulls Context before rebuilding. If rebuilding fails or data are unavailable, InvalidateContext sees null and emits no ContextInvalidated; successful rebuilding emits ContextRebuilt. Both current desktop reset callers explicitly refresh afterwards, so no stale UI trigger was found.
+- Suggested direction: Clarify the workspace event contract and invalidate through its owning method if subscribers must observe every ready-to-unready transition. Preserve current reset scope and failure state.
+- Verify: A previously ready workspace reset with unavailable/unready data or rebuild failure, counting events and checking existing desktop refresh behavior.
+
+## ITC-197 - Data-change refresh can temporarily exit the result view
+
+- Priority: Low.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E5; current-tree verification 2026-10-21.
+- Location: Core `StateManager.cs`, `OnDataDidChange`/`SetProgramState`; `DataManager.NotifySourceItemsChanged` and `SelectIndex`.
+- Problem: OnDataDidChange calls SetProgramState(CurrentState); while in AnalysisView this takes the toggle-out branch and publishes saveState. Ordinary source-change helpers then SelectIndex and can return to the selected result. A persistent unwanted exit was not established, but intermediate state events can cause navigation churn.
+- Suggested direction: Separate refreshing availability from an explicit result-view toggle if the intermediate transition is observable. Preserve deliberate navigation to experiments and the saved workflow state.
+- Verify: Source-list add/remove/update while a result remains selected; record state transitions and actual desktop navigation, including callbacks that reselect afterwards.
+
+## ITC-198 - A completed scrolling status clears newer messages
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E6; current-tree verification 2026-10-21.
+- Location: Core `StatusBarManager.cs`, `SetStatusScrolling`, `SetStatus` and `ClearAppStatus`.
+- Problem: New status calls set abortscroll, but the scrolling method eventually calls unconditional ClearAppStatus. That clears the entire status list/queue and stops progress, including newer statuses published during its awaits.
+- Suggested direction: Expire only the scrolling operation’s own status and suppression state, preserving later messages and progress ownership.
+- Verify: Post an ordinary or queued status during each scrolling delay/abort point; verify it survives scroll completion and queue cancellation remains scoped.
+
+## ITC-199 - Concentration formatting temporarily changes global precision
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E7; current-tree verification 2026-10-21.
+- Location: Core `Math/NumberStructs.cs`, `FloatWithError.AsF1FormattedConcentration`; model display-attribute caller.
+- Problem: When HasError is false, this formatter changes AppSettings.NumberPrecision, formats, then restores it without finally or isolation. Another formatter can observe the temporary precision; an exception can skip restoration. No concurrent formatting failure was reproduced.
+- Suggested direction: Pass local formatting precision through the shared formatter, avoiding a global preference mutation; retain the existing one-decimal display contract.
+- Verify: Independent formatting expectations with non-default global precision, concurrent callers and a formatting failure; verify the preference never changes.
+
+## ITC-200 - An empty downloaded citation suppresses the bundled fallback
+
+- Priority: Low.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E8; current-tree verification 2026-10-21.
+- Location: Core `Utils/CitationManager.cs`, `TryFetchOnlineCitation`, `SaveCache`, `TryLoadCache`, `GetPaperCitation`.
+- Problem: Any non-null deserialized CitationInfo is cached/accepted. A valid JSON object such as {} supplies no citation fields yet overrides the bundled citation on later launches until replaced/removed. No actual online empty response was observed.
+- Suggested direction: Validate the minimum usable citation fields before replacing or accepting the cache, retaining the last usable/bundled fallback.
+- Verify: Empty, partial, malformed and valid downloaded/cache payloads; check fallback and subsequent recovery without making a network request.
+
+## ITC-201 - Automatic concentration units switch below exact boundaries
+
+- Priority: Low; display-policy question.
+- Status: Open question (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E9; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `UnitClasses/ConcentrationUnit.cs`, `GetMagnitudeUnitFromConcentration`/`FromMag`.
+- Problem: Strict > comparisons choose mM for exactly 1 M (1000 mM), and similarly step down at other exact powers. Zero/NaN fall through to pM; downstream missing-value handling varies. Numeric concentration is unchanged, so this is a formatting policy rather than an amount error.
+- Suggested direction: Choose inclusive magnitude boundaries or retain the current convention; separately define the unit used with zero and unavailable values.
+- Verify: Exact 1 M/mM/µM/nM, adjacent magnitudes, zero, negative and NaN inputs through actual visible formatters.
+
+## ITC-202 - Foreign separators can survive interpretation basename extraction
+
+- Priority: Low; input-hardening edge.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E10; current-tree verification 2026-10-21.
+- Location: Core `Interpretation/AnalysisInterpretationPackageBuilder.cs:307`; `ITCDataContainer.FileName`; FTXTC filename restoration.
+- Problem: Path.GetFileName uses host separator rules. A saved Windows backslash path can survive on Unix and enter SourceFileBasename. Normal raw imports already store basenames; full paths were found only as arbitrary serialized/programmatically assigned values, not an ordinary capture path. No actual user-name disclosure was established.
+- Suggested direction: Define cross-platform basename normalization at the outgoing package boundary if foreign full paths are accepted, without changing ordinary displayed names or native project serialization.
+- Verify: Windows/Unix/mixed separator saved names on each host, ordinary basenames and package output; establish a supported source of full paths before assigning stronger impact.
+
+## ITC-203 - Legacy global factories retain live parameters in static history
+
+- Priority: Low; legacy state risk.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E11; current-tree verification 2026-10-21.
+- Location: Core `Analysis2/ModelFactory.cs`, `GlobalModelFactory.PrevParameters`/`StorePrevParameters`; `AnalysisResultUpdater`; legacy FTITC reader.
+- Problem: Static history stores live Parameter references and later reuses their values/locks. Modern AnalysisBuilder bypasses it; result update and legacy .ftitc restoration reapply saved parameters after initialization. No surviving unwanted value override was established. Resolved ITC-082 concerned designer option state, not these global parameters, and remains unchanged.
+- Suggested direction: Trace remaining initialization/reinitialization consumers before choosing copied/session-owned history or removing reuse. Do not broaden the resolved designer-option change.
+- Verify: Interleaved legacy factory/update operations with subsequent parameter edits; verify saved parameters win and modern workspace state remains isolated.
+
+## ITC-204 - Choose the counter-ion slope and activity convention
+
+- Priority: Medium; scientific decision.
+- Status: Open question (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, E12; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: Core `DataClasses/Salt.cs`, `GetIonActivity`/Activity exponents; `Analysis2/AdvancedAnalysis/ElectrostaticsAnalysis.cs`, counter-ion coordinates; manual/report/viewer labels.
+- Problem: For one salt, activity is c^ν (ν=2 for NaCl), and regression uses ln(activity). The reported slope is therefore the slope against ln(c) divided by ν. Mixed salts sum powered concentrations. Source confirms the convention; it does not establish that this quantity is the intended counter-ion-release count.
+- Suggested direction: Choose the current activity-coordinate slope with precise naming, a relevant counter-ion concentration/activity convention, or a documented conversion to an ion-count interpretation. Define multivalent/mixed-salt behavior and sign explicitly before changing equations.
+- Verify: Independent known-slope examples for monovalent/multivalent salts and mixed salts; compare displayed/exported definitions and preserve saved scientific meaning.
+
+## ITC-205 - Registration delivery worker processes at most one message per minute
+
+- Priority: Medium.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F1; current-tree verification 2026-10-21.
+- Location: `AnalysisITC.Web/RegistrationDeliveryWorker.cs`, `ExecuteAsync`; `RegistrationMailSender.ProcessOneAsync`; outbox due-row selection.
+- Problem: The worker ignores ProcessOneAsync’s bool and always waits one minute. It processes one oldest due delivery per wake, before provider latency. A sustained backlog can outlast the default 24-hour activation lifetime; no deployed backlog/expiry incident was verified.
+- Suggested direction: Choose bounded batch draining or adaptive pacing that respects provider limits, fairness and shutdown; define a delivery/expiry throughput expectation.
+- Verify: Queued mixed activation/access messages, retry-delayed rows, a sustained backlog and cancellation; verify timing independently without sending real mail.
+
+## ITC-206 - Full-address IPv6 rate-limit buckets can be rotated within a prefix
+
+- Priority: Low; deployment impact unproven.
+- Status: Resolved (2026-10-21). Reproduced locally before the fix; production IPv6 exposure remains unverified.
+- Origin: Read-only code review 2026-10-20/21, F4; current-tree verification and approved implementation 2026-10-21.
+- Location: `AnalysisITC.Web/Program.cs`, `NetworkPartition` and all three interpretation/registration rate-limit policies.
+- Original problem: Native IPv6 used the full address string, allowing rotating addresses in one prefix to receive separate network buckets. Account/installation quotas remained separate controls; unlimited generation was not established.
+- Resolution: All three policies call `NetworkPartition`; the inline interpretation key builder is removed. Native IPv6 shares one bucket per constant /64, ignoring interface scope IDs. IPv4-mapped IPv6 normalizes to IPv4. Permit counts, windows, separate policy buckets, unknown-address fallback, identity quotas and administrator bypass are unchanged. Turnstile still receives the full client address. The existing network-rate-limiter sentence in `Documentation/Interpretation/MIST_DEPLOYMENT.md` now includes the /64 clause; no user-manual changes.
+- Deployment evidence (facts supplied by the user, 2026-10-21): `app.ft-itc.org` (viewer, interpretation and registration API) has an A record only and no AAAA record, so direct clients currently reach Kestrel over IPv4 only. `ft-itc.org` (website, registration and activation pages) is behind Cloudflare and has AAAA records. The website and any proxying between it and the API are not in this repository. No Caddyfile exists in the repository. The pre-existing `InterpretationEndpointTests.cs:1117` IPv4 Caddy-reported-address test is retained; IPv6 cases extend that pattern locally without running Caddy. Production IPv6 exposure through the website/proxy path is unverified.
+- Validation: Before the fix, two interpretation cases (same /64 and differing scope IDs) and both registration-policy cases failed because addresses received separate allowances. They pass after the fix. Coverage includes an adjacent /64 remaining separate, IPv4/mapped-IPv4 equivalence, full-address Turnstile input, and valid administrator requests bypassing an exhausted IPv6 network bucket. Full Web suite: 508 passed, zero failures/skips. Evidence: `/private/tmp/itc206-210-before.log`, `/private/tmp/itc206-210-results/before.trx`, `/private/tmp/itc206-210-web-full.log`, `/private/tmp/itc206-210-results/web-full.trx`. No deployment, commits or pushes.
+
+## ITC-207 - Operator authentication repeatedly parses registries on unthrottled GET routes
+
+- Priority: Low; scaling impact unmeasured.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F5; current-tree verification 2026-10-21.
+- Location: `AnalysisITC.Web/OperatorCodeRegistry.cs`, `Authenticate`; `OperatorTombstoneRegistry.Contains`; options/account/operator-options routes in `Program.cs`.
+- Problem: Authentication rereads registry data and checks the tombstone file per record. Those GET routes lack endpoint rate-limit policies. Tombstone checks take a static process lock; authentication as a whole is not under that lock. Cost grows with records/request frequency; no performance or deployed-size evidence was collected.
+- Suggested direction: Measure before choosing bounded caching, a narrow GET limiter or retaining the current small-registry design. Preserve prompt revocation and correct authentication failure behavior.
+- Verify: Source-supported registry sizes and repeated valid/invalid credential requests; measure work/latency and revocation freshness without production load testing.
+
+## ITC-208 - Public identity touches rewrite an unbounded registry
+
+- Priority: Low; scaling concern.
+- Status: Open (2026-10-21). Plausible by source review only; trigger or impact remains unproven; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F6; current-tree verification 2026-10-21.
+- Location: `AnalysisITC.Web/PublicAccessRegistry.cs`, `TryTouch` and cross-process mutation lock.
+- Problem: A successful touch reads and rewrites the complete registry, which has no visible size/retention bound. Lock acquisition can sleep request threads in a bounded five-second loop. CR-061 intentionally fixed lost revocations with cross-process reread/locking and remains resolved; this is a distinct unmeasured growth/latency concern.
+- Suggested direction: Measure realistic registry growth and touch cost before choosing coalesced last-use writes, bounded retention or transactional storage. Preserve the settled cross-process revocation guarantee.
+- Verify: Registry-size and contention measurements with separate service/admin writers, including lock timeout and revocation visibility; no benchmarks were run.
+
+## ITC-209 - Registration body limits depend only on Content-Length
+
+- Priority: Medium.
+- Status: Resolved (2026-10-21). Reproduced locally before the fix, including real HTTP chunked requests against Kestrel.
+- Origin: Read-only code review 2026-10-20/21, F7; current-tree verification and approved implementation 2026-10-21.
+- Location: `AnalysisITC.Web/Program.cs`, registration submit/activation handlers; `InterpretationRequestValidation.cs`, shared bounded-read stream and exception.
+- Original problem: The 16 KiB/4 KiB checks examined only Content-Length, so unknown/chunked bodies could bypass the endpoint limits. Local Kestrel accepted an oversized registration and consumed an activation token from an oversized activation request before the fix.
+- Resolution: Both handlers retain the early Content-Length checks and `ReadFromJsonAsync`, temporarily wrap `request.Body` in `SizeLimitedReadStream`, and restore the host-owned body in `finally`. Existing JSON options and cancellation remain intact. Exactly-at-limit requests are accepted. Overflow keeps `413 registration_request_too_large` for submission and `400 invalid_registration_activation` for activation. `InterpretationRequestTooLargeException` is renamed to `RequestBodyTooLargeException`, including the interpretation reader catch; its existing too-large response is unchanged.
+- Validation: Before the fix, four overflow cases failed (unknown-length submission/activation and real Kestrel chunked submission/activation); all pass afterward. Twelve boundary cases cover one byte below, exactly at and one byte above both limits with known and unknown lengths, including multibyte UTF-8 and persisted camel-case input. Malformed and cancelled bodies are covered, with body restoration verified after cancellation. Overflow assertions verify no Turnstile call, no outbox write and no activation-token consumption. The existing interpretation two-megabyte declared/chunked test retains `413 interpretation_request_too_large`. Full Web suite: 508 passed, zero failures/skips. Before/after evidence is shared with ITC-206 under `/private/tmp/itc206-210-results/`.
+- Hosting/deployment evidence: Local Kestrel's configured global request-body maximum is 53,477,376 bytes (51 MiB), which did not enforce the smaller registration limits. Production proxy limits and website-to-API client-address forwarding were not verified. The A-only API, Cloudflare website AAAA records, absent repository Caddyfile and repository boundaries are recorded under ITC-206; no production requests were made.
+
+## ITC-210 - Upload admission remains occupied through validation and parsing
+
+- Priority: Low; bounded contention concern.
+- Status: Investigated; remains open (2026-10-21). Local contention and cleanup are demonstrated; no leak or evidence requiring an admission-policy change was established. Upload behavior is unchanged.
+- Origin: Read-only code review 2026-10-20/21, F8; approved local investigation 2026-10-21.
+- Location: `AnalysisITC.Web/ViewerUploadLimits.cs`, admission middleware; `Program.cs`, `/api/viewer/open`; `ViewerUploadTransferDeadline`.
+- Behavior: One lease covers antiforgery, form buffering and resource-budgeted parsing. The transfer deadline ends after the form is received, before parsing; the lease remains held until downstream processing unwinds. Tokens are freely issued by `/api/viewer/token`, so an anonymous caller with a valid header token can occupy the slot with a slow body. Moving admission after form validation could permit unbounded concurrent buffering; holding it through parsing preserves ITC-063's serialization guarantee.
+- Measurement setup: Real loopback Kestrel only, no local Caddy, with one active upload, queue limit 0 and transfer timeout 2 seconds to exercise recovery promptly. Shipped defaults remain one active upload, five FIFO waiters, 30-second queue wait and 300-second transfer timeout. Temporary measurement instrumentation and the probe were removed. Durations below are single local diagnostic observations, not performance guarantees or test thresholds.
+- Case 1, valid header token and slow body: Read 128 bytes, held the slot for 2,015.1 ms, cancelled the blocked read at the shortened deadline and returned `408 viewer_upload_timeout`; a competing valid upload received `503 viewer_busy`. A subsequent valid project opened successfully after lease release. This is the longest plausible transfer-hold case; the shipped 300-second deadline was not waited out.
+- Case 2, invalid header token and slow body: Returned `400 antiforgery_validation_failed` in 1.1 ms, with zero request-body reads even though the form contained a valid token. The slot was available immediately afterward and a valid project opened. A new deterministic controlled-stream regression retains this behavior without elapsed-time assertions.
+- Case 3, no header token and slow body: Antiforgery read the form looking for its token; after 128 bytes, the slot remained held until the shortened deadline. Returned `408 viewer_upload_timeout` after 2,002.9 ms and cancelled the blocked read. A competing valid upload received `503 viewer_busy`; the next valid upload succeeded after cleanup. Existing controlled-stream/fake-clock tests cover both header/form-token deadline handling, cancellation unwind and client-disconnect precedence; these remain unchanged.
+- Case 4, valid token and synthetic near-budget projects: A project with 990,000 raw samples (99% of the default 1,000,000-sample budget; 6,804,255-byte archive) parsed in 682.6 ms and completed the server pipeline in 1,384.8 ms. A project with 990 roots (99% of the default 1,000-root budget; 1,060,143-byte archive) parsed in 731.3 ms and completed in 736.8 ms. Both returned 200, rejected a competing valid upload with 503 during parsing, and released the lease afterward. These cases do not establish the worst-case cost of every allowed combination of parser budgets.
+- Disconnect cleanup: Explicit TCP resets during valid-header and no-header slow transfers set Kestrel's request-aborted state and released the lease in 0.6 ms and 0.5 ms respectively; subsequent valid uploads succeeded. No outstanding parser work was abandoned to release capacity early.
+- Hosting/deployment evidence: Local Kestrel reports a 240-byte/second minimum request-body data rate with a five-second grace period and a 51 MiB global body maximum. The shortened transfer deadline fired before that grace period. Production Caddy request-body handling is unverified; behind a proxy, Kestrel's minimum data rate applies to the proxy connection, not the client. No repository Caddyfile exists, and the website/proxy sources are external; the supplied DNS facts are recorded under ITC-206.
+- Conclusion/follow-up: Retain admission, form-token support, transfer deadline and parser budgets. The expected single-slot contention is reproducible and bounded transfers recover correctly; no indefinite leak or production abuse was demonstrated. Verify deployed ingress/proxy buffering and realistic workload measurements before proposing any precheck, separate ingress capacity or parsing deadline. No such behavior change or new tracker entry was made.
+- Validation/evidence: Kestrel probe passed, including competing uploads during both synthetic parses and recovery after timeout/disconnect. The full final Web suite passes all 508 tests with no failures/skips, including route variants, queue behavior, resource limits and deterministic transfer lifecycle coverage. Evidence: `/private/tmp/itc210-kestrel.jsonl`, `/private/tmp/itc210-parse.jsonl`, `/private/tmp/itc210-probe.log`, `/private/tmp/itc206-210-results/probe.trx`, `/private/tmp/itc206-210-results/web-full.trx`. No production traffic, packaging, versions, commits or pushes.
+
+## ITC-211 - Tombstone read failures look like an empty registry
+
+- Priority: Medium.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F9; current-tree verification 2026-10-21.
+- Location: `AnalysisITC.Web/OperatorTombstoneRegistry.cs`, `Read`, `Contains`, `Add`; authentication and delivery cancellation callers.
+- Problem: Read catches every parse/read exception and returns empty. Contains then permits continued lookup/delivery, and Add can replace the file with only the new tombstone, losing older scrub markers. Separately revoked/randomized credential hashes still protect scrubbed operator records; account resurrection is not established.
+- Suggested direction: Distinguish a legitimate absent first-run file from corruption/unavailability; avoid destructive read-modify-write after a failed read and choose fail-closed behavior for sensitive callers.
+- Verify: Malformed/unreadable files, an absent file, existing scrubbed credentials and Add after read failure; verify old markers and delivery cancellation remain durable.
+
+## ITC-212 - Operator registry mutations are not serialized across all writers
+
+- Priority: Medium.
+- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F10; current-tree verification 2026-10-21.
+- Location: `AnalysisITC.Web/OperatorCodeRegistry.cs`, Create/Revoke/ChangeTier/ChangeDetails/ChangeQuota and MutationLock; `InterpretationAdminCommands`.
+- Problem: Several read-modify-write methods take no MutationLock. The remaining semaphore is process-local and cannot cover the supported admin CLI. Concurrent server/CLI writes can replace newer operator state with an older snapshot. CR-061 fixed the PublicAccessRegistry sibling, not these operator files; its resolution is unchanged.
+- Suggested direction: Serialize every operator-registry mutation across service and CLI processes or use transactional storage, keeping the separate registry scopes clear.
+- Verify: Independent-process interleavings for create/provision/revoke/details/quota/regenerate/scrub, including writer termination; check that revocation and credential changes cannot be lost.
+
+## ITC-213 - Registration retention can remove a newly resent activation
+
+- Priority: Medium-low; lifecycle policy question.
+- Status: Open question (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Origin: Read-only code review 2026-10-20/21, F12; current-tree verification 2026-10-21. Scientific/design choice; no option selected.
+- Location: `AnalysisITC.Web/RegistrationDeliveryOutbox.cs`, resend/activation expiry; `SelfRegistrationStore` retention selection; `RegistrationDeliveryWorker` daily cleanup.
+- Problem: Resending after the existing activation link expires creates a fresh expiry without changing original account created_at_utc; resending an unexpired link preserves its expiry. Retention scrubs pending/activation-sent accounts by that original age (default 30 days), potentially before the fresh 24-hour link expires. No actual cleanup incident was reproduced.
+- Suggested direction: Choose whether fresh activation extends retention, retention respects current link expiry, or late resends are refused. State the usability/privacy tradeoff before changing lifecycle policy.
+- Verify: Resend immediately before/after the retention cutoff, unexpired versus expired links, cleanup before delivery and exact expiry boundaries with a controlled clock.
+
+## ITC-214 - Verify real-client address forwarding for website registration traffic
+
+- Priority: Low; IPv4 address loss reproduced, user-visible throttling incidents unmeasured.
+- Status: Deployed; real-client IPv4 forwarding verified live (2026-10-21). IPv6 forwarding remains explicitly unverified because a controlled live IPv6 connection was unavailable.
+- Origin: Approved follow-up to ITC-206/ITC-209, investigated at the user's request on 2026-10-21. The initial MIST SSH timeout was caused by the disconnected VPN; access worked after the user connected it.
+- Location: Separate website repository `/Users/frederiktheisen/Projects/ft-itc-website`, `_worker.js`, `wrangler.jsonc`, `script.js:321-323`, `activate.html:39`; deployed MIST `/etc/caddy/Caddyfile:11-20` and active Caddy configuration; application `AnalysisITC.Web/Program.cs`, forwarded-header handling and `NetworkPartition`.
+- Confirmed IPv4 problem before the fix: Requests from two controlled client networks reached the website with distinct visitor IPv4 addresses in CF-Connecting-IP, but Caddy forwarded the same Cloudflare egress address (`104.22.69.102`) in X-Forwarded-For for both. The application consumes one forwarded hop and uses that result for its network bucket, so these visitors share the Cloudflare egress bucket rather than being grouped by their own network. This is a header/configuration reproduction; production rate-limit buckets were not exhausted. Not all Cloudflare traffic is asserted to use this single egress address.
+- Source/deployment evidence before the fix: The website makes same-origin API calls. Its Worker proxies registration submission, activation, status and viewer-token requests to `https://app.ft-itc.org`, copying incoming headers except Host and Content-Length. MIST runs Caddy 2.11.7 with the site reverse-proxied to `127.0.0.1:5000`. The active admin-API configuration has no server or handler trusted_proxies, no client_ip_headers override, and no reverse-proxy header overrides. Thus the deployed plain proxy reports its immediate Cloudflare peer in X-Forwarded-For. The visitor's CF-Connecting-IP survives separately, but the application does not use it. Application `ForwardLimit = 1` remains unchanged.
+- Initial live trace (2026-10-21, before the fix): A temporary read-only loopback capture was restricted at the packet filter to `GET /api/registration/status?itc214=...`; its parser emitted only the tagged URI and selected address/routing headers. Six tagged requests were captured with no kernel drops, and the capture stopped automatically. Both a website GET from MIST and one from this machine returned 200, had different CF-Connecting-IP values and CF-Worker `ft-itc.org`, and shared X-Forwarded-For `104.22.69.102`. Corresponding direct API GETs returned 200 and carried their respective connection-peer addresses in X-Forwarded-For. The private client address is retained only in the temporary local trace, not copied into this tracker.
+- Initial header-spoof check before the fix: A website status GET supplying X-Forwarded-For `198.51.100.214` returned 200; the forwarded value remained the Cloudflare egress address. A direct API status GET supplying that address in both X-Forwarded-For and CF-Connecting-IP returned 200; Caddy replaced X-Forwarded-For with the actual peer but passed the forged CF-Connecting-IP through unchanged. This demonstrates why globally trusting CF-Connecting-IP in the application would introduce a spoofing path. No registration or activation POST was used.
+- Initial investigation limits: Only harmless status GETs were traced; actual registration/activation submissions, account/token state changes and production bucket exhaustion were deliberately excluded. The shared Worker route set and unconditional Caddy proxy support applying the same forwarding diagnosis to those API routes, but a production POST/bucket outcome was not directly exercised. API DNS remains A-only; website A/AAAA records were confirmed. Forced IPv6 website probes failed from both this machine and MIST, so live IPv6 visitor forwarding is still unverified. The initial investigation did not retrieve the deployed Worker; deployment verification below subsequently retrieved it and confirmed an exact match with the reviewed source.
+- Validation/evidence: Six existing local forwarding tests pass, covering IPv4 Caddy-reported-address spoof protection, IPv6 /64 and scope behavior, mapped IPv4 and both registration policies. Evidence: `/private/tmp/itc214-forwarded-address-trace.log`, `/private/tmp/itc214-caddy-forwarding-summary.json`, `/private/tmp/itc214-forwarding-tests.log`, `/private/tmp/itc214-results/itc214-forwarding.trx`. Public status responses also corroborate Cloudflare -> Caddy -> Kestrel. The initial investigation changed only this tracker entry and introduced no production configuration change, service restart, registration, activation, interpretation generation or persistent server diagnostic.
+- Correction direction: Authenticate requests from the owned website proxy before accepting its visitor address, then have Caddy send Kestrel one vetted visitor address. Direct API clients must continue using their connection-peer address; retain the application's one-hop boundary. Merely trusting Cloudflare ranges, retaining a longer X-Forwarded-For chain or increasing ForwardLimit is not an established fix for this topology. The reviewed Worker/Caddy change below implements that boundary; IPv6 ingress still needs a working controlled client.
+- References: [Caddy proxy-header defaults](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults), [Caddy trusted proxies](https://caddyserver.com/docs/caddyfile/options#trusted-proxies), [Cloudflare Worker client-IP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip-in-worker-subrequests). These explain defaults and trust requirements; the IPv4 diagnosis above is supported by the active configuration and live trace, rather than inferred solely from documentation.
+
+- Implemented correction: The website Worker overwrites Proxy-Authorization and X-FTITC-Visitor-IP using a dedicated 256-bit secret binding and canonical CF-Connecting-IP, removes public forwarding headers and keeps manual redirects. Caddy validates both assertions on the four existing routes, rejects malformed/duplicate/wrong-route assertions, emits exactly one vetted X-Forwarded-For address and strips credentials before Kestrel. Direct clients retain their connection-peer address; ForwardLimit remains 1. Missing Worker configuration fails closed with a generic non-cacheable 503. Ordinary Authorization, cookies, CSRF, body/query, Set-Cookie and activation security headers are preserved.
+- Deployment files: `scripts/caddy/website-forwarding.caddy`, exact two-hunk `Caddyfile.patch`, `website-forwarding.service.conf`, executable local tests and deployment/rollback notes in `scripts/caddy/README.md`; the narrow `.gitignore` exception includes only this reviewed deployment directory. The service override removes the deployed --environ flag before loading the new protected EnvironmentFile, avoiding secret disclosure in startup output. A new daemon environment requires an approved Caddy restart. Apply Caddy first, then Worker; roll back Worker first. These were review-only until the user explicitly approved deployment; production rollout and verification are recorded below. No commits or pushes were made.
+- Local validation (2026-10-21): Worker 38/38; actual Caddy 2.11.7 34/34, including actual Worker-to-Caddy requests and two distinct visitor addresses over the same connection-peer identity; AnalysisITC.Web.Tests 508/508. Forged direct headers cannot select an identity; IPv4, native IPv6, mapped IPv4, route boundaries, malformed/duplicate assertions, missing/wrong secrets, credential stripping and normal request/response preservation pass. The exact Caddyfile patch dry-ran and applied to a disposable copy of the observed deployment file, and the resulting candidate validated with Caddy 2.11.7. No Core implementation changed for ITC-214.
+- Independent review: No concrete surviving bypass, legitimate regression or rollout/rollback error found. Reviewer independently passed Worker 38/38 and Caddy 34/34 plus three in-memory probes covering Connection-nominated headers, duplicate empty assertion fields and encoded sibling routes.
+- Remaining verification: Live IPv6 ingress still needs a working controlled client. The forced local IPv6 probe timed out (curl exit 28); MIST has no default IPv6 route. Production rate-limit exhaustion and state-changing registrations remain outside this verification. The local source remains uncommitted, so future repository-based Worker builds must include this fix to retain it.
+- Retained candidate evidence: `/Users/frederiktheisen/.codex/state/plugins/codex-security/scans/FT-ITC-Analysis/artifacts-fd69127c8ed602f324247d24ecfb9b04100b08e9d3bfe25a3c55739425555404/artifacts/itc214/` contains `worker-tests.log`, `caddy-tests.log`, `web-tests.log` and `independent-review.md`.
+
+- Approved production deployment (2026-10-21, 16:29 CEST): Confirmed live Caddy/service configuration matched the reviewed inputs and Cloudflare Pseudo IPv4 was Off. Installed the exact Caddyfile patch, snippet, root-owned mode-0600 shared-secret EnvironmentFile and service override; removed --environ, validated the final configuration and restarted Caddy before changing the Worker. Protected Caddy rollback backup: `/root/itc214-20261021T142324Z`. The running daemon has the expected secret; the value is absent from its journal and admin-API configuration. Application binaries, configuration schema and ForwardLimit were unchanged.
+- Worker production version: `43012a2d-482e-431a-bc83-24477551af6b`, at 100% traffic; deployment `f158e125-956b-4acf-8c75-b17f735b636e`. Previous rollback version: `9b90daf1-589c-49c6-8821-370f670e997f`. Used Cloudflare's API to add the secret binding, then replace only Worker code; existing assets, asset routing, compatibility date, usage model and other settings were retained. Retrieved live source exactly matches the reviewed `_worker.js` (SHA-256 `29b05f77a781fc1ab9bd082cb668040e9c34a34096e6cbc062bd5a3e50e0a9ff`).
+- Live forwarding verification after deployment: Nine tagged harmless status GETs reached Kestrel in a short automatically stopped capture with zero kernel drops; ten HTTP checks passed. Website requests from MIST and this machine now carry two distinct real IPv4 visitor addresses, each matching that client's independent Cloudflare trace. Direct API requests retain their actual connection identity; this machine's direct path uses its private VPN socket address rather than its public Cloudflare egress address. Forged X-Forwarded-For, Forwarded and X-Real-IP cannot change identity. The Worker overwrites forged authentication/visitor assertions; a direct forged assertion returns 403 and never reaches Kestrel. Authentication and assertion headers, CF-Connecting-IP/IPv6, Forwarded and X-Real-IP are absent at Kestrel. Private client addresses are excluded from retained summary evidence and this tracker.
+- Live health: Caddy and ftitc-web active; registration status, interpretation status, website home and activation page return 200; activation retains no-store/no-referrer; public internal health remains 404. No registration/activation POST, activation-token consumption, rate-limit exhaustion, application deployment, commit or push was performed.
+- Operational observations: The first Caddy attempt automatically rolled back because Cloudflare returned 403 to Python's health-check client even with the original proxy; ordinary curl requests passed, and deployment succeeded with that check corrected. Forged CF-Connecting-IP requests to the website independently receive Cloudflare 403/error 1000 before the Worker; these were separated from the successful live spoofing probes. Neither observation was treated as proof of a forwarding failure.
+- Retained deployment evidence: `deployment-20261021.json` in the candidate-evidence directory above records deployment identifiers, sanitized live checks, secret-handling checks, health, rollback location and the explicit IPv6 limitation.
+
+## ITC-215 - NanoITC imports could be labelled with a MicroCal instrument
+
+- Priority: Medium-low; instrument label in reports and figures.
+- Status: Resolved locally (2026-10-21).
+- Location: Core `DataReaders/NanoItcReader.cs`, `DataReaders/TAFileReader.cs`; `DataClasses/ITCInstrument.cs`, `ResolveTAInstrument`.
+- Problem: `.nitc` imports set no instrument, so the general cell-volume guess considered every brand. A low-volume cell above about 197 µL is nearer the MicroCal ITC200 (204 µL) than TA Low Vol (190 µL) and was labelled MicroCal ITC200.
+- Resolution: `.nitc` and `.ta` imports share `ResolveTAInstrument`: cell volume above 200 µL is TA ITC Standard, otherwise TA ITC Low Vol. The general cell-volume guess no longer runs for these files.
+- Validation: `ImportReaderRegressionTests` check 199 µL → TA Low Vol, 190 µL → TA Low Vol, 950 µL → TA Standard, and that every bundled `.nitc` fixture resolves to a TA instrument. Full Core suite: 4,882 passed, 1 skipped, 0 failed.
+
+## ITC-216 - Restored bootstrap replicates dominate project-load memory
+
+- Priority: Not set.
+- Status: Open (2026-10-22). Measured locally; no solution chosen. Tracker registration only; no implementation authorized.
+- Origin: Review of the bootstrap storage plan, 2026-10-22 (`Planning/BOOTSTRAP_STORAGE_PLAN.md`).
+- Location: Core `FTXTCReader.RestoreBootstrap`, `BootstrapModelSnapshot.Restore`; web `ViewerDocumentReader`, `ViewerUploadLimits` (`BootstrapReplicates`, `InjectionRecords`).
+- Problem: Every bootstrap/LOO replicate is restored as an independent experiment, model and solution. Load memory therefore scales with replicates × injections, independently of how the replicates are stored.
+- Measurement: `JORS Table1.ftxtc` (13 fits × 1,000 replicates; 305,000 bootstrap injection records), `FTXTCReader.ReadWithRecovery` in recovery mode without limits, Debug Core build of the 2026-10-22 working tree, fresh process per run, two runs per variant. With bootstrap: 959 MiB allocated, 306 MiB retained after load, about 4.8 s. Bootstrap entries removed: 136 MiB allocated, 18 MiB retained, about 0.9 s. That is about 22 kB retained and 63 kB allocated per replicate. Compact bootstrap JSON allocated 950 MiB and retained the same. These are single local observations, not performance guarantees; the web viewer's document building was not measured.
+- Consequence: The web viewer's replicate (20,000) and injection-record (500,000) caps are the effective memory bounds; JORS Table1 is at 65% and 61% of them. The storage plan reduces stored JSON bytes but not this memory.
+- Suggested direction: Profile where per-replicate allocation and retention go (model initialization, option application, injection objects, solution state) before choosing between lighter restoration, sharing immutable injection data across replicates, or lazy restoration. Any choice changes runtime model ownership and must keep restored replicates independent wherever they can be mutated.
+- Verify: Allocated and retained memory per replicate on JORS Table1 before and after; confidence bands, correlations and global results unchanged. Evidence: `/private/tmp/claude-501/-Users-frederiktheisen-Projects-FT-ITC-Analysis/cf74ba1b-7e36-4aa0-874f-a68d3f0a152c/scratchpad/memprobe/` and `variants/`.
