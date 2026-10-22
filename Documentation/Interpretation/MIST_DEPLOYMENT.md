@@ -500,4 +500,13 @@ sudo dotnet AnalysisITC.Web.dll public-access list
 sudo dotnet AnalysisITC.Web.dll public-access revoke <public-client-id>
 ```
 
-The generation registry contains the public defaults (5 requests per rolling 24 hours and 0.10 USD per UTC month per installation, with global ceilings of 100 requests and 5 USD). Inspect them with `generation-presets public-limits`. Public requests remain subject to the existing network rate limiter; administrator requests bypass that network limiter.
+The generation registry contains the public defaults (5 requests per rolling 24 hours and 0.10 USD per UTC month per installation, with global ceilings of 100 requests and 5 USD). Inspect them with `generation-presets public-limits`. Public requests remain subject to the existing network rate limiter, with IPv6 clients sharing limits per /64; administrator requests bypass that network limiter.
+
+## Website proxy client addresses
+
+ITC-214's authenticated website forwarding configuration and exact Caddyfile patch are
+in [scripts/caddy/README.md](../../scripts/caddy/README.md). Follow its coordinated
+Worker/Caddy secret provisioning, validation, rollout and rollback order after
+deployment approval. The application retains its one-hop forwarding boundary.
+Deployed with approval on 2026-10-21; real-client IPv4 forwarding was verified from
+two networks. Live IPv6 forwarding remains unverified.

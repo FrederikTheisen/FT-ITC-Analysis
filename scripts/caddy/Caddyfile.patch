@@ -1,0 +1,20 @@
+--- a/Caddyfile
++++ b/Caddyfile
+@@ -8,6 +8,8 @@
+ # this machine's public IP, then replace ":80" below with your
+ # domain name.
+ 
++import /etc/caddy/ftitc-website-forwarding.caddy
++
+ app.ft-itc.org {
+     encode zstd gzip
+ 
+@@ -17,7 +19,7 @@
+         Referrer-Policy "strict-origin-when-cross-origin"
+     }
+ 
+-    reverse_proxy 127.0.0.1:5000
++    import ftitc_website_forwarding 127.0.0.1:5000
+ }
+ 
+ # Refer to the Caddy docs for more information:

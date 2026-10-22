@@ -436,4 +436,5 @@ CLAUDE.md
 
 # Local tooling kept outside source control
 /tools/
-/scripts/
+/scripts/*
+!/scripts/caddy/
