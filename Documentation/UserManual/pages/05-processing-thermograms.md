@@ -114,13 +114,19 @@ Locked destinations are not overwritten. Copying from a locked source recalculat
 
 > **Calculation:**
 >
-> *q*<sub>i,raw</sub> = ∫[*P*(*t*) − *b*(*t*)] d*t*
+> $$
+> q_{i,\mathrm{raw}} = \int [P(t) - b(t)]\,\mathrm{d}t
+> $$
 >
-> *ΔH*<sub>i</sub> = *q*<sub>i</sub> / *n*<sub>i</sub>
+> $$
+> \Delta H_i = \frac{q_i}{n_i}
+> $$
 >
-> *n*<sub>i</sub> = *c*<sub>syr</sub>*V*<sub>i</sub>
+> $$
+> n_i = c_{\mathrm{syr}} V_i
+> $$
 >
-> The integral is evaluated between the injection's integration boundaries. Each recorded power value represents the trailing-period average ending at its timestamp, so fractional intervals at either selected boundary are included using the appropriate right-endpoint sample. *P*(*t*) is differential power, *b*(*t*) is the estimated baseline, and *q*<sub>i,raw</sub> is the raw integrated heat. The heat *q*<sub>i</sub> equals that raw value unless optional buffer subtraction changes it. *c*<sub>syr</sub> is the syringe concentration, *V*<sub>i</sub> is the injection volume, *n*<sub>i</sub> is the injected amount, and *ΔH*<sub>i</sub> is the molar heat.
+> The integral is evaluated between the injection's integration boundaries. Each recorded power value represents the trailing-period average ending at its timestamp, so fractional intervals at either selected boundary are included using the appropriate right-endpoint sample. $P(t)$ is differential power, $b(t)$ is the estimated baseline, and $q_{i,\mathrm{raw}}$ is the raw integrated heat. The heat $q_{i}$ equals that raw value unless optional buffer subtraction changes it. $c_{\mathrm{syr}}$ is the syringe concentration, $V_{i}$ is the injection volume, $n_{i}$ is the injected amount, and $\Delta H_{i}$ is the molar heat.
 
 ## Injection uncertainty
 
@@ -132,19 +138,25 @@ Each injection error bar shows an estimated ±1 standard deviation for that inje
 
 The calculation uses baseline-corrected samples around the injection. It combines an estimate of local power noise with the temporal correlation between neighboring samples, the integration-region length, and uncertainty in the baseline level. A longer or noisier region will therefore often have a larger estimated uncertainty. When Buffer Subtraction is applied, the independent target and reference heat uncertainties are combined.
 
-Let *σ*<sub>p,i</sub> be local RMS power noise and *T*<sub>int</sub> the integration duration in seconds. The heat SD combines integration-noise and baseline-level contributions:
+Let $\sigma_{p,i}$ be local RMS power noise and $T_{\mathrm{int}}$ the integration duration in seconds. The heat SD combines integration-noise and baseline-level contributions:
 
 > **Calculation:**
 >
-> *σ*<sub>q,i</sub> = √(*σ*<sub>q,i,int</sub><sup>2</sup> + *σ*<sub>q,i,bl</sub><sup>2</sup>)
+> $$
+> \sigma_{q,i} = \sqrt{\sigma_{q,i,\mathrm{int}}^2 + \sigma_{q,i,\mathrm{bl}}^2}
+> $$
 >
-> *σ*<sub>q,i,int</sub> = *σ*<sub>p,i</sub> · √(∑<sub>j,k</sub> *w*<sub>j</sub>*w*<sub>k</sub>*r*<sup>|j−k|</sup>)
+> $$
+> \sigma_{q,i,\mathrm{int}} = \sigma_{p,i} \cdot \sqrt{\sum_{j,k} w_j w_k r^{\lvert j-k \rvert}}
+> $$
 >
-> *σ*<sub>q,i,bl</sub> = *σ*<sub>p,i</sub> · (*T*<sub>int</sub> / √*N*<sub>bl,eff</sub>)
+> $$
+> \sigma_{q,i,\mathrm{bl}} = \sigma_{p,i} \cdot \frac{T_{\mathrm{int}}}{\sqrt{N_{\mathrm{bl,eff}}}}
+> $$
 >
-> *w*<sub>j</sub> is the time each sample contributes to the heat, in seconds; *r* is the correlation between neighboring samples. *N*<sub>bl,eff</sub> is the effective baseline-sample count accounting for correlated noise. Local noise is estimated from samples before integration and near the end of the injection interval; the latter can overlap integration. These are processing-derived heat SDs, not model-estimated parameter uncertainties.
+> $w_{j}$ is the time each sample contributes to the heat, in seconds; $r$ is the correlation between neighboring samples. $N_{\mathrm{bl},\mathrm{eff}}$ is the effective baseline-sample count accounting for correlated noise. Local noise is estimated from samples before integration and near the end of the injection interval; the latter can overlap integration. These are processing-derived heat SDs, not model-estimated parameter uncertainties.
 
-For a molar-heat plot, the heat and its SD are both divided by the injected amount *n*<sub>i</sub> defined above.
+For a molar-heat plot, the heat and its SD are both divided by the injected amount $n_{i}$ defined above.
 
 The correlation estimate uses only consecutive baseline sample pairs separated by at most twice the sampling interval. Both its product sum and its normalization use those same pairs, excluding a pair across a longer integration gap. Propagation assumes an AR(1) noise model, in which correlation decays geometrically with sample separation; this is a chosen approximation to the local noise.
 

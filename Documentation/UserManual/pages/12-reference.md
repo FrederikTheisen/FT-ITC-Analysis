@@ -27,7 +27,7 @@ Use the tables to look up terms and symbols, and the equation index to reach eac
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across residual-bootstrap refits that have finite values for every displayed parameter, with diagnostics for simulation precision. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
-| **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely the correlation coefficient *r* is estimated from the finite retained-refit ensemble; it is not uncertainty for either fitted parameter or a model-validity assessment. |
+| **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely the correlation coefficient $r$ is estimated from the finite retained-refit ensemble; it is not uncertainty for either fitted parameter or a model-validity assessment. |
 | **AIC / AICc** | Fit-comparison scores that account for parameter count; smaller is preferred only for comparable observations and likelihood conventions. They do not establish model adequacy. See [Information criteria](08-results-advanced-analysis.md#information-criteria) for weighting, variance estimation, member scope, and AICc's small-sample approximation. |
 
 ## Uncertainty terms
@@ -66,46 +66,46 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 
 | Symbol | Meaning |
 | --- | --- |
-| *N* | Stoichiometry or site-number term under the selected model. |
-| *α* | Syringe-side active-concentration correction when syringe correction is enabled. |
-| *K*<sub>a</sub> | Association constant. |
-| *K*<sub>d</sub> | Dissociation constant. |
-| *K*<sub>i</sub> | Macroscopic association constant for sequential transition *i*. |
-| β<sub>i</sub> | Cumulative sequential association product ∏<sub>j=1…i</sub>*K*<sub>j</sub>. |
-| *F*<sub>i</sub> | Fraction of macromolecule in sequential state *MX*<sub>i</sub>. |
-| ν̄ | Mean ligand occupancy in the sequential model. |
-| *ΔH* | Binding enthalpy change. |
-| *ΔG* | Gibbs free-energy change. |
-| −*T*Δ*S* | Entropic contribution reported by the application at the evaluation temperature. |
-| *ΔC*<sub>p</sub> | Heat-capacity change in a supported temperature-dependent analysis. |
-| *q* | Integrated injection heat. |
-| *σ* | Standard uncertainty or spread, according to context. |
+| $N$ | Stoichiometry or site-number term under the selected model. |
+| $\alpha$ | Syringe-side active-concentration correction when syringe correction is enabled. |
+| $K_{\mathrm{a}}$ | Association constant. |
+| $K_{\mathrm{d}}$ | Dissociation constant. |
+| $K_{i}$ | Macroscopic association constant for sequential transition $i$. |
+| $\beta_{i}$ | Cumulative sequential association product $\prod_{j=1}^{i} K_j$. |
+| $F_{i}$ | Fraction of macromolecule in sequential state $MX_{i}$. |
+| $\bar{\nu}$ | Mean ligand occupancy in the sequential model. |
+| $\Delta H$ | Binding enthalpy change. |
+| $\Delta G$ | Gibbs free-energy change. |
+| $-T\Delta S$ | Entropic contribution reported by the application at the evaluation temperature. |
+| $\Delta C_{\mathrm{p}}$ | Heat-capacity change in a supported temperature-dependent analysis. |
+| $q$ | Integrated injection heat. |
+| $\sigma$ | Standard uncertainty or spread, according to context. |
 | **Offset** | Energy-per-mole-of-injectant correction included in the modeled injection heat. |
 
 ## Calculation symbols
 
 | Symbol | Meaning |
 | --- | --- |
-| *P*(*t*) | Differential power at time *t* in a thermogram. |
-| *b*(*t*) | Estimated baseline at time *t*. |
-| *n*<sub>i</sub> | Amount injected in injection *i*. |
-| *r*<sub>i</sub> | Residual for injection *i*: observed heat minus model heat. |
-| *r*<sub>jk</sub> | Pearson correlation between fitted parameter coordinates *j* and *k*. |
-| *θ*<sub>bj</sub> | Value of fitted coordinate *j* in complete bootstrap refit *b*. |
-| *σ*<sub>i</sub> | Processing-derived uncertainty for injection *i*. |
-| *R* | Gas constant. |
-| *T* | Absolute temperature, in kelvin, for thermodynamic relationships. |
-| *I* | Ionic strength used in salt analysis. |
-| *a*<sub>ion</sub> | Ion activity used in Counter Ion Release analysis. |
-| *Δn*<sub>H⁺</sub> | Fitted slope of observed binding enthalpy against buffer ionization enthalpy: net proton uptake (positive) or release (negative) per binding event. |
-| *ΔH*<sub>0</sub> | Buffer-independent binding enthalpy at the experimental pH: the Protonation intercept, retaining binding-partner protonation heat. |
-| *n*<sub>ion</sub> | Counter-ion slope reported by Counter Ion Release analysis. |
-| *RSS* | Raw residual sum of squares, Σ*r*<sub>i</sub><sup>2</sup>, over included injections. |
-| *Q* | Standardized residual sum of squares, Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>. Weighted AIC/AICc estimates a common variance multiplier as *Q*/*n*. |
-| *L* | Gaussian likelihood used for AIC/AICc. |
-| *n* | Number of included observations in the information-criterion calculation. |
-| *p* | Number of free fitted parameters in the saved global model; shared coordinates count once and member coordinates count per member. |
-| *K* | AIC/AICc likelihood parameter count: *p* + 1 in both weighting modes, including one estimated common residual variance or one estimated multiplier of the injection-error variances. |
+| $P(t)$ | Differential power at time $t$ in a thermogram. |
+| $b(t)$ | Estimated baseline at time $t$. |
+| $n_{i}$ | Amount injected in injection $i$. |
+| $r_{i}$ | Residual for injection $i$: observed heat minus model heat. |
+| $r_{jk}$ | Pearson correlation between fitted parameter coordinates $j$ and $k$. |
+| $\theta_{bj}$ | Value of fitted coordinate $j$ in complete bootstrap refit $b$. |
+| $\sigma_{i}$ | Processing-derived uncertainty for injection $i$. |
+| $R$ | Gas constant. |
+| $T$ | Absolute temperature, in kelvin, for thermodynamic relationships. |
+| $I$ | Ionic strength used in salt analysis. |
+| $a_{\mathrm{ion}}$ | Ion activity used in Counter Ion Release analysis. |
+| $\Delta n_{\mathrm{H}^{+}}$ | Fitted slope of observed binding enthalpy against buffer ionization enthalpy: net proton uptake (positive) or release (negative) per binding event. |
+| $\Delta H_{0}$ | Buffer-independent binding enthalpy at the experimental pH: the Protonation intercept, retaining binding-partner protonation heat. |
+| $n_{\mathrm{ion}}$ | Counter-ion slope reported by Counter Ion Release analysis. |
+| $\mathrm{RSS}$ | Raw residual sum of squares, $\sum r_i^2$, over included injections. |
+| $Q$ | Standardized residual sum of squares, $\sum (r_i/\sigma_i)^2$. Weighted AIC/AICc estimates a common variance multiplier as $Q/n$. |
+| $L$ | Gaussian likelihood used for AIC/AICc. |
+| $n$ | Number of included observations in the information-criterion calculation. |
+| $p$ | Number of free fitted parameters in the saved global model; shared coordinates count once and member coordinates count per member. |
+| $K$ | AIC/AICc likelihood parameter count: $p + 1$ in both weighting modes, including one estimated common residual variance or one estimated multiplier of the injection-error variances. |
 
 ## Equation index
 

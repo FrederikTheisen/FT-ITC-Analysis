@@ -27,7 +27,7 @@ The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injectio
 
 The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. Parameter sliders use practical editing ranges; enter a value in the text field to set a value beyond a slider's range. 
 
-For Competitive Binding, enter the total competitor concentration and its dissociation constant (**Kd**) in the displayed concentration unit. Enter competitor binding enthalpy in the displayed energy unit per mole. For example, Kd = 1 µM and enthalpy = −40 kJ/mol are entered as **1** and **−40** when those units are shown.
+For Competitive Binding, enter the total competitor concentration and its dissociation constant (**Kd**) in the displayed concentration unit. Enter competitor binding enthalpy in the displayed energy unit per mole. For example, $K_{\mathrm{d}}$ = 1 µM and enthalpy = −40 kJ/mol are entered as **1** and **−40** when those units are shown.
 
 ![Experiment Designer Model controls showing One-Set-Of-Sites and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
 
@@ -55,13 +55,17 @@ When a target is saved without its reference experiment, for example with **Save
 
 > **Calculation:**
 >
-> *q*<sub>i,corr</sub> = *q*<sub>i,target</sub> − *q*<sub>i,ref</sub>
+> $$
+> q_{i,\mathrm{corr}} = q_{i,\mathrm{target}} - q_{i,\mathrm{ref}}
+> $$
 >
-> *σ*<sub>i,corr</sub> = √(*σ*<sub>i,target</sub><sup>2</sup> + *σ*<sub>i,ref</sub><sup>2</sup>)
+> $$
+> \sigma_{i,\mathrm{corr}} = \sqrt{\sigma_{i,\mathrm{target}}^2 + \sigma_{i,\mathrm{ref}}^2}
+> $$
 >
-> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used for fitting and export. The *σ* values are standard deviations (SDs). The corrected heat's SD combines the target and reference SDs as independent errors; subtracting the heats does not subtract their SDs.
+> The selected method determines the reference value evaluated for injection $i$. $q_{i,\mathrm{target}}$ is the target heat, $q_{i,\mathrm{ref}}$ is the corresponding reference value, and $q_{i,\mathrm{corr}}$ is the corrected heat used for fitting and export. The $\sigma$ values are standard deviations (SDs). The corrected heat's SD combines the target and reference SDs as independent errors; subtracting the heats does not subtract their SDs.
 >
-> With **Matched**, the reference SD comes from the matched injection. If the method uses the average of the nearest included injections on either side, its SD is half the square root of the sum of their squared SDs. With **Linear** or **Exp. decay**, the subtracted reference value is the fitted line or curve, so the reference SD is the uncertainty of that fitted value at injection *i*, not the scatter of single reference heats. It is calculated from the scatter of included reference heats around the fit (not their individual error bars) and from how well the included injections determine the fit at injection *i*. Because the fit averages over many injections, this SD is usually much smaller than the scatter and is largest near the ends of the reference range. The same fitted curve corrects every injection, so this part of the error is shared between injections rather than independent. If the fit has no degrees of freedom left to estimate that scatter, the model assigns a reference SD of zero; this does not establish that the correction is exact.
+> With **Matched**, the reference SD comes from the matched injection. If the method uses the average of the nearest included injections on either side, its SD is half the square root of the sum of their squared SDs. With **Linear** or **Exp. decay**, the subtracted reference value is the fitted line or curve, so the reference SD is the uncertainty of that fitted value at injection $i$, not the scatter of single reference heats. It is calculated from the scatter of included reference heats around the fit (not their individual error bars) and from how well the included injections determine the fit at injection $i$. Because the fit averages over many injections, this SD is usually much smaller than the scatter and is largest near the ends of the reference range. The same fitted curve corrects every injection, so this part of the error is shared between injections rather than independent. If the fit has no degrees of freedom left to estimate that scatter, the model assigns a reference SD of zero; this does not establish that the correction is exact.
 
 ## Experiment Merger
 
@@ -91,11 +95,15 @@ The new experiment uses the **Injection bookkeeping** method selected in **Prefe
 
 In **Fixed back-mixing** and **Auto back-mixing**, the model tracks the active cell and the dead/overflow volume separately. It starts with the same macromolecule concentration in both and no syringe ligand in either. During a segment, injections change the active-cell concentrations and displaced material enters the dead volume. At the transition to the next segment, the model first removes overflow if **Remove titrated overflow** is selected, then mixes the chosen fraction of the remaining dead volume with the active cell. The resulting active-cell concentrations become the starting concentrations for the next segment. This changes the calculated concentrations used for fitting; it does not add a heat peak or alter the measured thermogram.
 
-> **Calculation:** For each species (macromolecule and syringe ligand), let *V*<sub>cell</sub> and *C*<sub>cell</sub> be the active-cell volume and concentration just before mixing, *V*<sub>dead</sub> and *C*<sub>dead</sub> the remaining dead-compartment volume and concentration, and *f* the selected mixing fraction.
+> **Calculation:** For each species (macromolecule and syringe ligand), let $V_{\mathrm{cell}}$ and $C_{\mathrm{cell}}$ be the active-cell volume and concentration just before mixing, $V_{\mathrm{dead}}$ and $C_{\mathrm{dead}}$ the remaining dead-compartment volume and concentration, and $f$ the selected mixing fraction.
 >
-> *V*<sub>mix</sub> = *f* · *V*<sub>dead</sub>
+> $$
+> V_{\mathrm{mix}} = f \cdot V_{\mathrm{dead}}
+> $$
 >
-> *C*<sub>next</sub> = (*V*<sub>cell</sub> · *C*<sub>cell</sub> + *V*<sub>mix</sub> · *C*<sub>dead</sub>) / (*V*<sub>cell</sub> + *V*<sub>mix</sub>)
+> $$
+> C_{\mathrm{next}} = \frac{V_{\mathrm{cell}} \cdot C_{\mathrm{cell}} + V_{\mathrm{mix}} \cdot C_{\mathrm{dead}}}{V_{\mathrm{cell}} + V_{\mathrm{mix}}}
+> $$
 >
 > If overflow is removed, the model first removes a volume equal to the injections delivered in the completed segment, capped at the available dead volume. It assumes that compartment is well mixed, so removal takes the same proportion of each species. The formula then uses the volume and concentrations left behind. A mixing fraction of 0 leaves the active-cell concentrations unchanged; a fraction of 1 includes all remaining dead-compartment liquid in the mixing calculation. The active-cell volume itself stays fixed, and the model retains the remaining material in the dead compartment for later transitions.
 

@@ -21,7 +21,7 @@ The result view selector contains **Fit**, **Correlation**, and **Summary** for 
 
 **Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution.
 
-Molar-energy values use a common displayed unit; ΔCp can use a different unit.
+Molar-energy values use a common displayed unit; $\Delta C_{\mathrm{p}}$ can use a different unit.
 
 Select a member row to view its **Fit** and available **Correlation** information. Use **Preferences > General > Energy units** to choose joules or calories.
 
@@ -80,7 +80,7 @@ Analysis warnings are separate from validity: a matching fit can still reach a p
 
 **AIC** and **AICc** help compare candidate models fitted to the same observations. They balance agreement with the data against the number of fitted parameters; a smaller value is preferred within a comparable set. They do not tell you that any model is scientifically correct.
 
-Read **Information criteria** for the analysis-level AICc, or AIC when its small-sample correction is unavailable, plus observation and parameter counts. AICc requires *n* > *K* + 1. If the likelihood is unavailable, inspect the displayed reason.
+Read **Information criteria** for the analysis-level AICc, or AIC when its small-sample correction is unavailable, plus observation and parameter counts. AICc requires $n > K + 1$. If the likelihood is unavailable, inspect the displayed reason.
 
 For independent fits, the **AICc / AIC** column compares alternative models for the same experiment, observations, response definition, and weighting mode. Do not compare scores across different experiment rows. Shared-parameter fits show only the analysis-level criterion. Prefer AICc when available; neither criterion establishes model adequacy.
 
@@ -88,27 +88,31 @@ For independent fits, the **AICc / AIC** column compares alternative models for 
 
 The criteria use the saved result's included injections and response definition. At analysis level, residual statistics are pooled before estimating the variance, including when members were fitted independently. Unweighted criteria estimate one common variance across all members; weighted criteria estimate one common multiplier of the injection-error variances. Each independent member's own criterion estimates its variance separately. Consequently, neither pooled AIC nor pooled AICc is a sum of the member values.
 
-With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i</sub><sup>2</sup>, integration-error SDs *σ*<sub>i</sub>, and standardized residual sum of squares *Q* = Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>, the maximized likelihood terms are:
+With residuals $r_{i}$, raw residual sum of squares $\mathrm{RSS} = \sum r_i^2$, integration-error SDs $\sigma_{i}$, and standardized residual sum of squares $Q = \sum (r_i/\sigma_i)^2$, the maximized likelihood terms are:
 
 For an **unweighted fit with one estimated common variance**:
 
 > **Calculation:**
 >
-> −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+> $$
+> -2\log L = n[\log(2\pi\mathrm{RSS}/n) + 1]
+> $$
 >
-> This estimates one shared residual variance from the total squared mismatch *RSS*, then scores how likely the observed heats are under that estimate.
+> This estimates one shared residual variance from the total squared mismatch $\mathrm{RSS}$, then scores how likely the observed heats are under that estimate.
 
 For a **weighted fit with one estimated variance multiplier**:
 
 > **Calculation:**
 >
-> −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
+> $$
+> -2\log L = n[\log(2\pi Q/n) + 1] + \sum \log(\sigma_i^2)
+> $$
 >
-> This uses each injection's processing SD *σ* as a relative weight. The score also includes their different uncertainty scales.
+> This uses each injection's processing SD $\sigma$ as a relative weight. The score also includes their different uncertainty scales.
 
-Weighted criteria use the processing SDs as relative measures of injection uncertainty and estimate one common variance multiplier, *Q*/*n*, from the standardized residual score *Q* and observation count *n*. This does not change those SDs or the fitted parameters. Every included injection needs a positive SD for weighted fitting. A score is unavailable when residual variance is zero. Weighted profile-likelihood intervals retain the relative weights and use the estimated overall residual scale for their threshold.
+Weighted criteria use the processing SDs as relative measures of injection uncertainty and estimate one common variance multiplier, $Q/n$, from the standardized residual score $Q$ and observation count $n$. This does not change those SDs or the fitted parameters. Every included injection needs a positive SD for weighted fitting. A score is unavailable when residual variance is zero. Weighted profile-likelihood intervals retain the relative weights and use the estimated overall residual scale for their threshold.
 
-The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
+The fitted parameter count $p$ includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, $p$ includes only that member model's free fitted parameters. In both weighting modes, the reported values use $K = p + 1$, $\mathrm{AIC} = -2\log L + 2K$, and $\mathrm{AICc} = \mathrm{AIC} + 2K(K + 1)/(n - K - 1)$. This standard small-sample correction is an approximation for nonlinear ITC models.
 
 <a id="null-hypothesis-test"></a>
 
@@ -132,18 +136,20 @@ Standard result-table exports continue to omit no-binding members' binding value
 
 A null hypothesis is the simplest explanation of the data that you want to rule out before trusting a more detailed model. For a titration, the null hypothesis is that the measured heats can be explained without binding. A Null model represents that no-binding explanation, including heat from dilution and mixing. If a binding model does not describe the data clearly better than this background alone, its fitted affinity, enthalpy, and stoichiometry are not supported by the data.
 
-The comparison uses the Offset Null model, which predicts each injection heat as *q*<sub>i</sub> = *b m*<sub>i</sub>, where *m*<sub>i</sub> is the amount injected and *b* is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use **Modify Assessment** on the saved result to change it manually or return to automatic assessment. The Summary shows the Null model RMSD and the signed ΔAICc. For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model does not constrain these local Null model fits. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local null fits are combined under the pooled variance convention to calculate the result-level comparison.
+The comparison uses the Offset Null model, which predicts each injection heat as $q_i = b m_i$, where $m_{i}$ is the amount injected and $b$ is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use **Modify Assessment** on the saved result to change it manually or return to automatic assessment. The Summary shows the Null model RMSD and the signed $\Delta\mathrm{AICc}$. For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model does not constrain these local Null model fits. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local null fits are combined under the pooled variance convention to calculate the result-level comparison.
 
 The two fits are compared with AICc (see [Information criteria](#information-criteria)), which balances fit quality against the number of fitted parameters:
 
 
 > **Calculation:**
 >
-> ΔAICc = AICc<sub>null</sub> − AICc<sub>binding</sub>
+> $$
+> \Delta\mathrm{AICc} = \mathrm{AICc}_{\mathrm{null}} - \mathrm{AICc}_{\mathrm{binding}}
+> $$
 >
-> A positive value favors binding because the Null model has the higher AICc. It does not establish that the selected binding model is adequate or correct. A negative ∆AICc value indicates that the Null model is favored.
+> A positive value favors binding because the Null model has the higher AICc. It does not establish that the selected binding model is adequate or correct. A negative $\Delta\mathrm{AICc}$ value indicates that the Null model is favored.
 
-The chosen cutoffs are **No binding detected** at ΔAICc ≤ 0, **Inconclusive** at 0 < ΔAICc < 15, and **Binding detected** at ΔAICc ≥ 15. They have no calibrated false-positive guarantee; the comparison is not a significance test.
+The chosen cutoffs are **No binding detected** at $\Delta\mathrm{AICc} \leq 0$, **Inconclusive** at $0 < \Delta\mathrm{AICc} < 15$, and **Binding detected** at $\Delta\mathrm{AICc} \geq 15$. They have no calibrated false-positive guarantee; the comparison is not a significance test.
 
 ## Uncertainty and evaluation temperature
 
@@ -157,17 +163,21 @@ Changing **Errors** changes only how stored uncertainty is presented in tables, 
 
 ### Automatic display calculation
 
-**Automatic** makes this choice separately for each reported quantity. Let *L* and *U* be its stored 95% confidence limits and *θ̂* its primary best-fit value:
+**Automatic** makes this choice separately for each reported quantity. Let $L$ and $U$ be its stored 95% confidence limits and $\hat{\theta}$ its primary best-fit value:
 
 > **Calculation:**
 >
-> *w*<sub>lower</sub> = *θ̂* − *L*; *w*<sub>upper</sub> = *U* − *θ̂*
+> $$
+> w_{\mathrm{lower}} = \hat{\theta} - L; \quad w_{\mathrm{upper}} = U - \hat{\theta}
+> $$
 >
-> asymmetry = |*w*<sub>upper</sub> − *w*<sub>lower</sub>| / (*w*<sub>upper</sub> + *w*<sub>lower</sub>)
+> $$
+> \text{asymmetry} = \frac{\lvert w_{\mathrm{upper}} - w_{\mathrm{lower}} \rvert}{w_{\mathrm{upper}} + w_{\mathrm{lower}}}
+> $$
 >
 > Automatic shows the 95% confidence interval when both widths are positive and the asymmetry is at least 0.18; otherwise it shows SD. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
 
-The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting log<sub>10</sub>(*K*<sub>a</sub>) and displaying *K*<sub>d</sub>—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
+The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting $\log_{10}(K_{\mathrm{a}})$ and displaying $K_{\mathrm{d}}$—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
 
 ### Summary uncertainty
 
@@ -175,11 +185,11 @@ Use **Combined SD** to describe combined spread and the **Approximate propagated
 
 For local parameters, **Combined SD** is the square root of between-experiment sample variance plus mean individual variance; a temperature trend uses residual variance. It describes combined spread, not the standard error of the mean, and observed spread may already include fitting noise.
 
-The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. ΔCp uses slope uncertainty.
+The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. $\Delta C_{\mathrm{p}}$ uses slope uncertainty.
 
 These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
 
-Summary Kd is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
+Summary $K_{\mathrm{d}}$ is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
 
 ## Parameter correlation
 
@@ -187,7 +197,7 @@ This view shows whether two fitted parameters tend to move together when the dat
 
 **Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 30 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
 
-Matrix values range from −1 to +1. Point to a cell for Pearson's *r* and its Monte Carlo precision interval. An interval spanning zero leaves the sign unresolved at the current simulation precision. Check the panel's refit counts and warnings for coarse precision, failed or incomplete refits, and rank limits.
+Matrix values range from −1 to +1. Point to a cell for Pearson's $r$ and its Monte Carlo precision interval. An interval spanning zero leaves the sign unresolved at the current simulation precision. Check the panel's refit counts and warnings for coarse precision, failed or incomplete refits, and rank limits.
 
 For independent fits, select a member; correlations, intervals, counts, and warnings use only its refits. A joint fit can show **Shared** coordinates or **Shared + selected local** coordinates. The labels identify each parameter's scope.
 
@@ -195,17 +205,21 @@ For independent fits, select a member; correlations, intervals, counts, and warn
 
 > **Calculation:**
 >
-> *r*<sub>jk</sub> = Σ<sub>b</sub>[(*θ*<sub>bj</sub> − *θ̄*<sub>j</sub>)(*θ*<sub>bk</sub> − *θ̄*<sub>k</sub>)] / √[Σ<sub>b</sub>(*θ*<sub>bj</sub> − *θ̄*<sub>j</sub>)<sup>2</sup> Σ<sub>b</sub>(*θ*<sub>bk</sub> − *θ̄*<sub>k</sub>)<sup>2</sup>]
+> $$
+> r_{jk} = \frac{\sum_b (\theta_{bj} - \bar{\theta}_j)(\theta_{bk} - \bar{\theta}_k)}{\sqrt{\sum_b (\theta_{bj} - \bar{\theta}_j)^2 \sum_b (\theta_{bk} - \bar{\theta}_k)^2}}
+> $$
 >
-> *r*<sub>jk</sub> is the Pearson correlation between fitted coordinates *j* and *k*. The index *b* runs over complete residual-bootstrap refits, and *θ̄* is the corresponding mean coordinate.
+> $r_{jk}$ is the Pearson correlation between fitted coordinates $j$ and $k$. The index $b$ runs over complete residual-bootstrap refits, and $\bar{\theta}$ is the corresponding mean coordinate.
 
 For each off-diagonal cell, the application also reports an approximate 95% Monte Carlo precision interval using Fisher's transformation:
 
 > **Calculation:**
 >
-> *z* = atanh(*r*),   *z*<sub>±</sub> = *z* ± 1.959964 / √(*B* − 3),   *r*<sub>±</sub> = tanh(*z*<sub>±</sub>)
+> $$
+> z = \operatorname{atanh}(r), \quad z_{\pm} = z \pm \frac{1.959964}{\sqrt{B - 3}}, \quad r_{\pm} = \tanh(z_{\pm})
+> $$
 >
-> *B* is the number of complete refits: usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation *r* = 1 and has no Fisher precision interval.
+> $B$ is the number of complete refits: usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation $r = 1$ and has no Fisher precision interval.
 
 Sequential correlations use the actual fitted coordinates. Affinity coordinates
 are labeled **log10 Ka1** through **log10 Ka4**, active enthalpy coordinates are
@@ -213,21 +227,21 @@ included, and no N-value coordinate is added. A global result shows the shared
 per-step coordinates and, when requested, unconstrained coordinates for the
 selected member without duplicating constrained member values.
 
-> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient *r* itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
+> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient $r$ itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—$\log_{10}(K_{\mathrm{a}})$—rather than as the displayed $K_{\mathrm{d}}$. A rank warning states the structural limit $\mathrm{rank} \leq B - 1$ for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
 
 ## Advanced analysis views
 
 These views ask how a fitted interaction changes with experimental conditions. **Temperature** examines a series measured at different temperatures, **Salt** examines a series with different salt conditions, and **Protonation** compares experiments in different buffers. Their conclusions depend on the recorded conditions and the underlying fit.
 
-All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analysis also requires the relevant variation in experimental conditions and the corresponding metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports structuring, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
+All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analysis also requires the relevant variation in experimental conditions and the corresponding metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step $\Delta H$, $\Delta G$, $-T\Delta S$, $K_{\mathrm{d}}$, and temperature-dependence presentation; it reports structuring, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
 
 ### Temperature
 
-The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its **Structuring** section uses the Spolar–Record method to estimate the hydration entropy (−TΔS_HE), the conformational entropy (−TΔS_conf), and the number of residues folding upon binding. **Interaction** selects **Folded–folded** for two folded proteins or **Folded–disordered** for one folded and one disordered protein. Completed outputs retain their saved estimates and evaluation temperature until rerun.
+The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its **Structuring** section uses the Spolar–Record method to estimate the hydration entropy ($-T\Delta S_{\mathrm{HE}}$), the conformational entropy ($-T\Delta S_{\mathrm{conf}}$), and the number of residues folding upon binding. **Interaction** selects **Folded–folded** for two folded proteins or **Folded–disordered** for one folded and one disordered protein. Completed outputs retain their saved estimates and evaluation temperature until rerun.
 
 #### Structuring assumptions
 
-Structuring analysis is evaluated at the **Isoentropic point**, where the model-estimated binding entropy is zero (ΔS = 0), following the published method. These are model-based estimates, not direct structural measurements. For a thermodynamically linked result, the isoentropic temperature is derived from the complete Gibbs, enthalpy, and heat-capacity relationship. Profile intervals are propagated approximately and omit fitted-coordinate correlations; bootstrap and leave-one-out uncertainty evaluates each saved relationship jointly, while the Spolar–Record Monte Carlo samples its linked inputs independently.
+Structuring analysis is evaluated at the **Isoentropic point**, where the model-estimated binding entropy is zero ($\Delta S = 0$), following the published method. These are model-based estimates, not direct structural measurements. For a thermodynamically linked result, the isoentropic temperature is derived from the complete Gibbs, enthalpy, and heat-capacity relationship. Profile intervals are propagated approximately and omit fitted-coordinate correlations; bootstrap and leave-one-out uncertainty evaluates each saved relationship jointly, while the Spolar–Record Monte Carlo samples its linked inputs independently.
 
 ### Salt
 
@@ -241,11 +255,15 @@ Each point represents one experiment's fitted affinity, including experiments at
 
 > **Calculation:**
 >
-> ln *K*<sub>d</sub>(*I*) = ln *K*<sub>d,0</sub> + *s*√*I*
+> $$
+> \ln K_{\mathrm{d}}(I) = \ln K_{\mathrm{d},0} + s\sqrt{I}
+> $$
 >
-> ln *K*<sub>d</sub> = *b* + *n*<sub>ion</sub> ln *a*<sub>ion</sub>
+> $$
+> \ln K_{\mathrm{d}} = b + n_{\mathrm{ion}} \ln a_{\mathrm{ion}}
+> $$
 >
-> *I* is ionic strength, *s* is the fitted sensitivity, *a*<sub>ion</sub> is ion activity, and *b* is the fitted intercept. *K*<sub>d,0</sub> is the extrapolated value in the Debye–Hückel view. *n*<sub>ion</sub> is the reported slope for Counter Ion Release; its sign is reported by the analysis and is not assigned an interpretation here.
+> $I$ is ionic strength, $s$ is the fitted sensitivity, $a_{\mathrm{ion}}$ is ion activity, and $b$ is the fitted intercept. $K_{\mathrm{d},0}$ is the extrapolated value in the Debye–Hückel view. $n_{\mathrm{ion}}$ is the reported slope for Counter Ion Release; its sign is reported by the analysis and is not assigned an interpretation here.
 
 ### Protonation
 
@@ -257,9 +275,11 @@ The band spans lines combining the ends of the slope’s and intercept’s 95% i
 
 > **Calculation:**
 >
-> *ΔH*<sub>obs</sub> = *ΔH*<sub>0</sub> + *Δn*<sub>H⁺</sub> *ΔH*<sub>ion,buffer</sub>
+> $$
+> \Delta H_{\mathrm{obs}} = \Delta H_0 + \Delta n_{\mathrm{H}^{+}}\,\Delta H_{\mathrm{ion,buffer}}
+> $$
 >
-> **Net proton uptake**, *Δn*<sub>H⁺</sub>, is the fitted slope: positive means uptake by the binding system from solution, and negative means release. It is an average net exchange per binding event and may be fractional. The x-axis is buffer ionization (deprotonation) enthalpy; buffer protonation enthalpy has the opposite sign. **Buffer-independent enthalpy**, *ΔH*<sub>0</sub>, is the fitted intercept at zero buffer ionization enthalpy, at the experimental pH. It retains contributions from protonation of the binding partners and is not the fully intrinsic binding enthalpy. Interpret the relationship for comparable conditions, including pH and temperature. See [Coussens, Schuck and Zhao (2012), equations 3–6](https://pmc.ncbi.nlm.nih.gov/articles/PMC3388511/) and [Goldberg, Kishore and Lennen (2002)](https://srd.nist.gov/jpcrdreprint/1.1416902.pdf).
+> **Net proton uptake**, $\Delta n_{\mathrm{H}^{+}}$, is the fitted slope: positive means uptake by the binding system from solution, and negative means release. It is an average net exchange per binding event and may be fractional. The x-axis is buffer ionization (deprotonation) enthalpy; buffer protonation enthalpy has the opposite sign. **Buffer-independent enthalpy**, $\Delta H_{0}$, is the fitted intercept at zero buffer ionization enthalpy, at the experimental pH. It retains contributions from protonation of the binding partners and is not the fully intrinsic binding enthalpy. Interpret the relationship for comparable conditions, including pH and temperature. See [Coussens, Schuck and Zhao (2012), equations 3–6](https://pmc.ncbi.nlm.nih.gov/articles/PMC3388511/) and [Goldberg, Kishore and Lennen (2002)](https://srd.nist.gov/jpcrdreprint/1.1416902.pdf).
 
 Advanced-analysis values are supplemental views of a stored Analysis Result. Their availability and outputs are determined by the One-Set-Of-Sites model, member variation, metadata, selected graph or evaluation mode, and any completed uncertainty calculation. Result validity remains a separate indication of whether the stored fit inputs match the current project state. Figure and table output is covered in [Figures and export](09-figures-printing-export.md).
 

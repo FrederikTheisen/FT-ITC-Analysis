@@ -40,7 +40,7 @@ The constraint states have these meanings:
 | **Independent** | The parameter remains member-specific. Each experiment has its own fitted value. |
 | **Shared** | One common value is fitted for every member in the set. |
 | **Temperature dependent** | A supported parameter is represented across the temperature series by the relationship exposed by the model. |
-| **Thermodynamically linked** | Affinity shares ΔG at the fixed fit reference and derives ΔG(T) from the selected enthalpy relationship, including ΔCp when present. |
+| **Thermodynamically linked** | Affinity shares $\Delta G$ at the fixed fit reference and derives $\Delta G$(T) from the selected enthalpy relationship, including $\Delta C_{\mathrm{p}}$ when present. |
 
 The **Locked** state fixes an exposed parameter at its displayed value during fitting. **Locked** is not a constraint state and does not make a parameter common to the member experiments. A locked global value and a member-specific locked value therefore have different scopes.
 
@@ -53,17 +53,17 @@ For the core binding parameters, the available relationship states are model- an
 | **N-value** | **Independent** or **Shared** |
 | **Offset** | **Independent** or **Shared** |
 
-The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while Kd varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while the structuring analysis (Spolar–Record method) samples linked inputs independently in its Monte Carlo calculation.
+The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while $K_{\mathrm{d}}$ varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while the structuring analysis (Spolar–Record method) samples linked inputs independently in its Monte Carlo calculation.
 
 For **Sequential Binding Sites**, the step count is one shared model option for
 the complete experiment set. The interface shows one **Affinity** constraint
 selector and one **Enthalpy** constraint selector, regardless of whether two,
 three, or four steps are active. The selected constraint applies to every
 active step while keeping a separate parameter for each step: **Same for
-all** shares *K*<sub>1</sub> across members, separately shares
-*K*<sub>2</sub>, and so on; it does not force the different steps to equal one
-another. **Temperature dependent** likewise uses one Δ*G*<sub>i</sub> per
-affinity step and one reference Δ*H*<sub>i</sub>/Δ*C*<sub>p,i</sub> pair per
+all** shares $K_{1}$ across members, separately shares
+$K_{2}$, and so on; it does not force the different steps to equal one
+another. **Temperature dependent** likewise uses one $\Delta G_{i}$ per
+affinity step and one reference $\Delta H_{i}$/$\Delta C_{p,i}$ pair per
 enthalpy step. Reducing the step count discards inactive step values and
 constraints; increasing it later creates new defaults for those steps.
 
@@ -76,13 +76,19 @@ Offset is an energy-per-mole-of-injectant correction. For each injection, its ab
 
 > **Calculation:**
 >
-> *ΔH*(*T*) = *ΔH*<sub>ref</sub> + *ΔC*<sub>p</sub>(*T* − *T*<sub>ref</sub>)
+> $$
+> \Delta H(T) = \Delta H_{\mathrm{ref}} + \Delta C_{\mathrm{p}}(T - T_{\mathrm{ref}})
+> $$
 >
-> *ΔG*(*T*) = (*T*/*T*<sub>ref</sub>)*ΔG*<sub>ref</sub> + (1 − *T*/*T*<sub>ref</sub>)*ΔH*<sub>ref</sub> + Δ*C*<sub>p</sub>[(*T* − *T*<sub>ref</sub>) − *T* ln(*T*/*T*<sub>ref</sub>)]
+> $$
+> \Delta G(T) = (T/T_{\mathrm{ref}})\Delta G_{\mathrm{ref}} + (1 - T/T_{\mathrm{ref}})\Delta H_{\mathrm{ref}} + \Delta C_{\mathrm{p}}[(T - T_{\mathrm{ref}}) - T \ln(T/T_{\mathrm{ref}})]
+> $$
 >
-> *K*<sub>a</sub>(*T*) = exp[−*ΔG* / (*R T*)]
+> $$
+> K_{\mathrm{a}}(T) = \exp[-\Delta G / (R T)]
+> $$
 >
-> *ΔH*<sub>ref</sub> is the enthalpy at the fixed fit reference, and *ΔC*<sub>p</sub> is the equal-per-experiment regression slope when enthalpy is independent. The fit reference is fixed when the analysis is built; it is separate from the reporting temperature selected in preferences. A member's heat prediction continues to use its own fitted ΔH, while linked affinity uses the enthalpy trend. *T* and *T*<sub>ref</sub> are absolute temperatures.
+> $\Delta H_{\mathrm{ref}}$ is the enthalpy at the fixed fit reference, and $\Delta C_{\mathrm{p}}$ is the equal-per-experiment regression slope when enthalpy is independent. The fit reference is fixed when the analysis is built; it is separate from the reporting temperature selected in preferences. A member's heat prediction continues to use its own fitted $\Delta H$, while linked affinity uses the enthalpy trend. $T$ and $T_{\mathrm{ref}}$ are absolute temperatures.
 
 For independent enthalpies, the linked temperature relationship gives every experiment equal weight, including repeated temperatures and locked enthalpies. Linked Gibbs and entropy profile intervals propagate uncertainty through the enthalpy trend but do not account for correlations among fitted parameters; they are approximate. Bootstrap and leave-one-out recompute the relationship from their participating members. The reported best-fit values remain those from the original data.
 

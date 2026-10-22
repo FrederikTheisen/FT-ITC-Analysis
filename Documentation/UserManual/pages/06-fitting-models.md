@@ -56,13 +56,17 @@ No method is assumed to be empirically superior. Injection bookkeeping is separa
 
 ### Concentrations and injection heat
 
-For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ be the initial cell concentration, and *C*ₛ the syringe concentration. Starting with no ligand in the cell:
+For MicroCal, let $u$ = cumulative injected volume / active cell volume, $M_{0}$ be the initial cell concentration, and $C_{\mathrm{s}}$ the syringe concentration. Starting with no ligand in the cell:
 
 > **Calculation:**
 >
-> *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)
+> $$
+> M = M_0 \frac{1 - u/2}{1 + u/2}
+> $$
 >
-> *X* = *C*ₛ*u*(1 − *u*/2)
+> $$
+> X = C_{\mathrm{s}} u (1 - u/2)
+> $$
 >
 > The first line estimates how much macromolecule remains; the second estimates how much injected ligand is in the cell.
 
@@ -70,13 +74,15 @@ These are approximate concentration curves for the **MicroCal** bookkeeping meth
 
 Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The displaced-volume assumptions remain approximate. For a tandem experiment, this calculation stops when cumulative injected volume reaches twice the active cell volume; ideal continuous mixing has no corresponding cumulative-volume limit. Existing projects retain saved concentrations and fits until concentration reprocessing.
 
-For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. The predicted injection heat *q* depends on the bookkeeping method.
+For one injection, let $v$ be injection volume, $V$ active cell volume, and $Q$ the equilibrium binding heat content of the cell in joules. The predicted injection heat $q$ depends on the bookkeeping method.
 
 **MicroCal:**
 
 > **Calculation:**
 >
-> *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + *Q*end)/2
+> $$
+> q = Q_{\mathrm{end}} - Q_{\mathrm{start}} + \frac{v}{V} \frac{Q_{\mathrm{start}} + Q_{\mathrm{end}}}{2}
+> $$
 >
 > The heat change is adjusted for displaced solution using the average of the heat content before and after the injection.
 
@@ -84,7 +90,9 @@ For one injection, let *v* be injection volume, *V* active cell volume, and *Q* 
 
 > **Calculation:**
 >
-> *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + 4*Q*mid + *Q*end)/6
+> $$
+> q = Q_{\mathrm{end}} - Q_{\mathrm{start}} + \frac{v}{V} \frac{Q_{\mathrm{start}} + 4Q_{\mathrm{mid}} + Q_{\mathrm{end}}}{6}
+> $$
 >
 > This averages the displaced heat along the mixing path, including the state halfway through the injection.
 
@@ -92,7 +100,9 @@ For one injection, let *v* be injection volume, *V* active cell volume, and *Q* 
 
 > **Calculation:**
 >
-> *q* = *Q*end − (1 − *v*/*V*)*Q*start
+> $$
+> q = Q_{\mathrm{end}} - \left(1 - \frac{v}{V}\right) Q_{\mathrm{start}}
+> $$
 >
 > Only the fraction of the original cell mixture left after displacement contributes its starting heat.
 
@@ -100,9 +110,13 @@ For Discrete displacement, concentrations advance after each injection as follow
 
 > **Calculation:**
 >
-> *M*end = (1 − *v*/*V*)*M*start
+> $$
+> M_{\mathrm{end}} = \left(1 - \frac{v}{V}\right) M_{\mathrm{start}}
+> $$
 >
-> *X*end = (1 − *v*/*V*)*X*start + (*v*/*V*)*C*ₛ
+> $$
+> X_{\mathrm{end}} = \left(1 - \frac{v}{V}\right) X_{\mathrm{start}} + \frac{v}{V} C_{\mathrm{s}}
+> $$
 >
 > The same fraction of each starting concentration remains, while the injected solution adds ligand from the syringe.
 
@@ -131,9 +145,9 @@ The **Limits** control selects a common parameter-bound policy:
 
 - **Standard** uses the normal parameter bounds.
 - **Expanded** permits a wider parameter range.
-- **No limits** widens the configured bounds substantially. For affinity, **Expanded** allows K values 20 times lower to 20 times higher than Standard, and **No limits** allows K values 2000 times lower to 2000 times higher. These ranges are widened in log₁₀K space.
+- **No limits** widens the configured bounds substantially. For affinity, **Expanded** allows $K$ values 20 times lower to 20 times higher than Standard, and **No limits** allows $K$ values 2000 times lower to 2000 times higher. These ranges are widened in $\log_{10} K$ space.
 
-Negative log₁₀K values represent positive association constants below 1 in the application's affinity units. In multiple-experiment fits, globally constrained affinities controlled by fitted parameters are checked to ensure both K and Kd remain positive and finite. A candidate outside that numerical range is rejected; valid converted values can lie beyond the selected local affinity limits.
+Negative $\log_{10} K$ values represent positive association constants below 1 in the application's affinity units. In multiple-experiment fits, globally constrained affinities controlled by fitted parameters are checked to ensure both $K$ and $K_{\mathrm{d}}$ remain positive and finite. A candidate outside that numerical range is rejected; valid converted values can lie beyond the selected local affinity limits.
 
 A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 
@@ -178,23 +192,29 @@ Choose a model based on what is in the cell and syringe and what interactions ar
 
 **One-Set-Of-Sites** represents one class of equivalent, independent binding sites. It fits stoichiometry, dissociation constant, binding enthalpy, and an injection-heat offset. The solution also reports thermodynamic quantities derived from the fitted affinity and enthalpy.
 
-The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted **N-value** represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and **Correction factor** (α) scales the delivered titrant concentration. Enter or lock α in the parameter row; set the fixed site ratio under **Stoichiometry**.
+The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted **N-value** represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and **Correction factor** ($\alpha$) scales the delivered titrant concentration. Enter or lock $\alpha$ in the parameter row; set the fixed site ratio under **Stoichiometry**.
 
 The model cannot by itself distinguish concentration uncertainty from other effects that change an apparent stoichiometry.
 
 #### Calculation and assumptions
 
-Let *M* be the total macromolecule concentration, *N* the number of sites per macromolecule, *X* the total ligand concentration, *x* the free ligand concentration, and *K*<sub>d</sub> the dissociation constant. A smaller *K*<sub>d</sub> means stronger binding. The model finds *x* by balancing free and bound ligand, then calculates the heat content *Q* of the cell:
+Let $M$ be the total macromolecule concentration, $N$ the number of sites per macromolecule, $X$ the total ligand concentration, $x$ the free ligand concentration, and $K_{\mathrm{d}}$ the dissociation constant. A smaller $K_{\mathrm{d}}$ means stronger binding. The model finds $x$ by balancing free and bound ligand, then calculates the heat content $Q$ of the cell:
 
 > **Calculation:**
 >
-> *f* = *x* / (*K*<sub>d</sub> + *x*)
+> $$
+> f = \frac{x}{K_{\mathrm{d}} + x}
+> $$
 >
-> *X* = *x* + *N M f*
+> $$
+> X = x + N M f
+> $$
 >
-> *Q* = *V N M f* Δ*H*
+> $$
+> Q = V N M f\,\Delta H
+> $$
 >
-> The fraction *f* tells us how many sites are occupied. The middle line counts free ligand plus ligand on the sites. The last line multiplies the amount bound in cell volume *V* by the heat per mole bound, Δ*H*. Injection heat then follows the selected bookkeeping calculation above.
+> The fraction $f$ tells us how many sites are occupied. The middle line counts free ligand plus ligand on the sites. The last line multiplies the amount bound in cell volume $V$ by the heat per mole bound, $\Delta H$. Injection heat then follows the selected bookkeeping calculation above.
 
 ### Two-Sets-Of-Sites
 
@@ -208,24 +228,30 @@ The two site labels are interchangeable: exchanging all parameters assigned to s
 
 #### Calculation and assumptions
 
-Each class has its own site count *N*, affinity *K*<sub>d</sub>, and binding enthalpy Δ*H*. With free ligand concentration *x*, the two classes share the same supply of ligand:
+Each class has its own site count $N$, affinity $K_{\mathrm{d}}$, and binding enthalpy $\Delta H$. With free ligand concentration $x$, the two classes share the same supply of ligand:
 
 > **Calculation:**
 >
-> *f*<sub>j</sub> = *x* / (*K*<sub>d,j</sub> + *x*), for *j* = 1 or 2
+> $$
+> f_j = \frac{x}{K_{\mathrm{d},j} + x}, \quad \text{for } j = 1 \text{ or } 2
+> $$
 >
-> *X* = *x* + *M*(*N*₁*f*₁ + *N*₂*f*₂)
+> $$
+> X = x + M(N_1 f_1 + N_2 f_2)
+> $$
 >
-> *Q* = *V M*(*N*₁*f*₁Δ*H*₁ + *N*₂*f*₂Δ*H*₂)
+> $$
+> Q = V M(N_1 f_1 \Delta H_1 + N_2 f_2 \Delta H_2)
+> $$
 >
-> Each *f* is the occupied fraction for one site class. The ligand balance finds one free concentration that satisfies both classes. Their heat contributions add to give the cell heat content; injection bookkeeping converts its change to a predicted heat.
+> Each $f$ is the occupied fraction for one site class. The ligand balance finds one free concentration that satisfies both classes. Their heat contributions add to give the cell heat content; injection bookkeeping converts its change to a predicted heat.
 
 ### Sequential Binding Sites
 
 **Sequential Binding Sites** represents two, three, or four ordered binding steps on a macromolecule in the cell. **Sequential binding steps** in the **Options** tab selects the number of steps. The model fits one macroscopic stepwise association constant and one molar step enthalpy for each transition, together with the ordinary molar injection-heat offset. It does not fit an N-value or syringe activity.
 
-The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
-constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
+The reported $K_{i}$ values are phenomenological, macroscopic step
+constants for the ordered transitions $M \to MX \to MX_2$ and so on.
 They are not microscopic intrinsic site constants. Step numbers therefore have
 a physical order, so fitted steps are never sorted or treated as interchangeable.
 
@@ -238,30 +264,39 @@ establish the selected number of sequential steps.
 
 #### Sequential-state calculation
 
-For step count *n*, let β<sub>0</sub> = 1,
-β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be the free ligand concentration.
+For step count $n$, let $\beta_0 = 1$,
+$\beta_i = \prod_{j=1}^{i} K_j$, and let $x$ be the free ligand concentration.
 The state weights and fractions are
 
 > **Calculation:**
 >
-> *w*<sub>i</sub> = β<sub>i</sub>*x*<sup>i</sup>
+> $$
+> w_i = \beta_i x^i
+> $$
 >
-> *F*<sub>i</sub> = *w*<sub>i</sub> / Σ<sub>j=0…n</sub>*w*<sub>j</sub>
+> $$
+> F_i = \frac{w_i}{\sum_{j=0}^{n} w_j}
+> $$
 >
-> ν̄ = Σ<sub>i=0…n</sub>*iF*<sub>i</sub>
+> $$
+> \bar{\nu} = \sum_{i=0}^{n} i F_i
+> $$
 >
-> *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
+> $$
+> X_{\mathrm{t}} = x + M_{\mathrm{t}} \bar{\nu}
+> $$
 >
-> Each state receives a weight from its binding steps and the available free ligand. Dividing by the total weight gives the fraction in that state. The average number of bound ligands, ν̄, then balances free and bound ligand against the total.
+> Each state receives a weight from its binding steps and the available free ligand. Dividing by the total weight gives the fraction in that state. The average number of bound ligands, $\bar{\nu}$, then balances free and bound ligand against the total.
 
-Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
+Here $M_{\mathrm{t}}$ and $X_{\mathrm{t}}$ are total macromolecule and ligand
 concentrations in the cell. The model solves the ligand balance as part of the fit and
 calculates the cell heat content from the population of every sequential state:
 
 > **Calculation:**
 >
-> *Q* = *V M*<sub>t</sub> Σ<sub>i=1…n</sub> *F*<sub>i</sub>
-> (Σ<sub>j=1…i</sub> Δ*H*<sub>j</sub>)
+> $$
+> Q = V M_{\mathrm{t}} \sum_{i=1}^{n} F_i \left(\sum_{j=1}^{i} \Delta H_j\right)
+> $$
 >
 > For each state, add the heats of all steps needed to reach it, multiply by the fraction in that state, and sum across states. Multiplying by the macromolecule amount in the cell gives its heat content.
 
@@ -269,7 +304,7 @@ calculates the cell heat content from the population of every sequential state:
 
 **Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
 
-The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** includes both free and bound competitor in the cell. Each option can use an experiment attribute instead of a manually entered value. For affinity and enthalpy, add a **Competitor properties** attribute and select a one-set-of-sites Analysis Result to supply *K*<sub>d</sub>, Δ*H*, and their uncertainty. Different experiments in a global fit can select different source results: eg if using a different competitor. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
+The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** includes both free and bound competitor in the cell. Each option can use an experiment attribute instead of a manually entered value. For affinity and enthalpy, add a **Competitor properties** attribute and select a one-set-of-sites Analysis Result to supply $K_{\mathrm{d}}$, $\Delta H$, and their uncertainty. Different experiments in a global fit can select different source results: eg if using a different competitor. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
 
 With **From attributes** selected, the next fit uses each experiment's attribute value; the manually entered option is used when **From attributes** is off. Every included experiment needs the required attributes, or the fit cannot start. The Analysis Result **Model** page identifies attribute-supplied options and the values used for each experiment. **Update Result** reads current attributes; an existing result does not update when attributes change and retains the values used in its earlier fit until updated.
 
@@ -279,25 +314,35 @@ If the source result has temperature dependence, its values are evaluated at the
 
 The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. The competitor properties are model inputs, not quantities independently determined by this fit.
 
-The reported apparent target *K*<sub>d</sub> includes a competition factor calculated from the initial free competitor concentration. This calculation accounts for competitor already bound to cell sites rather than substituting the total competitor concentration. The apparent target *K*<sub>d</sub> can therefore differ from its intrinsic value.
+The reported apparent target $K_{\mathrm{d}}$ includes a competition factor calculated from the initial free competitor concentration. This calculation accounts for competitor already bound to cell sites rather than substituting the total competitor concentration. The apparent target $K_{\mathrm{d}}$ can therefore differ from its intrinsic value.
 
 #### Calculation and assumptions
 
-The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b* be their free concentrations, *K*<sub>a,A</sub> and *K*<sub>a,B</sub> their association constants, and *S* the total site concentration. The model solves for the two free concentrations so that the available ligand is accounted for:
+The target ($A$) and competitor ($B$) compete for the same sites. Let $a$ and $b$ be their free concentrations, $K_{\mathrm{a},A}$ and $K_{\mathrm{a},B}$ their association constants, and $S$ the total site concentration. The model solves for the two free concentrations so that the available ligand is accounted for:
 
 > **Calculation:**
 >
-> *D* = 1 + *K*<sub>a,A</sub>*a* + *K*<sub>a,B</sub>*b*
+> $$
+> D = 1 + K_{\mathrm{a},A} a + K_{\mathrm{a},B} b
+> $$
 >
-> *f*<sub>A</sub> = *K*<sub>a,A</sub>*a* / *D*
+> $$
+> f_A = \frac{K_{\mathrm{a},A} a}{D}
+> $$
 >
-> *f*<sub>B</sub> = *K*<sub>a,B</sub>*b* / *D*
+> $$
+> f_B = \frac{K_{\mathrm{a},B} b}{D}
+> $$
 >
-> *A*<sub>total</sub> = *a* + *S f*<sub>A</sub>; *B*<sub>total</sub> = *b* + *S f*<sub>B</sub>
+> $$
+> A_{\mathrm{total}} = a + S f_A; \quad B_{\mathrm{total}} = b + S f_B
+> $$
 >
-> *Q* = *V S*(*f*<sub>A</sub>Δ*H*<sub>A</sub> + *f*<sub>B</sub>Δ*H*<sub>B</sub>)
+> $$
+> Q = V S(f_A \Delta H_A + f_B \Delta H_B)
+> $$
 >
-> *D* counts the empty and occupied possibilities for a site; *f*<sub>A</sub> and *f*<sub>B</sub> are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
+> $D$ counts the empty and occupied possibilities for a site; $f_{A}$ and $f_{B}$ are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
 
 ### Dissociation
 
@@ -305,41 +350,55 @@ The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b
 
 The integrated-heats and residual plots use the total titrant concentration in the cell after each injection, in µM. This concentration is calculated from the entered concentrations and injection bookkeeping.
 
-For an equimolar complex *A* + *B* ⇌ *AB*, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar *AB* preparation). Then *F* = [*A*] + [*B*] and *P* = [*AB*]. Because [*A*] = [*B*] = *F*/2, the usual heterodimer association constant *K*<sub>a,AB</sub> = [*AB*]/([*A*][*B*]) is **four times** the model's *K*<sub>a,model</sub>; the usual heterodimer *K*<sub>d</sub> is one quarter of the fitted *K*<sub>d</sub>. The fitted Δ*H*<sub>assoc</sub> is per mole of *AB* formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
+For an equimolar complex $A + B \rightleftharpoons AB$, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar $AB$ preparation). Then $F = [A] + [B]$ and $P = [AB]$. Because $[A] = [B] = F/2$, the usual heterodimer association constant $K_{\mathrm{a},AB} = [AB]/([A][B])$ is **four times** the model's $K_{\mathrm{a,model}}$; the usual heterodimer $K_{\mathrm{d}}$ is one quarter of the fitted $K_{\mathrm{d}}$. The fitted $\Delta H_{\mathrm{assoc}}$ is per mole of $AB$ formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
 
 #### Dissociation calculation
 
 > **Calculation:**
 >
-> *K*<sub>a,model</sub> = *P* / *F*<sup>2</sup>
+> $$
+> K_{\mathrm{a,model}} = \frac{P}{F^2}
+> $$
 >
-> *C* = *F* + 2*P*
+> $$
+> C = F + 2P
+> $$
 >
-> *Q* = *V P* Δ*H*<sub>assoc</sub>
+> $$
+> Q = V P\,\Delta H_{\mathrm{assoc}}
+> $$
 >
-> *F* is the concentration of free components counted together, *P* is the concentration of dimers, and *C* counts two components per dimer. The equilibrium determines how much remains dimerized at each dilution. The cell heat content is the amount of dimer times the heat of forming it. Dilution drives dimers apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
+> $F$ is the concentration of free components counted together, $P$ is the concentration of dimers, and $C$ counts two components per dimer. The equilibrium determines how much remains dimerized at each dilution. The cell heat content is the amount of dimer times the heat of forming it. Dilution drives dimers apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
 
-With **MicroCal** bookkeeping, Dissociation uses MicroCal's own dimer-dissociation equation instead of the averaged displaced-heat formula used for the binding models. The displaced solution leaves with the cell content from before the injection, while concentrations still follow the MicroCal equations. With *v* the injection volume, *V* the active cell volume, and *P*<sub>syr</sub> the dimer concentration in the syringe:
+With **MicroCal** bookkeeping, Dissociation uses MicroCal's own dimer-dissociation equation instead of the averaged displaced-heat formula used for the binding models. The displaced solution leaves with the cell content from before the injection, while concentrations still follow the MicroCal equations. With $v$ the injection volume, $V$ the active cell volume, and $P_{\mathrm{syr}}$ the dimer concentration in the syringe:
 
 > **Calculation:**
 >
-> *q* = Δ*H*<sub>assoc</sub>[*V P*<sub>end</sub> − (*V* − *v*)*P*<sub>start</sub> − *v P*<sub>syr</sub>]
+> $$
+> q = \Delta H_{\mathrm{assoc}}[V P_{\mathrm{end}} - (V - v)P_{\mathrm{start}} - v P_{\mathrm{syr}}]
+> $$
 >
 > The last term counts the dimers delivered by the injection as part of the starting amount, so heat comes only from the change in dimer amount, mainly dissociation of injected dimers as they are diluted. MicroCal's concentration and heat equations treat displaced solution differently, so they do not balance exactly. Use this combination to compare with MicroCal results.
 
 ### Thermodynamic relationships
 
-The application derives thermodynamic quantities from the fitted affinity and enthalpy. Temperature <i>T</i> is expressed in kelvin.
+The application derives thermodynamic quantities from the fitted affinity and enthalpy. Temperature $T$ is expressed in kelvin.
 
 > **Calculation:**
 >
-> <i>K</i><sub>d</sub> = 1 / <i>K</i><sub>a</sub>
+> $$
+> K_{\mathrm{d}} = \frac{1}{K_{\mathrm{a}}}
+> $$
 >
-> Δ<i>G</i> = <i>R</i><i>T</i> ln(<i>K</i><sub>d</sub>) = −<i>R</i><i>T</i> ln(<i>K</i><sub>a</sub>)
+> $$
+> \Delta G = R T \ln(K_{\mathrm{d}}) = -R T \ln(K_{\mathrm{a}})
+> $$
 >
-> −<i>T</i>Δ<i>S</i> = Δ<i>G</i> − Δ<i>H</i>
+> $$
+> -T\Delta S = \Delta G - \Delta H
+> $$
 >
-> Here, <i>R</i> is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
+> Here, $R$ is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
 
 ## Fitting calculation
 
@@ -366,13 +425,19 @@ The weighting describes the application's processing-derived uncertainty model. 
 
 > **Calculation:**
 >
-> <i>r</i><sub>i</sub> = <i>q</i><sub>i,obs</sub> − <i>q</i><sub>i,model</sub>
+> $$
+> r_i = q_{i,\mathrm{obs}} - q_{i,\mathrm{model}}
+> $$
 >
-> RMSD = √[(Σ<i>r</i><sub>i</sub><sup>2</sup>) / <i>N</i>]
+> $$
+> \mathrm{RMSD} = \sqrt{\frac{\sum r_i^2}{N}}
+> $$
 >
-> weighted objective = Σ(<i>r</i><sub>i</sub> / <i>σ</i><sub>i</sub>)<sup>2</sup>
+> $$
+> \text{weighted objective} = \sum \left(\frac{r_i}{\sigma_i}\right)^2
+> $$
 >
-> Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
+> Only included injections enter these sums, and $N$ is their number. The value $\sigma_{i}$ is the processing-derived uncertainty for injection $i$; weighting changes the fitting objective but does not remove systematic uncertainty.
 
 ## Parameter uncertainty
 
@@ -395,15 +460,19 @@ For a stored bootstrap result, **Update Result** offers the stored request or an
 
 Residual bootstrap samples from the included injections' primary-fit residuals and adds each draw to a best-fit prediction. An unweighted fit centers and samples raw residuals, assuming roughly equal residual spread across injections. A weighted fit divides by each injection's peak-area SD before centering and sampling, then multiplies each draw by the target injection's SD.
 
-Fitted residuals underestimate noise because fitting absorbs some variation. The centered residuals are therefore multiplied by √[*n* / (*n* − *p*)], where *n* is the number of included injections and *p* the number of free fitted parameters; locked parameters are not counted. This matches the residual variance estimate RSS / (*n* − *p*), where RSS is the residual sum of squares. Without the correction, small-dataset intervals would be too narrow. Shared global fits use pooled counts; independent experiments use their own. In either case, *n* must exceed *p*.
+Fitted residuals underestimate noise because fitting absorbs some variation. The centered residuals are therefore multiplied by $\sqrt{n/(n-p)}$, where $n$ is the number of included injections and $p$ the number of free fitted parameters; locked parameters are not counted. This matches the residual variance estimate $\mathrm{RSS}/(n-p)$, where RSS is the residual sum of squares. Without the correction, small-dataset intervals would be too narrow. Shared global fits use pooled counts; independent experiments use their own. In either case, $n$ must exceed $p$.
 
-The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
+The primary best-fit parameter remains the reported value. For a parameter with best-fit value $\hat{\theta}$ and values $\theta_{b}$ from $B$ retained refits, the application summarizes the bootstrap distribution as follows:
 
 > **Calculation:**
 >
-> SD = √[Σ<sub>b</sub>(*θ*<sub>b</sub> − *θ̂*)<sup>2</sup> / *B*]
+> $$
+> \mathrm{SD} = \sqrt{\frac{\sum_b (\theta_b - \hat{\theta})^2}{B}}
+> $$
 >
-> 95% CI = [*P*<sub>2.5</sub>({*θ*<sub>b</sub>}), *P*<sub>97.5</sub>({*θ*<sub>b</sub>})]
+> $$
+> 95\%\ \mathrm{CI} = \left[P_{2.5}(\{\theta_b\}), P_{97.5}(\{\theta_b\})\right]
+> $$
 >
 > SD is the root-mean-square deviation of the retained refits from the primary best fit. The confidence limits are the 2.5th and 97.5th percentiles of the retained refit distribution itself, so they need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
 
@@ -430,15 +499,15 @@ After **Update Result**, check whether the completion message says the previous 
 
 With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration.
 
-Bootstrap concentration variations use a positive lognormal multiplier with mean 1 and the entered fractional SD *c*. Specifically, σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. This chosen distribution keeps sampled concentrations positive while preserving the entered arithmetic mean and SD; it does not change the concentrations used for the primary best fit. If a concentration has no entered SD, that concentration remains fixed in bootstrap refits. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits.
+Bootstrap concentration variations use a positive lognormal multiplier with mean 1 and the entered fractional SD $c$. Specifically, $\sigma_{\mathrm{log}}^2 = \ln(1 + c^2)$, $\mu_{\mathrm{log}} = -\sigma_{\mathrm{log}}^2/2$, and the multiplier is $\exp(\mu_{\mathrm{log}} + \sigma_{\mathrm{log}} Z)$ for a standard-normal $Z$. This chosen distribution keeps sampled concentrations positive while preserving the entered arithmetic mean and SD; it does not change the concentrations used for the primary best fit. If a concentration has no entered SD, that concentration remains fixed in bootstrap refits. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits.
 
 ### Displayed parameter uncertainty
 
-Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but normally displayed as *K*<sub>d</sub>; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
+Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as $\log_{10}(K_{\mathrm{a}})$ but normally displayed as $K_{\mathrm{d}}$; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
 
 Standard and Strict precision round halfway values away from zero, so mirrored positive and negative estimates and interval limits round symmetrically.
 
-Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
+Quantities calculated from more than one reported parameter, such as $-T\Delta S$, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
 
 ### Unlock parameters during error estimation
 
