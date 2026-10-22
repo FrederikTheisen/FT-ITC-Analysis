@@ -212,6 +212,52 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(baselineOffset, model.Parameters.Table[ParameterType.Offset].Value);
         }
 
+        public static IEnumerable<object[]> OrdinaryStartCases
+        {
+            get
+            {
+                foreach (var global in new[] { false, true })
+                foreach (var weighted in new[] { false, true })
+                {
+                    foreach (var scale in new[] { 1d, 30d, 100d, 1000d })
+                        yield return new object[] { global, weighted, 2 * scale, 3 * scale, 4 * scale, 3 * scale };
+                    yield return new object[] { global, weighted, 2d, 3d, 2.5d, 2.5d };
+                    yield return new object[] { global, weighted, 0d, 1d, -1d, -1d };
+                }
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(OrdinaryStartCases))]
+        public void OrdinaryStartKeepsLowerObjectiveAcrossHeatScales(
+            bool global, bool weighted, double targetOffset, double baselineOffset, double fittedOffset, double expectedOffset)
+        {
+            var model = new OffsetOnlyModel(CreateOffsetExperiment(targetOffset, weighted));
+            AddLockedBindingParameters(model);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, baselineOffset);
+            var expectedObjective = ObjectiveAtOffset(new[] { model }, expectedOffset, weighted);
+            var expectedSsr = ObjectiveAtOffset(new[] { model }, expectedOffset, false);
+            var expectedRmsd = 1e6 * Math.Sqrt(expectedSsr / 10);
+
+            (double UnweightedRmsd, double? Objective) metrics;
+            if (!global)
+                metrics = new AcceptanceProbeSolver().Apply(
+                    model, new[] { baselineOffset }, new[] { fittedOffset }, usedInward: false, weighted: weighted);
+            else
+            {
+                var globalModel = new GlobalModel();
+                globalModel.AddModel(model);
+                globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+                metrics = new GlobalAcceptanceProbeSolver().Apply(
+                    globalModel, new[] { baselineOffset }, new[] { fittedOffset }, usedInward: false, weighted: weighted);
+            }
+
+            Assert.Equal(expectedOffset, model.Parameters.Table[ParameterType.Offset].Value);
+            Assert.True(metrics.Objective.HasValue);
+            Assert.Equal(expectedObjective, metrics.Objective.Value, tolerance: expectedObjective * 1e-12);
+            Assert.Equal(expectedRmsd, metrics.UnweightedRmsd, tolerance: expectedRmsd * 1e-12);
+        }
+
         [Theory]
         [InlineData(0d, 0.0001d)]
         [InlineData(-0.0001d, 0.0001d)]
@@ -224,13 +270,16 @@ namespace AnalysisITC.Core.Tests
             Assert.True(initial[0] < upper);
         }
 
-        [Fact]
-        public void LevenbergMarquardtNarrowZeroKickCannotWorsenExactOptimum()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void LevenbergMarquardtZeroKickCannotWorsenExactOptimum(bool narrowBounds)
         {
             var model = new OffsetOnlyModel(CreateOffsetExperiment(0));
             AddLockedBindingParameters(model);
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
-            model.Parameters.Table[ParameterType.Offset].SetLimits(new[] { -0.0001, 0.0001 });
+            if (narrowBounds)
+                model.Parameters.Table[ParameterType.Offset].SetLimits(new[] { -0.0001, 0.0001 });
             Assert.True(model.TryLossFunction(new[] { 0d }, false, out var baselineObjective));
 
             var solver = new Solver
@@ -356,19 +405,23 @@ namespace AnalysisITC.Core.Tests
 
         sealed class AcceptanceProbeSolver : Solver
         {
-            public void Apply(Model model, double[] initial, double[] fitted)
+            public (double UnweightedRmsd, double? Objective) Apply(
+                Model model, double[] initial, double[] fitted, bool usedInward = true, bool weighted = false)
             {
                 Model = model;
-                ApplyBestFittedParameters(model, initial, fitted, false, "test/local", model.Parameters.GetFittedParameters(), true);
+                var metrics = ApplyBestFittedParameters(model, initial, fitted, weighted, "test/local", model.Parameters.GetFittedParameters(), usedInward);
+                return (metrics.UnweightedRmsd, metrics.Objective);
             }
         }
 
         sealed class GlobalAcceptanceProbeSolver : GlobalSolver
         {
-            public void Apply(GlobalModel model, double[] initial, double[] fitted)
+            public (double UnweightedRmsd, double? Objective) Apply(
+                GlobalModel model, double[] initial, double[] fitted, bool usedInward = true, bool weighted = false)
             {
                 Model = model;
-                ApplyBestFittedParameters(model, initial, fitted, false, "test/global", model.Parameters.GetFittedParameters(), true);
+                var metrics = ApplyBestFittedParameters(model, initial, fitted, weighted, "test/global", model.Parameters.GetFittedParameters(), usedInward);
+                return (metrics.UnweightedRmsd, metrics.Objective);
             }
         }
     }

@@ -928,15 +928,6 @@ namespace AnalysisITC.Core.Analysis
                 $"[FitDiag] {scope}: rejectedTrialEvaluations={rejectedTrialEvaluationCount}");
         }
 
-        private static bool IsMeaningfullyWorse(double candidateObjective, double baselineObjective)
-        {
-            if (!FWEMath.IsFinite(baselineObjective)) return false;
-            if (!FWEMath.IsFinite(candidateObjective)) return true;
-
-            var tolerance = Math.Max(1e-12, Math.Abs(baselineObjective) * 1e-10);
-            return candidateObjective > baselineObjective + tolerance;
-        }
-
         protected bool SolverDiagnosticsEnabled => EnableSolverDiagnostics && (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose);
 
         protected void LogSolverInput(string scope, IReadOnlyList<Parameter> parameters, double[] initial, double[] stepSizes, List<double[]> bounds)
@@ -1005,7 +996,7 @@ namespace AnalysisITC.Core.Analysis
             if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
             var acceptedFitted = fittedIsValid && (usedInward
                 ? fittedObjective < initialObjective
-                : !IsMeaningfullyWorse(fittedObjective, initialObjective));
+                : fittedObjective <= initialObjective);
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
@@ -1038,7 +1029,7 @@ namespace AnalysisITC.Core.Analysis
             if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
             var acceptedFitted = fittedIsValid && (usedInward
                 ? fittedObjective < initialObjective
-                : !IsMeaningfullyWorse(fittedObjective, initialObjective));
+                : fittedObjective <= initialObjective);
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 

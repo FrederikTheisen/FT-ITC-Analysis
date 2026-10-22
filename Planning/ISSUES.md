@@ -1352,6 +1352,17 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Boundary: The linear isoentropic-temperature calculation is repeatable. Explicit Spolar–Record reruns still execute the `FTSRMethod.Calculate` Monte Carlo loop calling `Evaluate(exact: false)` with the existing stochastic stream; downstream uncertainty may change. This does not make Spolar–Record fully repeatable. CR-068 remains unchanged.
 - Full validation (2026-10-21): `dotnet test AnalysisITC.Core.Tests/AnalysisITC.Core.Tests.csproj --no-build --no-restore` passed 4,928 tests, skipped 1, failed 0 after rebuilding and passing all 39 focused ITC-179/180 cases. The skipped case is `ExternalIntegratedHeatReferenceTests.NativePytcHigherStepProtocolRetainsStrictRecoveryDiagnostic`.
 
+## ITC-182 - Optimizer fallback tolerance may dominate small unweighted objectives
+
+- Priority: Medium.
+- Status: Resolved (2026-10-22). Incorrect acceptance and the production LM zero-start path are reproduced and covered by passing regressions; material impact on ordinary fits remains unproven.
+- Origin: Read-only code review 2026-10-20/21, C4; current-tree verification 2026-10-21.
+- Location: Core `Analysis2/Solver2.cs`, local/global `ApplyBestFittedParameters` and optimizer outcome/fallback callers.
+- Problem: The former comparison allowed worsening up to max(1e-12, abs(baselineObjective)*1e-10). Its absolute floor could exceed an entire unweighted residual sum in J²; weighted objectives are dimensionless. Final parameter selection therefore depended on numerical scale.
+- Resolution (2026-10-22): Removed `IsMeaningfullyWorse`; both acceptance paths compare the recomputed original and final objectives directly. Ordinary starts accept only a valid candidate with objective <= the original; inward-adjusted starts retain their existing strict-improvement rule. The LM zero-value kick can change the optimizer start without setting `usedInward`, and now also restores the exact original parameters when its final objective is worse. Existing restoration, validity checks, tie handling, optimizer initialization, stopping tolerances, and separate objective/unweighted RMSD reporting are retained.
+- Validation: Before the fix, the focused solver/recoverable-candidate run had 192 passed and five failed: four local/global unweighted worsening cases at heat scales 1 and 30, plus the production LM default-bounds zero-start case. Larger scales 100 and 1,000, weighted controls, improvements, ordinary ties, and the existing inward cases already passed. After the fix all 197 focused tests pass, including retained-parameter objective and independently calculated unweighted RMSD checks. Full baseline: 5,019 passed, five identical failures, one existing opt-in skip; final full Core suite: 5,024 passed, zero failed, the same skip. All five reproduced failures now pass; no other test outcome changed. The older ITC-015/ITC-090 failures mentioned in the implementation plan did not occur in either full run. These are fitting-robustness tests, not external forward-model validation. Evidence: `/private/tmp/itc182-20261022/` (logs and TRX files).
+- Bootstrap scope: Bootstrap refits share this final parameter-selection path; ITC-185's refit effort and retained-refit eligibility policy are unchanged.
+
 ## ITC-188 - Fixed affinity cells can use a different unit from the overview header
 
 - Priority: Medium.
