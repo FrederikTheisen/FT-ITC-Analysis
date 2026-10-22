@@ -97,7 +97,8 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *T* | Absolute temperature, in kelvin, for thermodynamic relationships. |
 | *I* | Ionic strength used in salt analysis. |
 | *a*<sub>ion</sub> | Ion activity used in Counter Ion Release analysis. |
-| *m* | Fitted slope in the Protonation relationship; the application reports **Protons** as −*m*. |
+| *Δn*<sub>H⁺</sub> | Fitted slope of observed binding enthalpy against buffer ionization enthalpy: net proton uptake (positive) or release (negative) per binding event. |
+| *ΔH*<sub>0</sub> | Buffer-independent binding enthalpy at the experimental pH: the Protonation intercept, retaining binding-partner protonation heat. |
 | *n*<sub>ion</sub> | Counter-ion slope reported by Counter Ion Release analysis. |
 | *RSS* | Raw residual sum of squares, Σ*r*<sub>i</sub><sup>2</sup>, over included injections. |
 | *Q* | Standardized residual sum of squares, Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>. Weighted AIC/AICc estimates a common variance multiplier as *Q*/*n*. |
