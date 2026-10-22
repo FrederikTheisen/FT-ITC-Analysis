@@ -13,62 +13,54 @@ namespace AnalysisITC.Core.Tests
     [Collection("AutoSaveManager")]
     public class SolverInitialParameterTests
     {
-        [Fact]
-        public void LevenbergMarquardtVariesOffsetInitializedAtZero()
+        public static IEnumerable<object[]> ZeroStartCases =>
+            from algorithm in new[] { SolverAlgorithm.NelderMead, SolverAlgorithm.LevenbergMarquardt }
+            from global in new[] { false, true }
+            from weighted in new[] { false, true }
+            // Targets are off the 500 J/mol step grid from zero; on-grid targets can end on a symmetric simplex.
+            from expectedOffset in new[] { 2137d, -1863d, 20d }
+            select new object[] { algorithm, global, weighted, expectedOffset };
+
+        [Theory]
+        [MemberData(nameof(ZeroStartCases))]
+        public void ZeroStartOffsetMovesToIndependentTarget(
+            SolverAlgorithm algorithm, bool global, bool weighted, double expectedOffset)
         {
-            const double expectedOffset = 2000;
-            var experiment = CreateOffsetExperiment(expectedOffset);
-            var model = new OffsetOnlyModel(experiment);
-            AddLockedBindingParameters(model);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
-
-            var solver = new Solver
+            var previousTolerance = AppSettings.OptimizerTolerance;
+            try
             {
-                Model = model,
-                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
-                ErrorEstimationMethod = ErrorEstimationMethod.None,
-                MaxOptimizerIterations = 1000,
-                Silent = true,
-            };
+                AppSettings.OptimizerTolerance = 1;
+                var model = new OffsetOnlyModel(CreateOffsetExperiment(expectedOffset, weighted));
+                AddLockedBindingParameters(model);
+                model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
 
-            var convergence = solver.Solve();
+                SolverInterface solver;
+                if (global)
+                {
+                    var globalModel = new GlobalModel();
+                    globalModel.AddModel(model);
+                    globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+                    solver = new GlobalSolver { Model = globalModel };
+                }
+                else solver = new Solver { Model = model };
+                solver.SolverAlgorithm = algorithm;
+                solver.UseErrorWeightedFitting = weighted;
+                solver.ErrorEstimationMethod = ErrorEstimationMethod.None;
+                solver.MaxOptimizerIterations = 1500;
+                solver.Silent = true;
 
-            Assert.True(convergence.Success);
-            Assert.InRange(
-                model.Parameters.Table[ParameterType.Offset].Value,
-                expectedOffset - 0.01,
-                expectedOffset + 0.01);
-        }
+                var convergence = solver.Solve();
 
-        [Fact]
-        public void GlobalLevenbergMarquardtVariesOffsetInitializedAtZero()
-        {
-            const double expectedOffset = 2000;
-            var experiment = CreateOffsetExperiment(expectedOffset);
-            var model = new OffsetOnlyModel(experiment);
-            AddLockedBindingParameters(model);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
-
-            var globalModel = new GlobalModel();
-            globalModel.AddModel(model);
-            globalModel.Parameters.AddIndivdualParameter(model.Parameters);
-
-            var solver = new GlobalSolver
+                var fittedOffset = model.Parameters.Table[ParameterType.Offset].Value;
+                Assert.True(convergence.Success, convergence.Message);
+                Assert.InRange(fittedOffset, expectedOffset - 0.01, expectedOffset + 0.01);
+                Assert.True(ObjectiveAtOffset(new[] { model }, fittedOffset, weighted)
+                    < ObjectiveAtOffset(new[] { model }, 0, weighted));
+            }
+            finally
             {
-                Model = globalModel,
-                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
-                ErrorEstimationMethod = ErrorEstimationMethod.None,
-                MaxOptimizerIterations = 1000,
-                Silent = true,
-            };
-
-            var convergence = solver.Solve();
-
-            Assert.True(convergence.Success);
-            Assert.InRange(
-                model.Parameters.Table[ParameterType.Offset].Value,
-                expectedOffset - 0.01,
-                expectedOffset + 0.01);
+                AppSettings.OptimizerTolerance = previousTolerance;
+            }
         }
 
         public static IEnumerable<object[]> ExactBoundCases =>
