@@ -1,6 +1,6 @@
 # Bootstrap storage within web viewer byte limits
 
-Revision of the 2026-10-22 Codex plan "Compact bootstrap persistence with exact values", after review. Decisions below were confirmed by the maintainer; items under "Confirm before implementing" were not.
+Revision of the 2026-10-22 Codex plan "Compact bootstrap persistence with exact values", after review. Decisions below were confirmed by the maintainer; the global-result size decision and implementation checks at the end remain unresolved.
 
 ## Problem and target
 
@@ -12,16 +12,17 @@ Measured on existing projects (1,000 replicates per fit):
 - Whole-record deduplication does not help competitive fits: sampled competitor Kd/ΔH make every replicate record unique (about 1.6 kB compact per replicate). Concentration variance does the same through the sampled concentrations.
 - At the web viewer's 20,000-replicate cap, one competitive fit exceeds the 8 MiB entry limit under every whole-record or per-field JSON scheme.
 
-Target: every byte budget clears at the logical caps (20,000 replicates, 500,000 injection records) for the worst-case fits below, with default web limits unchanged.
+Target: reduce bootstrap storage enough for the acceptance cases below to clear the web byte budgets, with default limits unchanged. A general guarantee at the logical caps (20,000 replicates, 500,000 injection records) is not established: the global-result size limit remains a decision to resolve before Step 2.
 
 Memory is out of scope. Restored replicate objects, not stored bytes, dominate load memory (306 MiB retained for JORS Table1 versus 18 MiB without bootstrap data; compact JSON changes this by under 1%). Tracked separately as ITC-216.
 
 ## Decisions
 
 - Two independent steps: compact JSON first in the current format, then bootstrap descriptor schema 2.
+- Keep the change simple. Preserve existing NaN and missing-value behaviour; NaN payload bits are not part of the preservation contract and need no additional storage machinery.
 - Schema 2 changes only the JSON descriptor. The four FTXB matrices (parameter values, parameter locks, injections, injection inclusion) keep their schema-1 paths, shapes and contents.
 - Values that vary per replicate are stored in a binary Float64 matrix; everything else is stored once in shared template records.
-- Global refit records in `result.json` get compact JSON only, no format change.
+- Global refit records in `result.json` get compact JSON only under the current scope. Any format change requires resolving the size-limit decision below first.
 - Older builds are checked once by hand with the last released desktop builds; no copy of the old reader is kept in the test project.
 
 ## Step 1: compact JSON in the current format
@@ -59,7 +60,7 @@ Only double-valued slots can be sampled columns. Booleans, integers, strings and
 ### Writer
 
 - Capture snapshots and build schema-1 replicate records with the existing code, then derive the schema-2 descriptor from those records.
-- A slot becomes a sampled column exactly when its binary scalar value differs between at least two replicates of the same solution (signed zero and NaN payloads count as different). This is data-driven: never decided from concentration-variance, LOO or other settings.
+- A slot becomes a sampled column exactly when its value differs between at least two replicates of the same solution. Compare non-NaN values by bit pattern, including signed zero; treat all NaNs as equal. A NaN and a non-NaN differ. This is data-driven: never decided from concentration-variance, LOO or other settings.
 - Null the sampled slots, then deduplicate records by exact canonical JSON bytes. Assign template indices and sampled columns in first-occurrence order for deterministic output.
 - Never derive saved values from the experiment, the primary fit or scale factors.
 - Keep helpers private to persistence. No public API, no duplicated schema-1 payload.
@@ -92,8 +93,8 @@ Older readers reject bootstrap schema 2 and, through the default recovery open, 
 
 Focused tests (Core):
 
-- **Exact equivalence:** for the same captured solution, schema-2 decoded replicate records equal schema-1 records, comparing doubles by bit pattern. Cover signed zero, NaN, ±∞, adjacent doubles in one slot, and missing `FloatWithError` values.
-- **Slot selection:** a constant slot stays in the template; a slot differing by one ULP becomes a column; no variation writes no sampled entry.
+- **Value preservation:** for the same captured solution, schema-2 decoded replicate records equal schema-1 records, comparing non-NaN doubles by bit pattern and NaNs by `IsNaN`. Cover signed zero, NaN, ±∞, adjacent doubles in one slot, and existing missing `FloatWithError` behaviour. Do not require NaN payload-bit preservation.
+- **Slot selection:** a constant slot stays in the template; a slot differing by one ULP becomes a column; differences only in NaN payload bits do not create a column; no variation writes no sampled entry.
 - **Variation coverage:** competitive sampled options; concentration variance on and off; tandem segments with sampled segment concentrations; sequential site count; local and global LOO; parameter unlocking; mixed boundary hits; each bookkeeping method.
 - **Reader validation:** unknown or duplicate column; slot missing or non-null in a template; value missing at a non-sampled slot; index out of range; length or matrix-shape mismatch; sampled path present with no columns or absent with columns. Strict fails; recovery omits.
 - **Scientific preservation:** confidence bands, correlations, reported values and global results are identical after a schema-1 → schema-2 save–read–save cycle. Restored replicates stay independent when one is mutated.
@@ -101,9 +102,10 @@ Focused tests (Core):
 
 Byte-budget acceptance (the target):
 
-- Synthetic worst case 1: one competitive fit with concentration variance, 20,000 replicates and 24 injections (480,000 bootstrap injection records; the experiment's own injections also count toward the 500,000 cap). Size tests may construct replicate solutions directly; this is not a forward-model test.
-- Synthetic worst case 2: a global temperature-dependent result of 4 members × 5,000 replicates with 24 injections each, to cover `result.json` global refits.
+- Synthetic case 1: one competitive fit with concentration variance, 20,000 replicates and 24 injections (480,000 bootstrap injection records; the experiment's own injections also count toward the 500,000 cap). Size tests may construct replicate solutions directly; this is not a forward-model test.
+- Synthetic case 2: a global temperature-dependent result of 4 members × 5,000 replicates with 24 injections each, to cover `result.json` global refits. This is not a worst-case bound.
 - Both open through the web viewer upload path with default limits, every JSON entry below 8 MiB and total JSON below 32 MiB, with the measured margin reported.
+- Include the 2-member × 10,000-replicate global case described below in size verification. Its pass requirement depends on the unresolved scope decision; do not claim that the two passing cases establish coverage of all supported fits at the logical caps.
 - Report before/after expanded and compressed sizes by entry kind for `JORS Table1.ftxtc`, `JORS Example Project.ftxtc`, `Me6PXDA_C1_CHDA_CompetitiveDisplacement_updated.ftxtc` and `SeArgT_Pu1210_TwoSetsOfSites_new.ftxtc`. Report load time and memory without CI assertions; no change is expected.
 
 Release check (one-off, recorded in this plan):
@@ -121,7 +123,13 @@ Suites: full Core suite, schema validation, Web upload/viewer tests, and builds 
 - Format changes to `result.json` global refits.
 - Web limit values.
 
-## Confirm before implementing
+## Decision to resolve before Step 2
+
+Compact `result.json` can still exceed the 8 MiB entry limit. A supported global configuration with 2 members × 10,000 replicates, four sequential sites and 12 global coordinates produced 8,998,912 bytes (8.58 MiB) of global-refit JSON alone in the 2026-10-22 review probe. With 24 injections per member, it remains within the replicate and injection-record budgets. The corresponding 4-member × 5,000 case produced 4.66 MiB. These are serialization measurements using the current record shape and .NET serializer, not end-to-end upload results.
+
+Decide whether to accept that some global results within the logical caps still exceed the JSON limit, or authorize a separate change to global-refit storage. No such format change is planned or authorized here. Step 1 remains independently useful; resolve this decision before Step 2.
+
+## Other checks before implementing
 
 1. No fingerprint, hash or test depends on the indented bytes of `bootstrap.json` or `result.json`. Interpretation fingerprints are expected to use canonical packages, not saved entries.
 2. The slot list covers every double that varies between replicates of one fit across all models. A missed slot only costs size, but it should be named if found.

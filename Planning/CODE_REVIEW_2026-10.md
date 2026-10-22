@@ -22,7 +22,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 
 **Basis and validation:** all 84 CRs were rechecked against the files as they currently look, including callers, guards, test sources and tracker/plan decisions. Commit, push and staging state do not affect verdicts. Current source and test-source inspection is recorded as `validation=source`; **no tests, builds, interactive reproductions, service calls or release operations were executed in this pass**. Earlier validation records below remain historical evidence, not newly rerun results. Native macOS means `AnalysisITC.MacOS`; Avalonia is a separate consumer.
 
-**Current counts:** **74 FIXED · 5 OPEN · 2 DEFERRED · 1 SUPERSEDED · 2 REJECTED = 84**; PARTIAL and UNVERIFIED: 0. FIXED means the original failure is addressed within the accepted scope, not that every platform workflow was interactively validated. CR-006 retains its accepted detection-only mitigation; CR-016 retains the accepted tandem restriction. CR-029/ITC-117 and CR-071/ITC-118 remain deferred, not fixed. The opening review counts and all original findings/resolutions are preserved.
+**Current counts:** **74 FIXED · 4 OPEN · 1 CLOSED · 2 DEFERRED · 1 SUPERSEDED · 2 REJECTED = 84**; PARTIAL and UNVERIFIED: 0. Counts include the maintainer's 22 October closure of CR-074 without a code change. FIXED means the original failure is addressed within the accepted scope, not that every platform workflow was interactively validated. CR-006 retains its accepted detection-only mitigation; CR-016 retains the accepted tandem restriction. CR-029/ITC-117 and CR-071/ITC-118 remain deferred, not fixed. The opening review counts and all original findings/resolutions are preserved.
 
 | CR | Current status | CR | Current status |
 |---|---|---|---|
@@ -57,7 +57,7 @@ This is a staging review for maintainer triage, not an approved implementation b
 | [CR-029](#cr-029--competitive-apparent-kd-omits-fitted-stoichiometry-uncertainty) | DEFERRED | [CR-071](#cr-071--bootstrap-unlocking-is-bypassed-when-every-shared-coordinate-is-locked) | DEFERRED |
 | [CR-030](#cr-030--clearing-a-fit-leaves-its-cached-null-assessment-visible) | FIXED | [CR-072](#cr-072--independent-child-solvers-discard-explicit-iteration-and-tolerance-settings) | FIXED |
 | [CR-031](#cr-031--avalonia-final-figure-pdfs-have-the-wrong-physical-dimensions) | FIXED | [CR-073](#cr-073--attempt-fix-repeats-the-incomplete-injection-warning-without-fixing-it) | FIXED |
-| [CR-032](#cr-032--supporting-figure-size-controls-are-capped-by-captured-final-figure-dimensions) | FIXED | [CR-074](#cr-074--an-exactly-zero-heat-capacity-estimate-disappears-from-summaries) | OPEN |
+| [CR-032](#cr-032--supporting-figure-size-controls-are-capped-by-captured-final-figure-dimensions) | FIXED | [CR-074](#cr-074--an-exactly-zero-heat-capacity-estimate-disappears-from-summaries) | CLOSED |
 | [CR-033](#cr-033--corrected-view-spline-handles-use-raw-baseline-coordinates) | FIXED | [CR-075](#cr-075--bootstrap-progress-retains-every-permanent-status-entry-until-completion) | FIXED |
 | [CR-034](#cr-034--a-report-build-can-overwrite-a-newer-explanation-choice) | FIXED | [CR-076](#cr-076--the-persistence-stability-test-cannot-detect-swapped-wire-identities) | OPEN |
 | [CR-035](#cr-035--avalonia-immediately-overwrites-tandem-scan-failure-feedback) | FIXED | [CR-077](#cr-077--same-name-experiments-lose-fixed-parameter-entries-from-reports) | FIXED |
@@ -1361,6 +1361,7 @@ The dated blocks beneath each finding carry current evidence and, for unresolved
 ## CR-074 — An exactly zero heat-capacity estimate disappears from summaries
 
 - Priority: Low
+- Status: Closed — no change (maintainer decision, 2026-10-22).
 - Confidence: Confirmed
 - Category: Correctness
 - Location: `AnalysisITC.Core/Presentation/AnalysisResultParameterEvaluation.cs:359`; `AnalysisITC.Core/Presentation/AnalysisResultParameterEvaluation.cs:381`; `AnalysisITC.Core/DataExport/AnalysisResultTableExporter.cs:380`
@@ -1370,11 +1371,8 @@ The dated blocks beneath each finding carry current evidence and, for unresolved
 - Consequence: Results and reports omit the estimate and interval. Exact-zero uncertain fits were not demonstrated in ordinary data, so practical frequency is limited; constant SameForAll enthalpy is intentionally a different case.
 - Suggested direction: Determine row presence from the model constraint and availability, allowing a valid zero estimate without adding ΔCp to constant-enthalpy models.
 
-- Recheck: **2026-10-19; OPEN**; evidence=`AnalysisITC.Core/Presentation/AnalysisResultParameterEvaluation.cs:373`; `AnalysisITC.Core/DataExport/AnalysisResultTableExporter.cs:159`; validation=source; tests/UI=not-run. Exact-zero slope is removed from summary rows despite available uncertainty; constructed reachable presentation case, ordinary frequency unmeasured.
-- Target: available zero ΔCp → visible Results summary row.
-- Strategy: replace the numerical-zero gate in AnalysisResultParameterEvaluation with saved-model eligibility: temperature dependence enabled, saved enthalpy dependence present for the slot, applicable summary available, and enthalpy constraint not SameForAll. Both desktop Results/report consumers retain their renderers; preserve exporter eligibility and formatting.
-- Verify: independent zero/nonzero slopes, with/without uncertainty, local/global slots and SameForAll; check both desktops, reports and unchanged exports. Preserve original-fit centers and zero-error semantics.
-- Questions: none.
+- Recheck: **2026-10-22; CLOSED** by maintainer decision; no new tests or runtime verification.
+- Resolution: No change. The maintainer considers an exactly zero fitted ΔCp outside naturally occurring results and does not want this case addressed. Existing summary and export behavior is retained; no implementation or further verification is planned.
 
 ## CR-075 — Bootstrap progress retains every permanent status entry until completion
 
@@ -1652,7 +1650,7 @@ These are the four formal candidates rejected during independent verification:
 
 ## Recheck synthesis — 2026-10-19
 
-**Reconciled totals:** FIXED 61; OPEN 18; DEFERRED 2; SUPERSEDED 1; REJECTED 2; PARTIAL 0; UNVERIFIED 0. All 84 IDs have a dated verdict; all 18 open entries have a strategy or an explicit decision gate. Validation this pass is source/test-source inspection only. The initial 19 October recheck had 19 OPEN and 1 REJECTED; the subsequent maintainer closure of CR-022 changes only those two counts.
+**Historical reconciled totals (19 October):** FIXED 61; OPEN 18; DEFERRED 2; SUPERSEDED 1; REJECTED 2; PARTIAL 0; UNVERIFIED 0. All 84 IDs had a dated verdict; all 18 then-open entries had a strategy or an explicit decision gate. Current counts above include later fixes and the maintainer's 22 October closure of CR-074. Validation this pass is source/test-source inspection only. The initial 19 October recheck had 19 OPEN and 1 REJECTED; the subsequent maintainer closure of CR-022 changes only those two counts.
 
 **Reconciliation and retained scope:**
 
@@ -1667,7 +1665,7 @@ These are the four formal candidates rejected during independent verification:
 
 1. **Import and document integrity:** CR-015/073 and ITC-115 are resolved under the recorded-versus-never-reached injection policy above. CR-057's entry rule is decided and implemented; see its resolution above. CR-058's report-only open prompt is implemented and verified through the native open queue and dialogs; see its resolution above.
 2. **Ordinary interaction:** CR-034 report busy control; CR-056 Designer option. Reuse existing state/confirmation flows. CR-052/053 were resolved together in the native export sheet on 2026-10-19; CR-078 preference wording and CR-080 admin Back were also resolved on 2026-10-19.
-3. **Scientific presentation and execution settings:** CR-074 zero ΔCp summary eligibility, with unchanged export policy. CR-075 status replacement is resolved through the shared manager, with both desktop coordinators verified.
+3. **Scientific presentation and execution settings:** CR-074 was closed without change by the maintainer on 22 October; no work remains for it. CR-075 status replacement is resolved through the shared manager, with both desktop coordinators verified.
 4. **Usage completeness:** CR-081 shares one aggregation across final request output, execution/account detail, admin/CLI and CSV; settle partial-subtotal presentation first. Existing cost/liability and admission protections stay intact.
 5. **Validation evidence:** CR-066's agreed single build→test→report command; CR-076 literal persistence identities; CR-082 repair or retire the optional historical tight diagnostic. External forward tests remain integrated-heat, floating-point-precision checks of mathematics, not solver recovery.
 
