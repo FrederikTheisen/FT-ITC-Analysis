@@ -67,7 +67,7 @@ namespace AnalysisITC.Core.DataReaders
 
             experiment.TargetPowerDiff = experiment.DataPoints.First().Power;
             experiment.InitialDelay = experiment.Injections.First().Time;
-            experiment.Instrument = experiment.CellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
+            experiment.Instrument = ITCInstrumentAttribute.ResolveTAInstrument(experiment.CellVolume);
 
             // The final injection has no following marker; its scope ends with the recorded trace.
             var lastInjection = experiment.Injections.Last();

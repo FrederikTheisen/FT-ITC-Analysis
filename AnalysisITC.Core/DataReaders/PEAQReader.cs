@@ -6,6 +6,7 @@ using System.Linq;
 using System.Xml.Linq;
 using AnalysisITC.Core.Utilities;
 
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
@@ -54,7 +55,8 @@ namespace AnalysisITC.Core.DataReaders
             if (experimentElements.Count == 1)
                 return new[] { ReadExperiment(experimentElements[0], path) };
 
-            var experiments = new ExperimentData[experimentElements.Count];
+            // Keep every readable experiment; log the ones that fail.
+            var experiments = new List<ExperimentData>();
             for (int i = 0; i < experimentElements.Count; i++)
             {
                 var name = experimentElements[i].Element("Name")?.Value;
@@ -63,16 +65,20 @@ namespace AnalysisITC.Core.DataReaders
 
                 try
                 {
-                    experiments[i] = ReadExperiment(experimentElements[i], path);
-                    experiments[i].Name = name.Trim();
+                    var experiment = ReadExperiment(experimentElements[i], path);
+                    experiment.Name = name.Trim();
+                    experiments.Add(experiment);
                 }
                 catch (Exception ex)
                 {
-                    throw new FormatException($"Could not read experiment {i + 1} (\"{name.Trim()}\") in APJ file: {ex.Message}", ex);
+                    AppEventHandler.PrintAndLog($"Skipped APJ experiment {i + 1} (\"{name.Trim()}\"): {ex.Message}");
                 }
             }
 
-            return experiments;
+            if (experiments.Count == 0)
+                throw new FormatException("No experiment in the APJ file could be read.");
+
+            return experiments.ToArray();
         }
 
         static ExperimentData ReadExperiment(XElement experimentElement, string path)

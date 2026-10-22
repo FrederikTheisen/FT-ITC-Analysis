@@ -59,6 +59,12 @@ namespace AnalysisITC.Core.Data
             return ITCInstrument.Unknown;
         }
 
+        /// <summary>
+        /// TA Instruments files only distinguish the two TA cell sizes; cell volume in litres.
+        /// </summary>
+        public static ITCInstrument ResolveTAInstrument(double cellVolume)
+            => cellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
+
         public static void ResolveInstrument(ExperimentData data)
         {
             if (data.Instrument != ITCInstrument.Unknown) return;

@@ -144,6 +144,12 @@ namespace AnalysisITC.Core.DataReaders
 
     public static class FTXTCReader
     {
+        // Approximate restoration costs for display only, not elapsed-time estimates.
+        const int ExperimentLoadingWeight = 1;
+        const int SolutionLoadingWeight = 10;
+        const int ResultLoadingWeight = 30;
+        const int ReportLoadingWeight = 1;
+
         public static IReadOnlyList<FtxtcRecoveryIssue> LastRecoveryIssues { get; private set; } = Array.Empty<FtxtcRecoveryIssue>();
         public static IReadOnlyList<AnalysisReport> LastReports { get; private set; } = Array.Empty<AnalysisReport>();
 
@@ -177,6 +183,7 @@ namespace AnalysisITC.Core.DataReaders
                 using var restoreScope = DocumentDirtyTracker.RestoreDocument();
                 var issues = new List<FtxtcRecoveryIssue>();
                 var budget = new FtxtcReadBudget(limits);
+                if (interactive) StatusBarManager.StartInderminateProgress();
                 await ShowLoadingStatusAsync("Validating project...", interactive, cancellationToken);
                 using var entries = ReadAndValidateEntries(stream, policy, issues, budget, cancellationToken);
                 stage = "root project validation";
@@ -188,11 +195,21 @@ namespace AnalysisITC.Core.DataReaders
                     $"FTXTC package validated: schema={entries.SchemaMajor}.{entries.SchemaMinor}, " +
                     $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}, reports={project.Reports.Count}", 1);
 
+                var totalWeight = project.Experiments.Count * ExperimentLoadingWeight
+                    + project.Solutions.Count * SolutionLoadingWeight
+                    + project.Results.Count * ResultLoadingWeight
+                    + project.Reports.Count * ReportLoadingWeight;
+                var handledWeight = 0;
+                Action<int> itemHandled = interactive && totalWeight > 0
+                    ? weight => StatusBarManager.SetProgress((handledWeight += weight) / (double)totalWeight, keepVisibleAtOne: true)
+                    : null;
+                if (itemHandled != null) StatusBarManager.SetProgress(0);
+
                 stage = "experiment restoration";
-                var experiments = await RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
+                var experiments = await RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive, itemHandled);
                 RestoreBufferReferences(experiments, policy, issues);
                 stage = "solution restoration";
-                var solutions = await RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
+                var solutions = await RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive, itemHandled);
                 stage = "solution attachment";
                 foreach (var reference in project.Experiments)
                 {
@@ -203,9 +220,11 @@ namespace AnalysisITC.Core.DataReaders
                         experiment.UpdateSolution(solution.Model);
                 }
                 stage = "result restoration";
-                var results = await RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive);
+                var results = await RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive, itemHandled);
                 stage = "report restoration";
-                var reports = await RestoreReports(project, entries, policy, issues, budget, cancellationToken, interactive);
+                var reports = await RestoreReports(project, entries, policy, issues, budget, cancellationToken, interactive, itemHandled);
+                if (interactive) StatusBarManager.StartInderminateProgress();
+                await ShowLoadingStatusAsync("Finishing…", interactive, cancellationToken);
                 var restoredResultsById = results.ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
                 foreach (var report in reports)
                 {
@@ -252,7 +271,22 @@ namespace AnalysisITC.Core.DataReaders
             }
             finally
             {
-                if (interactive) StatusBarManager.SetSecondaryStatus("", 0);
+                if (interactive)
+                {
+                    StatusBarManager.StopIndeterminateProgress();
+                    StatusBarManager.SetSecondaryStatus("", 0);
+                }
+            }
+        }
+
+        static IEnumerable<T> WithLoadingProgress<T>(IEnumerable<T> items, Action<int> itemHandled, int weight)
+        {
+            foreach (var item in items)
+            {
+                yield return item;
+                // A skipped recovery item is also handled. Nested restoration
+                // omits the callback and belongs to its containing result.
+                itemHandled?.Invoke(weight);
             }
         }
 
@@ -461,10 +495,10 @@ namespace AnalysisITC.Core.DataReaders
         }
 
         static async Task<Dictionary<string, ExperimentData>> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
-            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
+            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive, Action<int> itemHandled)
         {
             var result = new Dictionary<string, ExperimentData>(StringComparer.Ordinal);
-            foreach (var reference in project.Experiments)
+            foreach (var reference in WithLoadingProgress(project.Experiments, itemHandled, ExperimentLoadingWeight))
             {
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
@@ -550,10 +584,10 @@ namespace AnalysisITC.Core.DataReaders
 
         static async Task<Dictionary<string, SolutionInterface>> RestoreSolutions(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, ExperimentData> experiments, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive = false)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive = false, Action<int> itemHandled = null)
         {
             var result = new Dictionary<string, SolutionInterface>(StringComparer.Ordinal);
-            foreach (var reference in project.Solutions)
+            foreach (var reference in WithLoadingProgress(project.Solutions, itemHandled, SolutionLoadingWeight))
             {
                 budget.Check(cancellationToken);
                 if (!experiments.TryGetValue(reference.ExperimentId, out var experiment))
@@ -742,10 +776,10 @@ namespace AnalysisITC.Core.DataReaders
 
         static async Task<List<AnalysisResult>> RestoreResults(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, SolutionInterface> solutions, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive, Action<int> itemHandled)
         {
             var result = new List<AnalysisResult>();
-            foreach (var reference in project.Results)
+            foreach (var reference in WithLoadingProgress(project.Results, itemHandled, ResultLoadingWeight))
             {
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcResultState>(entries, reference.Metadata, reference.Id, policy, issues, "result-metadata");
@@ -1396,10 +1430,10 @@ namespace AnalysisITC.Core.DataReaders
             FtxtcProject project,
             IReadOnlyDictionary<string, byte[]> entries,
             FtxtcReadPolicy policy,
-            List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive)
+            List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken, bool interactive, Action<int> itemHandled)
         {
             var reports = new List<AnalysisReport>();
-            foreach (var reference in project.Reports ?? new List<FtxtcReportReference>())
+            foreach (var reference in WithLoadingProgress(project.Reports ?? new List<FtxtcReportReference>(), itemHandled, ReportLoadingWeight))
             {
                 budget.Check(cancellationToken);
                 var state = TryRead<FtxtcReportState>(entries, reference.Metadata, reference.Id, policy, issues, "report-metadata");

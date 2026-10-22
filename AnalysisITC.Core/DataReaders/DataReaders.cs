@@ -137,6 +137,9 @@ namespace AnalysisITC.Core.DataReaders
                         var reports = Array.Empty<AnalysisReport>();
                         if (format == ITCDataFormat.FTXTC && dat != null)
                         {
+                            StatusBarManager.StartInderminateProgress();
+                            StatusBarManager.SetSecondaryStatus("Finishing…", 0);
+                            await Task.Delay(1);
                             recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
                             reports = FTXTCReader.LastReports.ToArray();
                         }
@@ -240,6 +243,7 @@ namespace AnalysisITC.Core.DataReaders
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
             if ((DataManager.SourceItems != null && DataManager.SourceItems.Count > 0) || DataManager.Reports.Count > 0) return false;
 
+            var isFtxtc = GetFormat(path) != ITCDataFormat.FTITC;
             try
             {
                 ITCDataContainer[] recovered;
@@ -247,7 +251,7 @@ namespace AnalysisITC.Core.DataReaders
                 IReadOnlyList<FtxtcRecoveryIssue> recoveryIssues = Array.Empty<FtxtcRecoveryIssue>();
                 using (var stream = File.OpenRead(path))
                 {
-                    if (GetFormat(path) == ITCDataFormat.FTITC)
+                    if (!isFtxtc)
                         recovered = await FTITCReader.ReadStream(stream, interactive: true);
                     else
                     {
@@ -260,6 +264,12 @@ namespace AnalysisITC.Core.DataReaders
                     }
                 }
 
+                if (isFtxtc)
+                {
+                    StatusBarManager.StartInderminateProgress();
+                    StatusBarManager.SetSecondaryStatus("Finishing…", 0);
+                    await Task.Delay(1);
+                }
                 using (DocumentDirtyTracker.RestoreDocument())
                 {
                     if (!AddData(recovered, isRawImport: false)) return false;
@@ -271,6 +281,11 @@ namespace AnalysisITC.Core.DataReaders
 
                 DocumentDirtyTracker.MarkDirty();
                 await Task.Delay(1);
+                if (isFtxtc)
+                {
+                    StatusBarManager.StopIndeterminateProgress();
+                    StatusBarManager.SetSecondaryStatus("", 0);
+                }
                 FTXTCReader.DisplayRecoveryNotice(recoveryIssues);
                 return true;
             }
@@ -278,6 +293,14 @@ namespace AnalysisITC.Core.DataReaders
             {
                 AppEventHandler.PrintAndLog("Recovery file could not be opened: " + ex.Message);
                 return false;
+            }
+            finally
+            {
+                if (isFtxtc)
+                {
+                    StatusBarManager.StopIndeterminateProgress();
+                    StatusBarManager.SetSecondaryStatus("", 0);
+                }
             }
         }
 
@@ -482,7 +505,9 @@ namespace AnalysisITC.Core.DataReaders
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
 
-            ITCInstrumentAttribute.ResolveInstrument(experiment);
+            // PEAQ files identify the instrument by CellID; an unrecognized CellID stays Unknown.
+            if (experiment.DataSourceFormat != ITCDataFormat.PEAQITCProject)
+                ITCInstrumentAttribute.ResolveInstrument(experiment);
 
             // Try to extract attributes from comments
             if (!string.IsNullOrEmpty(experiment.Comments))

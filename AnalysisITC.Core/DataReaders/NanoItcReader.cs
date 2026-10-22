@@ -598,6 +598,7 @@ namespace AnalysisITC.Core.DataReaders
             {
                 DataSourceFormat = ITCDataFormat.NanoITC,
                 CellVolume = cellVolumeMicrolitres * 1e-6,
+                Instrument = ITCInstrumentAttribute.ResolveTAInstrument(cellVolumeMicrolitres * 1e-6),
                 CellConcentration = new FloatWithError(OptionalMetadataNumber(metadata, "cellconcentration") * 1e-3),
                 SyringeConcentration = new FloatWithError(OptionalMetadataNumber(metadata, "syringeconcentration") * 1e-3),
                 StirringSpeed = OptionalMetadataNumber(metadata, "stirrate", -1),

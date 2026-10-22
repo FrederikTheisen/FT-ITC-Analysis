@@ -159,20 +159,35 @@ public sealed class ImportReaderRegressionTests : IDisposable
     }
 
     [Fact]
-    public void PeaqUnreadableExperimentFailsWholeFileAndNamesIt()
+    public void PeaqSkipsUnreadableExperimentAndKeepsTheRest()
     {
         var path = WritePeaqXml(xml =>
         {
             var first = xml.Root.Element("Experiments").Element("Experiment");
-            var second = new XElement(first);
-            second.Element("Name").Value = "Broken run";
-            second.Element("CellVolume").Value = "not a number";
-            first.AddAfterSelf(second);
+            var broken = new XElement(first);
+            broken.Element("Name").Value = "Broken run";
+            broken.Element("DataPoints").RemoveNodes();
+            var third = new XElement(first);
+            third.Element("Name").Value = "Third run";
+            first.AddAfterSelf(broken, third);
         });
 
-        var error = Assert.Throws<FormatException>(() => PEAQReader.ReadFile(path));
+        var experiments = PEAQReader.ReadFile(path);
 
-        Assert.Contains("experiment 2 (\"Broken run\")", error.Message);
+        Assert.Equal(new[] { "MP08nr1", "Third run" }, experiments.Select(experiment => experiment.Name));
+    }
+
+    [Fact]
+    public void PeaqWithNoReadableExperimentFails()
+    {
+        var path = WritePeaqXml(xml =>
+        {
+            var first = xml.Root.Element("Experiments").Element("Experiment");
+            first.Element("DataPoints").RemoveNodes();
+            first.AddAfterSelf(new XElement(first));
+        });
+
+        Assert.Throws<FormatException>(() => PEAQReader.ReadFile(path));
     }
 
     [Fact]
@@ -198,15 +213,54 @@ public sealed class ImportReaderRegressionTests : IDisposable
         Assert.Equal(180f, experiment.Injections[12].Delay);
     }
 
-    [Fact]
-    public void PeaqWithoutCellIdStillImports()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("NOT_A_KNOWN_CELL")]
+    public void PeaqUnknownCellIdLeavesInstrumentUnknown(string cellId)
     {
-        var path = WritePeaqXml(xml => xml.Root.Element("Experiments").Element("Experiment").Element("CellID").Remove());
+        // The fixture cell volume (204.7 µL) would otherwise be inferred as an ITC200.
+        var path = WritePeaqXml(xml =>
+        {
+            var element = xml.Root.Element("Experiments").Element("Experiment").Element("CellID");
+            if (cellId == null) element.Remove();
+            else element.Value = cellId;
+        });
 
         var experiment = Assert.Single(PEAQReader.ReadFile(path));
 
         Assert.Equal(20, experiment.Injections.Count);
-        Assert.Equal(ITCInstrument.Unknown, ITCInstrumentAttribute.TryResolveMicroCalInstrument(null));
+        Assert.Equal(ITCInstrument.Unknown, experiment.Instrument);
+    }
+
+    [Theory]
+    [InlineData(0.199e-3, ITCInstrument.TAInstrumentsITCLowVolume)] // nearer the ITC200's 204 µL than TA's 190 µL
+    [InlineData(0.190e-3, ITCInstrument.TAInstrumentsITCLowVolume)]
+    [InlineData(0.950e-3, ITCInstrument.TAInstrumentsITCStandard)]
+    public void TaCellVolumeOnlySelectsTaInstruments(double cellVolume, ITCInstrument expected)
+    {
+        Assert.Equal(expected, ITCInstrumentAttribute.ResolveTAInstrument(cellVolume));
+    }
+
+    [Fact]
+    public void NanoItcFixturesResolveToTaInstruments()
+    {
+        var paths = Directory.GetFiles(Path.GetDirectoryName(Fixture("x")), "*.nitc");
+        Assert.NotEmpty(paths);
+
+        foreach (var path in paths)
+        {
+            var experiment = NanoItcReader.ReadPath(path);
+            Assert.Equal(ITCInstrumentAttribute.ResolveTAInstrument(experiment.CellVolume), experiment.Instrument);
+        }
+    }
+
+    [Fact]
+    public void PeaqKnownCellIdResolvesInstrument()
+    {
+        var experiment = Assert.Single(PEAQReader.ReadFile(Fixture("TpxWT_CtFT(1).apj")));
+
+        Assert.Equal(ITCInstrument.MicroCalITC200, experiment.Instrument);
     }
 
     [Theory]
