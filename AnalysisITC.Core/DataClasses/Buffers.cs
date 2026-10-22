@@ -113,16 +113,16 @@ namespace AnalysisITC.Core.Data
 			return BufferAttribute.Tooltips[value];
         }
 
-        public static double GetProtonationEnthalpy(this Buffer value, double temperature)
+        public static double GetIonizationEnthalpy(this Buffer value, double temperature)
         {
-            return value.TryGetProtonationEnthalpy(temperature, out var enthalpy) ? enthalpy : double.NaN;
+            return value.TryGetIonizationEnthalpy(temperature, out var enthalpy) ? enthalpy : double.NaN;
         }
 
-        public static bool TryGetProtonationEnthalpy(this Buffer value, double temperature, out double enthalpy)
+        public static bool TryGetIonizationEnthalpy(this Buffer value, double temperature, out double enthalpy)
         {
             enthalpy = double.NaN;
             return value != Buffer.Null && value.GetProperties() is BufferAttribute properties
-                && properties.TryGetProtonationEnthalpy(temperature, out enthalpy);
+                && properties.TryGetIonizationEnthalpy(temperature, out enthalpy);
         }
     }
 
@@ -144,15 +144,16 @@ namespace AnalysisITC.Core.Data
 		public double[] dPKadT { get; private set; }
 		int[] AcidCharges { get; set; }
 
-		public LinearFit ProtonationEnthalpy { get; private set; }
+        /// <summary>Buffer deprotonation enthalpy in J/mol, evaluated at temperature in °C.</summary>
+		public LinearFit IonizationEnthalpy { get; private set; }
 
-        public bool TryGetProtonationEnthalpy(double temperature, out double enthalpy)
+        public bool TryGetIonizationEnthalpy(double temperature, out double enthalpy)
         {
             enthalpy = double.NaN;
-            if (ProtonationEnthalpy == null || !FWEMath.IsFinite(temperature)
-                || !FWEMath.IsFinite(ProtonationEnthalpy.Slope)
-                || !FWEMath.IsFinite(ProtonationEnthalpy.Intercept)) return false;
-            var evaluated = ProtonationEnthalpy.Evaluate(temperature);
+            if (IonizationEnthalpy == null || !FWEMath.IsFinite(temperature)
+                || !FWEMath.IsFinite(IonizationEnthalpy.Slope)
+                || !FWEMath.IsFinite(IonizationEnthalpy.Intercept)) return false;
+            var evaluated = IonizationEnthalpy.Evaluate(temperature);
             if (!FWEMath.IsFinite(evaluated)) return false;
             enthalpy = evaluated;
             return true;
@@ -229,7 +230,7 @@ namespace AnalysisITC.Core.Data
             dPKadT = new[] { tc };
             AcidCharges = new[] { za };
 
-            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
+            if (dh != null) IonizationEnthalpy = new LinearFit(dh[1], dh[0], 25);
         }
 
         public BufferAttribute(string[] names, double pka, double tc, int za, string description, double[] dh)
@@ -242,7 +243,7 @@ namespace AnalysisITC.Core.Data
             dPKadT = new[] { tc };
             AcidCharges = new[] { za };
 
-            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
+            if (dh != null) IonizationEnthalpy = new LinearFit(dh[1], dh[0], 25);
 
             AddAliases(names);
         }
@@ -261,7 +262,7 @@ namespace AnalysisITC.Core.Data
             dPKadT = new[] { tc };
             AcidCharges = new[] { za };
 
-            ProtonationEnthalpy = new(0, dh, 25);
+            IonizationEnthalpy = new(0, dh, 25);
         }
 
         public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
@@ -273,7 +274,7 @@ namespace AnalysisITC.Core.Data
 			dPKadT = tcs;
 			AcidCharges = za;
 
-			if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
+			if (dh != null) IonizationEnthalpy = new(dh[1], dh[0], 25);
         }
 
         public BufferAttribute(string[] names, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
@@ -286,7 +287,7 @@ namespace AnalysisITC.Core.Data
             dPKadT = tcs;
             AcidCharges = za;
 
-            if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
+            if (dh != null) IonizationEnthalpy = new(dh[1], dh[0], 25);
 
 			AddAliases(names);
         }
@@ -322,11 +323,11 @@ namespace AnalysisITC.Core.Data
 			}
 			tooltip = tooltip.Substring(0, tooltip.Length - 2);
 
-            if (TryGetProtonationEnthalpy(25, out var enthalpy))
+            if (TryGetIonizationEnthalpy(25, out var enthalpy))
             {
-                var protonation = new Energy(enthalpy);
-                var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, protonation.Value);
-                tooltip += Environment.NewLine + MarkdownStrings.ProtonationEnthalpy + "@25°C = " + protonation.ToFormattedString(unit, withunit: true, permole: true);
+                var ionization = new Energy(enthalpy);
+                var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, ionization.Value);
+                tooltip += Environment.NewLine + MarkdownStrings.IonizationEnthalpy + "@25°C = " + ionization.ToFormattedString(unit, withunit: true, permole: true);
             }
             else tooltip += Environment.NewLine + "Buffer ionization enthalpy unavailable";
 
@@ -557,17 +558,17 @@ namespace AnalysisITC.Core.Data
 
         #endregion
 
-		public static Energy GetProtonationEnthalpy(ExperimentData data)
+		public static Energy GetIonizationEnthalpy(ExperimentData data)
 		{
-            return TryGetProtonationEnthalpy(data, out var enthalpy) ? enthalpy : new Energy(double.NaN);
+            return TryGetIonizationEnthalpy(data, out var enthalpy) ? enthalpy : new Energy(double.NaN);
 		}
 
-		public static bool TryGetProtonationEnthalpy(ExperimentData data, out Energy enthalpy)
+		public static bool TryGetIonizationEnthalpy(ExperimentData data, out Energy enthalpy)
 		{
-            return TryGetProtonationEnthalpy(data, data?.MeasuredTemperature ?? double.NaN, out enthalpy);
+            return TryGetIonizationEnthalpy(data, data?.MeasuredTemperature ?? double.NaN, out enthalpy);
         }
 
-        public static bool TryGetProtonationEnthalpy(ExperimentData data, double temperature, out Energy enthalpy)
+        public static bool TryGetIonizationEnthalpy(ExperimentData data, double temperature, out Energy enthalpy)
         {
             enthalpy = new Energy(double.NaN);
 
@@ -575,7 +576,7 @@ namespace AnalysisITC.Core.Data
 			if (bufferAttribute == null) return false;
 
 			var buffer = (Buffer)bufferAttribute.IntValue;
-            if (!buffer.TryGetProtonationEnthalpy(temperature, out var value)) return false;
+            if (!buffer.TryGetIonizationEnthalpy(temperature, out var value)) return false;
             enthalpy = new Energy(value);
 			return true;
 		}

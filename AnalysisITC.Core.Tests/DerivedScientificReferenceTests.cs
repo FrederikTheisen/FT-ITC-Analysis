@@ -171,7 +171,7 @@ public sealed class DerivedScientificReferenceTests
         }
 
         // Synthetic target: observed dH is 1000 J/mol + 0.3 times buffer
-        // protonation enthalpy.  Both slope and intercept are independent of
+        // ionization enthalpy.  Both slope and intercept are independent of
         // the registry constants and of any bootstrap distribution.
         Assert.Equal(1_000.0, analysis.BindingEnthalpy.Value, 9);
         Assert.Equal(0.3, analysis.ProtonationChange.Value, 12);
@@ -186,6 +186,31 @@ public sealed class DerivedScientificReferenceTests
         Assert.Equal(0.3, analysis.ProtonationChange.Value, 12);
     }
 
+    [Theory]
+    [InlineData(-35000, -30000, -25000, 0.5)]
+    [InlineData(-45000, -50000, -55000, -0.5)]
+    [InlineData(-40000, -40000, -40000, 0.0)]
+    public async Task IonizationEnthalpySlopeIsSignedNetProtonUptake(
+        double first, double second, double third, double expectedUptake)
+    {
+        var analysis = new ProtonationAnalysis(LoadResultWithBuffers());
+        analysis.DataPoints = new List<Tuple<double, FloatWithError>>
+        {
+            Tuple.Create(10000.0, new FloatWithError(first)),
+            Tuple.Create(20000.0, new FloatWithError(second)),
+            Tuple.Create(30000.0, new FloatWithError(third)),
+        };
+        var previousIterations = ResultAnalysisController.CalculationIterations;
+        try
+        {
+            ResultAnalysisController.CalculationIterations = 1;
+            Assert.True(await analysis.PerformAnalysisAsync());
+            Assert.Equal(expectedUptake, analysis.ProtonationChange.Value, 12);
+            Assert.Equal(-40000, analysis.BindingEnthalpy.Value, 8);
+        }
+        finally { ResultAnalysisController.CalculationIterations = previousIterations; }
+    }
+
     [Fact]
     public void TapsoConstantsMatchVisuallyVerifiedNistTableAndLocalTemperatureTrend()
     {
@@ -198,10 +223,10 @@ public sealed class DerivedScientificReferenceTests
         Assert.InRange(Math.Abs(properties.dPKadT[0] - slopeFromTable), 0, 0.0001);
         Assert.InRange(Math.Abs(properties.pKaValues[0] - 5 * properties.dPKadT[0] - 7.7479), 0, 0.002);
         Assert.InRange(Math.Abs(properties.pKaValues[0] + 5 * properties.dPKadT[0] - 7.5244), 0, 0.002);
-        Assert.Equal(39_090.0, properties.ProtonationEnthalpy.Evaluate(25), 6);
+        Assert.Equal(39_090.0, properties.IonizationEnthalpy.Evaluate(25), 6);
         // PDF text extraction renders '= −16' as '5216'. The page image
         // confirms −16 J/(mol K); this existing value must be preserved.
-        Assert.Equal(-16.0, properties.ProtonationEnthalpy.Slope, 6);
+        Assert.Equal(-16.0, properties.IonizationEnthalpy.Slope, 6);
     }
 
     [Fact]
@@ -210,9 +235,9 @@ public sealed class DerivedScientificReferenceTests
         var properties = Buffer.Imidazole.GetProperties();
         // NIST Table 7.41 (printed p.302): 36.64 kJ/mol at 298.15 K,
         // with ΔCp = −9 J/(mol K), not −0.009 J/(mol K).
-        Assert.Equal(36_640.0, properties.ProtonationEnthalpy.Evaluate(25), 8);
-        Assert.Equal(-9.0, properties.ProtonationEnthalpy.Slope, 12);
-        Assert.Equal(36_550.0, properties.ProtonationEnthalpy.Evaluate(35), 8);
+        Assert.Equal(36_640.0, properties.IonizationEnthalpy.Evaluate(25), 8);
+        Assert.Equal(-9.0, properties.IonizationEnthalpy.Slope, 12);
+        Assert.Equal(36_550.0, properties.IonizationEnthalpy.Evaluate(35), 8);
     }
 
     [Theory]
@@ -224,9 +249,8 @@ public sealed class DerivedScientificReferenceTests
         // https://srd.nist.gov/jpcrdreprint/1.1416902.pdf
         // ΔHion(298.15 K) = 47.45 kJ/mol; ΔCp = −59 J/(mol K).
         // The independent 37 °C target is 47,450 − 59 × 12 = 46,742 J/mol.
-        // The legacy API uses the name "protonation" for positive ionization values.
-        Assert.Equal(-59.0, Buffer.Tris.GetProperties().ProtonationEnthalpy.Slope, 12);
-        Assert.Equal(expectedJmol, Buffer.Tris.GetProtonationEnthalpy(temperatureC), 8);
+        Assert.Equal(-59.0, Buffer.Tris.GetProperties().IonizationEnthalpy.Slope, 12);
+        Assert.Equal(expectedJmol, Buffer.Tris.GetIonizationEnthalpy(temperatureC), 8);
 
         var registry = BufferRegistry.LoadFromFile(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Buffers.json"));
         foreach (var id in new[] { "tris", "tbs" })

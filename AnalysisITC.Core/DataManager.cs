@@ -635,7 +635,7 @@ namespace AnalysisITC.Core.Application
                     var refexp = Data.Exists(d => d.UniqueID == settings?.ReferenceExperimentId) ? Data.Find(d => d.UniqueID == settings.ReferenceExperimentId) : null;
 
                     if (refexp != null)
-                        exp.SetBufferSubtraction(refexp as ExperimentData, settings.Method);
+                        exp.RestoreBufferSubtraction(refexp as ExperimentData, settings.Method);
                 }
             }
         }
@@ -726,7 +726,7 @@ namespace AnalysisITC.Core.Application
                     ReplaceSourceItems(SourceItems.OrderBy(OrderOnIonicStrength).ToList());
                     break;
                 case SortMode.ProtonationEnthalpy:
-                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnIonicProtonationEnthalpy).ToList());
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnIonizationEnthalpy).ToList());
                     break;
                 case SortMode.Date:
                     ReplaceSourceItems(SourceItems.OrderBy(OrderOnType).ThenBy(o => o.Date).ToList());
@@ -799,9 +799,9 @@ namespace AnalysisITC.Core.Application
             return double.MaxValue;
         }
 
-        static double OrderOnIonicProtonationEnthalpy(ITCDataContainer item)
+        static double OrderOnIonizationEnthalpy(ITCDataContainer item)
         {
-            if (item is ExperimentData data && BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)) return enthalpy.Value;
+            if (item is ExperimentData data && BufferAttribute.TryGetIonizationEnthalpy(data, out var enthalpy)) return enthalpy.Value;
             return double.MaxValue;
         }
 

@@ -24,6 +24,7 @@ namespace AnalysisITC.Core.Data
         private double measuredTemperature = double.NaN;
         private bool include = true;
         private ExperimentData bufferSubtractionReferenceSubscription;
+        private int bufferSubtractionChangeDepth;
         private string externalExperimentId = "";
         private string cellSampleId = "";
         private string syringeSampleId = "";
@@ -338,19 +339,22 @@ namespace AnalysisITC.Core.Data
                 || currentSettings.ReferenceExperimentId != reference.UniqueID
                 || currentSettings.Method != method;
 
-            if (settingsChanged)
+            if (settingsChanged) BufferSubtractionPolicy.ValidateTarget(this);
+
+            ChangeBufferSubtraction(() =>
             {
-                BufferSubtractionPolicy.ValidateTarget(this);
+                if (settingsChanged)
+                {
+                    // Clear previous setting
+                    Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
 
-                // Clear previous setting
-                Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
+                    // Add reference experiment
+                    Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, method).ToAttribute());
+                }
 
-                // Add reference experiment
-                Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, method).ToAttribute());
-            }
-
-            SetBufferSubtractionReferenceSubscription(reference);
-            Reference_ProcessingUpdated(null, null);
+                SetBufferSubtractionReferenceSubscription(reference);
+                RefreshBufferSubtractionCore();
+            });
 
             if (settingsChanged) MarkModified();
 
@@ -365,10 +369,15 @@ namespace AnalysisITC.Core.Data
         public bool ClearBufferSubtraction(bool notify = true)
         {
             // Removal must also detach the buffer listener and restore corrected heats to raw heats.
-            var removed = Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction) > 0;
+            var removed = false;
 
-            ClearBufferSubtractionReferenceSubscription();
-            Reference_ProcessingUpdated(null, null);
+            ChangeBufferSubtraction(() =>
+            {
+                removed = Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction) > 0;
+
+                ClearBufferSubtractionReferenceSubscription();
+                RefreshBufferSubtractionCore();
+            });
 
             if (removed) MarkModified();
 
@@ -428,10 +437,52 @@ namespace AnalysisITC.Core.Data
         }
 
         /// <summary>
+        /// Attaches a loaded reference to a restored correction. Restored fits were made from the
+        /// corrected heats, so the heats are brought up to date without invalidating those fits.
+        /// </summary>
+        internal void RestoreBufferSubtraction(ExperimentData reference, BufferSubtractionMethod method)
+        {
+            ChangeBufferSubtraction(() => SetBufferSubtraction(reference, method), invalidate: false);
+        }
+
+        /// <summary>
+        /// Runs a buffer-subtraction change as at most one target processing update. Corrected heats
+        /// are fit inputs, so any change to them or to the settings invalidates every solution
+        /// referencing this experiment. Nested changes are reported once by the outermost call.
+        /// </summary>
+        void ChangeBufferSubtraction(Action change, bool updateProcessing = true, bool invalidate = true)
+        {
+            var outermost = bufferSubtractionChangeDepth++ == 0;
+            var before = outermost ? CaptureBufferSubtractionState() : default;
+
+            try { change(); }
+            finally { bufferSubtractionChangeDepth--; }
+
+            if (!outermost || !updateProcessing) return;
+
+            // Exact comparison: a change below saved-result comparison tolerance is still a change.
+            var after = CaptureBufferSubtractionState();
+            if (before.ReferenceId != after.ReferenceId || before.Method != after.Method || !before.Heats.SequenceEqual(after.Heats))
+                UpdateProcessing(invalidate);
+        }
+
+        (string ReferenceId, BufferSubtractionMethod? Method, double[] Heats) CaptureBufferSubtractionState()
+        {
+            var settings = BufferSubtractionSettings;
+            var heats = Injections.SelectMany(inj => new[] { inj.PeakArea.Value, inj.PeakArea.SD }).ToArray();
+            return (settings?.ReferenceExperimentId, settings?.Method, heats);
+        }
+
+        /// <summary>
         /// Recalculates corrected heats from the loaded reference experiment, or from stored
         /// reference values when the reference is not loaded. Without either, PeakArea = RawPeakArea.
         /// </summary>
         public void RefreshBufferSubtraction()
+        {
+            ChangeBufferSubtraction(RefreshBufferSubtractionCore);
+        }
+
+        void RefreshBufferSubtractionCore()
         {
             // PeakArea is the downstream corrected value; RawPeakArea remains unchanged.
             var attribute = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
@@ -459,11 +510,14 @@ namespace AnalysisITC.Core.Data
                         || existing.IntValue != attribute.IntValue
                         || !ReferenceEquals(existing.BufferReferenceSnapshot, attribute.BufferReferenceSnapshot)));
 
-            if (existing != null && !ReferenceEquals(existing, attribute)) Attributes.Remove(existing);
-            if (!Attributes.Contains(attribute)) Attributes.Add(attribute);
+            ChangeBufferSubtraction(() =>
+            {
+                if (existing != null && !ReferenceEquals(existing, attribute)) Attributes.Remove(existing);
+                if (!Attributes.Contains(attribute)) Attributes.Add(attribute);
 
-            ClearBufferSubtractionReferenceSubscription();
-            RefreshBufferSubtraction();
+                ClearBufferSubtractionReferenceSubscription();
+                RefreshBufferSubtractionCore();
+            });
 
             if (changed) MarkModified();
             if (notify && changed) DataManager.InvokeDataDidChange();
@@ -513,6 +567,7 @@ namespace AnalysisITC.Core.Data
 
         // Details editors stage their values first. Avoid touching buffer subtraction
         // (and its measured heats/subscriptions) when the attributes did not change.
+        // The editors call UpdateProcessing when this reports a change, so it is not repeated here.
         public bool UpdateDetailAttributes(IEnumerable<ExperimentAttribute> attributes)
         {
             var incoming = attributes.Where(attribute => attribute.Key != AttributeKey.Null).ToList();
@@ -520,13 +575,30 @@ namespace AnalysisITC.Core.Data
                 first.OptionName == second.OptionName &&
                 ExperimentAttributeSnapshot.Capture(first).EquivalentTo(ExperimentAttributeSnapshot.Capture(second))).All(equal => equal))
                 return false;
-            return CopyAttributesFrom(incoming, clear: true, overwriteExisting: true, notify: false);
+            var changed = false;
+            ChangeBufferSubtraction(() => changed = CopyAttributesFrom(incoming, clear: true, overwriteExisting: true, notify: false), updateProcessing: false);
+            return changed;
         }
 
         public bool CopyAttributesFrom(IEnumerable<ExperimentAttribute> attributes, bool clear = false, bool overwriteExisting = true, bool notify = true)
         {
             if (attributes == null) return false;
 
+            // One processing update for the net correction; clearing and reapplying the same one needs none.
+            var didChange = false;
+            ChangeBufferSubtraction(() => didChange = CopyAttributesFromCore(attributes, clear, overwriteExisting));
+            if (!didChange) return false;
+
+            if (notify)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return true;
+        }
+
+        bool CopyAttributesFromCore(IEnumerable<ExperimentAttribute> attributes, bool clear, bool overwriteExisting)
+        {
             var incomingAttributes = attributes.Where(att => att != null).ToList();
             if (clear || overwriteExisting || BufferSubtractionSettings == null)
                 foreach (var bufferAttribute in incomingAttributes.Where(att => att.Key == AttributeKey.BufferSubtraction))
@@ -585,11 +657,6 @@ namespace AnalysisITC.Core.Data
                 UseStoredBufferReference(Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction), notify: false);
             else
                 ClearBufferSubtraction(notify: false);
-
-            if (notify)
-            {
-                DataManager.InvokeDataDidChange();
-            }
 
             return true;
         }

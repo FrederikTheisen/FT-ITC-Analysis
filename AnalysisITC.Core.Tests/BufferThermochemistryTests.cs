@@ -27,20 +27,20 @@ public sealed class BufferThermochemistryTests
     [InlineData((Buffer)999)]
     public void MissingThermochemistryIsUnavailableRatherThanZero(Buffer buffer)
     {
-        Assert.False(buffer.TryGetProtonationEnthalpy(25, out var value));
+        Assert.False(buffer.TryGetIonizationEnthalpy(25, out var value));
         Assert.True(double.IsNaN(value));
-        Assert.True(double.IsNaN(buffer.GetProtonationEnthalpy(25)));
+        Assert.True(double.IsNaN(buffer.GetIonizationEnthalpy(25)));
         var data = CreateData(buffer, "missing");
-        Assert.False(BufferAttribute.TryGetProtonationEnthalpy(data, out var energy));
+        Assert.False(BufferAttribute.TryGetIonizationEnthalpy(data, out var energy));
         Assert.True(double.IsNaN(energy.Value));
-        Assert.True(double.IsNaN(BufferAttribute.GetProtonationEnthalpy(data).Value));
+        Assert.True(double.IsNaN(BufferAttribute.GetIonizationEnthalpy(data).Value));
     }
 
     [Fact]
     public void MissingAttributesAreUnavailable()
     {
-        Assert.False(BufferAttribute.TryGetProtonationEnthalpy(null, out _));
-        Assert.False(BufferAttribute.TryGetProtonationEnthalpy(CreateData(null, "no buffer"), out _));
+        Assert.False(BufferAttribute.TryGetIonizationEnthalpy(null, out _));
+        Assert.False(BufferAttribute.TryGetIonizationEnthalpy(CreateData(null, "no buffer"), out _));
     }
 
     [Fact]
@@ -56,8 +56,8 @@ public sealed class BufferThermochemistryTests
         };
         Assert.All(missing, properties =>
         {
-            Assert.Null(properties.ProtonationEnthalpy);
-            Assert.False(properties.TryGetProtonationEnthalpy(25, out _));
+            Assert.Null(properties.IonizationEnthalpy);
+            Assert.False(properties.TryGetIonizationEnthalpy(25, out _));
             Assert.Contains("enthalpy unavailable", Tooltip(properties));
         });
         foreach (var zero in new[]
@@ -66,7 +66,7 @@ public sealed class BufferThermochemistryTests
             new BufferAttribute("zero", 7, 0, 0, "", new[] { 0.0, 0.0 }),
         })
         {
-            Assert.True(zero.TryGetProtonationEnthalpy(25, out var enthalpy));
+            Assert.True(zero.TryGetIonizationEnthalpy(25, out var enthalpy));
             Assert.Equal(0, enthalpy);
             Assert.Contains("@25°C = 0", Tooltip(zero));
             Assert.DoesNotContain("unavailable", Tooltip(zero));
@@ -80,7 +80,7 @@ public sealed class BufferThermochemistryTests
     [InlineData(double.MaxValue)]
     public void NonfiniteTemperatureOrEvaluationIsUnavailable(double temperature)
     {
-        Assert.False(Buffer.Hepes.TryGetProtonationEnthalpy(temperature, out var value));
+        Assert.False(Buffer.Hepes.TryGetIonizationEnthalpy(temperature, out var value));
         Assert.True(double.IsNaN(value));
     }
 
@@ -146,6 +146,27 @@ public sealed class BufferThermochemistryTests
         Assert.Equal("", table.Rows[1]["HPROT"]);
         var exported = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions());
         Assert.DoesNotContain("bufferprotonation", exported);
+    }
+
+    [Fact]
+    public void TablesAndExportsNameIonizationCoordinatesWithoutNegatingThem()
+    {
+        var result = CreateResult(Buffer.MES, Buffer.Hepes);
+        var table = AnalysisResultOverviewTable.Build(result.PresentationData, EnergyUnitFamily.Joules,
+            EnergyUnit.KiloJoule, false);
+        Assert.Equal("∆H,ion (kJ/mol)", table.Columns.Single(column => column.Id == "HPROT").Title);
+        Assert.Equal(14.8.ToString("F1", System.Globalization.CultureInfo.CurrentCulture), table.Rows[0]["HPROT"]);
+        Assert.Equal(20.4.ToString("F1", System.Globalization.CultureInfo.CurrentCulture), table.Rows[1]["HPROT"]);
+        var exported = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        {
+            EnergyUnitOverride = EnergyUnit.KiloJoule,
+            RowMode = AnalysisResultExportRowMode.AllRows,
+            FileFormat = AnalysisResultExportFileFormat.TSV,
+        });
+        Assert.Contains("∆H,ion (kJ/mol)", exported);
+        Assert.DoesNotContain("∆H,prot", exported);
+        Assert.Contains("14.8", exported);
+        Assert.Contains("20.4", exported);
     }
 
     [Fact]
