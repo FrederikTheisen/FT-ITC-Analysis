@@ -1,0 +1,27 @@
+Test run for /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/bin/Debug/net10.0/AnalysisITC.Web.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 10.0.10)
+[xUnit.net 00:00:00.06]   Discovering: AnalysisITC.Web.Tests
+[xUnit.net 00:00:00.12]   Discovered:  AnalysisITC.Web.Tests
+[xUnit.net 00:00:00.13]   Starting:    AnalysisITC.Web.Tests
+[xUnit.net 00:00:00.23]     AnalysisITC.Web.Tests.RegistrationReliabilityTests.ProvisioningAndDeliveryDoNotNeedWriteAccessToManualRegistryDirectory [FAIL]
+[xUnit.net 00:00:00.23]       Assert.True() Failure
+[xUnit.net 00:00:00.23]       Expected: True
+[xUnit.net 00:00:00.23]       Actual:   False
+[xUnit.net 00:00:00.23]       Stack Trace:
+[xUnit.net 00:00:00.23]         /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs(104,0): at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ProvisioningAndDeliveryDoNotNeedWriteAccessToManualRegistryDirectory()
+[xUnit.net 00:00:00.23]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:00.23]   Finished:    AnalysisITC.Web.Tests
+  Failed AnalysisITC.Web.Tests.RegistrationReliabilityTests.ProvisioningAndDeliveryDoNotNeedWriteAccessToManualRegistryDirectory [78 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ProvisioningAndDeliveryDoNotNeedWriteAccessToManualRegistryDirectory() in /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs:line 104
+--- End of stack trace from previous location ---
+
+Test Run Failed.
+Total tests: 1
+     Failed: 1
+ Total time: 0,5121 Seconds
