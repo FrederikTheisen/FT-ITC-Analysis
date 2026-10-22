@@ -53,7 +53,8 @@ Advanced analyses
 - Spolar–Record: relate hydration/conformational entropy and residue estimates to supplied temperature-dependence slopes/intercepts, completedFoldedMode, completedTemperatureMode and uncertainty. Outputs depend on method assumptions; they are not independent measurements or directly observed residue counts. 
 - Agreement between outputs derived by reanalysing the same underlying experiments is neither replicate validation nor an empirical uncertainty estimate.
 - Electrostatics: separate ionic-strength dependence from counter-ion regression. Respect saved usesCurvature, component availability, conditions and component sampling counts. Unavailable is not zero effect; partial results may support qualified conclusions about the available component.
-- Protonation: x=buffer protonation enthalpy; y=observed binding enthalpy; slope=protonation change; intercept=binding enthalpy. Preserve supplied units/signs. Assess buffer, temperature and other condition differences; the regression alone does not establish mechanism.
+- Protonation: x=buffer ionization enthalpy; y=observed binding enthalpy; slope=net proton uptake; intercept=buffer-independent binding enthalpy. Preserve supplied units/signs. Assess buffer, temperature and other condition differences; the regression alone does not establish mechanism.
+Net proton uptake is +slope: positive uptake by the binding system from solution, negative release, per binding event; fractional values are average net exchange. The intercept is buffer-independent binding enthalpy at experimental pH, retaining binding-partner protonation heat, not fully intrinsic enthalpy. Earlier packages labelled the same ionization coordinates buffer-protonation-enthalpy; do not negate their saved slopes.
 
 Scientific reasoning
 

@@ -7,6 +7,20 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
+    public void EverySelectableGuidanceAndSummaryUsePositiveProtonUptake()
+    {
+        foreach (var text in ScientificGuidance.Variants.Select(item => ScientificGuidance.TextFor(item.Id))
+            .Append(SummaryGuidance.Text))
+        {
+            Assert.Contains("Net proton uptake is +slope", text);
+            Assert.Contains("positive uptake by the binding system", text);
+            Assert.Contains("negative release", text);
+            Assert.Contains("not fully intrinsic enthalpy", text);
+            Assert.Contains("do not negate their saved slopes", text);
+        }
+    }
+
+    [Fact]
     public void ExplicitGuidanceVersionsAreSeparatelyAddressable()
     {
         var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.0");
@@ -194,7 +208,7 @@ public sealed class ScientificGuidanceTests
     {
         var text = ScientificGuidance.TextFor("3.6.0");
         Assert.Contains("Advanced-analysis evidence", text, StringComparison.Ordinal);
-        Assert.Contains("buffer protonation enthalpy on the x axis", text, StringComparison.Ordinal);
+        Assert.Contains("buffer ionization enthalpy on the x axis", text, StringComparison.Ordinal);
         Assert.Contains("ionic-strength dependence fit from the counter-ion regression", text, StringComparison.Ordinal);
         Assert.Contains("residue estimate is not a directly observed residue count", text, StringComparison.Ordinal);
         Assert.Contains("uncertain inputs, including fitted parameter uncertainties", text, StringComparison.Ordinal);

@@ -84,3 +84,7 @@ For uniform-minmax-v1, powerMinMax and optional baselineMinMax hold aligned [min
 Use retrieved knowledge-base references only when they materially support interpretation, with supplied author/name or title, journal and year. Do not invent citations or metadata, claim to have read an original paper, add web links or a bibliography. Web search is disabled.
 
 Include completed advanced analyses in the scientific assessment. Explain what they add to the interpretation where consequential, considering their assumptions and uncertainty alongside the underlying ITC evidence.
+
+Protonation analysis
+
+Use buffer ionization enthalpy on x and observed binding enthalpy on y. Net proton uptake is +slope: positive uptake by the binding system from solution, negative release, per binding event; fractional values are average net exchange. The intercept is buffer-independent binding enthalpy at experimental pH, retaining binding-partner protonation heat, not fully intrinsic enthalpy. Earlier packages labelled the same ionization coordinates buffer-protonation-enthalpy; do not negate their saved slopes. Interpret comparable conditions without inferring a microscopic mechanism.

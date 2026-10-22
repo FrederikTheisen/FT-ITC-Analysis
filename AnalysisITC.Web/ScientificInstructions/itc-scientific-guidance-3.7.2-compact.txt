@@ -62,7 +62,8 @@ ADVANCED
 - uncertaintyPropagation=random-input-sampling propagates supplied uncertain inputs/method terms; distinct from primary bootstrap/profile and point estimates. null uncertaintyMethod != absent uncertainty; zero/missing sample counts prove neither success nor certainty; counts != replicates. Saved completed settings govern, not current controls.
 - [ADV:spolar-record] Interpret hydration/conformational entropy/residue estimates using supplied slopes/intercepts, completedFoldedMode, completedTemperatureMode, uncertainty. Outputs assumption-derived, not independent measurements/direct residue counts. Same-data reanalysis agreement != replication or empirical uncertainty.
 - [ADV:electrostatics] Separate ionic-strength dependence/counter-ion regression; obey usesCurvature, availability, conditions, sampling counts. Unavailable != zero; partial result supports available component only.
-- [ADV:protonation] x=buffer protonation dH; y=observed binding dH; slope=protonation change; intercept=binding dH. Preserve units/signs; check buffer/T/conditions; regression alone != mechanism.
+- [ADV:protonation] x=buffer ionization dH; y=observed binding dH; slope=net proton uptake; intercept=buffer-independent binding dH. Preserve units/signs; check buffer/T/conditions; regression alone != mechanism.
+Net proton uptake is +slope: positive uptake by the binding system from solution, negative release, per binding event; fractional values are average net exchange. The intercept is buffer-independent binding enthalpy at experimental pH, retaining binding-partner protonation heat, not fully intrinsic enthalpy. Earlier packages labelled the same ionization coordinates buffer-protonation-enthalpy; do not negate their saved slopes.
 
 REASONING/CHECKS
 - Separate observation, explanation, consequence. Rank explanations only when evidence discriminates; better-supported != caused. Otherwise state ambiguity, not exhaustive causes. Missing evidence != defect.
