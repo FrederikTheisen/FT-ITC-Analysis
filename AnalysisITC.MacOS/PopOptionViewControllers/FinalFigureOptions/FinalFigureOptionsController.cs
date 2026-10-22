@@ -146,6 +146,7 @@ namespace AnalysisITC
             }
             controls.InformationBoxPositionControl?.SelectSegment((int)FinalFigureGraphView.InformationBoxPosition);
             SetState(controls.ShowDataGraphControl, FinalFigureGraphView.ShowDataGraph);
+            if (controls.ShowDataGraphControl != null) controls.ShowDataGraphControl.ToolTip = FinalFigureModelPresentation.DataGraphTooltip;
             SetText(controls.SyringeNameField, FinalFigureGraphView.SyringeName, "Syringe");
             SetText(controls.CellNameField, FinalFigureGraphView.CellName, "Cell");
             SetState(controls.UseNameAttributes, FinalFigureGraphView.UseNameAttributes);

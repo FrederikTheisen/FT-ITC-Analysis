@@ -89,7 +89,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "SD", "CI", "SD + CI", "None" }, 1, 126);
         readonly ComboBox infoPlacementCombo = Combo(new[] { "Auto", "Upper", "Lower" }, 0, 126);
 
-        readonly CheckBox showThermogramCheck = Check("Data graph", true, "Include the differential-power trace above the fit graph.");
+        readonly CheckBox showThermogramCheck = Check("Data graph", true, FinalFigureModelPresentation.DataGraphTooltip);
         readonly CheckBox axisTitlesCheck = Check("Axis titles", true, "Draw titles for the graph axes.");
         readonly CheckBox experimentDetailsCheck = Check("Experiment details", true, FinalFigureModelPresentation.ExperimentDetailsTooltip);
         readonly CheckBox modelInfoCheck = Check("Model info", true, FinalFigureModelPresentation.ModelInfoTooltip);

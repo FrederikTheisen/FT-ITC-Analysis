@@ -30,6 +30,7 @@ namespace AnalysisITC.Core.Presentation
             ? PublicationFigureModelSelection.NullModel : PublicationFigureModelSelection.BindingModel;
         public const string FitLineTooltip = "Draw the selected model prediction.";
         public const string EnergyUnitTooltip = "Energy unit family; magnitude is chosen automatically.";
+        public const string DataGraphTooltip = "Include the differential-power trace above the fit graph.";
         public const string ExcludedAutoYScaleTooltip = "Let excluded points affect automatic Y axis limits.";
         public const string ExperimentDetailsTooltip = "Show recorded conditions and attributes.";
         public const string ModelInfoTooltip = "Show the selected model name.";

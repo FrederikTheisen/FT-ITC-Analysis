@@ -3691,7 +3691,7 @@ Developed by Frederik Theisen 2026</string>
                                                             <action selector="Sort:" target="Voe-Tx-rLC" id="bZ0-Xk-1Gq"/>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="By Protonation Enthalpy" identifier="sortbyprotonation" id="Whs-eV-tVV">
+                                                    <menuItem title="By Ionization Enthalpy" identifier="sortbyprotonation" id="Whs-eV-tVV">
                                                         <modifierMask key="keyEquivalentModifierMask"/>
                                                         <connections>
                                                             <action selector="Sort:" target="Voe-Tx-rLC" id="11A-m5-aeN"/>
@@ -7717,7 +7717,7 @@ IA
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                                     </textFieldCell>
                                                                                                                 </textField>
-                                                                                                                <switch toolTip="Remove negative x axis values" horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" state="on" translatesAutoresizingMaskIntoConstraints="NO" id="C73-BQ-BIq">
+                                                                                                                <switch horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" state="on" translatesAutoresizingMaskIntoConstraints="NO" id="C73-BQ-BIq">
                                                                                                                     <rect key="frame" x="253" y="-1" width="28" height="17"/>
                                                                                                                     <connections>
                                                                                                                         <action selector="ControlChanged:" target="aiw-ef-R4r" id="WH7-o9-oxx"/>
@@ -8201,7 +8201,7 @@ IA
                                                                                                                                 <menuItem title="Buffer" id="myM-oP-Kjb"/>
                                                                                                                                 <menuItem title="Salt" id="yYk-Vh-qHW"/>
                                                                                                                                 <menuItem title="Ionic strength" id="1Da-Cc-fSu"/>
-                                                                                                                                <menuItem title="Protonation enthalpy" id="23R-ZG-3GG"/>
+                                                                                                                                <menuItem title="Ionization enthalpy" id="23R-ZG-3GG"/>
                                                                                                                                 <menuItem title="Competitor" id="fX9-zQ-tFs"/>
                                                                                                                             </items>
                                                                                                                         </menu>
