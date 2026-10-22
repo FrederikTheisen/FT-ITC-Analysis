@@ -195,7 +195,11 @@ public sealed class RegistrationDeliveryOutbox
     }
 
     public PendingRegistrationDelivery? GetPending(DateTime utcNow)
+        => GetPending(utcNow, out _);
+
+    internal PendingRegistrationDelivery? GetPending(DateTime utcNow, out bool discardedUnreadableDelivery)
     {
+        discardedUnreadableDelivery = false;
         using var db = store.Open(); using var command = db.CreateCommand();
         command.CommandText = """
             SELECT d.registration_id,d.kind,d.protected_code,d.idempotency_key,d.attempts,a.name,a.email,a.organization
@@ -216,6 +220,7 @@ public sealed class RegistrationDeliveryOutbox
             // Release the read lock before failing only the selected delivery cycle.
             reader.Close();
             MarkFailed(registrationId, "delivery_payload_unreadable", idempotencyKey);
+            discardedUnreadableDelivery = true;
             return null;
         }
     }

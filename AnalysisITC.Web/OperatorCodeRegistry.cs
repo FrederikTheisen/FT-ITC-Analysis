@@ -15,7 +15,6 @@ public sealed class OperatorCodeRegistry
     readonly ILogger<OperatorCodeRegistry> logger;
     readonly OperatorTombstoneRegistry tombstones;
     readonly PublicAccessRegistry? publicAccess;
-    static readonly SemaphoreSlim MutationLock = new(1, 1);
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
     public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger, OperatorTombstoneRegistry tombstones, PublicAccessRegistry? publicAccess = null)
@@ -40,7 +39,6 @@ public sealed class OperatorCodeRegistry
         var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
         foreach (var record in ReadCombinedSafe())
         {
-            if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
             try { stored = Convert.FromHexString(record.CodeHash); }
             catch (FormatException) { continue; }
@@ -55,6 +53,7 @@ public sealed class OperatorCodeRegistry
     public (OperatorCodeRecord Record, string Code) Create(string label, int? expiresDays, bool noExpiry,
         string accessTier = InterpretationAccessTiers.Administrator, string? name = null, string? email = null, string? organization = null)
     {
+        using var mutationLock = AcquireMutationLock();
         if (string.IsNullOrWhiteSpace(label)) throw new ArgumentException("A non-empty label is required.");
         if (!InterpretationAccessTiers.IsAssignable(accessTier)) throw new ArgumentException("Unknown access tier.", nameof(accessTier));
         var days = expiresDays ?? options.DefaultLifetimeDays;
@@ -75,34 +74,30 @@ public sealed class OperatorCodeRegistry
 
     public OperatorCodeRecord CreateRegisteredWithCode(string id, string name, string email, string? organization, string code)
     {
-        MutationLock.Wait();
-        try
+        using var mutationLock = AcquireMutationLock();
+        var records = ReadCombinedStrict();
+        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(code));
+        var byId = records.SingleOrDefault(record => string.Equals(record.Id, id, StringComparison.Ordinal));
+        if (byId is not null)
         {
-            var records = ReadCombinedStrict();
-            var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(code));
-            var byId = records.SingleOrDefault(record => string.Equals(record.Id, id, StringComparison.Ordinal));
-            if (byId is not null)
-            {
-                byte[] stored;
-                try { stored = Convert.FromHexString(byId.CodeHash); }
-                catch (FormatException exception) { throw new InvalidDataException("The existing registered credential is invalid.", exception); }
-                if (stored.Length != expectedHash.Length || !CryptographicOperations.FixedTimeEquals(stored, expectedHash))
-                    throw new InvalidDataException("The registration already has a different credential.");
-                return byId;
-            }
-            var canonicalEmail = ValidateEmail(email)!;
-            if (records.Any(record => record.Email is not null
-                && string.Equals(ValidateEmail(record.Email), canonicalEmail, StringComparison.Ordinal)))
-                throw new InvalidDataException("The email address belongs to another operator account.");
-            var record = new OperatorCodeRecord
-            {
-                Id = id, Label = CleanHumanText(name, nameof(name), 120)!, Name = CleanHumanText(name, nameof(name), 120), Email = canonicalEmail, Organization = CleanHumanText(organization, nameof(organization), 200),
-                CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
-                CodeHash = Convert.ToHexString(expectedHash).ToLowerInvariant(),
-            };
-            var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
+            byte[] stored;
+            try { stored = Convert.FromHexString(byId.CodeHash); }
+            catch (FormatException exception) { throw new InvalidDataException("The existing registered credential is invalid.", exception); }
+            if (stored.Length != expectedHash.Length || !CryptographicOperations.FixedTimeEquals(stored, expectedHash))
+                throw new InvalidDataException("The registration already has a different credential.");
+            return byId;
         }
-        finally { MutationLock.Release(); }
+        var canonicalEmail = ValidateEmail(email)!;
+        if (records.Any(record => record.Email is not null
+            && string.Equals(ValidateEmail(record.Email), canonicalEmail, StringComparison.Ordinal)))
+            throw new InvalidDataException("The email address belongs to another operator account.");
+        var record = new OperatorCodeRecord
+        {
+            Id = id, Label = CleanHumanText(name, nameof(name), 120)!, Name = CleanHumanText(name, nameof(name), 120), Email = canonicalEmail, Organization = CleanHumanText(organization, nameof(organization), 200),
+            CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
+            CodeHash = Convert.ToHexString(expectedHash).ToLowerInvariant(),
+        };
+        var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
     }
 
     public OperatorCodeRecord? FindActive(string code)
@@ -112,7 +107,6 @@ public sealed class OperatorCodeRegistry
         var now = DateTime.UtcNow;
         foreach (var record in ReadCombinedSafe())
         {
-            if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
             try { stored = Convert.FromHexString(record.CodeHash); } catch (FormatException) { continue; }
             if (stored.Length == hash.Length && CryptographicOperations.FixedTimeEquals(stored, hash)
@@ -139,6 +133,7 @@ public sealed class OperatorCodeRegistry
 
     public bool Revoke(string id)
     {
+        using var mutationLock = AcquireMutationLock();
         var records = ReadCombinedStrict();
         var record = records.SingleOrDefault(value => string.Equals(value.Id, id, StringComparison.Ordinal));
         if (record is null) return false;
@@ -147,26 +142,23 @@ public sealed class OperatorCodeRegistry
 
     public OperatorScrubResult? Scrub(string id, SelfRegistrationStore? registrations = null, InterpretationUsageStore? usage = null)
     {
-        MutationLock.Wait();
-        try
-        {
-            var records = ReadCombinedStrict();
-            var record = records.SingleOrDefault(x => x.Id == id);
-            if (record is null) return null;
-            var scrubbed = tombstones.Add(id) ?? DateTime.UtcNow;
-            record.Label = "Scrubbed account"; record.Name = null; record.Email = null; record.Organization = null;
-            record.CodeHash = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
-            record.RevokedAtUtc ??= scrubbed; record.ScrubbedAtUtc ??= scrubbed;
-            WriteMatching(records);
-            var deliveryCancelled = registrations?.Scrub(id, scrubbed) ?? false;
-            usage?.ScrubAccount(id);
-            return new(id, scrubbed, deliveryCancelled);
-        }
-        finally { MutationLock.Release(); }
+        using var mutationLock = AcquireMutationLock();
+        var records = ReadCombinedStrict();
+        var record = records.SingleOrDefault(x => x.Id == id);
+        if (record is null) return null;
+        var scrubbed = tombstones.Add(id) ?? DateTime.UtcNow;
+        record.Label = "Scrubbed account"; record.Name = null; record.Email = null; record.Organization = null;
+        record.CodeHash = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        record.RevokedAtUtc ??= scrubbed; record.ScrubbedAtUtc ??= scrubbed;
+        WriteMatching(records);
+        var deliveryCancelled = registrations?.Scrub(id, scrubbed) ?? false;
+        usage?.ScrubAccount(id);
+        return new(id, scrubbed, deliveryCancelled);
     }
 
     public bool ChangeTier(string id, string accessTier)
     {
+        using var mutationLock = AcquireMutationLock();
         if (!InterpretationAccessTiers.IsAssignable(accessTier)) throw new ArgumentException("Unknown access tier.", nameof(accessTier));
         var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false; record.AccessTier = accessTier; WriteMatching(records); return true;
@@ -174,6 +166,7 @@ public sealed class OperatorCodeRegistry
 
     public bool ChangeDetails(string id, string? name, string? email, string? organization)
     {
+        using var mutationLock = AcquireMutationLock();
         var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false;
         record.Name = CleanHumanText(name, nameof(name), 120); record.Email = ValidateEmail(email); record.Organization = CleanHumanText(organization, nameof(organization), 200);
@@ -182,28 +175,36 @@ public sealed class OperatorCodeRegistry
 
     public (OperatorCodeRecord Record, string Code)? Regenerate(string id)
     {
-        MutationLock.Wait();
-        try
-        {
-            var records = ReadCombinedStrict();
-            var record = records.SingleOrDefault(value => value.Id == id);
-            if (record is null || record.ScrubbedAtUtc is not null || record.RevokedAtUtc is not null) return null;
-            var code = Prefix + Base64Url(RandomNumberGenerator.GetBytes(32));
-            record.CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();
-            WriteMatching(records);
-            return (record, code);
-        }
-        finally { MutationLock.Release(); }
+        using var mutationLock = AcquireMutationLock();
+        var records = ReadCombinedStrict();
+        var record = records.SingleOrDefault(value => value.Id == id);
+        if (record is null || record.ScrubbedAtUtc is not null || record.RevokedAtUtc is not null) return null;
+        var code = Prefix + Base64Url(RandomNumberGenerator.GetBytes(32));
+        record.CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();
+        WriteMatching(records);
+        return (record, code);
     }
 
     public bool ChangeQuota(string id, decimal? monthlyUsd, bool unlimited)
     {
+        using var mutationLock = AcquireMutationLock();
         if (!unlimited && monthlyUsd is <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
         var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false;
         record.MonthlyQuotaUsdOverride = unlimited ? null : monthlyUsd;
         record.QuotaUnlimited = unlimited;
         WriteMatching(records); return true;
+    }
+
+    IDisposable AcquireMutationLock()
+    {
+        // The service can read /etc's manual registry but cannot create a sibling lock there.
+        // Both writers use registration storage and the full manual path as the lock identity.
+        var manualLockPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(registrationRegistryPath))!,
+            "operator-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(options.RegistryPath)))));
+        var mutationLock = RegistryFileLock.Acquire(manualLockPath, registrationRegistryPath);
+        try { tombstones.ValidateReadable(); return mutationLock; }
+        catch { mutationLock.Dispose(); throw; }
     }
 
     List<OperatorCodeRecord> ReadSafe()
@@ -214,7 +215,12 @@ public sealed class OperatorCodeRegistry
 
     List<OperatorCodeRecord> ReadCombinedSafe()
     {
-        try { return ReadCombinedStrict(); }
+        try
+        {
+            var records = ReadCombinedStrict();
+            var deleted = tombstones.ReadIds();
+            return records.Where(record => !deleted.Contains(record.Id)).ToList();
+        }
         catch (Exception ex) { logger.LogWarning(ex, "Operator-code registry could not be read; access was denied."); return new(); }
     }
 

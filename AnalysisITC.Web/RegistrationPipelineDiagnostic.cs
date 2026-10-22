@@ -160,8 +160,7 @@ public sealed class RegistrationPipelineDiagnostic
             return Fail("registration mail configuration is missing or malformed");
         try
         {
-            _ = new MailAddress(configuration.From);
-            _ = new MailAddress(configuration.ReplyTo);
+            _ = RegistrationMailConfiguration.Validate(configuration);
             if (!string.IsNullOrWhiteSpace(configuration.ActivationTemplateId)
                 && string.IsNullOrWhiteSpace(configuration.ActivationTemplateId.Trim()))
                 return Fail("activation mail template configuration is invalid");

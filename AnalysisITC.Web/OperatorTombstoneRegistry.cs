@@ -7,28 +7,37 @@ namespace AnalysisITC.Web;
 public sealed class OperatorTombstoneRegistry
 {
     readonly string path;
-    static readonly object Gate = new();
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     public OperatorTombstoneRegistry(IOptions<InterpretationOptions> options) => path = options.Value.TombstonePath;
     public bool Contains(string id)
     {
-        lock (Gate) return Read().Any(x => x.Id == id);
+        return Read().Any(x => x.Id == id);
     }
     public DateTime? Add(string id)
     {
-        lock (Gate)
-        {
-            var entries = Read();
-            var existing = entries.FirstOrDefault(x => x.Id == id);
-            if (existing is not null) return existing.ScrubbedAtUtc;
-            var now = DateTime.UtcNow; entries.Add(new(id, now)); Write(entries); return now;
-        }
+        // Scrub holds the operator locks first; standalone additions hold only this lock.
+        using var registryLock = RegistryFileLock.Acquire(path);
+        var entries = Read();
+        var existing = entries.FirstOrDefault(x => x.Id == id);
+        if (existing is not null) return existing.ScrubbedAtUtc;
+        var now = DateTime.UtcNow; entries.Add(new(id, now)); Write(entries); return now;
     }
+    internal IReadOnlySet<string> ReadIds() => Read().Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+    internal void ValidateReadable() => _ = Read();
     List<Tombstone> Read()
     {
-        if (!File.Exists(path)) return new();
-        try { return JsonSerializer.Deserialize<List<Tombstone>>(File.ReadAllText(path), JsonOptions) ?? new(); }
-        catch { return new(); }
+        try
+        {
+            using var stream = File.OpenRead(path);
+            var entries = JsonSerializer.Deserialize<List<Tombstone>>(stream, JsonOptions);
+            if (entries is null || entries.Any(x => x is null || string.IsNullOrWhiteSpace(x.Id)))
+                throw new InvalidDataException("The account deletion markers are invalid.");
+            return entries;
+        }
+        catch (FileNotFoundException) { return []; }
+        catch (DirectoryNotFoundException) { return []; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+        { throw new OperatorTombstoneRegistryUnavailableException(exception); }
     }
     void Write(List<Tombstone> entries)
     {
@@ -44,3 +53,6 @@ public sealed class OperatorTombstoneRegistry
     }
     public sealed record Tombstone(string Id, DateTime ScrubbedAtUtc);
 }
+
+internal sealed class OperatorTombstoneRegistryUnavailableException(Exception innerException)
+    : IOException("Account deletion markers could not be read; access and changes are unavailable.", innerException);

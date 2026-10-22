@@ -1,0 +1,14 @@
+{
+  "reproductionChecks": "passed; confirms defects, not fixes",
+  "mailFaultCases": 8,
+  "markerCases": 5,
+  "losingInterleavings": 8,
+  "serializedControls": 8,
+  "terminatedWriterControls": 1,
+  "workerMessages": 13,
+  "maxCompletedQueueWaitSeconds": 654.217846,
+  "dispatchGapMinSeconds": 60.003536999999966,
+  "dispatchGapMaxSeconds": 60.071642000000004,
+  "workerElapsedSeconds": 735.0181156,
+  "pendingAtStop": 99
+}

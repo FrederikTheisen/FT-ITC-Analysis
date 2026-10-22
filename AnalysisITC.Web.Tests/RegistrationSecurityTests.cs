@@ -753,7 +753,7 @@ public sealed class RegistrationSecurityTests : IDisposable
         using var httpClient = new HttpClient(handler);
         var sender = new RegistrationMailSender(values, outbox, registry, new SingleClientFactory(httpClient), tombstones);
 
-        Assert.False(await sender.ProcessOneAsync());
+        Assert.True(await sender.ProcessOneAsync()); // Quarantining the unreadable row advances the queue.
         Assert.Empty(handler.Messages);
         using (var db = OpenDatabase())
         {

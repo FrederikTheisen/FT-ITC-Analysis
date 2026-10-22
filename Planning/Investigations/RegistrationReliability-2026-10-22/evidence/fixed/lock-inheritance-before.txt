@@ -1,0 +1,32 @@
+  AnalysisITC.Core -> /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Core/bin/Debug/netstandard2.0/AnalysisITC.Core.dll
+  AnalysisITC.Web -> /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web/bin/Debug/net10.0/AnalysisITC.Web.dll
+  AnalysisITC.Web.Tests -> /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/bin/Debug/net10.0/AnalysisITC.Web.Tests.dll
+Test run for /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/bin/Debug/net10.0/AnalysisITC.Web.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 10.0.10)
+[xUnit.net 00:00:00.06]   Discovering: AnalysisITC.Web.Tests
+[xUnit.net 00:00:00.12]   Discovered:  AnalysisITC.Web.Tests
+[xUnit.net 00:00:00.13]   Starting:    AnalysisITC.Web.Tests
+[xUnit.net 00:00:05.28]     AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive [FAIL]
+[xUnit.net 00:00:05.28]       AnalysisITC.Web.RegistryLockTimeoutException : The registry is busy; try again shortly.
+[xUnit.net 00:00:05.28]       Stack Trace:
+[xUnit.net 00:00:05.28]         /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web/RegistryFileLock.cs(44,0): at AnalysisITC.Web.RegistryFileLock.AcquireOne(String lockPath, Stopwatch timer)
+[xUnit.net 00:00:05.28]         /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web/RegistryFileLock.cs(20,0): at AnalysisITC.Web.RegistryFileLock.Acquire(String[] paths)
+[xUnit.net 00:00:05.28]         /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs(151,0): at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive()
+[xUnit.net 00:00:05.28]         /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs(157,0): at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive()
+[xUnit.net 00:00:05.28]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:05.28]   Finished:    AnalysisITC.Web.Tests
+  Failed AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive [5 s]
+  Error Message:
+   AnalysisITC.Web.RegistryLockTimeoutException : The registry is busy; try again shortly.
+  Stack Trace:
+     at AnalysisITC.Web.RegistryFileLock.AcquireOne(String lockPath, Stopwatch timer) in /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web/RegistryFileLock.cs:line 44
+   at AnalysisITC.Web.RegistryFileLock.Acquire(String[] paths) in /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web/RegistryFileLock.cs:line 20
+   at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive() in /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs:line 151
+   at AnalysisITC.Web.Tests.RegistrationReliabilityTests.ChildProcessCannotKeepAReleasedRegistryLockAlive() in /private/tmp/registration-reliability-candidate-20261022/AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs:line 157
+--- End of stack trace from previous location ---
+
+Test Run Failed.
+Total tests: 1
+     Failed: 1
+ Total time: 5,5758 Seconds

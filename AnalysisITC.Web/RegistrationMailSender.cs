@@ -1,10 +1,13 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Mail;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace AnalysisITC.Web;
+
+internal enum RegistrationDeliveryResult { Empty, Progress, Unavailable }
 
 public sealed class RegistrationMailSender
 {
@@ -13,16 +16,27 @@ public sealed class RegistrationMailSender
     readonly OperatorCodeRegistry registry;
     readonly IHttpClientFactory clients;
     readonly OperatorTombstoneRegistry tombstones;
+    readonly ILogger<RegistrationMailSender>? logger;
 
     public RegistrationMailSender(IOptions<InterpretationOptions> options, RegistrationDeliveryOutbox outbox,
-        OperatorCodeRegistry registry, IHttpClientFactory clients, OperatorTombstoneRegistry tombstones)
-    { this.options = options.Value.Registration; this.outbox = outbox; this.registry = registry; this.clients = clients; this.tombstones = tombstones; }
+        OperatorCodeRegistry registry, IHttpClientFactory clients, OperatorTombstoneRegistry tombstones, ILogger<RegistrationMailSender>? logger = null)
+    { this.options = options.Value.Registration; this.outbox = outbox; this.registry = registry; this.clients = clients; this.tombstones = tombstones; this.logger = logger; }
 
     public async Task<bool> ProcessOneAsync(CancellationToken cancellationToken = default)
+        => await ProcessNextAsync(cancellationToken) == RegistrationDeliveryResult.Progress;
+
+    internal async Task<RegistrationDeliveryResult> ProcessNextAsync(CancellationToken cancellationToken = default)
     {
-        var pending = outbox.GetPending(DateTime.UtcNow);
-        if (pending is null) return false;
-        if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return true; }
+        var pending = outbox.GetPending(DateTime.UtcNow, out var discarded);
+        if (pending is null) return discarded ? RegistrationDeliveryResult.Progress : RegistrationDeliveryResult.Empty;
+        RegistrationMailConfiguration config;
+        try
+        {
+            if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return RegistrationDeliveryResult.Progress; }
+            config = await ReadConfigAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or FormatException or InvalidDataException)
+        { return Unavailable(exception); }
         try
         {
             if (pending.Kind == RegistrationMessageKinds.AccessCode)
@@ -30,7 +44,6 @@ public sealed class RegistrationMailSender
                 registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
                 outbox.MarkProvisioned(pending);
             }
-            var config = await ReadConfigAsync(cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
             request.Headers.TryAddWithoutValidation("Idempotency-Key", pending.IdempotencyKey);
@@ -44,14 +57,26 @@ public sealed class RegistrationMailSender
                     || (int)response.StatusCode >= 500)
                     RetryOrFail(pending, "provider_unavailable");
                 else outbox.MarkFailed(pending.RegistrationId, "provider_rejected");
-                return true;
+                return RegistrationDeliveryResult.Progress;
             }
-            if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return true; }
-                outbox.MarkSent(pending, DateTime.UtcNow); return true;
+            // The provider accepted the message; an unreadable marker file must not cause a resend.
+            bool deleted;
+            try { deleted = tombstones.Contains(pending.RegistrationId); }
+            catch (OperatorTombstoneRegistryUnavailableException) { deleted = false; }
+            if (deleted) { outbox.Cancel(pending.RegistrationId); return RegistrationDeliveryResult.Progress; }
+            outbox.MarkSent(pending, DateTime.UtcNow); return RegistrationDeliveryResult.Progress;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { RetryOrFail(pending, "delivery_timeout"); return true; }
-        catch (HttpRequestException) { RetryOrFail(pending, "provider_unavailable"); return true; }
-        catch (InvalidDataException) { outbox.MarkFailed(pending, "account_conflict"); return true; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { RetryOrFail(pending, "delivery_timeout"); return RegistrationDeliveryResult.Progress; }
+        catch (HttpRequestException) { RetryOrFail(pending, "provider_unavailable"); return RegistrationDeliveryResult.Progress; }
+        catch (InvalidDataException) { outbox.MarkFailed(pending, "account_conflict"); return RegistrationDeliveryResult.Progress; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        { return Unavailable(exception); }
+    }
+
+    RegistrationDeliveryResult Unavailable(Exception exception)
+    {
+        logger?.LogWarning("Registration delivery is waiting for mail settings or registry storage to be repaired ({ExceptionType}).", exception.GetType().Name);
+        return RegistrationDeliveryResult.Unavailable;
     }
 
     internal static object RenderDiagnosticMessage(RegistrationOptions options, RegistrationMailConfiguration config, string kind)
@@ -112,8 +137,11 @@ public sealed class RegistrationMailSender
         }
         catch (HttpRequestException) { return false; }
         catch (IOException) { return false; }
+        catch (InvalidDataException) { return false; }
         catch (JsonException) { return false; }
         catch (InvalidOperationException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (FormatException) { return false; }
     }
 
     static object ActivationMessage(RegistrationOptions options, RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
@@ -151,13 +179,30 @@ public sealed class RegistrationMailSender
     async Task<RegistrationMailConfiguration> ReadConfigAsync(CancellationToken cancellationToken)
     {
         await using var stream = File.OpenRead(options.MailConfigurationPath);
-        return await JsonSerializer.DeserializeAsync<RegistrationMailConfiguration>(stream, cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("Registration mail configuration is unavailable.");
+        return RegistrationMailConfiguration.Validate(await JsonSerializer.DeserializeAsync<RegistrationMailConfiguration>(stream, RegistrationMailConfiguration.JsonOptions, cancellationToken));
     }
 }
 
 public sealed class RegistrationMailConfiguration
 {
+    internal static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    internal static RegistrationMailConfiguration Read(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Validate(JsonSerializer.Deserialize<RegistrationMailConfiguration>(stream, JsonOptions));
+    }
+
+    internal static RegistrationMailConfiguration Validate(RegistrationMailConfiguration? configuration)
+    {
+        if (configuration is null || string.IsNullOrWhiteSpace(configuration.ApiKey))
+            throw new InvalidDataException("Registration mail configuration is unavailable.");
+        if (string.IsNullOrWhiteSpace(configuration.From) || string.IsNullOrWhiteSpace(configuration.ReplyTo))
+            throw new FormatException("Registration mail sender or reply-to address is invalid.");
+        _ = new MailAddress(configuration.From);
+        _ = new MailAddress(configuration.ReplyTo);
+        return configuration;
+    }
+
     public string ApiKey { get; set; } = "";
     public string From { get; set; } = "FT-ITC Access <no-reply@ft-itc.org>";
     public string ReplyTo { get; set; } = "support@ft-itc.org";

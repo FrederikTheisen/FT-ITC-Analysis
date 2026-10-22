@@ -1,0 +1,21 @@
+{
+  "baseCommit": "3457e8e4009dd391924bd7dd531e0262a0878027",
+  "candidatePath": "/private/tmp/registration-reliability-candidate-20261022",
+  "sourceSha256": {
+    "AnalysisITC.Web/HealthChecks.cs": "da9f50f51fcb8510699881ad6e0c8d248c571a92a7412636f5396fa53297bfc3",
+    "AnalysisITC.Web/OperatorCodeRegistry.cs": "93387dbfc83322c89f1d10d7fcdfd1beffa962f11c8fcfbea369accf1215341a",
+    "AnalysisITC.Web/OperatorTombstoneRegistry.cs": "5537524eba6a48cd33d83057d4b82f01ebe80c0c9266c1fa395cf21048ff10e1",
+    "AnalysisITC.Web/PublicAccessRegistry.cs": "7ac701b8533514ae9007eb1038a9231ae7058bdba5ec12956b235e60e654eb52",
+    "AnalysisITC.Web/RegistryFileLock.cs": "a7f6d81d7358aeec1c30090c3cbf5f40d953a18ed52846a33f6172299c5f1210",
+    "AnalysisITC.Web/RegistrationDeliveryOutbox.cs": "33c2aeffc6bafed4838c16c6c84016e4ba50d5b59e1041fa834ba081246d3e12",
+    "AnalysisITC.Web/RegistrationDeliveryWorker.cs": "311c58f4f741d0c4b1e0d6d896938b327c7e2c3b725d551a2666cb92f142d136",
+    "AnalysisITC.Web/RegistrationMailSender.cs": "63fc13a2431a95b601542c501d2a9176d9293066d116e9aa7a9ab76a2a9a74a1",
+    "AnalysisITC.Web/RegistrationPipelineDiagnostic.cs": "32992534b3261bb18673810cd31ce2475d73cebcca4ae1396e5b68a0729e4799",
+    "AnalysisITC.Web.Tests/RegistrationReliabilityTests.cs": "d34979f3fe0fb7b01b1c8abd7d340d8285d8baf0ee60f9eaf37cf38ea5f31564",
+    "AnalysisITC.Web.Tests/RegistrationSecurityTests.cs": "a62d1213364e5eab944f2f6cb043555ca2c9bc4acfdf6fa0b7adba08a94fb9d7",
+    "AnalysisITC.Web.Tests/PausedRegistryHealthMatrixTests.cs": "f3a69d2371bc22ab06b175f7a9a4e9db85142da89442e393afde62a6dc860906"
+  },
+  "webAssemblySha256": "f858ae74675affb0c09096a7a9670d732b9abdce20210c861caa9901a581dd47",
+  "coreSource": "recorded baseline; concurrent scientific edits excluded",
+  "dotnetSdk": "10.0.302"
+}

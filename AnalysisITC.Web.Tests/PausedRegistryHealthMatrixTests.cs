@@ -14,6 +14,7 @@ public sealed class PausedRegistryHealthMatrixTests
         ("public", "interpretation.public-access"),
         ("operator", "interpretation.operator-codes"),
         ("registered", "interpretation.registered-operators"),
+        ("markers", "interpretation.deletion-markers"),
     ];
 
     public static IEnumerable<object[]> MatrixCases()
@@ -95,6 +96,7 @@ public sealed class PausedRegistryHealthMatrixTests
         File.WriteAllText(options.PublicAccessRegistryPath, "[]");
         File.WriteAllText(options.OperatorAccess.RegistryPath, "[]");
         File.WriteAllText(options.Registration.OperatorRegistryPath, "[]");
+        File.WriteAllText(options.TombstonePath, "[]");
         var presetOptions = Options.Create(options);
         var defaults = new GenerationPresetRegistry(presetOptions).Read();
         File.WriteAllText(options.OperatorAccess.PresetRegistryPath, JsonSerializer.Serialize(defaults,
@@ -109,7 +111,7 @@ public sealed class PausedRegistryHealthMatrixTests
             case "absent": File.Delete(path); return;
             case "malformed": File.WriteAllText(path, "{ not json"); return;
             case "invalid":
-                File.WriteAllText(path, registryName == "presets"
+                File.WriteAllText(path, registryName == "markers" ? "null" : registryName == "presets"
                     ? "{\"schemaVersion\":11,\"presets\":[]}" : "[{\"id\":\"bad\"}]");
                 return;
             case "unreadable":
@@ -126,6 +128,7 @@ public sealed class PausedRegistryHealthMatrixTests
         "public" => options.PublicAccessRegistryPath,
         "operator" => options.OperatorAccess.RegistryPath,
         "registered" => options.Registration.OperatorRegistryPath,
+        "markers" => options.TombstonePath,
         _ => throw new ArgumentOutOfRangeException(nameof(registryName)),
     };
 

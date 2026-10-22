@@ -1,0 +1,14 @@
+{
+  "acceptanceChecks": "passed",
+  "mailFaultCases": 8,
+  "markerCases": 5,
+  "serializedOperatorInterleavings": 8,
+  "operatorTerminationControls": 1,
+  "concurrentMarkerControls": 2,
+  "workerMessages": 200,
+  "maxQueueWaitSeconds": 56.921189,
+  "drainSeconds": 620.03662,
+  "workerElapsedSeconds": 735.0096246,
+  "pendingAtStop": 0,
+  "stopMilliseconds": 7.4065
+}

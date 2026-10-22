@@ -14,6 +14,7 @@ public sealed class RegistrationDeliveryWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var result = RegistrationDeliveryResult.Empty;
             // Retention runs independently of registration availability and before the mail gate.
             // Running at startup also catches up after a host was offline during its daily run.
             var now = DateTime.UtcNow;
@@ -32,14 +33,15 @@ public sealed class RegistrationDeliveryWorker : BackgroundService
             // already requested by a user.
             if (options.Value.Registration.Enabled)
             {
-                try { await services.GetRequiredService<RegistrationMailSender>().ProcessOneAsync(stoppingToken); }
+                try { result = await services.GetRequiredService<RegistrationMailSender>().ProcessNextAsync(stoppingToken); }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
                 catch (Exception exception)
                 {
                     services.GetRequiredService<ILogger<RegistrationDeliveryWorker>>()
                         .LogWarning("Registration delivery attempt failed safely ({ExceptionType}).", exception.GetType().Name);
                 }
             }
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            await Task.Delay(result == RegistrationDeliveryResult.Progress ? TimeSpan.FromSeconds(1) : TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
 }

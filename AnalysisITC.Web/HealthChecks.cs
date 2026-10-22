@@ -54,6 +54,7 @@ public sealed class HealthCheckService
         checks.Add(CheckPublicAccessRegistry());
         checks.Add(CheckOperatorRegistry(false));
         checks.Add(CheckOperatorRegistry(true));
+        checks.Add(CheckTombstones());
         var policy = interpretation.Read();
         if (!options.Enabled || policy.Status is "paused" or "retired" || !policy.IsAvailable)
         {
@@ -116,10 +117,32 @@ public sealed class HealthCheckService
         return HealthCheckResult.Pass("interpretation.configuration", "Provider configuration");
     }
 
+    HealthCheckResult CheckTombstones()
+    {
+        const string id = "interpretation.deletion-markers";
+        const string name = "Account deletion markers";
+        try
+        {
+            new OperatorTombstoneRegistry(Microsoft.Extensions.Options.Options.Create(options)).ValidateReadable();
+            return HealthCheckResult.Pass(id, name);
+        }
+        catch (Exception ex) { return HealthCheckResult.Fail(id, name, SafeReason(ex)); }
+    }
+
+    internal static HealthCheckResult CheckRegistrationMail(string path)
+    {
+        const string id = "registration.mail";
+        const string name = "Registration mail configuration";
+        try { _ = RegistrationMailConfiguration.Read(path); return HealthCheckResult.Pass(id, name); }
+        catch (Exception) { return HealthCheckResult.Fail(id, name, "mail settings are unavailable or invalid; queued delivery is waiting for repair"); }
+    }
+
     HealthCheckGroup Registration()
     {
         var checks = new List<HealthCheckResult>();
         var configured = options.Registration;
+        // Public submissions can be paused while previously requested mail is still delivered.
+        if (configured.Enabled) checks.Add(CheckRegistrationMail(configured.MailConfigurationPath));
         if (!configured.Enabled || !registrationAvailability.IsEnabled)
         {
             checks.Add(HealthCheckResult.Skipped("registration.transactional", "Registration diagnostics", "registration is intentionally paused"));
@@ -128,7 +151,6 @@ public sealed class HealthCheckService
         }
         checks.Add(CheckDatabase("registration.database", "Registration database", configured.DatabasePath));
         checks.Add(CheckJsonFile("registration.turnstile", "Turnstile configuration", configured.SecretConfigurationPath));
-        checks.Add(CheckJsonFile("registration.mail", "Registration mail configuration", configured.MailConfigurationPath));
         checks.Add(CheckJsonFile("registration.policy", "Registration availability policy", configured.AvailabilityPolicyPath));
         checks.Add(CheckRegistryStorage(configured.OperatorRegistryPath));
         return new("Registration", checks);
