@@ -42,7 +42,15 @@ public sealed class AvaloniaSettingsStartupTests
             Assert.Equal(hasBackup ? 18 : defaultTemperature, AppSettings.ReferenceTemperature);
             using var saved = JsonDocument.Parse(File.ReadAllText(path));
             Assert.True(saved.RootElement.TryGetProperty("EnergyUnitFamily", out _));
-            if (hasBackup) Assert.Equal(backup, File.ReadAllText(path + ".bak"));
+            if (hasBackup)
+            {
+                // Startup can persist multiple migrations, rotating the first
+                // valid migrated snapshot into the backup on the next save.
+                using var recovered = JsonDocument.Parse(File.ReadAllText(path + ".bak"));
+                Assert.True(recovered.RootElement.GetProperty("IsSaved").GetBoolean());
+                Assert.Equal(1, recovered.RootElement.GetProperty("EnergyUnit").GetInt32());
+                Assert.Equal(18d, recovered.RootElement.GetProperty("ReferenceTemperature").GetDouble());
+            }
 
             AppSettings.PerformOnlineChecksOnLaunch = false;
             window = new MainWindow();
