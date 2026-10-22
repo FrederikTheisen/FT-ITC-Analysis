@@ -416,7 +416,6 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E04** | **Processing and integration** | with raw thermogram; omitted when condensed (E03) |
 | | · Baseline method: Spline · Linear/Smooth interpolation · n points (sparse/balanced/dense) / Polynomial · nth degree / Segmented · Constant/Linear/Quadratic segments | density: sparse < injections + 2 ≤ balanced < 2 × injections ≤ dense |
 | | · Baseline status: Incomplete | only when incomplete |
-| | · Integrated injections: n of m | only when not all integrated |
 | | · Injection use: n included; excluded: … | |
 | | · Integration regions: Fit Peaks / Set manually / Peak shape × n | "Set manually" also covers older files saved before Fit Peaks was recorded |
 | | ·· Start after injection (s) | |
@@ -460,9 +459,9 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Use: Included / Excluded | |
 | | · Saved ratio | |
 | | · Injected amount (mol) | |
-| | · Observed heat (µJ) | |
+| | · Observed heat (selected heat unit) | |
 | | · Null prediction (selected heat unit) | blank without saved points or successful null fit |
-| | · Residual (µJ) | blank without saved points or successful null fit |
+| | · Residual (selected heat unit) | blank without saved points or successful null fit |
 
 ## S. Supporting experiments (one chapter)
 
@@ -482,7 +481,6 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | **S02a** | **Data availability** | after S02; only without raw thermogram; same rows as E04a |
 | **S03** | **Notes** | omitted when no line applies |
 | | · Baseline: Incomplete | raw + incomplete baseline |
-| | · Integration: n of m injections integrated | raw + not all integrated |
 | | · Integrated heats: Stored corrected heats; configured reference <name> (<method>) | buffer-subtracted |
 | | · Used as subtraction reference by: 1A, … | used by a saved fit |
 | **S05** | **Comments** | only when written |

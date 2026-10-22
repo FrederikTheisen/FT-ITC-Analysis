@@ -1271,13 +1271,8 @@ namespace AnalysisITC.Core.Presentation
             IReadOnlyList<AnalysisResult> results)
         {
             var items = new List<AnalysisReportKeyValueItem>();
-            var injections = data.Injections ?? new List<InjectionData>();
-            var integrated = injections.Count(injection => injection?.IsIntegrated == true);
             if (data.HasThermogram && data.Processor?.BaselineCompleted != true)
                 items.Add(Item("Baseline", "Incomplete"));
-            if (data.HasThermogram && injections.Count > 0 && integrated != injections.Count)
-                items.Add(Item("Integration", integrated.ToString(CultureInfo.CurrentCulture)
-                    + " of " + injections.Count.ToString(CultureInfo.CurrentCulture) + " injections integrated"));
 
             var subtraction = data.BufferSubtractionSettings;
             if (subtraction != null)
@@ -2262,7 +2257,6 @@ namespace AnalysisITC.Core.Presentation
             AnalysisResult result = null)
         {
             var injections = data.Injections ?? new List<InjectionData>();
-            var integrated = injections.Count(injection => injection.IsIntegrated);
             var ranges = IntegrationRanges(injections);
             var items = new List<AnalysisReportKeyValueItem>
             {
@@ -2274,8 +2268,6 @@ namespace AnalysisITC.Core.Presentation
             };
             if (data.Processor?.BaselineCompleted != true)
                 items.Insert(1, Item("Baseline status", "Incomplete"));
-            if (integrated != injections.Count)
-                items.Insert(2, Item("Integrated injections", integrated + " of " + injections.Count));
             AddSavedBookkeeping(items, result, data);
 
             return items;

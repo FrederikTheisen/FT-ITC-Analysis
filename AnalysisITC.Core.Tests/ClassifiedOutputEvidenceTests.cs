@@ -121,10 +121,10 @@ public sealed class ClassifiedOutputEvidenceTests
     }
 
     [Theory]
-    [InlineData(EnergyUnitFamily.Joules, EnergyUnit.Joule, 1d)]
-    [InlineData(EnergyUnitFamily.Calories, EnergyUnit.Cal, 1d / 4.184d)]
+    [InlineData(EnergyUnitFamily.Joules, EnergyUnit.Joule, 1d, "µJ")]
+    [InlineData(EnergyUnitFamily.Calories, EnergyUnit.Cal, 1d / 4.184d, "µcal")]
     public void UnequalSavedInjectionAmountsDeterminePredictionResidualAndHeatTableUnits(
-        EnergyUnitFamily family, EnergyUnit unit, double molarScale)
+        EnergyUnitFamily family, EnergyUnit unit, double molarScale, string heatUnit)
     {
         var result = NegativeResult();
         var solution = result.Solution.Solutions[0];
@@ -167,7 +167,12 @@ public sealed class ClassifiedOutputEvidenceTests
         // Standard output matches the Offset figure: saved null predictions, not the binding fit.
         var evidence = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportTableBlock>(), item => item.Title == "Saved null comparison injection evidence");
-        var heatScale = ThermogramUnits.GetIntegratedHeatScale(family);
+        Assert.Equal("Observed heat (" + heatUnit + ")", evidence.Columns[4].Title);
+        Assert.Equal("Null prediction (" + heatUnit + ")", evidence.Columns[5].Title);
+        Assert.Equal("Residual (" + heatUnit + ")", evidence.Columns[6].Title);
+        // Internal joules become microjoules; 1 calorie = 4.184 joules.
+        var heatScale = 1_000_000d * molarScale;
+        Assert.Equal(1334 * 2e-9 * heatScale, Parse(evidence.Rows[0].Cells[4]), 5);
         Assert.Equal(1234 * 2e-9 * heatScale, Parse(evidence.Rows[0].Cells[5]), 5);
         Assert.Equal(100 * 2e-9 * heatScale, Parse(evidence.Rows[0].Cells[6]), 5);
         Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks),
