@@ -155,12 +155,7 @@ builder.Services.AddRateLimiter(options =>
         var settings = context.RequestServices
             .GetRequiredService<IOptions<InterpretationOptions>>()
             .Value.RateLimit;
-        var address = context.Connection.RemoteIpAddress;
-        if (address?.IsIPv4MappedToIPv6 == true)
-            address = address.MapToIPv4();
-        var partitionKey = address?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        return RateLimitPartition.GetFixedWindowLimiter(NetworkPartition(context), _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = settings.PermitLimit,
             Window = TimeSpan.FromSeconds(settings.WindowSeconds),
@@ -350,9 +345,21 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
             "Registration requires a JSON request.", "Invalid registration content type");
 
     RegistrationRequest? value;
-    // Use ASP.NET's web defaults so browser clients can send the normal camel-case JSON shape.
-    try { value = await request.ReadFromJsonAsync<RegistrationRequest>(cancellationToken: cancellationToken); }
+    // Keep ASP.NET's configured JSON options while counting actual bytes, including chunked bodies.
+    var originalBody = request.Body;
+    using var limitedBody = new SizeLimitedReadStream(originalBody, 16 * 1024);
+    try
+    {
+        request.Body = limitedBody;
+        value = await request.ReadFromJsonAsync<RegistrationRequest>(cancellationToken: cancellationToken);
+    }
+    catch (RequestBodyTooLargeException)
+    {
+        return Problem(StatusCodes.Status413RequestEntityTooLarge, "registration_request_too_large",
+            "The registration request is too large.", "Registration request too large");
+    }
     catch (System.Text.Json.JsonException) { value = null; }
+    finally { request.Body = originalBody; }
     if (value is null) return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
         "The registration request is invalid.", "Invalid registration request");
     if (!RegistrationRequestValidator.TryValidate(value, registration, out _))
@@ -388,8 +395,19 @@ app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<I
         || !request.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
         return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
     RegistrationActivationRequest? value;
-    try { value = await request.ReadFromJsonAsync<RegistrationActivationRequest>(cancellationToken: cancellationToken); }
+    var originalBody = request.Body;
+    using var limitedBody = new SizeLimitedReadStream(originalBody, 4 * 1024);
+    try
+    {
+        request.Body = limitedBody;
+        value = await request.ReadFromJsonAsync<RegistrationActivationRequest>(cancellationToken: cancellationToken);
+    }
+    catch (RequestBodyTooLargeException)
+    {
+        return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
+    }
     catch (System.Text.Json.JsonException) { value = null; }
+    finally { request.Body = originalBody; }
     if (value is null || string.IsNullOrWhiteSpace(value.Token) || !RegistrationDeliveryOutbox.IsActivationTokenShape(value.Token))
         return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
     PendingRegistrationDelivery? pending;
@@ -1101,7 +1119,15 @@ static IResult Problem(
 static string NetworkPartition(HttpContext context)
 {
     var address = context.Connection.RemoteIpAddress;
+    const int Ipv6PrefixLength = 64;
     if (address?.IsIPv4MappedToIPv6 == true) address = address.MapToIPv4();
+    if (address?.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+    {
+        var bytes = address.GetAddressBytes();
+        Array.Clear(bytes, Ipv6PrefixLength / 8, bytes.Length - Ipv6PrefixLength / 8);
+        // Reconstructing from bytes also removes the interface scope ID.
+        address = new System.Net.IPAddress(bytes);
+    }
     return address?.ToString() ?? "unknown";
 }
 

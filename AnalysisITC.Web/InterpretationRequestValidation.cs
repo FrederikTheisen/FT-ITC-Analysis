@@ -52,7 +52,7 @@ public sealed class InterpretationRequestReader
             if (errors.Count > 0) return new(null, new(422, "invalid_interpretation_request", "Invalid interpretation request", "The interpretation request failed validation.", errors), stream.BytesRead);
             return new(new(schema!, taskType!, id!, profile!, format!, output!, package.Clone(), omitScientificGuidance), null, stream.BytesRead);
         }
-        catch (InterpretationRequestTooLargeException) { return TooLarge(); }
+        catch (RequestBodyTooLargeException) { return TooLarge(); }
         catch (JsonException) { return Fail(400, "invalid_interpretation_json", "Invalid interpretation JSON", "The request body is malformed.", new Dictionary<string, string[]> { ["$"] = new[] { "Provide valid JSON." } }); }
     }
     static InterpretationRequestReadResult TooLarge() => Fail(413, "interpretation_request_too_large", "Interpretation request too large", "The interpretation request must be 2 MB or smaller.");
@@ -61,7 +61,7 @@ public sealed class InterpretationRequestReader
 public sealed record InterpretationRequestFailure(int StatusCode, string Code, string Title, string Detail, IReadOnlyDictionary<string, string[]>? Errors);
 public sealed class InterpretationRequestReadResult { public InterpretationRequestReadResult(ValidatedInterpretationRequest? request, InterpretationRequestFailure? failure, long bytesRead = 0) { Request = request; Failure = failure; BytesRead = bytesRead; } public ValidatedInterpretationRequest? Request { get; } public InterpretationRequestFailure? Failure { get; } public long BytesRead { get; } }
 public sealed record ValidatedInterpretationRequest(string RequestSchemaVersion, string TaskType, string ClientRequestId, string GenerationProfile, string OutputFormatVersion, string OutputInstructions, JsonElement PackageJson, bool OmitScientificGuidance = false);
-sealed class InterpretationRequestTooLargeException : Exception;
+sealed class RequestBodyTooLargeException : Exception;
 
 sealed class SizeLimitedReadStream : Stream
 {
@@ -135,6 +135,6 @@ sealed class SizeLimitedReadStream : Stream
     {
         bytesRead += count;
         if (bytesRead > maximumBytes)
-            throw new InterpretationRequestTooLargeException();
+            throw new RequestBodyTooLargeException();
     }
 }

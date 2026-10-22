@@ -163,6 +163,26 @@ public sealed class ViewerUploadTransferEndpointTests
     }
 
     [Fact]
+    public async Task InvalidHeaderTokenRejectsWithoutReadingSlowBodyAndReleasesAdmission()
+    {
+        using var factory = new TransferFactory(new TransferTimeProvider());
+        var security = await GetSecurity(factory);
+        var multipart = await Multipart(security.Token);
+        using var body = new GatedBody(multipart.Bytes);
+        // The valid form token must not override an explicitly invalid header token.
+        var rejected = await Upload(factory, security with { Token = "invalid-token" },
+            multipart.ContentType, body, useHeaderToken: true).WaitAsync(TestWait);
+        Assert.Equal(StatusCodes.Status400BadRequest, rejected.Status);
+        Assert.Equal("antiforgery_validation_failed", rejected.Code);
+        Assert.False(body.ReadStarted.Task.IsCompleted);
+        using (var lease = await factory.Services.GetRequiredService<ViewerUploadAdmission>().AcquireAsync())
+            Assert.True(lease.IsAcquired);
+        using var validBody = new MemoryStream(multipart.Bytes);
+        var next = await Upload(factory, security, multipart.ContentType, validBody, useHeaderToken: true).WaitAsync(TestWait);
+        Assert.Equal(StatusCodes.Status200OK, next.Status);
+    }
+
+    [Fact]
     public async Task CompletedBodyWithoutTokenPreservesAntiforgeryRejection()
     {
         using var factory = new TransferFactory(new TransferTimeProvider());

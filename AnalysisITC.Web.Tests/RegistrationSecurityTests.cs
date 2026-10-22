@@ -7,6 +7,8 @@ using System.Diagnostics;
 using AnalysisITC.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
@@ -361,6 +363,201 @@ public sealed class RegistrationSecurityTests : IDisposable
         var options = Options.Create(Configuration(path));
 
         Assert.Throws<InvalidDataException>(() => new SelfRegistrationStore(options));
+    }
+
+    [Theory]
+    [InlineData(false, false, -1)]
+    [InlineData(false, false, 0)]
+    [InlineData(false, false, 1)]
+    [InlineData(false, true, -1)]
+    [InlineData(false, true, 0)]
+    [InlineData(false, true, 1)]
+    [InlineData(true, false, -1)]
+    [InlineData(true, false, 0)]
+    [InlineData(true, false, 1)]
+    [InlineData(true, true, -1)]
+    [InlineData(true, true, 0)]
+    [InlineData(true, true, 1)]
+    public async Task RegistrationByteBoundariesPreserveResponsesAndSideEffects(bool activation, bool knownLength, int margin)
+    {
+        using var factory = new RegistrationApplicationFactory(directory);
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), HandleCookies = true, AllowAutoRedirect = false });
+        var pending = activation ? SeedActivation(factory) : null;
+        var json = activation ? JsonSerializer.Serialize(new { token = pending!.Secret }) : RegistrationJson();
+        var limit = activation ? 4 * 1024 : 16 * 1024;
+        var bytes = PadJson(json, limit + margin);
+        using var content = knownLength ? (HttpContent)new ByteArrayContent(bytes) : new UnknownLengthJsonContent(bytes);
+        using var response = await SendBoundaryRequest(client, activation, content);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        if (margin > 0)
+        {
+            Assert.Equal(activation ? HttpStatusCode.BadRequest : HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+            Assert.Equal(activation ? "invalid_registration_activation" : "registration_request_too_large", result.GetProperty("code").GetString());
+            Assert.Equal(0, factory.VerificationCalls);
+            using var db = OpenDatabase();
+            Assert.Equal(activation ? 1L : 0L, Scalar<long>(db, "SELECT count(*) FROM registration_delivery"));
+            if (activation)
+            {
+                Assert.Equal("activation-sent", Scalar<string>(db, "SELECT state FROM registration_accounts"));
+                Assert.NotNull(factory.Services.GetRequiredService<RegistrationDeliveryOutbox>().BeginActivation(pending!.Secret, DateTime.UtcNow));
+            }
+        }
+        else
+        {
+            Assert.Equal(activation ? HttpStatusCode.OK : HttpStatusCode.Accepted, response.StatusCode);
+            Assert.Equal(activation ? 0 : 1, factory.VerificationCalls);
+            if (!activation)
+            {
+                using var db = OpenDatabase();
+                Assert.Equal("é Name", Scalar<string>(db, "SELECT name FROM registration_accounts"));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task KestrelRejectsChunkedRegistrationOverflowBeforeSideEffects(bool activation)
+    {
+        using var factory = new RegistrationApplicationFactory(directory);
+        factory.UseKestrel(0);
+        using var client = factory.CreateClient(new() { HandleCookies = true, AllowAutoRedirect = false });
+        client.BaseAddress = new Uri(factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+            .Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.Single());
+        var pending = activation ? SeedActivation(factory) : null;
+        var json = activation ? JsonSerializer.Serialize(new { token = pending!.Secret }) : RegistrationJson();
+        using var content = new UnknownLengthJsonContent(PadJson(json, (activation ? 4 : 16) * 1024 + 1));
+        using var response = await SendBoundaryRequest(client, activation, content, chunked: true);
+        Assert.Equal(activation ? HttpStatusCode.BadRequest : HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal(0, factory.VerificationCalls);
+        using var db = OpenDatabase();
+        Assert.Equal(activation ? 1L : 0L, Scalar<long>(db, "SELECT count(*) FROM registration_delivery"));
+        if (activation) Assert.NotNull(factory.Services.GetRequiredService<RegistrationDeliveryOutbox>().BeginActivation(pending!.Secret, DateTime.UtcNow));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RegistrationMalformedAndCancelledBodiesHaveNoSideEffects(bool activation)
+    {
+        using var factory = new RegistrationApplicationFactory(directory);
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), HandleCookies = true, AllowAutoRedirect = false });
+        using (var response = await SendBoundaryRequest(client, activation, new UnknownLengthJsonContent(Encoding.UTF8.GetBytes("{broken"))))
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var securityClient = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), HandleCookies = false, AllowAutoRedirect = false });
+        using var tokenResponse = await securityClient.GetAsync("/api/viewer/token");
+        var token = (await tokenResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestToken").GetString();
+        var cookie = string.Join("; ", tokenResponse.Headers.GetValues("Set-Cookie").Select(value => value.Split(';')[0]));
+        using var cancellation = new CancellationTokenSource();
+        using var body = new CancellationBody();
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        HttpContext? context = null;
+        var request = factory.Server.SendAsync(value =>
+        {
+            context = value;
+            value.Response.OnCompleted(() => { completed.TrySetResult(); return Task.CompletedTask; });
+            value.Request.Scheme = "https";
+            value.Request.Method = "POST";
+            value.Request.Path = activation ? "/api/registration/activate" : "/api/registration";
+            value.Request.ContentType = "application/json";
+            value.Request.Headers.Cookie = cookie;
+            value.Request.Headers["X-CSRF-TOKEN"] = token;
+            value.Request.Body = body;
+        }, cancellation.Token);
+        await body.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        cancellation.Cancel();
+        var failure = await Record.ExceptionAsync(() => request.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.IsNotType<TimeoutException>(failure);
+        if (failure is null) Assert.False((await request).Response.StatusCode is >= 200 and < 300);
+        await body.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Same(body, context!.Request.Body);
+        Assert.Equal(0, factory.VerificationCalls);
+        using var db = OpenDatabase();
+        Assert.Equal(0L, Scalar<long>(db, "SELECT count(*) FROM registration_delivery"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RegistrationPoliciesShareIpv6PrefixButTurnstileReceivesFullAddress(bool activation)
+    {
+        using var factory = new RegistrationApplicationFactory(directory);
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), HandleCookies = true, AllowAutoRedirect = false });
+        var settings = factory.Services.GetRequiredService<IOptions<InterpretationOptions>>().Value.Registration;
+        var count = activation ? settings.ActivationPermitLimit : settings.SubmissionPermitLimit;
+        var security = await client.GetFromJsonAsync<AntiforgeryToken>("/api/viewer/token");
+        for (var index = 0; index <= count + 1; index++)
+        {
+            // The last request uses the adjacent /64; preceding clients rotate within one /64.
+            var address = index == count + 1 ? "2001:db8:209:2::1" : $"2001:db8:209:1::{index + 1}";
+            using var request = new HttpRequestMessage(HttpMethod.Post, activation ? "/api/registration/activate" : "/api/registration")
+            {
+                Content = new StringContent(activation ? "{\"token\":\"invalid\"}" : RegistrationJson(), Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Add("X-Forwarded-For", $"192.0.2.10, {address}");
+            request.Headers.Add("X-CSRF-TOKEN", security!.RequestToken);
+            using var response = await client.SendAsync(request);
+            Assert.Equal(index == count ? HttpStatusCode.TooManyRequests : activation ? HttpStatusCode.BadRequest : HttpStatusCode.Accepted, response.StatusCode);
+            if (!activation && index != count) Assert.Equal(address, factory.LastVerificationAddress);
+        }
+    }
+
+    static string RegistrationJson() => "{\"name\":\"é Name\",\"email\":\"boundary@example.org\",\"acceptedTerms\":true,\"acknowledgedPrivacy\":true,\"termsVersion\":\"terms\",\"privacyVersion\":\"privacy\",\"turnstileToken\":\"verified\"}";
+
+    static byte[] PadJson(string json, int length)
+    {
+        var value = Encoding.UTF8.GetBytes(json);
+        Assert.True(value.Length <= length);
+        return value.Concat(Enumerable.Repeat((byte)' ', length - value.Length)).ToArray();
+    }
+
+    static PendingRegistrationDelivery SeedActivation(RegistrationApplicationFactory factory)
+    {
+        var outbox = factory.Services.GetRequiredService<RegistrationDeliveryOutbox>();
+        var result = outbox.Submit("Name", "boundary@example.org", null, "terms", "privacy", DateTime.UtcNow);
+        var pending = outbox.GetPending(DateTime.UtcNow.AddSeconds(1))!;
+        outbox.MarkSent(result.RegistrationId, RegistrationMessageKinds.Activation, DateTime.UtcNow);
+        return pending;
+    }
+
+    static async Task<HttpResponseMessage> SendBoundaryRequest(HttpClient client, bool activation, HttpContent content, bool chunked = false)
+    {
+        content.Headers.ContentType = new("application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, activation ? "/api/registration/activate" : "/api/registration") { Content = content };
+        if (chunked) request.Headers.TransferEncodingChunked = true;
+        var token = await client.GetFromJsonAsync<AntiforgeryToken>("/api/viewer/token");
+        request.Headers.Add("X-CSRF-TOKEN", token!.RequestToken);
+        return await client.SendAsync(request);
+    }
+
+    sealed class UnknownLengthJsonContent(byte[] bytes) : HttpContent
+    {
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => stream.WriteAsync(bytes).AsTask();
+    }
+
+    sealed class CancellationBody : Stream
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            try { await Task.Delay(Timeout.Infinite, cancellationToken); return 0; }
+            finally { Cancelled.TrySetResult(); }
+        }
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -982,6 +1179,8 @@ public sealed class RegistrationSecurityTests : IDisposable
     sealed class RegistrationApplicationFactory : WebApplicationFactory<Program>
     {
         readonly string directory;
+        public int VerificationCalls;
+        public string? LastVerificationAddress;
         public RegistrationApplicationFactory(string directory)
         {
             this.directory = directory; Directory.CreateDirectory(directory);
@@ -1011,16 +1210,23 @@ public sealed class RegistrationSecurityTests : IDisposable
             }));
             builder.ConfigureServices(services =>
             {
-                services.AddSingleton<TurnstileVerifier, AcceptingTurnstileVerifier>();
+                services.AddSingleton<TurnstileVerifier>(provider => new AcceptingTurnstileVerifier(
+                    provider.GetRequiredService<IOptions<InterpretationOptions>>(), provider.GetRequiredService<IHttpClientFactory>(), this));
             });
         }
     }
 
     sealed class AcceptingTurnstileVerifier : TurnstileVerifier
     {
-        public AcceptingTurnstileVerifier(IOptions<InterpretationOptions> options, IHttpClientFactory clients)
-            : base(options, clients) { }
-        public override Task<bool> VerifyAsync(string token, string? remoteIp, CancellationToken cancellationToken) => Task.FromResult(true);
+        readonly RegistrationApplicationFactory factory;
+        public AcceptingTurnstileVerifier(IOptions<InterpretationOptions> options, IHttpClientFactory clients, RegistrationApplicationFactory factory)
+            : base(options, clients) { this.factory = factory; }
+        public override Task<bool> VerifyAsync(string token, string? remoteIp, CancellationToken cancellationToken)
+        {
+            factory.VerificationCalls++;
+            factory.LastVerificationAddress = remoteIp;
+            return Task.FromResult(true);
+        }
     }
 
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

@@ -1131,6 +1131,61 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
         await AssertProblem(rejected, HttpStatusCode.TooManyRequests, "interpretation_rate_limited");
     }
 
+    [Theory]
+    [InlineData("2001:db8:206:1::1", "2001:db8:206:1:ffff::2", "2001:db8:206:2::1")]
+    [InlineData("fe80::206%3", "fe80::206%7", "fe80:0:0:1::206")]
+    [InlineData("198.51.100.206", "::ffff:198.51.100.206", "198.51.100.207")]
+    public async Task CaddyReportedNetworkSharesItsBucketWithoutGroupingOtherNetworks(
+        string first, string sameNetwork, string differentNetwork)
+    {
+        var settings = factory.Services.GetRequiredService<IOptions<InterpretationOptions>>().Value.RateLimit;
+        for (var index = 0; index < settings.PermitLimit; index++)
+        {
+            using var accepted = await PostJson(ValidRequestJson(), $"203.0.113.{index + 1}, {first}");
+            await AssertProblem(accepted, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        }
+        using var rejected = await PostJson(ValidRequestJson(), $"192.0.2.99, {sameNetwork}");
+        await AssertProblem(rejected, HttpStatusCode.TooManyRequests, "interpretation_rate_limited");
+        using var separate = await PostJson(ValidRequestJson(), $"192.0.2.99, {differentNetwork}");
+        await AssertProblem(separate, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+    }
+
+    [Fact]
+    public async Task AdministratorBypassesAnExhaustedIpv6NetworkBucket()
+    {
+        using var localFactory = new ProviderWebApplicationFactory(enabled: false);
+        using var localClient = localFactory.CreateClient(new()
+        {
+            BaseAddress = new Uri("https://localhost"), HandleCookies = false, AllowAutoRedirect = false,
+        });
+        localClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            localFactory.Services.GetRequiredService<PublicAccessRegistry>().Create().Code);
+        const string address = "2001:db8:206:ffff::1";
+        var settings = localFactory.Services.GetRequiredService<IOptions<InterpretationOptions>>().Value.RateLimit;
+        for (var index = 0; index < settings.PermitLimit; index++)
+        {
+            using var publicResponse = await PostJsonWithClient(localClient, ValidRequestJson(), address);
+            await AssertProblem(publicResponse, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        }
+        var code = localFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+            .Create("IPv6 administrator", 1, false, InterpretationAccessTiers.Administrator).Code;
+        var administratorRequest = ValidRequestNode();
+        administratorRequest["generationProfile"] = "custom";
+        for (var index = 0; index <= settings.PermitLimit; index++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+            {
+                Content = new StringContent(administratorRequest.ToJsonString(), Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+            request.Headers.Add("X-Forwarded-For", address);
+            request.Headers.Add("X-FTITC-Model", "gpt-5.6-luna");
+            request.Headers.Add("X-FTITC-Reasoning-Effort", "low");
+            using var response = await localClient.SendAsync(request);
+            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        }
+    }
+
     [Fact]
     public async Task StatusEndpointIsNotRateLimited()
     {
