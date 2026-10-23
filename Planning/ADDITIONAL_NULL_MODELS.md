@@ -1,6 +1,6 @@
 # Linear and Exponential dilution-heat models — plan
 
-Status: planning (scientific plan revised 2026-10-10; consolidated 2026-10-13). Linear and Exponential are not implemented. This file is the single source for this feature's scope, decisions, implementation stages, remaining work, and audit history; record decisions here rather than in separate issue or tool-specific plans.
+Status: post-publication feature plan (scientific plan revised 2026-10-10; consolidated 2026-10-13; planning clarified 2026-10-23). Linear and Exponential are not implemented. The current task is to prepare the design for later implementation, not to implement it or add it to the publication requirements. This file is the single source for this feature's scope, decisions, implementation stages, remaining work, and audit history; record decisions here rather than in separate issue or tool-specific plans.
 
 The former ITC-075 correction plan and tracker entry have been consolidated here. Their completed corrections are recorded under [Completed foundation](#completed-foundation); their remaining compatibility work belongs to the implementation stages below. Removing the duplicate records does not mark the new models or remaining infrastructure as implemented.
 
@@ -21,6 +21,8 @@ For injection \(i\):
 - \(h(x)\): model-estimated dilution heat per injected mole.
 - Background injection heat: \(q_{\mathrm{bg},i}=m_i h(x_i)\).
 
+Both Linear and Exponential use this same \(x_i\). Neither uses injection number, accumulated injected amount, molar ratio, or a separately reconstructed concentration as its independent variable. Use the concentrations produced by the selected concentration-bookkeeping method; this feature does not change that method.
+
 | Family | Molar background law | Parameters and stored units |
 |---|---|---|
 | Offset | \(h(x)=a\) | \(a\): J/mol |
@@ -30,6 +32,10 @@ For injection \(i\):
 Use this **identical additive background** in both hypotheses. Binding plus background keeps the existing binding-heat calculation and adds \(q_{\mathrm{bg},i}\). The Null predicts only \(q_{\mathrm{bg},i}\).
 
 This is an empirical endpoint convention: no midpoint evaluation, reference injection volume, or extra finite-injection averaging. Concentration bookkeeping and binding-heat bookkeeping remain separate. A fitted background does not establish that mixing, diffusion, or concentration errors have been corrected.
+
+"Linear" describes molar background versus cell titrant concentration, not versus injection number or molar ratio. Displacement and dilution of the cell contents generally make both plotted relationships curved even with equal injections. Exponential adds curvature versus concentration itself: \(q_\infty\) is the limiting plateau, \(A\) is the signed departure at zero concentration, and increasing \(x\) by \(\lambda\) reduces that departure by a factor of \(e\). Either amplitude sign is allowed. Over a concentration range small compared with \(\lambda\), an Exponential can be nearly linear; do not assume the families will always be distinguishable.
+
+The injected-amount multiplier is retained when volumes vary. At a fixed \(x\), doubling injected moles doubles predicted injection heat while leaving \(h(x)\) unchanged. This is the intended amount scaling, not a claim that the endpoint approximation accounts exactly for concentration changes during a finite injection or for every instrumental background contribution.
 
 **Per-mole convention reaffirmed 2026-10-13:** retain \(q_{\mathrm{bg},i}=m_i h(x_i)\) after considering pytc's Linear implementation. [pytc's model base](https://github.com/harmslab/pytc/blob/master/pytc/indiv_models/base.py) defines dilution heat directly as intercept plus slope times post-injection cell titrant concentration, and its [binding model](https://github.com/harmslab/pytc/blob/master/pytc/indiv_models/single_site.py) adds that injection heat without an injected-mole multiplier. The background laws can be mapped by constant coefficient rescaling when injected amounts are constant and concentration bookkeeping matches; they generally differ for unequal injected amounts. Our convention preserves the molar meaning of the existing Offset parameter. Any pytc comparison must document the parameter/unit mapping and concentration-update convention; it does not establish validation for unequal-injection backgrounds or unsupported models.
 
@@ -43,9 +49,11 @@ This is an empirical endpoint convention: no midpoint evaluation, reference inje
 - Preserve assessment thresholds and manual overrides.
 - Defer matched-control constraints, automatic family selection, and a new component-overlay control. Buffer subtraction remains a separate processing step.
 
+**Constant-term interpretation (2026-10-23):** only the constant remains adjustable and lockable; do not add separate setup controls for slope, amplitude, decay scale, or their bounds. The user noted that a Linear constant anchored at the last point would better match the usual association of dilution heat with late injections. Defer that reparameterization: retain \(a=h(0)\) in this plan and \(q_\infty\) as the Exponential plateau. Neither is necessarily the background at the last included injection. Do not introduce a reference-concentration setting, change saved parameter meanings, or add anchoring machinery as part of this feature without a separate decision.
+
 ### Null comparison constraints (agreed, intentional Offset change)
 
-New Null fits use the same heat limits, fixed constant, and sharing structure as the binding fit. Other coefficients are refitted separately. Consequently, refitting an old analysis can change its comparison; loading an old analysis must not.
+New Null fits use the same heat limits, fixed constant, and background sharing structure as the binding fit. Transfer these background restrictions, not the fitted values of free coefficients; independently refit every free background coefficient under each hypothesis. Binding-specific parameter restrictions have no counterpart in the Null. Consequently, refitting an old analysis can change its comparison scores; loading an old analysis must not recompute those scores or refit either hypothesis. Existing automatic-assessment reevaluation from saved scores remains unchanged.
 
 - Heat limits are modelling constraints intended to prevent essentially non-physical fitted backgrounds. A lower residual objective outside these limits is not a reason to relax them. Use the same constraints in both hypotheses, and state in the comparison details when the Null background is fixed or touches a heat limit.
 - Use the existing Offset limit expansion for Standard/Expanded/No limits in both hypotheses. "No limits" currently means a large finite range. The Offset-specific `UnreachableOffsetLimits` helper is not the limit policy for the new comparisons.
@@ -144,6 +152,8 @@ Preserve independent member assessments, pooled diagnostics, and mixed outcomes.
 
 The comparison asks whether adding binding improves the explanation under the selected background family and restrictions. Matching those restrictions does not establish that they are appropriate for every experiment.
 
+Tighter heat bounds can worsen the Null objective without reducing its fitted-parameter count. Locks and sharing can worsen its objective while reducing that count, so their net effect on \(\Delta\mathrm{AICc}\) can have either sign. An unrestricted Null is not automatically conservative after the parameter penalty. An incorrect fixed background can leave the binding component to explain background heat; the comparison remains conditional on the chosen restrictions. A value estimated from these same observations and then fixed is not independently known merely because it is locked. This feature does not add automatic lock-provenance tracking or change the established parameter-count convention.
+
 Joint uncertainty includes all fitted background parameters and their covariance with binding parameters. Report the original-data optimum, never a bootstrap average. Keep the no-binding uncertainty skip (ITC-052). Automatic comparison-only Null fits continue to report uncertainty as **not estimated**.
 
 Generalize corrected observations, predictions, exports, and confidence bands to injection-specific background subtraction. Keep the corrected-band convention: subtract the primary fitted background from total bootstrap predictions, retaining joint covariance. This translates the total-fit uncertainty band; it is not an uncertainty interval for the isolated binding component. Preserve that distinction in results and documentation.
@@ -157,7 +167,7 @@ Follow `Documentation/Schemas/FTXTC/FTXTC_FORMAT.md`.
 - Add schema-2 Null comparison evidence with actual model identity, complete parameters, constraints, effective bounds (heat limits and decay-scale bounds), diagnostics, and captured fit inputs. Keep package-level versioning unchanged where independently versioned records suffice.
 - Capture real injection amounts, volumes, post-injection concentrations, inclusion flags, observed heats, predictions, and required experiment context. Restore from captured evidence without invented concentrations or current preferences.
 - Carry the family and parameters through bootstrap matrices, profile records, global replicate state, validity snapshots, import/copy remapping, and Save Selected.
-- Preserve saved assessments and scores without refitting. Keep strict/recovery behavior and primary results when optional comparison evidence is damaged.
+- Preserve saved comparison scores without refitting or applying the new background restrictions on load. Retain manual overrides and the existing automatic-assessment reevaluation from saved evidence under the current rule. Keep strict/recovery behavior and primary results when optional comparison evidence is damaged.
 - Update desktop and Web viewer readers, registries, schemas, and compatibility tests together. `.ftitc` remains read-only.
 
 No application-version, release-note, citation, commit, or push changes.
@@ -180,6 +190,8 @@ Update fitting/results manual pages and help/science resources only with what us
 
 ## 5. Implementation order
 
+Begin only after publication and separate implementation authorization. The user confirmed on 2026-10-23 that the whole feature is deferred, including the Offset Null changes to limits, locks and sharing. No current Offset fit or comparison behavior is changed by this planning task. Before execution, refresh the source, tracker, saved-format contracts and related uncertainty plans rather than treating this dated plan as a current code audit.
+
 0. **Neutral refactor:** introduce the family abstraction with Offset only and the existing Null behavior. Existing Offset fits, comparisons, saved files, and reports must be unchanged at floating-point precision.
 1. **Null constraint change:** apply limits, fixed constant, and sharing to the Offset Null, with comparison-detail flags. Separate commit/step so intentional changes can be told apart from refactoring regressions.
 2. Linear and Exponential equations and fitting.
@@ -195,11 +207,12 @@ Reinspect the working tree before each stage. Run the full `AnalysisITC.Core.Tes
 |---|---|
 | **Neutral refactor** | Stage 0 leaves existing Offset predictions, fits, comparisons, assessments, saved files, and reports unchanged. |
 | **Equation checks** | Independently calculated, high-precision expectations for all three laws, both amplitude signs, zero slope/amplitude, unequal volumes, unit conversions, exclusions, and tandem concentration states, at fixed parameters, agreeing at floating-point precision. |
+| **Concentration and amount scaling** | Both families use the saved post-injection cell titrant concentration under every supported bookkeeping method. Independently check equal-volume titrations where concentration and ratio are not linear in injection number, plus unequal-volume cases. At equal concentration and fixed coefficients, check proportional injection heat and invariant heat per mole when injected amount changes. Illustration plots are not validation fixtures or external reference data. |
 | **Composition checks** | For every binding model and bookkeeping method, total heat equals independently checked binding heat plus the specified background. Zero slope/amplitude reproduce Offset predictions. |
 | **Fitting robustness** | Weighted/unweighted fits, both optimizers, simple starts, fixed constants, local/shared backgrounds, all limit settings, flat data, short series, decay scale at both fixed bounds, cancellation, and invalid inputs. Test the stated physical instrument ranges and the chosen margin. On representative cases with an admissible Offset fit, verify that the richer fits recover an objective no worse than that feasible constant solution within numerical tolerance. Compare background-only solutions against independent constrained least-squares/profile calculations. Use failures to decide whether extra initialization machinery is needed. |
 | **Model discrimination** | Independently calculated AICc and parameter counts, including fixed constants and sharing. Insufficient sample size, failed hypotheses, and mixed independent outcomes. Do not require richer backgrounds always to reduce binding evidence. |
 | **Parameter uncertainty** | Synthetic recovery and repeated-data coverage checks, labeled separately. Joint resampling; profiles of every free physical background parameter through the coordinate mapping; fixed-constant exclusion; local/shared refits of the other free parameters; boundary, unidentified-parameter and open-interval reporting; original-fit central estimates; and uncertainty round trips. |
-| **Compatibility and presentation** | Historical files keep saved predictions and assessments; new files survive strict reopening, Save Selected, import/copy, and recovery. Both desktops and the viewer show matching families, values, corrections, and unavailable states. |
+| **Compatibility and presentation** | Historical files keep saved predictions, comparison scores and manual overrides, with automatic assessment still reevaluated under the current rule without refitting. New files survive strict reopening, Save Selected, import/copy, and recovery. Both desktops and the viewer show matching families, values, corrections, and unavailable states. |
 | **AI Null summary** | Full and compact AI input retain actual model type, saved AICc/ΔAICc and assessment scope/provenance/availability, including independent and mixed outcomes, while omitting detailed Null fit evidence. Native saved evidence, figures and ordinary reports retain their complete Null data. |
 
 Include a targeted start-feasibility case: heat limits ±1 kJ/mol, fixed plateau +2 kJ/mol, and concentrations 10–110 µM require λ ≥ \(100/\ln(3)\) ≈ 91.02 µM. The midpoint start of 60 µM is infeasible, but 100 µM permits a feasible amplitude. When the allowed λ interval includes such values, initialization must find a feasible start without rejecting the fixed plateau. This checks the interaction with a fixed plateau and heat limits, not the accuracy of the ordinary λ starting guess.

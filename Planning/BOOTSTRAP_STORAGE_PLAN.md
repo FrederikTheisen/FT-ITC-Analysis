@@ -14,11 +14,12 @@ Measured on existing projects (1,000 replicates per fit):
 
 Target: reduce bootstrap storage enough for the acceptance cases below to clear the web byte budgets, with default limits unchanged. A general guarantee at the logical caps (20,000 replicates, 500,000 injection records) is not established: the global-result size limit remains a decision to resolve before Step 2.
 
-Memory is out of scope. Restored replicate objects, not stored bytes, dominate load memory (306 MiB retained for JORS Table1 versus 18 MiB without bootstrap data; compact JSON changes this by under 1%). Tracked separately as ITC-216.
+Runtime-memory changes remain out of scope. The [ITC-216 investigation](Investigations/ITC-216-bootstrap-memory-2026-10-23.md) supersedes the previous 306 MiB retained-memory observation: calibrated post-GC live heap is 149.67 MiB for JORS Table1 versus 14.86 MiB without bootstrap data, with no meaningful change from compact JSON. `GC.GetTotalMemory` overreports on the measured runtime; independent heap dumps agree with the corrected figure. Five fresh-process Release runs give median Core cumulative allocation of 952.36 MiB and peak RSS of 310.14 MiB. Complete viewer construction allocates 979.11 MiB and peaks at 311.13 MiB, then releases the Core graph, leaving 18.32 MiB live after collection. These local reader measurements exclude HTTP buffering/response serialization and do not establish server capacity at the logical caps.
 
 ## Decisions
 
 - Two independent steps: compact JSON first in the current format, then bootstrap descriptor schema 2.
+- Leave runtime bootstrap representation and restoration unchanged, following ITC-216. The disposable initialization prototype saved about 14% of allocation traffic but no retained memory and only about 2% of peak RSS; the demonstrated benefit does not justify a separate restoration path. This storage plan addresses byte budgets, not runtime memory, and does not change replicate counts, uncertainty features or upload limits.
 - Keep the change simple. Preserve existing NaN and missing-value behaviour; NaN payload bits are not part of the preservation contract and need no additional storage machinery.
 - Schema 2 changes only the JSON descriptor. The four FTXB matrices (parameter values, parameter locks, injections, injection inclusion) keep their schema-1 paths, shapes and contents.
 - Values that vary per replicate are stored in a binary Float64 matrix; everything else is stored once in shared template records.
