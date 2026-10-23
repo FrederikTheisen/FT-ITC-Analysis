@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Create the concise report from recorded production predictions, without fitting."""
-import argparse
+"""Report the fresh outputs supplied by run_validation.py, without fitting."""
 import csv
 import hashlib
 import json
@@ -14,21 +13,27 @@ def hash_file(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def report(original_results, stoichiometry_results, trx, core_trx=None, baseline_trx=None):
-    root = Path(__file__).resolve().parent
-    old = root.parent/"PytcBookkeeping"
-    extra = root.parent/"TwoSiteStoichiometry"
+def report(original_results, stoichiometry_results, trx, root, identity):
+    scientific = Path(__file__).resolve().parent.parent
+    old = scientific/"PytcBookkeeping"
+    extra = scientific/"TwoSiteStoichiometry"
+    summary = ET.parse(trx).find(".//{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}ResultSummary")
+    counts = summary.find("{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}Counters").attrib
+    assert summary.attrib["outcome"] == "Completed", "Test run did not complete."
+    assert int(counts["passed"]) == int(counts["executed"]) == int(counts["total"]) > 0, "Not all tests passed."
     precision_path = old/"precision-reference.json"
     precision = json.loads(precision_path.read_text())
     assert precision["reference_sha256"] == hash_file(old/"reference.json")
     assert precision["stoichiometry_reference_sha256"] == hash_file(extra/"reference.json")
     assert precision["generator_sha256"] == hash_file(old/"precision_reference.py")
     cases = json.loads((old/"reference.json").read_text())["cases"] + json.loads((extra/"reference.json").read_text())["cases"]
-    predictions = {r["Id"]: r["ActualHeatsJoules"] for path in (original_results, stoichiometry_results)
-                   for r in json.loads(path.read_text())["Results"]}
+    records = [r for path in (original_results, stoichiometry_results)
+               for r in json.loads(path.read_text())["Results"]]
+    predictions = {r["Id"]: r["ActualHeatsJoules"] for r in records}
     references = precision["runs"][0]["curves"]
     confirmation = precision["runs"][1]["curves"]
-    assert len(cases) == len(predictions) == len(references) == 52
+    assert len(cases) == len(records) == len(predictions) == len(references) == 52, "Expected all 52 cases exactly once."
+    assert {case["id"] for case in cases} == set(predictions) == set(references) == set(confirmation)
     rows, results = [], []
     for case in cases:
         name = case["id"]
@@ -36,7 +41,8 @@ def report(original_results, stoichiometry_results, trx, core_trx=None, baseline
         assert len(expected) == len(actual) == len(case["heats_joules"])
         peak = max(map(abs, expected))
         ratios = [abs(a-e)/(512*EPSILON*(peak+abs(e))) for a, e in zip(actual, expected)]
-        assert max(ratios) <= 1, f"Floating-point mismatch: {name} ({max(ratios):.6g})"
+        assert all(0 <= ratio <= 1 for ratio in ratios), f"Floating-point mismatch: {name} ({max(ratios):.6g})"
+        assert len(expected) == len(confirmation[name])
         assert all(abs(a-b) <= 512*EPSILON*(max(map(abs, confirmation[name]))+abs(b))
                    for a, b in zip(expected, confirmation[name])), f"Reference not converged: {name}"
         unequal = "counts" in case
@@ -63,16 +69,9 @@ def report(original_results, stoichiometry_results, trx, core_trx=None, baseline
         epsilon=EPSILON, precision_reference_sha256=hash_file(precision_path),
         prediction_sha256={str(p): hash_file(p) for p in (original_results, stoichiometry_results)}, results=results)
     (root/"comparisons.json").write_text(json.dumps(payload, indent=2)+"\n")
-    counts = ET.parse(trx).find(".//{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}Counters").attrib
-    assert counts["failed"] == "0"
     verification = dict(model_tests=counts, trx_sha256=hash_file(trx),
-        report_generator_sha256=hash_file(Path(__file__)), comparison_sha256=hash_file(root/"comparisons.json"))
-    repository = root.parents[2]
-    verification["production_source_sha256"] = {name: hash_file(repository/name) for name in (
-        "AnalysisITC.Core/Analysis2/Models/OneSetOfSites.cs",
-        "AnalysisITC.Core/Analysis2/Models/TwoSetsOfSites.cs",
-        "AnalysisITC.Core/Analysis2/Models/CompetitiveBinding.cs",
-        "AnalysisITC.Core/Analysis2/Models/SequentialBindingSites.cs")}
+        report_generator_sha256=hash_file(Path(__file__)), comparison_sha256=hash_file(root/"comparisons.json"),
+        **identity)
     illustration = next(case for case in cases if case["id"] == "fractional-low-capacity")
     sampling = []
     for component in illustration["site_heats_joules"]:
@@ -84,14 +83,6 @@ def report(original_results, stoichiometry_results, trx, core_trx=None, baseline
         uniform_injection_microliters=illustration["shots_microliters"][0],
         transition_points_90_to_10_percent=sampling,
         component_source="Full external coupled BindingPolynomial with the other site's enthalpy set to zero")
-    for label, path in (("full_core_suite", core_trx), ("unrelated_lifecycle_recheck_with_original_tolerances", baseline_trx)):
-        if path:
-            document = ET.parse(path)
-            verification[label] = dict(
-                counts=document.find(".//{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}Counters").attrib,
-                trx_sha256=hash_file(path),
-                failed_tests=[result.attrib["testName"] for result in document.findall(
-                    ".//{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}UnitTestResult") if result.attrib["outcome"] == "Failed"])
     (root/"verification.json").write_text(json.dumps(verification, indent=2)+"\n")
 
     from plot_forward_curves import plot_curves
@@ -99,6 +90,12 @@ def report(original_results, stoichiometry_results, trx, core_trx=None, baseline
     intro = """# Forward-model precision validation
 
 All 52 tests **PASS** at floating-point precision using prescribed parameters and externally generated integrated injection heats.
+
+The covered domain is one-site, independent two-site, competitive and sequential
+models under **Discrete displacement** bookkeeping. These references do not
+validate MicroCal or ideal continuous mixing bookkeeping, Dissociation, or
+tandem back-mixing. Processing accuracy, parameter recovery and uncertainty
+coverage require their own evidence.
 
 References use pinned pytc equations and finite injections. Both default and converged arithmetic were evaluated. The PASS criterion is `|errorᵢ| ≤ 512ε (peak |heat| + |reference heatᵢ|)`, with `ε = 2.220446049250313e−16`.
 
@@ -113,15 +110,8 @@ Lines: pytc. Circles: FT-ITC. Sequential curves show two, three and four steps. 
 """
     table = "\n".join(f"| {row['test']} | {row['model']} | {row['n'].replace(';', ', ') or '—'} | PASS |" for row in rows)
     (root/"README.md").write_text(intro+table+"\n")
-    print(f"52/52 PASS; model suite: {counts['passed']} passed, {counts.get('notExecuted', '0')} skipped.")
+    print(f"52/52 PASS; model suite: {counts['passed']} passed.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--original-results", type=Path, required=True)
-    parser.add_argument("--stoichiometry-results", type=Path, required=True)
-    parser.add_argument("--trx", type=Path, required=True)
-    parser.add_argument("--core-trx", type=Path)
-    parser.add_argument("--baseline-trx", type=Path)
-    args = parser.parse_args()
-    report(args.original_results.resolve(), args.stoichiometry_results.resolve(), args.trx.resolve(), args.core_trx, args.baseline_trx)
+    raise SystemExit("Run run_validation.py to build, test and report fresh results; saved-result arguments are no longer supported.")

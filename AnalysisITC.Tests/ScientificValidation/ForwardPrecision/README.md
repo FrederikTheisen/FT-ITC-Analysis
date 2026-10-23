@@ -1,5 +1,9 @@
 # Forward-model precision validation
 
+Use the [single build, test and report command](REPRODUCE.md) to validate the
+current checkout. Each run produces a fresh report and leaves this archived
+record unchanged.
+
 All 52 tests **PASS** at floating-point precision using prescribed parameters and externally generated integrated injection heats.
 
 The covered domain is one-site, independent two-site, competitive and sequential
