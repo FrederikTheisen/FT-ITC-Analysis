@@ -1029,7 +1029,7 @@ namespace AnalysisITC.Core.Data
             if (!string.IsNullOrEmpty(injectionDelayInfo))
                 info.Add("  **Injection Delay:** " + injectionDelayInfo);
 
-            info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
+            info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsFormattedConcentration(true)} | Syringe: {this.SyringeConcentration.AsFormattedConcentration(true)}");
             info.Add($"**Injection bookkeeping:** {BookkeepingDescription}");
 
             var attributeInfo = Attributes
