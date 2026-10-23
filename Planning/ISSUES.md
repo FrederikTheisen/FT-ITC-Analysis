@@ -1966,3 +1966,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Consequence: Saved files are not byte-reproducible, which hampers comparing saves and checksum-based checks. Whether any consumer (fingerprints, identity matching, interpretation evidence) reads these embedded ids was not checked.
 - Related: [ITC-148](#itc-148---reopening-changes-the-embedded-null-solutions-heat-method-provenance) (another reopen/resave change in the same embedded solution).
 - Evidence: Package comparison (2026-10-23). Evidence directory as for ITC-216.
+
+## ITC-222 - Result titles extend into the validity stamp
+
+- Priority: Not set.
+- Status: Open (2026-10-23).
+- Problem: Long result titles can extend into and overlap the validity stamp, making both parts of the result presentation harder to read.
+
+## ITC-223 - Competitor properties state label is misaligned
+
+- Priority: Not set.
+- Status: Open (2026-10-23).
+- Problem: The state label for the Competitor Properties attribute does not line up with the other labels, making the form layout look inconsistent.
