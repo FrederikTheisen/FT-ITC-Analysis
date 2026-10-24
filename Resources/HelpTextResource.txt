@@ -309,7 +309,7 @@ Choose residual bootstrap, leave-one-out refitting, or profile likelihood in the
 
 The reported parameter value always comes from the best fit to the original data. Refitting estimates uncertainty without replacing it with a resampling mean or median.
 
-The uncertainty style preference selects SDs, intervals, or both when available; it does not change the fit. **Bootstraps** shows the requested count, its tooltip shows retained refits, and reports count complete retained replicates. Use **Update Result** to rerun uncertainty, then check the completion message and counts. Independent members can retain individual uncertainty without a complete combined set.
+The uncertainty style preference selects SDs, intervals, or both when available; it does not change the fit. **Automatic** shows the 95% interval when its longer side is at least about 1.44 times its shorter side (asymmetry |w_upper − w_lower|/(w_upper + w_lower) ≥ 0.18, where w are the distances from the best fit to each limit), and SD otherwise. It decides separately for each displayed quantity, after unit conversion. Choose **SD + 95% CI** to see both and check the choice. **Bootstraps** shows the requested count, its tooltip shows retained refits, and reports count complete retained replicates. Use **Update Result** to rerun uncertainty, then check the completion message and counts. Independent members can retain individual uncertainty without a complete combined set.
 
 # Residual bootstrap
 
