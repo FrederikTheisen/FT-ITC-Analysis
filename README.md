@@ -19,6 +19,11 @@ supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figures, reports, and data export.
 
+> **Version 1.5 is coming soon.** This README describes the upcoming release;
+> some features listed below are not available in the current public version.
+> See the [latest public release notes](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest)
+> for what is currently available.
+
 [<img src="Documentation/assets/program-overview.png" width="800" alt="Annotated FT-ITC Analysis interface showing navigation, processing, fitting, publication figures, and analysis results.">](Documentation/assets/program-overview.png)
 
 ## Getting started
@@ -110,8 +115,7 @@ Optional release and citation checks can be disabled in preferences.
 - **Web viewer:** opening a project uploads the entire file, including embedded
   data and comments, to **app.ft-itc.org** for display.
 - **Automated interpretation:** choosing **Generate** sends selected scientific
-  evidence, your question, and context through **app.ft-itc.org (MIST)** to
-  **OpenAI**. Evidence can include names, comments, fits, and injection data;
+  evidence, your question, and context through **app.ft-itc.org** to at third-party model provider. Evidence can include names, comments, fits, and injection data;
   compressed thermograms are off by default. Opening the dialog can check
   availability and access without sending scientific evidence.
 
