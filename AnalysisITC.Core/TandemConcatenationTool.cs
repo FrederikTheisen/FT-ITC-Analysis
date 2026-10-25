@@ -29,6 +29,9 @@ namespace AnalysisITC.Core.Processing
         internal static bool IsValidDeadVolume(double volume) =>
             !double.IsNaN(volume) && !double.IsInfinity(volume) && volume >= 0;
 
+        internal static bool IsValidMixingFraction(double fraction) =>
+            !double.IsNaN(fraction) && !double.IsInfinity(fraction) && fraction >= 0 && fraction <= 1;
+
         public class BackMixingSettings
         {
             public bool UseBackMixingMethod { get; set; } = false;
@@ -434,6 +437,11 @@ namespace AnalysisITC.Core.Processing
             if (!IsValidDeadVolume(settings.DeadVolume))
                 throw new ArgumentOutOfRangeException(nameof(settings.DeadVolume), "Dead volume must be finite and non-negative.");
 
+            for (var index = 0; index < transitionMixingFractions.Count; index++)
+                if (!IsValidMixingFraction(transitionMixingFractions[index]))
+                    throw new ArgumentOutOfRangeException(nameof(transitionMixingFractions), transitionMixingFractions[index],
+                        $"Mixing fraction for transition {index + 1} must be finite and between 0 and 1.");
+
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
             if (experiment.CellVolume <= 0) throw new InvalidOperationException("CellVolume must be > 0.");
 
@@ -513,7 +521,7 @@ namespace AnalysisITC.Core.Processing
                 // Between segments: removal + back-mixing (skip after last segment)
                 if (s < segments.Count - 1)
                 {
-                    var mixFrac = FWEMath.Clamp(transitionMixingFractions[s], 0.0, 1.0);
+                    var mixFrac = transitionMixingFractions[s];
 
                     if (settings.DidRemoveOverflow) ApplyOverflowRemoval(ref Vdead, ref nM_dead, ref nL_dead, V_inj_total);
 

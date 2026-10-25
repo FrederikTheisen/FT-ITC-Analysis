@@ -22,7 +22,9 @@ static class TandemImportPromptTests
         {
             CorrectInvalidInputs();
             RejectInvalidDeadVolumes();
-            ChooseMicroCalAfterError();
+            RejectInvalidMixingFractions();
+            ChooseMicroCalAfterError(0);
+            ChooseMicroCalAfterError(1);
             CorrectDuringFileImport(args[0]);
             AcceptValidInputs("80", "0", 0);
             AcceptValidInputs("80", "100", 1);
@@ -82,19 +84,64 @@ static class TandemImportPromptTests
             "validation and correction must not mutate defaults");
     }
 
-    static void ChooseMicroCalAfterError()
+    static void ChooseMicroCalAfterError(int field)
     {
         var defaults = TandemConcatenation.BackMixingSettings.MicroCalDefault();
         var result = RunPrompt(defaults, 2, (step, window) =>
         {
             if (step == 0)
             {
-                Fields(window)[0].StringValue = "NaN";
+                Fields(window)[field].StringValue = "NaN";
                 Click(window, "Use Back-Mixing Compensation");
             }
             else Click(window, "Use MicroCal Concat");
         });
         Check(ReferenceEquals(result, defaults), "MicroCal must remain available with invalid compensation inputs");
+    }
+
+    static void RejectInvalidMixingFractions()
+    {
+        var culture = CultureInfo.CurrentCulture;
+        try
+        {
+            foreach (var cultureName in new[] { "en-US", "da-DK" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                foreach (var text in new[] { "NaN", "Infinity", "-Infinity", "1e999", "-1e999", "-1", "101", "", "abc", "25%" })
+                {
+                    var defaults = TandemConcatenation.BackMixingSettings.MicroCalDefault();
+                    NSWindow original = null;
+                    var result = RunPrompt(defaults, 2, (step, window) =>
+                    {
+                        var fields = Fields(window);
+                        var overflow = Views<NSButton>(window.ContentView).Single(b => b.Title == "Remove overflow between segments");
+                        if (step == 0)
+                        {
+                            original = window;
+                            fields[0].StringValue = "65";
+                            fields[1].StringValue = text;
+                            overflow.State = NSCellStateValue.Off;
+                        }
+                        else
+                        {
+                            Check(window.Handle == original.Handle && window.IsVisible, "invalid mixing fraction must retain the same dialog");
+                            Check(fields[0].StringValue == "65" && fields[1].StringValue == text
+                                && overflow.State == NSCellStateValue.Off, "invalid mixing fraction must retain all drafts");
+                            Check(Views<NSTextField>(window.ContentView).Any(f => !f.Hidden && f.StringValue.StartsWith("Mixing fraction must be")),
+                                "invalid mixing fraction must show an inline field error");
+                            Check(defaults.DeadVolume == 80e-6 && defaults.MixingFraction == 0
+                                && defaults.DidRemoveOverflow && !defaults.UseBackMixingMethod, "invalid input must preserve defaults");
+                            fields[1].StringValue = cultureName == "da-DK" ? "25,5" : "25.5";
+                        }
+                        Click(window, "Use Back-Mixing Compensation");
+                    });
+                    Check(Math.Abs(result.DeadVolume - 65e-6) < 1e-15 && result.MixingFraction == .255
+                        && !result.DidRemoveOverflow && result.UseBackMixingMethod,
+                        "mixing-fraction correction must retain the other drafts and complete the same prompt");
+                }
+            }
+        }
+        finally { CultureInfo.CurrentCulture = culture; }
     }
 
     static void RejectInvalidDeadVolumes()

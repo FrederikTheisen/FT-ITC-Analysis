@@ -88,10 +88,12 @@ namespace AnalysisITC.UI.MacOS
                     return;
                 }
                 if (!TryParseDouble(mixingFractionField.StringValue, out var mixingFractionPercent)
+                    || double.IsNaN(mixingFractionPercent)
+                    || double.IsInfinity(mixingFractionPercent)
                     || mixingFractionPercent < 0
                     || mixingFractionPercent > 100)
                 {
-                    ShowError("Mixing fraction must be a number from 0 to 100 percent.", mixingFractionField);
+                    ShowError("Mixing fraction must be a finite number from 0 to 100 percent.", mixingFractionField);
                     return;
                 }
 

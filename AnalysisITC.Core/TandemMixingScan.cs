@@ -315,6 +315,11 @@ namespace AnalysisITC.Core.Processing
                 throw new ArgumentException("All included injections must be integrated before running a tandem mixing scan.", nameof(sources));
 
             var fractions = (mixingFractions ?? DefaultMixingFractions).ToList();
+            for (var index = 0; index < fractions.Count; index++)
+                if (!TandemConcatenation.IsValidMixingFraction(fractions[index]))
+                    throw new ArgumentOutOfRangeException(nameof(mixingFractions), fractions[index],
+                        $"Mixing fraction at grid position {index + 1} must be finite and between 0 and 1.");
+
             var (scanExperiment, segments) = BuildScanExperiment(sources);
             var secondTransitionCount = sources.Count == 3 ? fractions.Count : 1;
             var matrix = new double[fractions.Count, secondTransitionCount];
