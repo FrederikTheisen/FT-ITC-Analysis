@@ -301,6 +301,8 @@ namespace AnalysisITC.Core.Processing
         {
             if (sources == null) throw new ArgumentNullException(nameof(sources));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (!TandemConcatenation.IsValidDeadVolume(settings.DeadVolume))
+                throw new ArgumentOutOfRangeException(nameof(settings.DeadVolume), "Dead volume must be finite and non-negative.");
             if (sources.Count < 2 || sources.Count > 3)
                 throw new ArgumentException("The tandem mixing scan requires two or three source experiments.", nameof(sources));
             if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));
@@ -563,6 +565,8 @@ namespace AnalysisITC.Core.Processing
         {
             if (sources == null) throw new ArgumentNullException(nameof(sources));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (!TandemConcatenation.IsValidDeadVolume(settings.DeadVolume))
+                throw new ArgumentOutOfRangeException(nameof(settings.DeadVolume), "Dead volume must be finite and non-negative.");
             if (sources.Count < 2 || sources.Count > 5)
                 throw new ArgumentException("The adaptive tandem mixing scan requires two to five source experiments.", nameof(sources));
             if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));

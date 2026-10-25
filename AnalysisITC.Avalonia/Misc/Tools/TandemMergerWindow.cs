@@ -378,10 +378,13 @@ namespace AnalysisITC.Avalonia.Tools
                 RemoveOverflowVolume = 0
             };
 
-            if (!double.TryParse(deadVolumeBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var deadVolumeUl))
+            if (!settings.UseBackMixingMethod) return true;
+
+            if (!double.TryParse(deadVolumeBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var deadVolumeUl)
+                || !TandemConcatenation.IsValidDeadVolume(deadVolumeUl))
                 return false;
 
-            settings.DeadVolume = Math.Max(0, deadVolumeUl) * 1e-6;
+            settings.DeadVolume = deadVolumeUl * 1e-6;
             return true;
         }
 

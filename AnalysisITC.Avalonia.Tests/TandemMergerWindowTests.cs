@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -24,6 +25,57 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class TandemMergerWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData("en-US", "80.5")]
+    [InlineData("da-DK", "80,5")]
+    public void DeadVolumeValidationPreservesDraftsAndIgnoresTheInactiveField(string cultureName, string positive)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+            RunWithExperiments(2, window =>
+            {
+                const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+                var box = (TextBox)typeof(TandemMergerWindow).GetField("deadVolumeBox", hidden)!.GetValue(window)!;
+                var refresh = typeof(TandemMergerWindow).GetMethod("RefreshControls", hidden)!;
+                var read = typeof(TandemMergerWindow).GetMethod("TryReadSettings", hidden)!;
+                var selected = window.ExperimentListForTesting.SelectedItems!.Cast<object>().ToArray();
+                window.ModeComboForTesting.SelectedIndex = 1;
+                var mixing = window.MixingSlidersForTesting[0].Value;
+
+                foreach (var text in new[] { "", "abc", "80 uL", "-1", "NaN", "Infinity", "∞", "-∞", "1e999" })
+                {
+                    box.Text = text;
+                    refresh.Invoke(window, null);
+                    Assert.False((bool)read.Invoke(window, new object?[] { null })!);
+                    Assert.False(window.CreateButtonForTesting.IsEnabled);
+                    Assert.Equal(text, box.Text);
+                    Assert.Equal(selected, window.ExperimentListForTesting.SelectedItems!.Cast<object>().ToArray());
+                    Assert.Equal(mixing, window.MixingSlidersForTesting[0].Value);
+
+                    window.ModeComboForTesting.SelectedIndex = 0;
+                    Assert.True((bool)read.Invoke(window, new object?[] { null })!);
+                    Assert.True(window.CreateButtonForTesting.IsEnabled);
+                    Assert.Equal(text, box.Text);
+                    window.ModeComboForTesting.SelectedIndex = 1;
+                }
+
+                foreach (var text in new[] { "0", positive })
+                {
+                    box.Text = text;
+                    refresh.Invoke(window, null);
+                    var arguments = new object?[] { null };
+                    Assert.True((bool)read.Invoke(window, arguments)!);
+                    Assert.True(window.CreateButtonForTesting.IsEnabled);
+                    var settings = Assert.IsType<TandemConcatenation.BackMixingSettings>(arguments[0]);
+                    Assert.Equal(text == "0" ? 0 : 80.5e-6, settings.DeadVolume, 15);
+                }
+            });
+        }
+        finally { CultureInfo.CurrentCulture = culture; }
+    }
+
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(1)]

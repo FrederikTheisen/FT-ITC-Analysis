@@ -21,6 +21,7 @@ static class TandemImportPromptTests
         try
         {
             CorrectInvalidInputs();
+            RejectInvalidDeadVolumes();
             ChooseMicroCalAfterError();
             CorrectDuringFileImport(args[0]);
             AcceptValidInputs("80", "0", 0);
@@ -88,12 +89,46 @@ static class TandemImportPromptTests
         {
             if (step == 0)
             {
-                Fields(window)[0].StringValue = "invalid";
+                Fields(window)[0].StringValue = "NaN";
                 Click(window, "Use Back-Mixing Compensation");
             }
             else Click(window, "Use MicroCal Concat");
         });
         Check(ReferenceEquals(result, defaults), "MicroCal must remain available with invalid compensation inputs");
+    }
+
+    static void RejectInvalidDeadVolumes()
+    {
+        foreach (var text in new[] { "", "abc", "80 uL", "-1", "0", "NaN", "Infinity", "-Infinity", "1e999", "1e-320" })
+        {
+            var defaults = TandemConcatenation.BackMixingSettings.MicroCalDefault();
+            NSWindow original = null;
+            var result = RunPrompt(defaults, 2, (step, window) =>
+            {
+                var fields = Fields(window);
+                var overflow = Views<NSButton>(window.ContentView).Single(b => b.Title == "Remove overflow between segments");
+                if (step == 0)
+                {
+                    original = window;
+                    fields[0].StringValue = text;
+                    fields[1].StringValue = "25";
+                    overflow.State = NSCellStateValue.Off;
+                }
+                else
+                {
+                    Check(window.Handle == original.Handle && window.IsVisible, "invalid dead volume must retain the same dialog");
+                    Check(fields[0].StringValue == text && fields[1].StringValue == "25"
+                        && overflow.State == NSCellStateValue.Off, "invalid dead volume must retain all drafts");
+                    Check(Views<NSTextField>(window.ContentView).Any(f => !f.Hidden && f.StringValue.StartsWith("Dead volume must be")),
+                        "invalid dead volume must show an inline field error");
+                    Check(defaults.DeadVolume == 80e-6 && !defaults.UseBackMixingMethod, "invalid input must preserve defaults");
+                    fields[0].StringValue = "65";
+                }
+                Click(window, "Use Back-Mixing Compensation");
+            });
+            Check(Math.Abs(result.DeadVolume - 65e-6) < 1e-15 && result.MixingFraction == .25
+                && !result.DidRemoveOverflow, "correction must complete the same prompt with its retained settings");
+        }
     }
 
     static void AcceptValidInputs(string deadVolume, string fraction, double expectedFraction)

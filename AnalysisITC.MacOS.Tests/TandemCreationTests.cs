@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -51,6 +52,18 @@ static class TandemCreationTests
             CreationFailure(mode: 1, criterion: 0);
             SuccessfulCreation(0);
             SuccessfulCreation(1);
+            InvalidDeadVolume();
+            SuccessfulCreation(0, "NaN");
+            SuccessfulCreation(1, "0", 0);
+            SuccessfulCreation(1, "1e40", 1e34);
+            var culture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("da-DK");
+                SuccessfulCreation(1, "80,5", 80.5e-6);
+                SuccessfulCreation(1, "80.5", 80.5e-6);
+            }
+            finally { CultureInfo.CurrentCulture = culture; }
             foreach (var error in escaped) failures.Add("Exception escaped native action: " + error);
             foreach (var failure in failures) Console.Error.WriteLine("FAIL: " + failure);
             if (failures.Count != 0) return 1;
@@ -162,16 +175,76 @@ static class TandemCreationTests
         }
     }
 
-    static void SuccessfulCreation(int mode)
+    static void InvalidDeadVolume()
+    {
+        foreach (var mode in new[] { 1, 2 })
+        using (var fixture = new Fixture(mode, 0))
+        {
+            var controller = fixture.Controller;
+            var field = Outlet<NSTextField>(controller, "DeadVolumeTextField");
+            var settings = (TandemConcatenation.BackMixingSettings)typeof(ExperimentMergerViewController)
+                .GetProperty("MergeSettings", Instance).GetValue(controller);
+            var previous = settings.Copy();
+            var revision = Revision();
+            var availability = controller.View.Subviews.OfType<NSControl>().ToDictionary(c => c, c => c.Enabled);
+            foreach (var text in new[] { "", "abc", "80 uL", "-1", "NaN", "Infinity", "-Infinity", "1e999" })
+            {
+                field.StringValue = text;
+                var draft = Draft(controller);
+                var errorsBefore = escaped.Count;
+                var dialogs = 0;
+                AppEventHandler.ShowAppMessage = (_, error) =>
+                {
+                    dialogs++;
+                    Expect(error.Message.Contains("Dead volume"), "invalid dead volume must identify its field");
+                };
+                fixture.Create();
+                PumpUntil(() => !ProcessingActivity.IsBusy && !IsCreating(controller), "invalid dead volume did not finish");
+                Expect(dialogs == 1 && escaped.Count == errorsBefore, "invalid dead volume must produce one handled error");
+                Expect(Draft(controller) == draft && ReferenceEquals(controller.PresentingViewController, fixture.Presenter),
+                    "invalid dead volume must preserve the sheet and drafts");
+                Expect(availability.All(c => c.Key.Enabled == c.Value), "invalid dead volume must restore controls");
+                Expect(DataManager.Data.SequenceEqual(fixture.Sources) && !DocumentDirtyTracker.IsDirty && Revision() == revision,
+                    "invalid dead volume must not publish or dirty the document");
+                Expect(settings.DeadVolume == previous.DeadVolume && settings.MixingFraction == previous.MixingFraction
+                    && settings.DidRemoveOverflow == previous.DidRemoveOverflow,
+                    "invalid dead volume must not assign merge settings");
+                Expect(notifications.Count == fixture.InitialNotifications, "invalid dead volume must not send success notification");
+            }
+            // Correct the same draft and create successfully after either mode's validation failure.
+            field.StringValue = "80";
+            Outlet<NSSegmentedControl>(controller, "MergeMethodControl").SelectedSegment = 1;
+            typeof(ExperimentMergerViewController).GetMethod("MergeMethodControlAction", Instance)
+                .Invoke(controller, new object[] { Outlet<NSSegmentedControl>(controller, "MergeMethodControl") });
+            AppEventHandler.ShowAppMessage = (_, error) => failures.Add("Corrected dead volume failed: " + error.Message);
+            fixture.Create();
+            PumpUntil(() => !ProcessingActivity.IsBusy && !IsCreating(controller), "corrected dead volume did not finish");
+            Expect(DataManager.Data.Count() == 3 && controller.PresentingViewController == null,
+                "corrected dead volume must publish and dismiss the same sheet");
+        }
+    }
+
+    static void SuccessfulCreation(int mode, string deadVolume = "80", double expectedVolume = 80e-6)
     {
         using (var fixture = new Fixture(mode, 0))
         {
+            Outlet<NSTextField>(fixture.Controller, "DeadVolumeTextField").StringValue = deadVolume;
             var dialogs = 0;
             AppEventHandler.ShowAppMessage = (_, error) => { dialogs++; failures.Add("Unexpected success-path error: " + error.Message); };
             fixture.Create();
             PumpUntil(() => !ProcessingActivity.IsBusy && !IsCreating(fixture.Controller), "successful creation did not finish");
             PumpUntil(() => fixture.Controller.PresentingViewController == null, "successful creation did not dismiss sheet");
             var merged = DataManager.Data.Except(fixture.Sources).Single();
+            if (mode != 0)
+            {
+                var settings = (TandemConcatenation.BackMixingSettings)typeof(ExperimentMergerViewController)
+                    .GetProperty("MergeSettings", Instance).GetValue(fixture.Controller);
+                Expect(Math.Abs(settings.DeadVolume - expectedVolume) <= Math.Abs(expectedVolume) * 1e-14,
+                    "valid dead volume must retain its double-precision value in liters");
+                Expect(merged.Injections.All(i => !double.IsNaN(i.ActualCellConcentration)
+                    && !double.IsInfinity(i.ActualCellConcentration) && !double.IsNaN(i.ActualTitrantConcentration)
+                    && !double.IsInfinity(i.ActualTitrantConcentration)), "valid dead volume must produce finite concentrations");
+            }
             Expect(dialogs == 0 && merged.IsTandemExperiment && merged.Processor.BaselineCompleted
                 && merged.Processor.IntegrationCompleted && DocumentDirtyTracker.IsDirty,
                 "mode=" + mode + ": successful tandem was not processed and published");

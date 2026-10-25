@@ -176,9 +176,10 @@ namespace AnalysisITC.Platform.Avalonia
             void TryUseBackMixing()
             {
                 if (!TryParseDouble(deadVolumeBox.Text, out var deadVolumeMicroliters)
-                    || deadVolumeMicroliters <= 0)
+                    || !TandemConcatenation.IsValidDeadVolume(deadVolumeMicroliters)
+                    || deadVolumeMicroliters * 1e-6 <= 0)
                 {
-                    ShowError("Dead volume must be a positive number in microliters.");
+                    ShowError("Dead volume must be a finite positive number in microliters.");
                     return;
                 }
 

@@ -26,6 +26,9 @@ namespace AnalysisITC.Core.Processing
 {
     public static class TandemConcatenation
     {
+        internal static bool IsValidDeadVolume(double volume) =>
+            !double.IsNaN(volume) && !double.IsInfinity(volume) && volume >= 0;
+
         public class BackMixingSettings
         {
             public bool UseBackMixingMethod { get; set; } = false;
@@ -427,6 +430,9 @@ namespace AnalysisITC.Core.Processing
             if (transitionMixingFractions == null) throw new ArgumentNullException(nameof(transitionMixingFractions));
             if (transitionMixingFractions.Count != Math.Max(0, segments.Count - 1))
                 throw new ArgumentException("A mixing fraction must be supplied for each transition between tandem segments.", nameof(transitionMixingFractions));
+
+            if (!IsValidDeadVolume(settings.DeadVolume))
+                throw new ArgumentOutOfRangeException(nameof(settings.DeadVolume), "Dead volume must be finite and non-negative.");
 
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
             if (experiment.CellVolume <= 0) throw new InvalidOperationException("CellVolume must be > 0.");

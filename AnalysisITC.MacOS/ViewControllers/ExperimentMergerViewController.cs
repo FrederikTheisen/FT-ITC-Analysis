@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using System.Collections.Generic;
+using System.Globalization;
 using static AnalysisITC.Core.Processing.TandemConcatenation;
 using System.Linq;
 using System.Threading.Tasks;
@@ -276,10 +277,6 @@ namespace AnalysisITC
             using var activity = ProcessingActivity.TryBegin();
             if (activity == null) return;
             using var ownership = activity.Enter();
-            MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
-            MergeSettings.MixingFraction = BackMixingSliderControl.FloatValue;
-            MergeSettings.DidRemoveOverflow = RemovedTitratedAfterExperimentControl.State == NSCellStateValue.On;
-
             var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
             var autoBackMixingEnabled = IsAutoBackMixingEnabled;
             var autoBackMixingCriterion = AutoBackMixingCriterion;
@@ -291,6 +288,20 @@ namespace AnalysisITC
 
             try
             {
+                if (MergeSettings.UseBackMixingMethod)
+                {
+                    var text = DeadVolumeTextField.StringValue;
+                    if (!(double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var deadVolumeUl)
+                          || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out deadVolumeUl))
+                        || !IsValidDeadVolume(deadVolumeUl))
+                        throw new ArgumentOutOfRangeException(nameof(MergeSettings.DeadVolume),
+                            "Dead volume must be a finite number of 0 µL or greater.");
+
+                    MergeSettings.DeadVolume = deadVolumeUl * 1e-6;
+                }
+                MergeSettings.MixingFraction = BackMixingSliderControl.FloatValue;
+                MergeSettings.DidRemoveOverflow = RemovedTitratedAfterExperimentControl.State == NSCellStateValue.On;
+
                 ExperimentData mergeddata;
                 if (autoBackMixingEnabled)
                 {
