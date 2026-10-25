@@ -1978,3 +1978,10 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Priority: Not set.
 - Status: Open (2026-10-23).
 - Problem: The state label for the Competitor Properties attribute does not line up with the other labels, making the form layout look inconsistent.
+
+## ITC-224 - Uncertainty display selectors do not explain Automatic
+
+- Priority: Not set.
+- Status: Open (2026-10-24). Planned only; wording and scope not chosen.
+- Problem: Selectors offering **Automatic** uncertainty display do not say how it chooses between SD and 95% CI. Native macOS Results **Errors** has a generic tooltip; Avalonia Results **Errors** and the Analysis Report **Uncertainties** selectors on both platforms have none. Final Figure and Preferences selectors also offer Automatic.
+- Suggested direction: Add a simple tooltip to the display style control explaning that auto choses the display style if the upper and lower are more than 50% different. Phrase it your own way in a compact form.
