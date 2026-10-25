@@ -53,6 +53,7 @@ namespace AnalysisITC
             PopulatePopup(NumberPrecisionPopup, EnumValues<NumberPrecision>(), FriendlyName);
             NumberPrecisionPopup.ToolTip = "Controls how displayed values are rounded. Values of magnitude 10¹⁰ or more use scientific notation with up to six significant digits, and infinite interval bounds show as ∞. This changes presentation only.";
             PopulatePopup(UncertaintyPopup, EnumValues<UncertaintyDisplayStyle>(), FriendlyName);
+            UncertaintyPopup.ToolTip = UncertaintyDisplayPresentation.StyleTooltip;
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);

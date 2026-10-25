@@ -174,6 +174,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public FinalFigureWorkspaceControl()
         {
+            ToolTip.SetTip(uncertaintyCombo, UncertaintyDisplayPresentation.StyleTooltip);
             BuildLayout();
             WireEvents();
             ApplySettingsDefaults();

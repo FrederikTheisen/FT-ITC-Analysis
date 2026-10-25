@@ -532,6 +532,7 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(energyCombo, "Energy units");
             AutomationProperties.SetName(temperatureCombo, "Temperature units");
             AutomationProperties.SetName(uncertaintyCombo, "Uncertainties");
+            ToolTip.SetTip(uncertaintyCombo, UncertaintyDisplayPresentation.StyleTooltip);
             AutomationProperties.SetName(outputPurposeCombo, "Report purpose");
             AutomationProperties.SetName(workspaceSelector, "Report workspace view");
             AutomationProperties.SetName(interpretationHost, "Interpretation workspace");

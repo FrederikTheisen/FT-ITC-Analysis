@@ -361,6 +361,7 @@ namespace AnalysisITC
             preparedByValue.TextColor = NSColor.SecondaryLabel;
             SetAccessibilityLabel(preparedByValue, "Read-only report preparer");
             inspector.AddArrangedSubview(Section("Prepared by", preparedByValue));
+            uncertaintyPopup.ToolTip = UncertaintyDisplayPresentation.StyleTooltip;
             inspector.AddArrangedSubview(Section("Presentation", Row("Energy", energyPopup), Row("Temperature", temperaturePopup), Row("Uncertainties", uncertaintyPopup), Row("Output", outputPurposePopup)));
             selectAllButton.Activated += (sender, e) => SetAllAdvanced(true);
             clearButton.Activated += (sender, e) => SetAllAdvanced(false);

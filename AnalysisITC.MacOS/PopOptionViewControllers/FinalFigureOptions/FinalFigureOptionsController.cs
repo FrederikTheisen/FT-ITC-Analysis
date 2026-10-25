@@ -142,6 +142,7 @@ namespace AnalysisITC
             controls.TextUncertaintyStyleControl?.SelectSegment((int)FinalFigureGraphView.TextUncertaintyStyle);
             if (controls.TextUncertaintyStyleControl != null)
             {
+                controls.TextUncertaintyStyleControl.ToolTip = UncertaintyDisplayPresentation.StyleTooltip;
                 controls.TextUncertaintyStyleControl.Enabled = FinalFigureGraphView.ShowTextUncertainties;
             }
             controls.InformationBoxPositionControl?.SelectSegment((int)FinalFigureGraphView.InformationBoxPosition);

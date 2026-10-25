@@ -531,7 +531,7 @@ namespace AnalysisITC
                     _ => 0,
                 });
             uncertaintyStyleControl.ToolTip =
-                "Choose how fitted parameter uncertainty is displayed.";
+                UncertaintyDisplayPresentation.StyleTooltip;
             uncertaintyStyleControl.Activated += (_, _) =>
             {
                 AppSettings.UncertaintyDisplayStyle =

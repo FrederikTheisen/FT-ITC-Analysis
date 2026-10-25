@@ -1982,6 +1982,7 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-224 - Uncertainty display selectors do not explain Automatic
 
 - Priority: Not set.
-- Status: Open (2026-10-24). Planned only; wording and scope not chosen.
+- Status: Resolved (2026-10-25).
 - Problem: Selectors offering **Automatic** uncertainty display do not say how it chooses between SD and 95% CI. Native macOS Results **Errors** has a generic tooltip; Avalonia Results **Errors** and the Analysis Report **Uncertainties** selectors on both platforms have none. Final Figure and Preferences selectors also offer Automatic.
-- Suggested direction: Add a simple tooltip to the display style control explaning that auto choses the display style if the upper and lower are more than 50% different. Phrase it your own way in a compact form.
+- Resolution: Results, Analysis Report, Final Figure, and Preferences on both desktop platforms use one shared Core tooltip: "Automatic: 95% CI when interval sides differ by about 50%; SD otherwise." The explanation remains available for every selected style. "About 50%" is the agreed approximation; the existing calculation and the manual's precise explanation are unchanged.
+- Validation: Both desktop builds and direct checks of all eight selectors passed, including retaining the tooltip through every selection. All 80 selected Avalonia UI tests and 170 focused Core tests passed. The full Core suite reported 5,082 passed, four ProcessingClearTests failures (all passed in the focused rerun), and one skipped. Native Results and report checks passed; wider native checks reported an enrollment notification-order failure and one Final Figure model/parameter-box failure (21 content groups passed). Those behaviors were not changed by this tooltip-only fix.

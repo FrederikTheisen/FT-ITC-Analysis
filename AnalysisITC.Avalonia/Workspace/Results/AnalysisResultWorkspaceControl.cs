@@ -117,6 +117,7 @@ namespace AnalysisITC.Avalonia.Results
 
         public AnalysisResultWorkspaceControl()
         {
+            ToolTip.SetTip(uncertaintyStyleCombo, UncertaintyDisplayPresentation.StyleTooltip);
             graphHost.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             graphHost.VerticalContentAlignment = VerticalAlignment.Stretch;
             displaySection = Section("Display", new Control[]

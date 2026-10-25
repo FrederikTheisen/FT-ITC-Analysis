@@ -562,6 +562,8 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 
 ## Revision notes
 
+- 2026-10-25 (ITC-224): Both desktop report builders' Uncertainties selectors share the tooltip "Automatic: 95% CI when interval sides differ by about 50%; SD otherwise." The rounded explanation leaves the existing display calculation and report output unchanged.
+
 - 2026-10-21 (ITC-034): Supporting experiments transmit summary metadata at every evidence level; Processing details and Thermograms add processing settings and scalar baseline statistics/reasons. They never send injection rows, thermograms, landmarks or baseline control representations. Fitted result members retain the selected level. Printed report contents are unchanged.
 
 - 2026-10-19 (CR-034): Avalonia now includes Expanded explanations in its existing busy policy, matching native macOS. The option remains fixed during construction; later changes still invalidate the preview and rebuild on export. A09/A12/A14 explanation content and triggers are unchanged.

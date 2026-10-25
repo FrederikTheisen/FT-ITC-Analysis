@@ -221,6 +221,7 @@ internal sealed class PreferencesWindow : Window
             Option("SD + confidence interval", UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
             Option("None", UncertaintyDisplayStyle.None)
         });
+        ToolTip.SetTip(uncertaintyStyleCombo, UncertaintyDisplayPresentation.StyleTooltip);
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
         ToolTip.SetTip(dilutionMethodCombo, InjectionBookkeeping.Help + " Default for new data.");
