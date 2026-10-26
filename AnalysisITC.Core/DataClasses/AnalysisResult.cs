@@ -92,7 +92,8 @@ namespace AnalysisITC.Core.Data
         public bool IsAdvancedAnalysisAvailable => Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites;
         public bool IsTemperatureDependenceEnabled { get; private set; } = false;
         public bool IsSpolarRecordAnalysisEnabled => IsAdvancedAnalysisAvailable && IsTemperatureDependenceEnabled;
-        public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
+        public bool IsElectrostaticsAnalysisDependenceEnabled => IsAdvancedAnalysisAvailable
+            && string.IsNullOrEmpty(ElectrostaticsAnalysisUnavailableReason);
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
         public string AdvancedAnalysisUnavailableReason => IsAdvancedAnalysisAvailable
             ? string.Empty
@@ -102,12 +103,11 @@ namespace AnalysisITC.Core.Data
             : IsTemperatureDependenceEnabled ? string.Empty : "Structuring analysis requires a sufficient temperature span.";
         public string ElectrostaticsAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
-            : electrostaticsAnalysisUnavailableReason;
+            : ElectrostaticsAnalysisAvailability.GetUnavailableReason(Solution.Solutions, SaltAnalysisMinimumSpan, saltAnalysisIncludesBuffer);
         public string ProtonationAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
             : protonationAnalysisUnavailableReason;
         string protonationAnalysisUnavailableReason = string.Empty;
-        string electrostaticsAnalysisUnavailableReason = string.Empty;
         internal double SaltAnalysisMinimumSpan { get; private set; }
         bool saltAnalysisIncludesBuffer;
         internal bool SaltAnalysisIncludesBuffer => saltAnalysisIncludesBuffer;
@@ -128,7 +128,13 @@ namespace AnalysisITC.Core.Data
 
         public FTSRMethod SpolarRecordAnalysis { get; private set; }
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
-        public ElectrostaticsAnalysis ElectrostaticsAnalysis { get; private set; }
+        ElectrostaticsAnalysis electrostaticsAnalysis;
+        public ElectrostaticsAnalysis ElectrostaticsAnalysis
+        {
+            get => electrostaticsAnalysis ?? (IsElectrostaticsAnalysisDependenceEnabled
+                ? electrostaticsAnalysis = new ElectrostaticsAnalysis(this) : null);
+            private set => electrostaticsAnalysis = value;
+        }
 
         public ConcentrationUnit AppropriateAffinityUnit => GetAppropriateAffinityUnit(ParameterType.Affinity1);
 
@@ -516,7 +522,6 @@ namespace AnalysisITC.Core.Data
             ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 
             IsTemperatureDependenceEnabled = false;
-            IsElectrostaticsAnalysisDependenceEnabled = false;
             IsProtonationAnalysisEnabled = false;
             SpolarRecordAnalysis = null;
             ProtonationAnalysis = null;
@@ -558,10 +563,6 @@ namespace AnalysisITC.Core.Data
 
             SaltAnalysisMinimumSpan = AppSettings.MinimumIonSpanForFitting;
             saltAnalysisIncludesBuffer = AppSettings.IncludeBufferInIonicStrengthCalc;
-            electrostaticsAnalysisUnavailableReason = ElectrostaticsAnalysisAvailability.GetUnavailableReason(
-                Solution.Solutions, SaltAnalysisMinimumSpan, saltAnalysisIncludesBuffer);
-            IsElectrostaticsAnalysisDependenceEnabled = IsAdvancedAnalysisAvailable
-                && string.IsNullOrEmpty(electrostaticsAnalysisUnavailableReason);
 
             protonationAnalysisUnavailableReason = ProtonationAnalysisAvailability.GetUnavailableReason(Solution.Solutions);
             IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && string.IsNullOrEmpty(protonationAnalysisUnavailableReason);

@@ -66,15 +66,14 @@ public sealed partial class SaltAnalysisTests
         else if (invalid == "identity") salt.IntValue = (int)Salt.KCl;
         else if (invalid == "missing") attributes.Remove(salt);
         else salt.ParameterValue = new(invalid == "negative" ? -.025 : double.NaN);
-        // Keep the established outer gate captured before the metadata change,
-        // so this exercises the slope component's own whole-collection check.
         var analysis = result.ElectrostaticsAnalysis;
-        Assert.True(await analysis.PerformAnalysisAsync());
+        // Missing salt now refreshes the outer eligibility gate before a run.
+        Assert.Equal(invalid != "missing", await analysis.PerformAnalysisAsync());
         Assert.False(analysis.HasCounterIonResult);
         Assert.Null(analysis.CounterIonReleaseFit);
         Assert.Equal(0, analysis.CounterIonReleaseIterations);
         Assert.Empty(analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease));
-        Assert.True(analysis.HasIonicStrengthResult);
+        Assert.Equal(invalid != "missing", analysis.HasIonicStrengthResult);
     }
 
     [Fact]

@@ -573,6 +573,11 @@ namespace AnalysisITC.Core.Data
             var incoming = attributes.Where(attribute => attribute.Key != AttributeKey.Null).ToList();
             if (Attributes.Count == incoming.Count && Attributes.Zip(incoming, (first, second) =>
                 first.OptionName == second.OptionName &&
+                // Salt analyses consume these numbers directly; the broad fit-snapshot
+                // tolerance must not discard an actual metadata edit before it is applied.
+                (!(first.Key == AttributeKey.Salt || first.Key == AttributeKey.IonicStrength || first.Key == AttributeKey.Buffer)
+                    || first.ParameterValue.Value.Equals(second.ParameterValue.Value)) &&
+                (first.Key != AttributeKey.Buffer || first.DoubleValue.Equals(second.DoubleValue)) &&
                 ExperimentAttributeSnapshot.Capture(first).EquivalentTo(ExperimentAttributeSnapshot.Capture(second))).All(equal => equal))
                 return false;
             var changed = false;

@@ -15,16 +15,34 @@ namespace AnalysisITC.Core.Analysis
 {
     public class ElectrostaticsAnalysis : AdvancedAnalysis
     {
-        public bool Calculated { get; private set; } = false;
+        readonly object inputLock = new object();
+        ComponentInputs saltInputs, ionicInputs;
+        bool saltInputsChanged, ionicInputsChanged;
+        LinearFitWithError counterIonReleaseFit;
+        IonicStrengthDependenceFit ionicStrengthDependenceFit;
+        int counterIonReleaseIterations;
+
+        public bool Calculated { get { InvalidateChangedInputs(); return saltInputs != null || ionicInputs != null; } }
         public bool CompletedIncludeBufferInIonicStrengthCalc { get; private set; }
         public Energy ElectrostaticStrength { get; private set; } = new(0);
-        public FloatWithError CounterIonRelease { get; private set; } = FloatWithError.NaN;
+        public FloatWithError CounterIonRelease => CounterIonReleaseFit?.Slope ?? FloatWithError.NaN;
         public FloatWithError Kd0 => IonicStrengthDependenceFit?.Kd0 ?? FloatWithError.NaN;
         public FloatWithError KdInf { get; private set; } = FloatWithError.NaN;
 
-        public IonicStrengthDependenceFit IonicStrengthDependenceFit { get; private set; } = null;
-        public LinearFitWithError CounterIonReleaseFit { get; private set; } = null;
-        public int CounterIonReleaseIterations { get; private set; }
+        public IonicStrengthDependenceFit IonicStrengthDependenceFit { get { InvalidateChangedInputs(); return ionicStrengthDependenceFit; } }
+        public LinearFitWithError CounterIonReleaseFit { get { InvalidateChangedInputs(); return counterIonReleaseFit; } }
+        public int CounterIonReleaseIterations { get { InvalidateChangedInputs(); return counterIonReleaseIterations; } }
+        public override int CompletedIterations
+        {
+            get { InvalidateChangedInputs(); return base.CompletedIterations; }
+            internal set => base.CompletedIterations = value;
+        }
+        public override DateTime? CompletedAtUtc
+        {
+            get { InvalidateChangedInputs(); return base.CompletedAtUtc; }
+            internal set => base.CompletedAtUtc = value;
+        }
+        public bool InputsChanged { get { InvalidateChangedInputs(); return saltInputsChanged || ionicInputsChanged; } }
 
         public bool HasIonicStrengthResult => Calculated && IonicStrengthDependenceFit != null
             && ElectrostaticsAnalysisAvailability.IsUsable(IonicStrengthDependenceFit.Kd0)
@@ -36,6 +54,7 @@ namespace AnalysisITC.Core.Analysis
             && ElectrostaticsAnalysisAvailability.IsUsable(CounterIonReleaseFit.Intercept);
 
         public string IonicStrengthUnavailableReason => HasIonicStrengthResult ? string.Empty
+            : ionicInputsChanged ? ElectrostaticsAnalysisAvailability.InputsChangedReason
             : !Data.IsElectrostaticsAnalysisDependenceEnabled ? Data.ElectrostaticsAnalysisUnavailableReason
             : (Calculated ? "No usable ionic-strength fit was obtained. " : string.Empty)
                 + ElectrostaticsAnalysisAvailability.IonicStrengthRequirement(Data.SaltAnalysisMinimumSpan);
@@ -44,6 +63,7 @@ namespace AnalysisITC.Core.Analysis
             get
             {
                 if (HasCounterIonResult) return string.Empty;
+                if (saltInputsChanged) return ElectrostaticsAnalysisAvailability.InputsChangedReason;
                 var reason = ElectrostaticsAnalysisAvailability.GetSaltDependenceMetadataReason(Data.Solution.Solutions, out _);
                 if (reason.Length > 0) return reason;
                 if (!Data.IsElectrostaticsAnalysisDependenceEnabled) return Data.ElectrostaticsAnalysisUnavailableReason;
@@ -63,8 +83,13 @@ namespace AnalysisITC.Core.Analysis
             }
         }
 
-        public override Task<bool> PerformAnalysisAsync()
-            => Data.IsElectrostaticsAnalysisDependenceEnabled ? base.PerformAnalysisAsync() : Task.FromResult(false);
+        public override async Task<bool> PerformAnalysisAsync()
+        {
+            InvalidateChangedInputs();
+            if (!Data.IsElectrostaticsAnalysisDependenceEnabled) return false;
+            try { return await base.PerformAnalysisAsync(); }
+            finally { InvalidateChangedInputs(); }
+        }
 
         public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
         {
@@ -110,43 +135,47 @@ namespace AnalysisITC.Core.Analysis
 
         protected override void Calculate()
         {
-            var ionTransfer = CalculateIonTransfer();
+            // Calculate from these captured values, rather than reading mutable inputs
+            // again during the run. Only matching components can be published.
+            var nextSaltInputs = CaptureInputs(ionic: false, includeBuffer: false);
+            var nextIonicInputs = CaptureInputs(ionic: true, includeBuffer: Data.SaltAnalysisIncludesBuffer);
+            var ionTransfer = CalculateIonTransfer(nextSaltInputs);
             if (ResultAnalysisController.TerminateAnalysisFlag.Up) return;
 
-            var ionicStrength = CalculateIonicStrengthDependence();
+            var ionicStrength = CalculateIonicStrengthDependence(nextIonicInputs);
             if (ResultAnalysisController.TerminateAnalysisFlag.Up) return;
 
-            CounterIonRelease = ionTransfer.CounterIonRelease;
-            CounterIonReleaseFit = ionTransfer.Fit;
-            CounterIonReleaseIterations = ionTransfer.Iterations;
-            IonicStrengthDependenceFit = ionicStrength.Fit;
-            CompletedIterations = ionicStrength.Iterations;
-
-            CompletedIncludeBufferInIonicStrengthCalc = Data.SaltAnalysisIncludesBuffer;
-            Calculated = true;
+            lock (inputLock)
+            {
+                counterIonReleaseFit = ionTransfer.Fit;
+                counterIonReleaseIterations = ionTransfer.Iterations;
+                ionicStrengthDependenceFit = ionicStrength.Fit;
+                base.CompletedIterations = ionicStrength.Iterations;
+                CompletedIncludeBufferInIonicStrengthCalc = nextIonicInputs.IncludeBuffer;
+                saltInputs = nextSaltInputs;
+                ionicInputs = nextIonicInputs;
+                saltInputsChanged = ionicInputsChanged = false;
+                InvalidateChangedInputs();
+            }
         }
 
         // All fitting and plotting consumers use these same coordinates and complete intervals.
         public List<(SolutionInterface Solution, double X, FloatWithError Y)> GetSaltDependencePoints()
         {
-            var points = new List<(SolutionInterface Solution, double X, FloatWithError Y)>();
-            if (ElectrostaticsAnalysisAvailability.GetSaltDependenceMetadataReason(Data.Solution.Solutions, out _).Length > 0)
-                return points;
-            foreach (var solution in Data.Solution.Solutions)
-            {
-                if (solution?.Data == null) continue;
-                SaltAttribute.TryGetSingleSaltConcentration(solution.Data, out _, out var concentration);
-                if (concentration <= 0 || !ElectrostaticsAnalysisAvailability.HasUsableAffinity(solution)) continue;
-                points.Add((solution, Math.Log(concentration), FWEMath.Log(solution.ReportParameters[ParameterType.Affinity1])));
-            }
-            return points;
+            var inputs = CaptureInputs(ionic: false, includeBuffer: false);
+            if (!inputs.SingleSaltValid) return new List<(SolutionInterface, double, FloatWithError)>();
+            return inputs.Members.Select((member, index) => (member, index)).Where(item => item.member.Included)
+                .Select(item => (Data.Solution.Solutions[item.index], Math.Log(item.member.X), FWEMath.Log(item.member.Affinity)))
+                .ToList();
         }
 
-        IonTransferResult CalculateIonTransfer()
+        IonTransferResult CalculateIonTransfer(ComponentInputs inputs)
         {
             AppEventHandler.PrintAndLog("Performing Salt-dependence Analysis...");
 
-            var dps = GetSaltDependencePoints().Select(point => (point.X, point.Y)).ToList();
+            var dps = inputs.SingleSaltValid
+                ? inputs.Members.Where(member => member.Included).Select(member => (Math.Log(member.X), FWEMath.Log(member.Affinity))).ToList()
+                : new List<(double, FloatWithError)>();
             if (dps.Select(point => point.Item1).Distinct().Count() < 3)
                 return new IonTransferResult(FloatWithError.NaN, null, 0);
 
@@ -171,20 +200,11 @@ namespace AnalysisITC.Core.Analysis
             return new IonTransferResult(slope, new LinearFitWithError(slope, intercept, 0), results.Count);
         }
 
-        IonicStrengthResult CalculateIonicStrengthDependence()
+        IonicStrengthResult CalculateIonicStrengthDependence(ComponentInputs inputs)
         {
             AppEventHandler.PrintAndLog("Performing Electrostatics Analysis...");
 
-            var dps = new List<(double, FloatWithError)>();
-
-            foreach (var sol in Data.Solution.Solutions)
-            {
-                double ionicStrength = Data.GetSaltAnalysisIonicStrength(sol.Data);
-                if (!FWEMath.IsFinite(ionicStrength) || ionicStrength < 0
-                    || !ElectrostaticsAnalysisAvailability.HasUsableAffinity(sol)) continue;
-                var affinity = sol.ReportParameters[ParameterType.Affinity1];
-                dps.Add((ionicStrength, affinity));
-            }
+            var dps = inputs.Members.Where(member => member.Included).Select(member => (member.X, member.Affinity)).ToList();
 
             if (dps.Count < 3)
             {
@@ -237,25 +257,89 @@ namespace AnalysisITC.Core.Analysis
             return new IonicStrengthResult(fit, results.Count);
         }
 
-        protected override object CaptureCommittedState() => new CommittedState
+        ComponentInputs CaptureInputs(bool ionic, bool includeBuffer)
         {
-            Calculated = Calculated,
-            IncludeBuffer = CompletedIncludeBufferInIonicStrengthCalc,
-            CounterIonRelease = CounterIonRelease,
-            CounterIonReleaseFit = CounterIonReleaseFit,
-            CounterIonReleaseIterations = CounterIonReleaseIterations,
-            IonicStrengthDependenceFit = IonicStrengthDependenceFit,
-        };
+            var inputs = new ComponentInputs { IncludeBuffer = includeBuffer };
+            foreach (var solution in Data.Solution.Solutions)
+            {
+                var data = solution.Data;
+                var validSalt = SaltAttribute.TryGetSingleSaltConcentration(data, out var salt, out var concentration);
+                var hasSalt = data.Attributes.Any(attribute => attribute.Key == AttributeKey.Salt);
+                inputs.HasSaltMetadata &= hasSalt;
+                var x = ionic ? BufferAttribute.GetIonicStrength(data, includeBuffer) : concentration;
+                var included = FWEMath.IsFinite(x) && (ionic ? x >= 0 : x > 0)
+                    && ElectrostaticsAnalysisAvailability.HasUsableAffinity(solution);
+                var affinity = included ? solution.ReportParameters[ParameterType.Affinity1] : FloatWithError.NaN;
+                inputs.Members.Add(new InputMember
+                {
+                    SolutionId = solution.Guid, ExperimentId = data.UniqueID,
+                    Valid = ionic ? hasSalt : validSalt, Salt = ionic ? null : salt, X = x, Included = included,
+                    // Copy the interval as well: FloatWithError contains a mutable endpoint array.
+                    Affinity = new FloatWithError(affinity.Value, affinity.SD, affinity.Lower, affinity.Upper)
+                });
+            }
+            return inputs;
+        }
+
+        void InvalidateChangedInputs()
+        {
+            lock (inputLock)
+            {
+                if (saltInputs != null && !saltInputs.EquivalentTo(CaptureInputs(ionic: false, includeBuffer: false)))
+                {
+                    saltInputs = null;
+                    counterIonReleaseFit = null;
+                    counterIonReleaseIterations = 0;
+                    saltInputsChanged = true;
+                }
+                if (ionicInputs != null && !ionicInputs.EquivalentTo(CaptureInputs(ionic: true, includeBuffer: CompletedIncludeBufferInIonicStrengthCalc)))
+                {
+                    ionicInputs = null;
+                    ionicStrengthDependenceFit = null;
+                    ionicInputsChanged = true;
+                }
+                if (ionicInputsChanged) base.CompletedIterations = 0;
+                if (saltInputs == null && ionicInputs == null)
+                {
+                    base.CompletedAtUtc = null;
+                    CompletedErrorEstimationMethod = null;
+                }
+            }
+        }
+
+        protected override void CommitRunState() => InvalidateChangedInputs();
+
+        protected override object CaptureCommittedState()
+        {
+            lock (inputLock)
+            {
+                InvalidateChangedInputs();
+                return new CommittedState
+                {
+                    IncludeBuffer = CompletedIncludeBufferInIonicStrengthCalc,
+                    CounterIonReleaseFit = counterIonReleaseFit,
+                    CounterIonReleaseIterations = counterIonReleaseIterations,
+                    IonicStrengthDependenceFit = ionicStrengthDependenceFit,
+                    SaltInputs = saltInputs, IonicInputs = ionicInputs,
+                    SaltInputsChanged = saltInputsChanged, IonicInputsChanged = ionicInputsChanged,
+                };
+            }
+        }
 
         protected override void RestoreCommittedState(object state)
         {
-            var previous = state as CommittedState;
-            Calculated = previous?.Calculated == true;
-            CompletedIncludeBufferInIonicStrengthCalc = previous?.IncludeBuffer == true;
-            CounterIonRelease = previous?.CounterIonRelease ?? FloatWithError.NaN;
-            CounterIonReleaseFit = previous?.CounterIonReleaseFit;
-            CounterIonReleaseIterations = previous?.CounterIonReleaseIterations ?? 0;
-            IonicStrengthDependenceFit = previous?.IonicStrengthDependenceFit;
+            lock (inputLock)
+            {
+                var previous = state as CommittedState;
+                CompletedIncludeBufferInIonicStrengthCalc = previous?.IncludeBuffer == true;
+                counterIonReleaseFit = previous?.CounterIonReleaseFit;
+                counterIonReleaseIterations = previous?.CounterIonReleaseIterations ?? 0;
+                ionicStrengthDependenceFit = previous?.IonicStrengthDependenceFit;
+                saltInputs = previous?.SaltInputs;
+                ionicInputs = previous?.IonicInputs;
+                saltInputsChanged = previous?.SaltInputsChanged == true;
+                ionicInputsChanged = previous?.IonicInputsChanged == true;
+            }
         }
 
         internal void RestoreResult(
@@ -267,23 +351,53 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationMethod errorMethod,
             bool includeBufferInIonicStrengthCalc)
         {
-            IonicStrengthDependenceFit = ionicStrengthFit;
-            CounterIonReleaseFit = counterIonReleaseFit;
-            CounterIonRelease = counterIonReleaseFit?.Slope ?? FloatWithError.NaN;
-            CounterIonReleaseIterations = counterIonReleaseIterations;
-            CompletedIncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCalc;
-            Calculated = true;
-            RestoreRunMetadata(ionicStrengthIterations, completedAtUtc, errorMethod);
+            lock (inputLock)
+            {
+                ionicStrengthDependenceFit = ionicStrengthFit;
+                this.counterIonReleaseFit = counterIonReleaseFit;
+                this.counterIonReleaseIterations = counterIonReleaseIterations;
+                CompletedIncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCalc;
+                saltInputs = CaptureInputs(ionic: false, includeBuffer: false);
+                ionicInputs = CaptureInputs(ionic: true, includeBuffer: includeBufferInIonicStrengthCalc);
+                saltInputsChanged = ionicInputsChanged = false;
+                RestoreRunMetadata(ionicStrengthIterations, completedAtUtc, errorMethod);
+            }
         }
 
         sealed class CommittedState
         {
-            public bool Calculated { get; set; }
             public bool IncludeBuffer { get; set; }
-            public FloatWithError CounterIonRelease { get; set; }
             public LinearFitWithError CounterIonReleaseFit { get; set; }
             public int CounterIonReleaseIterations { get; set; }
             public IonicStrengthDependenceFit IonicStrengthDependenceFit { get; set; }
+            public ComponentInputs SaltInputs { get; set; }
+            public ComponentInputs IonicInputs { get; set; }
+            public bool SaltInputsChanged { get; set; }
+            public bool IonicInputsChanged { get; set; }
+        }
+
+        // Transient evidence only; existing files continue to restore their saved outputs.
+        sealed class ComponentInputs
+        {
+            public bool IncludeBuffer;
+            public bool HasSaltMetadata = true;
+            public readonly List<InputMember> Members = new List<InputMember>();
+            public bool SingleSaltValid => Members.All(member => member.Valid)
+                && Members.Where(member => member.Salt.HasValue).Select(member => member.Salt).Distinct().Count() <= 1;
+            public bool EquivalentTo(ComponentInputs other) => IncludeBuffer == other.IncludeBuffer
+                && HasSaltMetadata == other.HasSaltMetadata && Members.Count == other.Members.Count
+                && Members.Zip(other.Members, (left, right) => left.Key.Equals(right.Key)).All(equal => equal);
+        }
+
+        sealed class InputMember
+        {
+            public string SolutionId, ExperimentId;
+            public bool Valid, Included;
+            public Salt? Salt;
+            public double X;
+            public FloatWithError Affinity;
+            public (string, string, bool, Salt?, double, bool, (double, double, double, double)) Key
+                => (SolutionId, ExperimentId, Valid, Salt, X, Included, (Affinity.Value, Affinity.SD, Affinity.Lower, Affinity.Upper));
         }
 
         readonly struct IonTransferResult

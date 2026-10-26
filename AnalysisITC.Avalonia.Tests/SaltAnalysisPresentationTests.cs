@@ -1,12 +1,16 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using AnalysisITC.Avalonia.Details;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using Xunit;
 
@@ -15,6 +19,63 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SaltAnalysisPresentationTests
 {
+    [AvaloniaFact]
+    public async Task DetailsApplyAndRunButtonReplaceInvalidatedSaltOutputs()
+    {
+        var span = AppSettings.MinimumIonSpanForFitting;
+        var iterations = ResultAnalysisController.CalculationIterations;
+        Window? host = null;
+        try
+        {
+            AppSettings.MinimumIonSpanForFitting = .03;
+            ResultAnalysisController.CalculationIterations = 8;
+            var result = SaltDependenceGraphTests.CreateSaltResult(new[] { .025, .05, .1, .2 });
+            for (var i = 0; i < 4; i++)
+                result.Solution.Solutions[i].Parameters[ParameterType.Affinity1] = new(-Math.Log10(1e-7 * Math.Pow(16, i)));
+            result.UpdateSolution(result.Solution);
+            Assert.True(await result.ElectrostaticsAnalysis.PerformAnalysisAsync());
+            Assert.Equal(4, result.ElectrostaticsAnalysis.CounterIonRelease.Value, 10);
+
+            for (var i = 0; i < 4; i++)
+            {
+                var details = new ExperimentDetailsWindow(result.Solution.Solutions[i].Data);
+                var row = details.GetLogicalDescendants().OfType<ExperimentAttributeEditorControl>().Single();
+                ((TextBox)row.GetType().GetField("valueBox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(row)!).Text
+                    = (25 * Math.Pow(4, i)).ToString("F0");
+                details.GetLogicalDescendants().OfType<Button>().Single(b => Equals(b.Content, "Apply"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.True(details.Applied);
+            }
+
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            host = new Window { Content = workspace };
+            host.Show();
+            workspace.SetResultViewMode(ResultAnalysisViewMode.Salt);
+            var panel = (StackPanel)typeof(AnalysisResultWorkspaceControl).GetField("analysisPanel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            Assert.Contains(panel.GetLogicalDescendants().OfType<TextBlock>(), text => text.Text == ElectrostaticsAnalysisAvailability.InputsChangedReason);
+            var graph = new ResultDependenceGraphControl { Result = result, Mode = ResultAnalysisViewMode.Salt,
+                SaltMode = ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease };
+            Assert.Empty(graph.FitPointsForTesting);
+            panel.GetLogicalDescendants().OfType<Button>().Single(b => Equals(b.Content, "Run Analysis"))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while ((ProcessingActivity.IsBusy || !result.ElectrostaticsAnalysis.HasCounterIonResult) && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            Assert.False(ProcessingActivity.IsBusy);
+            Assert.Equal(2, result.ElectrostaticsAnalysis.CounterIonRelease.Value, 10);
+            graph.Rebuild();
+            Assert.NotEmpty(graph.FitPointsForTesting);
+            global::Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.DoesNotContain(panel.GetLogicalDescendants().OfType<TextBlock>(), text => text.Text == ElectrostaticsAnalysisAvailability.InputsChangedReason);
+        }
+        finally
+        {
+            host?.Close();
+            AppSettings.MinimumIonSpanForFitting = span;
+            ResultAnalysisController.CalculationIterations = iterations;
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(false, false, false)]
     [InlineData(false, false, true)]

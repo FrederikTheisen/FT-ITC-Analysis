@@ -537,8 +537,11 @@ namespace AnalysisITC.Core.Data
 			//Check if ionicstrength is specifically stated
 			if (data.Attributes.Exists(opt => opt.Key == AttributeKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == AttributeKey.IonicStrength).ParameterValue.Value;
 
-			var salts = data.Attributes.Where(opt => opt.Key == AttributeKey.Salt);
-			var buffers = data.Attributes.Where(opt => opt.Key == AttributeKey.Buffer);
+			// Stable addition order keeps equivalent attribute reorderings identical.
+			var salts = data.Attributes.Where(opt => opt.Key == AttributeKey.Salt)
+                .OrderBy(opt => opt.IntValue).ThenBy(opt => opt.ParameterValue.Value);
+			var buffers = data.Attributes.Where(opt => opt.Key == AttributeKey.Buffer)
+                .OrderBy(opt => opt.IntValue).ThenBy(opt => opt.DoubleValue).ThenBy(opt => opt.ParameterValue.Value);
 
 			var i = 0.0;
 

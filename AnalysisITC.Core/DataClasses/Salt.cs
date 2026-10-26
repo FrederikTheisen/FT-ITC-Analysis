@@ -62,7 +62,9 @@ namespace AnalysisITC.Core.Data
         {
             identity = null;
             concentration = 0;
-            var salts = data.Attributes.Where(attribute => attribute.Key == AttributeKey.Salt).ToList();
+            // Sum in a stable order so rearranging metadata cannot change a fit input.
+            var salts = data.Attributes.Where(attribute => attribute.Key == AttributeKey.Salt)
+                .OrderBy(attribute => attribute.ParameterValue.Value).ToList();
             if (salts.Count == 0) return false;
             foreach (var entry in salts)
             {

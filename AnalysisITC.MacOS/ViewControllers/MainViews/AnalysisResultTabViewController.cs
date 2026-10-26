@@ -1129,7 +1129,8 @@ namespace AnalysisITC
                 AddPageView(analysisStack, Section(
                     "Output",
                     Message(
-                        "Run the analysis to calculate electrostatic parameters.")));
+                        analysis.InputsChanged ? ElectrostaticsAnalysisAvailability.InputsChangedReason
+                            : "Run the analysis to calculate electrostatic parameters.")));
                 return;
             }
 

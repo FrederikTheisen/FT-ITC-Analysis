@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
@@ -13,6 +14,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.UI.MacOS.CustomViews;
 
 static class SaltAnalysisPresentationTests
 {
@@ -24,9 +26,12 @@ static class SaltAnalysisPresentationTests
     {
         NSApplication.Init();
         var span = AppSettings.MinimumIonSpanForFitting;
+        var iterations = ResultAnalysisController.CalculationIterations;
         try
         {
             AppSettings.MinimumIonSpanForFitting = .03;
+            ResultAnalysisController.CalculationIterations = 8;
+            CheckDetailsAndRunButton();
             foreach (var ionic in new[] { false, true })
             foreach (var counter in new[] { false, true })
             foreach (var missing in new[] { false, true }) CheckOutput(ionic, counter, missing);
@@ -50,7 +55,64 @@ static class SaltAnalysisPresentationTests
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
-        finally { AppSettings.MinimumIonSpanForFitting = span; }
+        finally
+        {
+            AppSettings.MinimumIonSpanForFitting = span;
+            ResultAnalysisController.CalculationIterations = iterations;
+        }
+    }
+
+    sealed class DetailsController : ExperimentDetailsPopoverController
+    {
+        public bool Dismissed;
+        public override void DismissViewController(NSViewController controller) { Dismissed = true; }
+    }
+
+    static void CheckDetailsAndRunButton()
+    {
+        var result = Create(.025, .05, .1, .2);
+        for (var i = 0; i < 4; i++)
+            result.Solution.Solutions[i].Parameters[ParameterType.Affinity1] = new FloatWithError(-Math.Log10(1e-7 * Math.Pow(16, i)));
+        result.UpdateSolution(result.Solution);
+        var initial = result.ElectrostaticsAnalysis.PerformAnalysisAsync();
+        var initialDeadline = DateTime.UtcNow.AddSeconds(10);
+        while (!initial.IsCompleted && DateTime.UtcNow < initialDeadline)
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.01));
+        Check(initial.IsCompleted && initial.GetAwaiter().GetResult(), "initial salt calculation");
+        Check(Math.Abs(result.ElectrostaticsAnalysis.CounterIonRelease.Value - 4) < 1e-10, "initial slope 4");
+        for (var i = 0; i < 4; i++)
+        {
+            ExperimentDetailsPopoverController.Data = result.Solution.Solutions[i].Data;
+            using (var details = new DetailsController { View = new NSView(new CGRect(0, 0, 720, 600)) })
+            {
+                details.ViewDidLoad();
+                var rows = (List<ExperimentAttributeView>)typeof(ExperimentDetailsPopoverController).GetField("attributeViews", Instance).GetValue(details);
+                ((NSTextField)typeof(ExperimentAttributeView).GetField("parameterValueField", Instance).GetValue(rows.Single())).StringValue
+                    = (25 * Math.Pow(4, i)).ToString("F0");
+                // AppKit editing notifications are how the control records a user edit.
+                NSNotificationCenter.DefaultCenter.PostNotificationName(NSControl.TextDidChangeNotification,
+                    (NSTextField)typeof(ExperimentAttributeView).GetField("parameterValueField", Instance).GetValue(rows.Single()));
+                var apply = Descendants(details.View).OfType<NSButton>().Single(button => button.Title == "Apply");
+                apply.PerformClick(apply);
+                Check(details.Dismissed, "details Apply completed");
+            }
+        }
+        using (var controller = Controller(result))
+        using (var stack = new NSStackView())
+        {
+            controller.View = new NSView(new CGRect(0, 0, 720, 600));
+            typeof(AnalysisResultTabViewController).GetField("analysisStack", Instance).SetValue(controller, stack);
+            typeof(AnalysisResultTabViewController).GetMethod("AddSaltAnalysisSections", Instance).Invoke(controller, null);
+            Check(Descendants(stack).OfType<NSTextField>().Any(field => field.StringValue == ElectrostaticsAnalysisAvailability.InputsChangedReason), "changed-input message");
+            Check(!result.ElectrostaticsAnalysis.HasCounterIonResult, "old fit unavailable");
+            var run = Descendants(stack).OfType<NSButton>().Single(button => button.Title == "Run Analysis");
+            run.PerformClick(run);
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while ((ProcessingActivity.IsBusy || !result.ElectrostaticsAnalysis.HasCounterIonResult) && DateTime.UtcNow < deadline)
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(.01));
+            Check(!ProcessingActivity.IsBusy && Math.Abs(result.ElectrostaticsAnalysis.CounterIonRelease.Value - 2) < 1e-10, "Run Analysis replaces slope with 2");
+        }
+        Console.WriteLine("PASS: native details Apply -> unavailable -> Run Analysis -> slope 2");
     }
 
     static void CheckOutput(bool ionic, bool counter, bool missing)

@@ -61,8 +61,8 @@ namespace AnalysisITC.Core.Analysis
         public List<Tuple<double, FloatWithError>> DataPoints;
         public FitWithError Fit { get; set; }
 
-        public int CompletedIterations { get; internal set; } = 0;
-        public DateTime? CompletedAtUtc { get; internal set; }
+        public virtual int CompletedIterations { get; internal set; } = 0;
+        public virtual DateTime? CompletedAtUtc { get; internal set; }
         public ErrorEstimationMethod? CompletedErrorEstimationMethod { get; internal set; }
 
         public AdvancedAnalysis(AnalysisResult result)

@@ -9,6 +9,7 @@ namespace AnalysisITC.Core.Analysis
 {
     public static class ElectrostaticsAnalysisAvailability
     {
+        public const string InputsChangedReason = "Inputs changed. Recalculate the analysis.";
         public const string MinimumSpanToolTip = "Requires three ionic strengths separated by over half this span.";
         public const string Kd0ToolTip = "Model-estimated Kd extrapolated to zero ionic strength.";
         public const string SaltDependenceLabel = "Salt-dependence slope";

@@ -347,7 +347,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · [Info] Reading structuring estimates: how entropy is split; Theisen et al. (J. Am. Chem. Soc. 2021) coefficients; model-based, not structural measurements | expanded explanations only |
 | **X03** | **Affinity versus salt** | electrostatics enabled (same condition as A06 [Ions]); omitted when the spacing rule fails |
 | | · [Plot] Kd vs salt concentration (mM), saved 95% CI, no fitted line | |
-| **X04** | **Debye-Huckel dependence** | requested and completed ionic-strength component has usable parameter centers; saved outputs remain eligible when current spacing fails |
+| **X04** | **Debye-Huckel dependence** | requested and completed ionic-strength component has usable parameter centers and unchanged calculation inputs; saved outputs remain eligible when only the current spacing preference fails |
 | | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve (legend: "Fitted curve") | Observations use the completed fit's saved buffer-inclusion policy, independently of current eligibility and the next run's captured preferences. Incomplete saved electrostatics payloads are omitted. |
 | | · Saved result heading | |
 | | · Kd at zero ionic strength | only when the ionic-strength component is available |
@@ -356,7 +356,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Salt-dependence slope | only when the shared Core component-availability check passes |
 | | · Uncertainty | |
 | | · Completed | |
-| **X05** | **Salt dependence** | requested and completed concentration-slope component has usable slope/intercept centers; saved outputs remain eligible when current spacing fails |
+| **X05** | **Salt dependence** | requested and completed concentration-slope component has usable slope/intercept centers and unchanged calculation inputs; saved outputs remain eligible when only the current spacing preference fails |
 | | · [Plot] ln(Kd / M) vs ln(Salt concentration / M); points + fitted line (legend: "Fitted line"); caption identifies salt | Same single-salt Core coordinates as desktop/viewer. Version-1 counter-ion fits are omitted on read; recalculate to obtain this component. |
 | | · Saved result: same lines as X04 | |
 | **X06** | **Protonation dependence** | |

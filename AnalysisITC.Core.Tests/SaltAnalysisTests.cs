@@ -325,9 +325,11 @@ public sealed partial class SaltAnalysisTests : IDisposable
     {
         var result = Create(new[] { .05, .1, .15 }, twoSite: unsupportedModel);
         var analysis = new ElectrostaticsAnalysis(result);
+        // Inject an inconsistent saved state to exercise the reader's structural guard.
+        // A normal post-calculation edit now invalidates the component before writing.
+        if (!unsupportedModel) result.Solution.Solutions[0].Data.Attributes.Clear();
         analysis.RestoreResult(new(new(2e-6), new(2), new(0)), null, 8, 0, DateTime.UtcNow, ErrorEstimationMethod.None, false);
         typeof(AnalysisResult).GetProperty(nameof(AnalysisResult.ElectrostaticsAnalysis)).SetValue(result, analysis);
-        if (!unsupportedModel) result.Solution.Solutions[0].Data.Attributes.Clear();
         Assert.False(result.EnsureElectrostaticsAnalysisForRestore());
         using var stream = await Save(result);
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict));

@@ -1358,7 +1358,9 @@ namespace AnalysisITC.Avalonia.Results
             var analysis = result.ElectrostaticsAnalysis;
             if (!analysis.Calculated)
             {
-                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate electrostatic parameters.") }));
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text(analysis.InputsChanged
+                    ? ElectrostaticsAnalysisAvailability.InputsChangedReason
+                    : "Run the analysis to calculate electrostatic parameters.") }));
                 return;
             }
 
