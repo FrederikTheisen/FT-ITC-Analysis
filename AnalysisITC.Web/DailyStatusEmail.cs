@@ -10,10 +10,10 @@ using Microsoft.Extensions.Options;
 namespace AnalysisITC.Web;
 
 internal sealed record DailyStatusCheck(string Detail, bool HasAttention, bool InterpretationUnavailable = false);
-internal sealed record DailyStatusReport(string Text, bool HasAttention);
+internal sealed record DailyStatusReport(string Text, bool HasAttention, IReadOnlyList<DailyUserActivity>? Users = null);
 
 /// <summary>A metadata-only daily report, run as a command rather than a web request.</summary>
-public sealed class DailyStatusEmail
+public sealed partial class DailyStatusEmail
 {
     const string ZoneId = "Europe/Copenhagen";
     internal const string SenderAddress = "mist@ft-itc.org";
@@ -74,6 +74,7 @@ public sealed class DailyStatusEmail
     internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date, bool liveChecks = false)
     {
         var hasAttention = false;
+        IReadOnlyList<DailyUserActivity>? users = null;
         var (start, end) = Bounds(date);
         var lines = new List<string>
         {
@@ -270,7 +271,8 @@ public sealed class DailyStatusEmail
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var instant)
                     ? Format(instant) : "none"));
             }
-            AddUserActivity(lines, db, start, end);
+            users = ReadUserActivity(db, start, end);
+            AddUserActivity(lines, users);
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
         { hasAttention = true; lines.Add("  Usage database: check unavailable"); }
@@ -306,69 +308,7 @@ public sealed class DailyStatusEmail
             { hasAttention = true; lines.Add("  Diagnostic accounting: check unavailable"); }
         }
         lines.Insert(2, $"Overall status: {(hasAttention ? "ATTENTION" : "OK")}");
-        return new(string.Join("\n", lines) + "\n", hasAttention);
-    }
-
-    void AddUserActivity(List<string> lines, SqliteConnection db, DateTime start, DateTime end)
-    {
-        var accounts = new Dictionary<string, OperatorCodeRecord>(StringComparer.Ordinal);
-        try
-        {
-            if (operators is not null)
-                accounts = operators.List().ToDictionary(record => record.Id, StringComparer.Ordinal);
-        }
-        catch
-        {
-            // Usage remains reportable even when identity metadata is unavailable.
-        }
-
-        lines.Add("");
-        lines.Add("User activity");
-        using var query = db.CreateCommand();
-        query.CommandText = """
-            WITH period AS (
-              SELECT operator_code_id,coalesce(max(access_tier),'public') AS access_tier,count(*) AS prompts,
-                     coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved,
-                     coalesce(sum(waived_unknown_count),0) AS waived
-              FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' AND started_utc >= $start AND started_utc < $end
-              GROUP BY operator_code_id
-            ), totals AS (
-              SELECT operator_code_id,count(*) AS prompts,coalesce(sum(known_cost),0) AS known_cost,
-                     coalesce(sum(unresolved_cost_count),0) AS unresolved,coalesce(sum(waived_unknown_count),0) AS waived
-              FROM execution_usage WHERE coalesce(effective_preset,'') <> 'daily-diagnostic' GROUP BY operator_code_id
-            )
-            SELECT period.operator_code_id,period.access_tier,period.prompts,period.known_cost,period.unresolved,period.waived,
-                   totals.prompts,totals.known_cost,totals.unresolved,totals.waived
-            FROM period JOIN totals ON period.operator_code_id IS totals.operator_code_id
-            ORDER BY period.prompts DESC,period.operator_code_id
-            """;
-        query.Parameters.AddWithValue("$start", start.ToString("O", CultureInfo.InvariantCulture));
-        query.Parameters.AddWithValue("$end", end.ToString("O", CultureInfo.InvariantCulture));
-        using var reader = query.ExecuteReader();
-        var any = false;
-        while (reader.Read())
-        {
-            any = true;
-            var id = reader.IsDBNull(0) ? null : reader.GetString(0);
-            var tier = reader.IsDBNull(1) ? "unknown" : reader.GetString(1);
-            var label = id is not null && accounts.TryGetValue(id, out var account)
-                ? account.Name ?? account.Label
-                : id is null ? "Unattributed public activity" : tier == InterpretationAccessTiers.Public ? "Public installation" : "Unavailable account";
-            lines.Add(id is null ? $"  {label}" : $"  {label} — {id} ({tier})");
-            lines.Add($"    Previous day: {reader.GetInt64(2)} prompt(s); {FormatCost(reader, 3, 4, 5)}");
-            lines.Add($"    All time: {reader.GetInt64(6)} prompt(s); {FormatCost(reader, 7, 8, 9)}");
-        }
-        if (!any) lines.Add("  No user activity.");
-    }
-
-    static string FormatCost(SqliteDataReader reader, int knownIndex, int unresolvedIndex, int waivedIndex)
-    {
-        var known = Convert.ToDecimal(reader.GetValue(knownIndex), CultureInfo.InvariantCulture);
-        var unresolved = reader.GetInt64(unresolvedIndex);
-        var waived = reader.GetInt64(waivedIndex);
-        return unresolved + waived > 0
-            ? $"cost unknown (known subtotal ${known.ToString("0.0000", CultureInfo.InvariantCulture)}; unresolved {unresolved}, waived unknown {waived})"
-            : $"estimated cost ${known.ToString("0.0000", CultureInfo.InvariantCulture)}";
+        return new(string.Join("\n", lines) + "\n", hasAttention, users);
     }
 
     string Format(DateTime utc) => Format(new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)));
@@ -376,11 +316,13 @@ public sealed class DailyStatusEmail
 
     public static async Task<int> RunAsync(string[] args, DailyStatusEmail reporter, TextWriter output, TextWriter error)
     {
-        if (args.Length == 0 || args[0] is not ("preview" or "send" or "check") || args.Length > 4 ||
-            args.Any(value => value is not ("preview" or "send" or "check" or "--live-checks" or "--date") && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
-        { error.WriteLine("Usage: status-email preview|send|check [--live-checks] [--date YYYY-MM-DD]"); return 2; }
+        if (args.Length == 0 || args[0] is not ("preview" or "send" or "check") || args.Length > 5 ||
+            args.Any(value => value is not ("preview" or "send" or "check" or "--live-checks" or "--date" or "--html") && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+        { error.WriteLine("Usage: status-email preview|send|check [--live-checks] [--date YYYY-MM-DD] [--html (preview only)]"); return 2; }
         if (args.Contains("--live-checks", StringComparer.Ordinal) && args[0] == "preview")
         { error.WriteLine("Preview runs non-billable checks only."); return 2; }
+        if (args.Contains("--html", StringComparer.Ordinal) && args[0] != "preview")
+        { error.WriteLine("HTML output is available for preview only."); return 2; }
         var dateIndex = Array.IndexOf(args, "--date");
         if (dateIndex >= 0 && (dateIndex + 1 >= args.Length || !DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
         { error.WriteLine("Invalid date; use YYYY-MM-DD."); return 2; }
@@ -388,7 +330,7 @@ public sealed class DailyStatusEmail
         var date = currentDate.AddDays(-1);
         if (dateIndex >= 0) DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
         var report = await reporter.CreateStatusReportAsync(date, args[0] == "check" || args.Contains("--live-checks", StringComparer.Ordinal));
-        if (args[0] is "preview" or "check") { output.Write(report.Text); return args[0] == "check" && report.HasAttention ? 1 : 0; }
+        if (args[0] is "preview" or "check") { output.Write(args.Contains("--html", StringComparer.Ordinal) ? RenderHtml(report) : report.Text); return args[0] == "check" && report.HasAttention ? 1 : 0; }
         try
         {
             var subject = $"[{(report.HasAttention ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
@@ -396,9 +338,8 @@ public sealed class DailyStatusEmail
             {
                 try
                 {
-                    var htmlReport = RenderHtml(report.Text);
-                    if (reporter.sender is not null) await reporter.sender(subject, htmlReport);
-                    else await reporter.SendSmtpAsync(subject, htmlReport);
+                    if (reporter.sender is not null) await reporter.sender(subject, RenderHtml(report));
+                    else await reporter.SendSmtpAsync(subject, report);
                     output.WriteLine($"Status email delivered for {date:yyyy-MM-dd}.");
                     return 0;
                 }
@@ -410,7 +351,7 @@ public sealed class DailyStatusEmail
         return 1;
     }
 
-    async Task SendSmtpAsync(string subject, string report)
+    async Task SendSmtpAsync(string subject, DailyStatusReport report)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -424,62 +365,20 @@ public sealed class DailyStatusEmail
         if (string.IsNullOrWhiteSpace(configuration.Host) || configuration.Port is < 1 or > 65535 ||
             string.IsNullOrWhiteSpace(configuration.Username) || string.IsNullOrWhiteSpace(configuration.Password))
             throw new InvalidOperationException("Mail configuration is incomplete.");
-        using var message = new MailMessage(SenderAddress, RecipientAddress, subject, report)
-        { BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8, IsBodyHtml = true };
-        message.ReplyToList.Add(new MailAddress(ReplyToAddress));
+        using var message = CreateMailMessage(subject, report);
         using var client = new SmtpClient(configuration.Host, configuration.Port)
         { EnableSsl = true, Credentials = new NetworkCredential(configuration.Username, configuration.Password), Timeout = 15000 };
         await client.SendMailAsync(message);
     }
 
-    internal static string RenderHtml(string report)
+    internal static MailMessage CreateMailMessage(string subject, DailyStatusReport report)
     {
-        var lines = report.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var html = new StringBuilder("<!doctype html><html><head><meta charset=\"utf-8\"></head><body style=\"margin:0;padding:24px;background:#f4f6f8;color:#17212b;font-family:Arial,Helvetica,sans-serif;line-height:1.5\"><main style=\"max-width:760px;margin:0 auto;padding:24px;background:#ffffff;border:1px solid #d8dee5;border-radius:8px\">");
-        for (var index = 0; index < lines.Length; index++)
-        {
-            var line = lines[index];
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var content = WebUtility.HtmlEncode(line.Trim());
-            if (index == 0)
-            {
-                html.Append("<h1 style=\"margin:0 0 8px;font-size:22px;color:#17324d\">").Append(content).Append("</h1>");
-                continue;
-            }
-            if (line.StartsWith("Overall status: ", StringComparison.Ordinal))
-            {
-                var healthy = line == "Overall status: OK";
-                html.Append("<p style=\"margin:16px 0;padding:12px 16px;border-left:4px solid ")
-                    .Append(healthy ? "#217346;background:#edf7f0" : "#b42318;background:#fff1f0")
-                    .Append(";font-size:17px\"><strong style=\"color:")
-                    .Append(healthy ? "#217346" : "#b42318")
-                    .Append("\">").Append(content).Append("</strong></p>");
-                continue;
-            }
-            if (!char.IsWhiteSpace(line[0]) && !line.Contains(':'))
-            {
-                html.Append("<h2 style=\"margin:24px 0 8px;padding-bottom:5px;border-bottom:1px solid #d8dee5;font-size:17px;color:#17324d\">")
-                    .Append(content).Append("</h2>");
-                continue;
-            }
-
-            var separator = line.IndexOf(':');
-            var value = separator >= 0 ? line[(separator + 1)..].Trim() : "";
-            if (value is "ok" or "active" or "HTTP 200; interpretation available")
-            {
-                content = WebUtility.HtmlEncode(line[..(separator + 1)].Trim())
-                    + " <strong style=\"color:#217346\">" + WebUtility.HtmlEncode(value) + "</strong>";
-            }
-            content = content.Replace("PASS", "<strong style=\"color:#217346\">PASS</strong>", StringComparison.Ordinal)
-                .Replace("FAIL", "<strong style=\"color:#b42318\">FAIL</strong>", StringComparison.Ordinal)
-                .Replace("ATTENTION", "<strong style=\"color:#b42318\">ATTENTION</strong>", StringComparison.Ordinal)
-                .Replace("WARNING", "<strong style=\"color:#9a6700\">WARNING</strong>", StringComparison.Ordinal)
-                .Replace("SKIPPED", "<strong style=\"color:#9a6700\">SKIPPED</strong>", StringComparison.Ordinal)
-                .Replace("check unavailable", "<strong style=\"color:#b42318\">check unavailable</strong>", StringComparison.OrdinalIgnoreCase);
-            html.Append("<p style=\"margin:5px 0\">").Append(content).Append("</p>");
-        }
-        html.Append("</main></body></html>");
-        return html.ToString();
+        var message = new MailMessage(SenderAddress, RecipientAddress, subject, report.Text)
+        { BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8 };
+        message.ReplyToList.Add(new MailAddress(ReplyToAddress));
+        message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
+            RenderHtml(report), Encoding.UTF8, System.Net.Mime.MediaTypeNames.Text.Html));
+        return message;
     }
 
     sealed class StatusMailConfiguration

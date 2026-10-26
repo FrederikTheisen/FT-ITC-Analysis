@@ -459,15 +459,18 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, output, error));
         Assert.NotNull(delivered);
-        Assert.Contains("2026-09-14", delivered);
-        Assert.Contains("Requests: 1", delivered);
-        Assert.Contains("Provider attempts: 1", delivered);
-        Assert.Contains("success: 1", delivered);
-        Assert.Contains("Estimated cost: $0.0123", delivered);
-        Assert.Contains($"Test Scientist — {created.Record.Id} (standard)", delivered);
-        Assert.Contains("Previous day: 1 prompt(s); estimated cost $0.0123", delivered);
-        Assert.Contains("All time: 2 prompt(s); estimated cost $0.0173", delivered);
-        Assert.Contains("2026-09-14 14:00:00 +02:00", delivered);
+        var visible = DailyStatusEmailLayoutTests.VisibleText(delivered);
+        Assert.Contains("2026-09-14", visible);
+        Assert.Contains("Requests: 1", visible);
+        Assert.Contains("Provider attempts: 1", visible);
+        Assert.Contains("success: 1", visible);
+        Assert.Contains("Estimated cost: $0.0123", visible);
+        Assert.Contains("Test Scientist", visible);
+        Assert.Contains($"Account ID: {created.Record.Id}", visible);
+        Assert.Contains("Access tier: standard", visible);
+        Assert.Contains("1 request · estimated cost $0.0123", visible);
+        Assert.Contains("All time: 2 prompt(s); estimated cost $0.0173", visible);
+        Assert.Contains("2026-09-14 14:00:00 +02:00", visible);
         Assert.DoesNotContain("private-execution-id", delivered);
         Assert.DoesNotContain("private-report-id", delivered);
         Assert.DoesNotContain("private-trace", delivered);
@@ -749,7 +752,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
         Assert.Contains("Registration account overview:", html);
         Assert.Contains("<strong style=\"color:#b42318\">ATTENTION</strong>", html);
-        Assert.Contains("Access-code delivery pending: 1", html);
+        Assert.Contains("Access-code delivery pending: 1", DailyStatusEmailLayoutTests.VisibleText(html!));
     }
 
     [Fact]

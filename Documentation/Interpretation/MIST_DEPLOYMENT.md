@@ -155,7 +155,8 @@ be delivered; this does not resolve the accounting hold.
 
 The `status-email` command does not start Kestrel or require the OpenAI API key.
 `sudo dotnet /opt/ftitc-status-email/AnalysisITC.Web.dll status-email preview [--date YYYY-MM-DD]`
-prints a metadata-only report; `send` in place of `preview` sends it. Without `--date`,
+prints a metadata-only report; add `--html` to preview the HTML email, or use `send`
+in place of `preview` to send it. Email includes a plain-text fallback. Without `--date`,
 the report covers the previous Copenhagen calendar day, including days with no requests.
 It checks systemd, local and public interpretation status, and usage accounting independently.
 Storage health is read from the loopback-only `/api/internal/health` endpoint, so
@@ -173,9 +174,12 @@ storage failures still require attention. Update both Web and standalone
 status-email binaries together when changing these checks. A preview exercises
 the same non-billable health and alert decisions as a send, without sending email.
 Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
-section lists identities that submitted requests during the reported day, with their account or
-public-client ID, available name/label, previous-day prompt count and cost, and all-time prompt
-count and cost.
+section appears before the operational checks, with a separate card for each active account
+or public installation. Each card shows the available name/label, account ID, access tier,
+daily count and cost, interpretation and summary counts grouped by provider/model and outcome,
+first and last request times, and all-time count and cost. Automated diagnostics are excluded.
+Missing identity metadata stays explicitly unattributed; no request content or scientific
+identifiers are included.
 
 The scheduled service also runs `send --live-checks`. When `Interpretation:DailyProbe`
 is enabled, this submits one small invented-evidence interpretation through
