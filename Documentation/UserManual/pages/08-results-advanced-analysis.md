@@ -273,6 +273,8 @@ $$
 
 where $I$ is ionic strength and $s_I$ is that fit's salt sensitivity. Saved ionic-strength plots retain the buffer-inclusion setting used for their fit. A new calculation uses the setting captured when the result was opened or updated.
 
+After changing inputs used by either salt analysis, use **Run Analysis** again to obtain updated results. Affected outputs remain unavailable until recalculated; the other component remains available if its inputs are unchanged.
+
 Each point represents one experiment's fitted affinity and complete uncertainty interval, transformed to the graph's scale. The reported slope is the regression of the original fitted affinities; random input sampling estimates its uncertainty. Recalculate older counter-ion results to obtain the concentration-based slope; their primary fits and saved ionic-strength results remain available.
 
 ### Protonation

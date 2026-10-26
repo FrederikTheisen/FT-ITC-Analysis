@@ -379,6 +379,8 @@ Saved ionic-strength plots retain the buffer-inclusion setting used for their fi
 
 Each salt-plot point represents one experiment's fitted affinity, including experiments at the same salt condition. The Debye–Hückel and Salt Dependence views transform the fitted estimate and its uncertainty interval to the displayed logarithmic scale.
 
+After changing inputs used by either salt analysis, use **Run Analysis** again. Affected outputs remain unavailable until recalculated; the other component remains available if its inputs are unchanged.
+
 **Protonation:** requires available buffer ionization enthalpy at every member's experimental temperature and at least two distinct enthalpy values. **Available analyses** identifies buffers and experiments with unavailable thermochemistry. These buffers remain selectable for ordinary fitting. Missing thermochemistry disables protonation analysis for the whole collection. The plot uses buffer ionization enthalpy. **Net proton uptake** is the fitted slope: positive means uptake by the binding system, negative means release; fractional values are average net exchange per binding event. **Buffer-independent enthalpy** is the intercept at the experimental pH; it retains binding-partner protonation contributions and is not fully intrinsic binding enthalpy. Interpret experiments under comparable pH, temperature and other conditions.
 
 Check buffer constants and conditions before interpreting these analyses. Completed structuring outputs retain their saved estimates and evaluation temperature until rerun.
