@@ -386,9 +386,14 @@ namespace AnalysisITC.Core.Presentation
 
             public void PlaceSectionTitle(AnalysisReportSection section)
             {
-                if (!string.IsNullOrWhiteSpace(section.Subtitle))
+                var health = section.Kind == AnalysisReportSectionKind.Cover ? document.ResultHealth : section.StatusBadgeHealth;
+                var badge = health.HasValue ? AnalysisReportStatusBadgeLayout.Create(health.Value,
+                    section.Kind == AnalysisReportSectionKind.Cover ? document.StatusBadgeText
+                        : AnalysisReportStatusBadgeLayout.TextFor(health.Value), ContentWidth, measurer) : null;
+                if (badge != null || !string.IsNullOrWhiteSpace(section.Subtitle))
                 {
-                    var layout = CreateHeadingLayout(section.Title, section.Subtitle, SectionStyle);
+                    var layout = AnalysisReportHeadingLayout.Create(section.Title, section.Subtitle, ContentWidth,
+                        SectionStyle, measurer, Wrap, badge);
                     Ensure(layout.Height + BlockSpacing);
                     if (!string.IsNullOrWhiteSpace(section.Id)) sectionPages[section.Id] = page.PageNumber;
                     Add(AnalysisReportFragmentKind.SectionTitle, null, layout.Height,

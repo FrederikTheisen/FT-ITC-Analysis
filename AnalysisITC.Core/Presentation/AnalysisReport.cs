@@ -284,14 +284,7 @@ namespace AnalysisITC.Core.Presentation
         public IReadOnlyList<AnalysisReportSupportingExperimentReference> SupportingExperiments => supportingExperiments;
         public bool IsMultiResult => results.Count > 1;
         public string ExportDateText => exportDateText;
-        public string StatusBadgeText => ResultHealth switch
-        {
-            AnalysisResultHealth.Valid => IsMultiResult ? "ANALYSES VALID" : "ANALYSIS VALID",
-            AnalysisResultHealth.Warning => "REVIEW WARNINGS",
-            AnalysisResultHealth.PartialInvalid => "PARTIAL / STALE",
-            AnalysisResultHealth.Invalid => "INVALID / STALE",
-            _ => "STATUS UNKNOWN",
-        };
+        public string StatusBadgeText => AnalysisReportStatusBadgeLayout.TextFor(ResultHealth, IsMultiResult);
         public string Creator { get; internal set; } = "";
         public string Author { get; internal set; } = "";
         public string ReportId { get; internal set; } = "";

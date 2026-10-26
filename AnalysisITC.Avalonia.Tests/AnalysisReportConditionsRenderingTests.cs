@@ -36,8 +36,8 @@ public sealed class AnalysisReportConditionsRenderingTests
             {
                 var document = Document(scenario);
                 var plan = renderer.CreatePlan(document);
-                var page = plan.Pages.Single(item => item.Fragments.Any(fragment => fragment.HeadingLayout != null));
-                var fragment = page.Fragments.Single(item => item.HeadingLayout != null);
+                var page = plan.Pages.Single(item => item.Fragments.Any(fragment => fragment.HeadingLayout?.SubtitleLines.Count > 0));
+                var fragment = page.Fragments.Single(item => item.HeadingLayout?.SubtitleLines.Count > 0);
                 var layout = fragment.HeadingLayout!;
                 Assert.Equal(layout.Height, fragment.Bounds.Height);
                 if (scenario != "short") Assert.True(layout.SubtitleLines.Count > 1);

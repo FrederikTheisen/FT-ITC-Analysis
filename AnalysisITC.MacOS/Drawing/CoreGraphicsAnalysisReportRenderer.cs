@@ -89,12 +89,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             DrawHeader(context, document, page.Height, plan.MarginLeft,
                 page.Width - plan.MarginRight, page);
             foreach (var fragment in page.Fragments)
-                DrawFragment(context, document, page.Height, fragment, page.IsCover);
+                DrawFragment(context, page.Height, fragment);
             DrawFooter(context, document, plan, page);
         }
 
-        void DrawFragment(CGContext context, AnalysisReportDocument document, double pageHeight,
-            AnalysisReportLayoutFragment fragment, bool isCover)
+        void DrawFragment(CGContext context, double pageHeight, AnalysisReportLayoutFragment fragment)
         {
             var rect = PdfRect(pageHeight, fragment.Bounds);
             switch (fragment.Kind)
@@ -102,9 +101,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 case AnalysisReportFragmentKind.SectionTitle:
                     if (fragment.HeadingLayout != null) DrawHeading(context, pageHeight, fragment);
                     else DrawLines(context, pageHeight, fragment.Lines, fragment.Bounds, 17, Ink, true);
-                    if (isCover) DrawStatusBadge(context, document.ResultHealth, document.StatusBadgeText, pageHeight, fragment.Bounds);
-                    else if (fragment.Section?.StatusBadgeHealth is AnalysisResultHealth sectionHealth)
-                        DrawStatusBadge(context, sectionHealth, StatusBadgeText(sectionHealth), pageHeight, fragment.Bounds);
+                    if (fragment.HeadingLayout?.StatusBadge is AnalysisReportStatusBadgeLayout badge)
+                        DrawStatusBadge(context, badge, pageHeight, fragment.Bounds);
                     break;
                 case AnalysisReportFragmentKind.Heading:
                     var heading = (AnalysisReportHeadingBlock)fragment.Block;
@@ -575,34 +573,25 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 page.IsCover ? Mint : Rule, page.IsCover ? 2 : .45f);
         }
 
-        void DrawStatusBadge(CGContext context, AnalysisResultHealth health, string text,
+        void DrawStatusBadge(CGContext context, AnalysisReportStatusBadgeLayout badge,
             double pageHeight, AnalysisReportRect titleBounds)
         {
-            var textWidth = Measure(text, 6.5, true).Width;
-            var width = textWidth + 16;
-            var x = titleBounds.Right - width;
-            var y = titleBounds.Y + 1;
+            var health = badge.Health;
+            var x = titleBounds.X + badge.Bounds.X;
+            var y = titleBounds.Y + badge.Bounds.Y;
             var fill = health == AnalysisResultHealth.Valid ? Information
                 : health == AnalysisResultHealth.Warning ? Warning : Error;
             var stroke = health == AnalysisResultHealth.Valid ? Mint
                 : health == AnalysisResultHealth.Warning ? Sun : Coral;
-            var rect = PdfRect(pageHeight, new AnalysisReportRect(x, y, width, 18));
+            var rect = PdfRect(pageHeight, new AnalysisReportRect(x, y, badge.Bounds.Width, badge.Bounds.Height));
             using (var path = CGPath.FromRoundedRect(rect, 2.5f, 2.5f))
             {
                 context.AddPath(path); context.SetFillColor(fill); context.FillPath();
                 context.AddPath(path); context.SetStrokeColor(stroke); context.SetLineWidth(1.2f); context.StrokePath();
             }
-            DrawTextTop(context, pageHeight, text, x + 8, y + 5, 6.5, Ink, true);
+            DrawTextTop(context, pageHeight, badge.Text, x + AnalysisReportStatusBadgeLayout.HorizontalPadding,
+                y + AnalysisReportStatusBadgeLayout.TextTop, AnalysisReportStatusBadgeLayout.TextStyle.FontSize, Ink, true);
         }
-
-        static string StatusBadgeText(AnalysisResultHealth health) => health switch
-        {
-            AnalysisResultHealth.Valid => "ANALYSIS VALID",
-            AnalysisResultHealth.Warning => "REVIEW WARNINGS",
-            AnalysisResultHealth.PartialInvalid => "PARTIAL / STALE",
-            AnalysisResultHealth.Invalid => "INVALID / STALE",
-            _ => "STATUS UNKNOWN",
-        };
 
         void DrawFooter(CGContext context, AnalysisReportDocument document, AnalysisReportLayoutPlan plan, AnalysisReportPagePlan page)
         {

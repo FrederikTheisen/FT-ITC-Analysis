@@ -1972,8 +1972,11 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-222 - Result titles extend into the validity stamp
 
 - Priority: Not set.
-- Status: Open (2026-10-23).
+- Status: Resolved locally (2026-10-26).
 - Problem: Long result titles can extend into and overlap the validity stamp, making both parts of the result presentation harder to read.
+- Resolution: Shared report layout reserves the measured stamp width plus an 8 pt gap, wraps the full title in the remaining space, and allocates the complete heading height. Native macOS and Avalonia draw the stamp from this shared geometry for both result headings (R01) and the cover title (F01). Stamp wording, colors and validity policy are unchanged. The report map is updated; no discrepancy was found.
+- Validation: Before the fix, all 20 stamp-bearing Core layout cases and all 30 Avalonia rendering cases failed on overlap; the full-width heading control passed. Afterward, all 23 focused Core cases pass, including plural cover stamps and page-boundary placement. All 140 Avalonia report tests pass. Native report checks pass, including 80 cover/result headings spanning all five health states, portrait/landscape pages, short/long/unbroken/mixed-script titles, and existing report/figure-pair coverage. Exported text positions confirm separation on 80 PDF pages from 40 reports; representative exports from both renderers were visually checked. Full Core suite: 5,150 passed, 1 existing skip, 0 failures; the two final focused cases were added after that run and pass separately. `git diff --check` passes.
+- Evidence: Before/after renders and PDFs: `/private/tmp/itc222-before/`, `/private/tmp/itc222-after/`; test results: `/private/tmp/itc222-results/`; logs: `/private/tmp/itc222-*.log`.
 
 ## ITC-223 - Competitor properties state label is misaligned
 

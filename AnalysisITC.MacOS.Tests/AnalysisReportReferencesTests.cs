@@ -240,7 +240,7 @@ static class AnalysisReportReferencesTests
                 && !chapter.Subtitle.Contains("±"), "Native conditions must show target temperature and nominal concentrations");
             var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
             var headings = plan.Pages.SelectMany(page => page.Fragments)
-                .Where(fragment => fragment.HeadingLayout != null).ToList();
+                .Where(fragment => fragment.HeadingLayout?.SubtitleLines.Count > 0).ToList();
             Check(headings.Count == (scenario == "supporting" ? 2 : 1), "Native report lost a conditions subtitle");
             foreach (var fragment in headings)
             {

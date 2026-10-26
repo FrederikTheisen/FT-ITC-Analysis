@@ -124,12 +124,11 @@ public sealed class SkiaAnalysisReportRenderer
         DrawHeader(canvas, document, (float)plan.MarginLeft,
             (float)(page.Width - plan.MarginRight), page);
         foreach (var fragment in page.Fragments)
-            DrawFragment(canvas, document, fragment, page.IsCover);
+            DrawFragment(canvas, fragment);
         DrawFooter(canvas, document, plan, page);
     }
 
-    void DrawFragment(SKCanvas canvas, AnalysisReportDocument document,
-        AnalysisReportLayoutFragment fragment, bool isCover)
+    void DrawFragment(SKCanvas canvas, AnalysisReportLayoutFragment fragment)
     {
         var rect = Rect(fragment.Bounds);
         switch (fragment.Kind)
@@ -137,9 +136,8 @@ public sealed class SkiaAnalysisReportRenderer
             case AnalysisReportFragmentKind.SectionTitle:
                 if (fragment.HeadingLayout != null) DrawHeading(canvas, fragment);
                 else DrawLines(canvas, fragment.Lines, rect, 17, Ink, true);
-                if (isCover) DrawStatusBadge(canvas, document.ResultHealth, document.StatusBadgeText, rect);
-                else if (fragment.Section?.StatusBadgeHealth is AnalysisResultHealth sectionHealth)
-                    DrawStatusBadge(canvas, sectionHealth, StatusBadgeText(sectionHealth), rect);
+                if (fragment.HeadingLayout?.StatusBadge is AnalysisReportStatusBadgeLayout badge)
+                    DrawStatusBadge(canvas, badge, rect);
                 break;
             case AnalysisReportFragmentKind.Heading:
                 var heading = (AnalysisReportHeadingBlock)fragment.Block;
@@ -735,32 +733,24 @@ public sealed class SkiaAnalysisReportRenderer
         Line(canvas, left, 31, right, 31, page.IsCover ? Mint : Rule, page.IsCover ? 2 : .45f);
     }
 
-    void DrawStatusBadge(SKCanvas canvas, AnalysisResultHealth health, string text,
-        SKRect titleBounds)
+    void DrawStatusBadge(SKCanvas canvas, AnalysisReportStatusBadgeLayout badge, SKRect titleBounds)
     {
-        var width = Measure(text, 6.5f, true).Width + 16;
-        var x = titleBounds.Right - width;
-        var y = titleBounds.Top + 1;
+        var health = badge.Health;
+        var x = titleBounds.Left + (float)badge.Bounds.X;
+        var y = titleBounds.Top + (float)badge.Bounds.Y;
         var fill = health == AnalysisResultHealth.Valid ? InformationFill
             : health == AnalysisResultHealth.Warning ? WarningFill : ErrorFill;
         var stroke = health == AnalysisResultHealth.Valid ? Mint
             : health == AnalysisResultHealth.Warning ? Sun : Coral;
-        var rect = new SKRect(x, y, x + width, y + 18);
+        var rect = new SKRect(x, y, x + (float)badge.Bounds.Width, y + (float)badge.Bounds.Height);
         using (var fillPaint = new SKPaint { Color = fill, Style = SKPaintStyle.Fill, IsAntialias = true })
             canvas.DrawRoundRect(rect, 2.5f, 2.5f, fillPaint);
         using (var strokePaint = new SKPaint { Color = stroke, Style = SKPaintStyle.Stroke, StrokeWidth = 1.2f, IsAntialias = true })
             canvas.DrawRoundRect(rect, 2.5f, 2.5f, strokePaint);
-        DrawText(canvas, text, x + 8, y + 5, 6.5f, Ink, true);
+        DrawText(canvas, badge.Text, x + (float)AnalysisReportStatusBadgeLayout.HorizontalPadding,
+            y + (float)AnalysisReportStatusBadgeLayout.TextTop,
+            (float)AnalysisReportStatusBadgeLayout.TextStyle.FontSize, Ink, true);
     }
-
-    static string StatusBadgeText(AnalysisResultHealth health) => health switch
-    {
-        AnalysisResultHealth.Valid => "ANALYSIS VALID",
-        AnalysisResultHealth.Warning => "REVIEW WARNINGS",
-        AnalysisResultHealth.PartialInvalid => "PARTIAL / STALE",
-        AnalysisResultHealth.Invalid => "INVALID / STALE",
-        _ => "STATUS UNKNOWN",
-    };
 
     void DrawFooter(SKCanvas canvas, AnalysisReportDocument document,
         AnalysisReportLayoutPlan plan, AnalysisReportPagePlan page)

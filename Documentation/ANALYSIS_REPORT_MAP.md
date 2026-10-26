@@ -45,7 +45,7 @@ and below the text. A single-line row is 16 pt tall in both desktop renderers.
 
 | Code | Content | When / omitted |
 | --- | --- | --- |
-| **F01** | **Title and status badge** | |
+| **F01** | **Title and status badge** | full title wraps beside the measured badge with an 8 pt gap |
 | | · Title: configured report title; when blank, the single result's name or "Analysis report" | the title also supplies the saved report name; automatic or blank titles use a content-summary name |
 | | · Badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE | worst status of all results |
 | **F02** | **Subtitle** | only when a document label is set |
@@ -118,7 +118,7 @@ makes the whole result Invalid with a named missing-experiment reason; Undo reco
 
 | Code | Content | When / omitted |
 | --- | --- | --- |
-| **R01** | **Result n. Name** + status badge for this result | |
+| **R01** | **Result n. Name** + status badge for this result | full title wraps beside the measured badge with an 8 pt gap |
 | **R02** | **Analysis** | |
 | | · Analysis date | |
 | | · Analysis operator: name, or Not recorded | Trace only |
@@ -563,6 +563,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportRenderer.cs` (Avalonia).
 
 ## Revision notes
+
+- 2026-10-26 (ITC-222): F01/R01 reserve the measured status-stamp width plus an 8 pt gap before wrapping the full title. Both desktop renderers draw the stamp from the shared heading geometry; pagination reserves the full wrapped heading height. Stamp text, colors and validity policy are unchanged. No map discrepancy was found.
 
 - 2026-10-25 (ITC-224): Both desktop report builders' Uncertainties selectors share the tooltip "Automatic: 95% CI when interval sides differ by about 50%; SD otherwise." The rounded explanation leaves the existing display calculation and report output unchanged.
 
