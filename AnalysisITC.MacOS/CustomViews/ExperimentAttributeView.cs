@@ -251,16 +251,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             trailingSpacer?.RemoveFromSuperview();
             trailingSpacer = null;
-            if (Option.Key == AttributeKey.CompetitorResult)
-            {
-                competitorStatusField.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-                return;
-            }
-
             trailingSpacer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
             trailingSpacer.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
-            var anchor = new NSView[] { phLabel, parameterValueField, StringField, BufferSubtractionMethodControl }
+            var anchor = new NSView[] { phLabel, parameterValueField, StringField, BufferSubtractionMethodControl,
+                Option.Key == AttributeKey.CompetitorResult ? competitorStatusField : null }
                 .FirstOrDefault(view => view != null && items.Contains(view));
             NSStackView valueGroup = null;
             if (anchor != null)
@@ -273,7 +268,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 valueGroup = new NSStackView(new CGRect(0, 0, 100, 22))
                 {
                     Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-                    Alignment = NSLayoutAttribute.FirstBaseline,
+                    Alignment = anchor == competitorStatusField ? NSLayoutAttribute.CenterY : NSLayoutAttribute.FirstBaseline,
                     Distribution = NSStackViewDistribution.Fill,
                     Spacing = 4,
                     TranslatesAutoresizingMaskIntoConstraints = false,

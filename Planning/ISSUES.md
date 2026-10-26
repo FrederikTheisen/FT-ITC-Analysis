@@ -1981,8 +1981,10 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-223 - Competitor properties state label is misaligned
 
 - Priority: Not set.
-- Status: Open (2026-10-23).
+- Status: Resolved locally (2026-10-26).
 - Problem: The state label for the Competitor Properties attribute does not line up with the other labels, making the form layout look inconsistent.
+- Resolution: Native macOS includes the state label in the existing trailing value group, with vertical centering for this standalone label. The label retains its natural text height and right alignment instead of stretching to the row height. Avalonia already uses its standard centered label layout and needs no change.
+- Validation: Reproduced in the real native Experiment Details controls: the state label occupied the full 22-point row before the fix; afterward its 17-point text frame shares the same vertical position as the neighbouring unit labels. All eight state strings fit and remain aligned after changing the attribute type away and back. All 70 native Details draft/value preservation checks pass; the native build succeeds with existing obsolete-API warnings. A rendered Avalonia control check confirms the state label already aligns with neighbouring unit labels. Evidence: `/private/tmp/itc223-20261026/`.
 
 ## ITC-224 - Uncertainty display selectors do not explain Automatic
 
