@@ -205,11 +205,11 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
             var guidanceIds = guidance.Select(item => item.GetProperty("id").GetString()).ToArray();
             Assert.DoesNotContain("standard", guidanceIds);
             Assert.DoesNotContain("structured", guidanceIds);
-            Assert.Contains("3.5", guidanceIds);
+            Assert.Contains("3.4", guidanceIds);
             Assert.Contains("3.5.1", guidanceIds);
-            Assert.Contains("3.6.1", guidanceIds);
-            Assert.Contains("3.6.2", guidanceIds);
-            Assert.Contains("3.6.3", guidanceIds);
+            Assert.Contains("3.6.4", guidanceIds);
+            foreach (var retired in new[] { "3.5", "3.6.0", "3.6.1", "3.6.2", "3.6.3" })
+                Assert.DoesNotContain(retired, guidanceIds);
             Assert.Equal("3.7.3", document.GetProperty("defaultGuidanceVariant").GetString());
             Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
 

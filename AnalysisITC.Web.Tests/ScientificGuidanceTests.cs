@@ -49,9 +49,9 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.7.0-structured" };
+        var expected = new[] { "3.4", "3.5.1", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.7.0-structured" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
-        Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
+        Assert.Equal("itc-scientific-guidance-3.5.1", ScientificGuidance.RevisionFor("3.5.1"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
         Assert.Equal("itc-scientific-guidance-3.7.1", ScientificGuidance.RevisionFor("3.7.1"));
@@ -206,13 +206,13 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void ActiveGuidanceExplainsConsequentialAdvancedAnalysesAndUncertaintyScope()
     {
-        var text = ScientificGuidance.TextFor("3.6.0");
-        Assert.Contains("Advanced-analysis evidence", text, StringComparison.Ordinal);
-        Assert.Contains("buffer ionization enthalpy on the x axis", text, StringComparison.Ordinal);
-        Assert.Contains("ionic-strength dependence fit from the salt-dependence regression", text, StringComparison.Ordinal);
-        Assert.Contains("residue estimate is not a directly observed residue count", text, StringComparison.Ordinal);
-        Assert.Contains("uncertain inputs, including fitted parameter uncertainties", text, StringComparison.Ordinal);
-        Assert.Contains("nullable historical uncertainty-method field does not mean", text, StringComparison.Ordinal);
+        var text = ScientificGuidance.TextFor("3.6.4");
+        Assert.Contains("Actively assess completed Spolar–Record", text, StringComparison.Ordinal);
+        Assert.Contains("x=buffer ionization enthalpy", text, StringComparison.Ordinal);
+        Assert.Contains("separate ionic-strength dependence from salt-dependence regression", text, StringComparison.Ordinal);
+        Assert.Contains("not independent measurements or directly observed residue counts", text, StringComparison.Ordinal);
+        Assert.Contains("uncertain inputs, including fitted parameters", text, StringComparison.Ordinal);
+        Assert.Contains("Null uncertaintyMethod does not establish absent uncertainty", text, StringComparison.Ordinal);
     }
 
     [Fact]
