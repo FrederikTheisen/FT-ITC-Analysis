@@ -520,6 +520,7 @@ namespace AnalysisITC.Core.Interpretation
         static void FinalizeProjection(JsonObject root, ISet<string> resultMemberReferences)
         {
             if (root == null) return;
+            AddBindingContributions(root);
             CompactSupportingEvidence(root, resultMemberReferences,
                 ReadEvidenceSelection(root).IncludeProcessingInformation);
             FilterStudyContextExperiments(root);
@@ -530,6 +531,31 @@ namespace AnalysisITC.Core.Interpretation
                 definitions.Remove("baselineControls");
             PruneUnusedSchemas(root);
         }
+
+        // Model input only, so canonical evidence and interpretation freshness are unchanged.
+        // Labels follow the definition ΔG = ΔH − TΔS and are recomputed idempotently.
+        static void AddBindingContributions(JsonObject root)
+        {
+            var labelled = false;
+            foreach (var result in Objects(root["results"]))
+                foreach (var experiment in Objects(result["experiments"]))
+                    foreach (var parameter in Objects(experiment["parameters"]))
+                    {
+                        parameter.Remove("bindingContribution");
+                        var quantity = String(parameter["quantityId"]) ?? "";
+                        // Negative ΔH or −TΔS lowers ΔG; positive ΔS does the same.
+                        var favorableSign = quantity.StartsWith("enthalpy-", StringComparison.Ordinal)
+                            || quantity.StartsWith("entropy-contribution-", StringComparison.Ordinal) ? -1
+                            : quantity.StartsWith("entropy-", StringComparison.Ordinal) ? 1 : 0;
+                        if (favorableSign == 0 || !TryDouble(parameter["bestFitValue"] as JsonValue, out var value) || value == 0) continue;
+                        parameter["bindingContribution"] = Math.Sign(value) == favorableSign ? "favorable" : "unfavorable";
+                        labelled = true;
+                    }
+            if (labelled && root["modelInputDefinitions"] is JsonObject definitions)
+                definitions["bindingContribution"] = BindingContributionDefinition;
+        }
+
+        internal const string BindingContributionDefinition = "Enthalpy, entropy and −TΔS parameters state whether the best-fit term favours (favorable) or opposes (unfavorable) binding in ΔG = ΔH − TΔS: negative ΔH, negative −TΔS and positive ΔS are favorable. The label describes the best-fit sign only; when the 95% interval spans zero, the sign is not resolved.";
 
         static HashSet<string> ResultMemberReferences(JsonObject root) => new HashSet<string>(
             Objects(root?["results"]).SelectMany(result => Objects(result["experiments"]))

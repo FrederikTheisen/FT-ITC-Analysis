@@ -44,12 +44,19 @@ public sealed class ScientificGuidanceTests
         Assert.Contains("sourceDataFingerprint", fingerprinted.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("sourceDataFingerprint", fingerprintedCompact.SystemInstructions, StringComparison.Ordinal);
         Assert.DoesNotContain("sourceFileBasename is key evidence", fingerprinted.SystemInstructions, StringComparison.Ordinal);
+        foreach (var id in new[] { "3.8.0", "3.8.0-compact" })
+        {
+            var revisedGuidance = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", id).SystemInstructions;
+            // 3.8.0 refers to the model-input label defined in Core.
+            Assert.Contains("bindingContribution", revisedGuidance, StringComparison.Ordinal);
+            Assert.Contains("lagOneAutocorrelation", revisedGuidance, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5.1", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.7.0-structured" };
+        var expected = new[] { "3.4", "3.5.1", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.8.0", "3.8.0-compact", "3.7.0-structured" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("itc-scientific-guidance-3.5.1", ScientificGuidance.RevisionFor("3.5.1"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
@@ -59,6 +66,9 @@ public sealed class ScientificGuidanceTests
         Assert.Equal("itc-scientific-guidance-3.7.2-compact", ScientificGuidance.RevisionFor("3.7.2-compact"));
         Assert.Equal("itc-scientific-guidance-3.7.3", ScientificGuidance.RevisionFor("3.7.3"));
         Assert.Equal("itc-scientific-guidance-3.7.3-compact", ScientificGuidance.RevisionFor("3.7.3-compact"));
+        // The earlier Persona 3.8.0 used a different resource, so recorded revisions stay distinct.
+        Assert.Equal("itc-scientific-guidance-3.8.0", ScientificGuidance.RevisionFor("3.8.0"));
+        Assert.Equal("itc-scientific-guidance-3.8.0-compact", ScientificGuidance.RevisionFor("3.8.0-compact"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
         Assert.False(ScientificGuidance.IsKnownVariant("standard"));

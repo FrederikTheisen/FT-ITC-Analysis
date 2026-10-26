@@ -574,6 +574,32 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal(first.ModelPackageJson, second.ModelPackageJson);
     }
 
+    [Theory]
+    // Expectations follow ΔG = ΔH − TΔS: a term lowering ΔG favours binding.
+    [InlineData("enthalpy-1", -35086.0, "favorable")]
+    [InlineData("enthalpy-2", 1200.0, "unfavorable")]
+    [InlineData("entropy-contribution-1", 3095.3, "unfavorable")]
+    [InlineData("entropy-contribution-2", -800.0, "favorable")]
+    [InlineData("entropy-1", -10.4, "unfavorable")]
+    [InlineData("entropy-1", 25.0, "favorable")]
+    [InlineData("gibbs-1", -31990.0, null)]
+    [InlineData("stoichiometry-1", 0.82, null)]
+    [InlineData("enthalpy-1", 0.0, null)]
+    public void ModelInputLabelsBindingContributionWithoutChangingFreshnessEvidence(string quantityId, double value, string? expected)
+    {
+        var package = new AnalysisInterpretationPackage { Results = new()
+        { new() { ReportReference = "1", Experiments = new()
+        { new() { ReportReference = "1A", Parameters = new() { new() { QuantityId = quantityId, BestFitValue = value } } } } } } };
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+        using var model = JsonDocument.Parse(prompt.ModelPackageJson);
+        var parameter = model.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].GetProperty("parameters")[0];
+        Assert.Equal(expected, parameter.TryGetProperty("bindingContribution", out var label) ? label.GetString() : null);
+        Assert.Equal(expected != null, model.RootElement.GetProperty("modelInputDefinitions").TryGetProperty("bindingContribution", out _));
+        Assert.DoesNotContain("bindingContribution", prompt.CanonicalPackageJson);
+        // Projecting an already projected package keeps exactly one label.
+        Assert.Equal(prompt.ModelPackageJson, AnalysisInterpretationModelInputWriter.Write(prompt.ModelPackageJson));
+    }
+
     [Fact]
     public void ChangesBelowModelPrecisionStillChangeFullEvidenceFingerprint()
     {

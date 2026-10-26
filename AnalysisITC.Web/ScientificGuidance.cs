@@ -27,6 +27,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.7.2-compact", "Compact 3.7.2", "itc-scientific-guidance-3.7.2-compact"),
         new ScientificGuidanceVariant("3.7.3", "Standard 3.7.3", "itc-scientific-guidance-3.7.3"),
         new ScientificGuidanceVariant("3.7.3-compact", "Compact 3.7.3", "itc-scientific-guidance-3.7.3-compact"),
+        new ScientificGuidanceVariant("3.8.0", "Standard 3.8.0", "itc-scientific-guidance-3.8.0"),
+        new ScientificGuidanceVariant("3.8.0-compact", "Compact 3.8.0", "itc-scientific-guidance-3.8.0-compact"),
         new ScientificGuidanceVariant("3.7.0-structured", "Structured 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-structured-1.0"),
     };
     // Kept with MIST so scientific policy can change independently of desktop releases.

@@ -49,6 +49,13 @@ were recorded, preserving canonical evidence fingerprints for older tandems and
 single-file concatenated imports. This additive field changes neither the
 evidence package schema version nor the relay version.
 
+The model input labels each result member's enthalpy, entropy and −TΔS
+parameters with `bindingContribution` (`favorable` or `unfavorable`), following
+ΔG = ΔH − TΔS, and defines the label in `modelInputDefinitions`. The label
+describes the best-fit sign only. It is added during model-input projection,
+not to the canonical package, so evidence fingerprints and interpretation
+freshness are unchanged. It changes neither the package schema nor the relay version.
+
 Version 6 retains the version 5 generation controls and adds Administrator-only
 scientific-guidance omission. With `omitScientificGuidance: true`, MIST excludes
 the versioned scientific file and conditional model/scientific rules, while retaining
@@ -104,8 +111,13 @@ time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. MIST selects the
 server default from its explicit, embedded guidance-version registry (initially
 `3.7.3` for a new registry); retained revisions remain available for controlled administrator
-comparison. Standard and Compact `3.7.3` are addressable variants, and Persona
-`3.8.0` remains experimental. The effective deployed default is the persisted
+comparison. Standard and Compact `3.7.3` and `3.8.0` are addressable variants.
+`3.8.0` adds safeguards for errors seen in Mistral-hosted evaluations (entropy
+sign, N versus active fraction, residual structure, untested constraints and
+robustness claims, value attribution between results) and applies to both
+providers. The ID `3.8.0` previously named the retired Persona guidance; its
+recorded revision `itc-scientific-guidance-3.8.0-persona` remains distinct from
+`itc-scientific-guidance-3.8.0`. The effective deployed default is the persisted
 registry value. Summary requests use independently
 versioned guidance, currently `2.2`. Updating a source file does not change an
 already deployed service.

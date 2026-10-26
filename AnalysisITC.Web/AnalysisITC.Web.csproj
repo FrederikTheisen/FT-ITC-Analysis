@@ -18,6 +18,8 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.2-compact.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.3.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.3-compact.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.8.0.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.8.0-compact.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.5.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-structured-1.0.txt" />
