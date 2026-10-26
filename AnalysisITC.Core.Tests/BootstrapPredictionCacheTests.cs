@@ -52,6 +52,38 @@ public sealed partial class BootstrapPredictionCacheTests : IDisposable
                 model.EvaluateBootstrap(i, withOffset));
     }
 
+    [Fact]
+    public void SingleRetainedRefitPreservesPrimaryParametersAndPredictionsWithoutUncertainty()
+    {
+        var model = CreateModel("two-realistic", DilutionMethod.MicroCal);
+        var solution = model.Solution;
+        var primaryParameters = solution.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Value);
+        var primaryPredictions = Enumerable.Range(0, model.Data.InjectionCount)
+            .Select(i => model.EvaluateEnthalpy(i, true)).ToArray();
+        var replicate = solution.BootstrapSolutions[0];
+        Assert.NotEqual(primaryParameters[ParameterType.Offset], replicate.Parameters[ParameterType.Offset].Value);
+        Assert.NotEqual(primaryPredictions[0], replicate.Model.EvaluateEnthalpy(0, true));
+
+        solution.SetBootstrapSolutions(new List<SolutionInterface> { replicate });
+
+        Assert.Single(solution.BootstrapSolutions);
+        foreach (var pair in primaryParameters)
+            AssertCollapsed(solution.Parameters[pair.Key], pair.Value);
+        for (var i = 0; i < primaryPredictions.Length; i++)
+        {
+            AssertCollapsed(model.EvaluateBootstrap(i, true), primaryPredictions[i]);
+            AssertCollapsed(model.EvaluateBootstrap(i, false), primaryPredictions[i] - primaryParameters[ParameterType.Offset]);
+        }
+
+        static void AssertCollapsed(FloatWithError actual, double expected)
+        {
+            Assert.Equal(expected, actual.Value);
+            Assert.Equal(0.0, actual.SD);
+            Assert.Equal(expected, actual.Lower);
+            Assert.Equal(expected, actual.Upper);
+        }
+    }
+
     static Model CreateModel(string id, DilutionMethod method, bool variableVolumes = false)
     {
         Model Create(int replicate)

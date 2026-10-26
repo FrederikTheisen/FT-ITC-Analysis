@@ -1906,7 +1906,7 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-217 - A single retained refit gives an interval without an SD
 
 - Priority: Not set.
-- Status: Open (2026-10-23). Source review only; no fix proposed or authorized.
+- Status: Resolved (2026-10-26).
 - Origin: ITC-117 plan review, while discussing its proposed single-refit rule for derived quantities.
 - Location: Core `Math/NumberStructs.cs` (`FloatWithError.FromDistributionInPlace`, `HasError`, `HasConfidenceInterval`, `ResolveDisplayStyle`, `FormatNumberWithUncertainty`); `Analysis2/Models/Models.cs` (`SummarizeBootstrapDistribution`); `Analysis2/Models/ThermodynamicSolution.cs` (`BootstrapEstimate`); `Analysis2/Solver2.cs` (`GlobalSolver.LeaveOneOut`); `Analysis2/GlobalModel.cs` (`LeaveOneOut`, `SetBootstrapSolutions`).
 - Problem: With exactly one retained refit, `FromDistributionInPlace` sets the SD to 0, because the SD needs at least two values (`NumberStructs.cs:105`), but sets both interval bounds to that refit's value (`NumberStructs.cs:115`). The result has a one-point interval and no SD. Unless the refit equals the primary fit, the interval does not contain the reported best-fit value. Fitted coordinates reach this through `SummarizeBootstrapDistribution` (`Models.cs:898`), called from `ThermodynamicSolution.BootstrapEstimate` (`ThermodynamicSolution.cs:65`).
@@ -1916,6 +1916,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Not checked: Integrated-heat refit envelopes use the same summarizer per injection (`Models.cs:228-277`), so with one refit the envelope would sit on that refit's prediction; its rendering was not checked. Exports and other consumers that read the bounds directly were not traced.
 - Related: [ITC-117](#itc-117---derived-parameter-uncertainty-across-all-models) proposes a local single-refit rule for derived quantities (best-fit value, zero SD, interval collapsed onto the best fit). Fitted coordinates would keep the behavior described here, so fitted and derived values would differ for the same evidence.
 - Evidence: Source review only (2026-10-23); no build, test, runtime reproduction, UI or export check was performed.
+
+- Resolution (2026-10-26): Added a single-value early return in `FloatWithError.FromDistributionInPlace`. A singleton numeric distribution now preserves the supplied primary value (or its sole value when no reference is supplied), with zero SD and both interval bounds at that value. Existing fitted-parameter and prediction-envelope consumers inherit the rule without additional handling. Empty and multi-value numeric distributions, explicit intervals and distributions of already-uncertain values are unchanged. ITC-117 remains separate.
+- Validation (2026-10-26): New regressions reproduced the singleton-bound defect before the fix. Focused distribution, prediction-cache and sampling tests: **121 passed**, covering constructor/factory agreement, absent/zero/negative reference values, all uncertainty display styles, fitted coordinates and both prediction-envelope variants. Updated two existing singleton expectations; the cache-with-uncertainty fixture now uses two refits. Final full Core run: **5,181 passed, one existing skip, two project-save assertion failures** in `NullComparisonBookkeepingPersistenceTests`; all **18** tests in that class passed on immediate isolated rerun (they also passed in the preceding full run). No remaining reproducible failure was identified. `git diff --check` passed. No desktop rendering or export runtime check was performed.
 
 ## ITC-218 - Bootstrap restoration still reads and writes the stored model options
 

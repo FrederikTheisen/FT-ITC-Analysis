@@ -124,18 +124,22 @@ public sealed partial class BootstrapPredictionCacheTests
     {
         var primary = ProbeModel(0);
         var replicate = new CurveProbe(primary.Data, 1);
-        primary.Solution.RestoreBootstrapSolutions(new List<SolutionInterface> { replicate.Solution });
+        var secondReplicate = new CurveProbe(primary.Data, 2);
+        primary.Solution.RestoreBootstrapSolutions(new List<SolutionInterface> { replicate.Solution, secondReplicate.Solution });
         primary.EvaluateBootstrap(0);
         primary.Events.Clear();
         replicate.Events.Clear();
+        secondReplicate.Events.Clear();
         foreach (var withOffset in new[] { false, true })
         {
             var result = primary.EvaluateBootstrap(0, withOffset);
             Assert.Equal(0, result.Value);
             Assert.Equal(1, result.Lower);
+            Assert.Equal(2, result.Upper);
         }
         Assert.Empty(primary.Events);
         Assert.Empty(replicate.Events);
+        Assert.Empty(secondReplicate.Events);
     }
 
     [Fact]

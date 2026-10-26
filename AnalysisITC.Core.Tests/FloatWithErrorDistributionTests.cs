@@ -73,8 +73,33 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(0.0, single.SD);
             Assert.Equal(single.Value, factorySingle.Value);
             Assert.Equal(single.SD, factorySingle.SD);
-            Assert.Equal(3.0, single.Lower);
-            Assert.Equal(3.0, single.Upper);
+            Assert.Equal(100.0, single.Lower);
+            Assert.Equal(100.0, single.Upper);
+            Assert.Equal(single.Lower, factorySingle.Lower);
+            Assert.Equal(single.Upper, factorySingle.Upper);
+        }
+
+        [Theory]
+        [InlineData(null, 3.0)]
+        [InlineData(100.0, 100.0)]
+        [InlineData(0.0, 0.0)]
+        [InlineData(-100.0, -100.0)]
+        public void SingleNumericValueHasNoUncertaintyInAnyDisplayStyle(double? reference, double expected)
+        {
+            var constructed = new FloatWithError(new[] { 3.0 }, reference);
+            var inPlace = FloatWithError.FromDistributionInPlace(new List<double> { 3.0 }, reference);
+
+            foreach (var result in new[] { constructed, inPlace })
+            {
+                Assert.Equal(expected, result.Value);
+                Assert.Equal(0.0, result.SD);
+                Assert.Equal(expected, result.Lower);
+                Assert.Equal(expected, result.Upper);
+                Assert.False(result.HasError);
+                Assert.False(result.HasConfidenceInterval);
+                foreach (var style in Enum.GetValues<UncertaintyDisplayStyle>())
+                    Assert.Equal(new FloatWithError(expected).AsNumber(style), result.AsNumber(style));
+            }
         }
 
         [Fact]

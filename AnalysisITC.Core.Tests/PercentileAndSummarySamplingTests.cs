@@ -9,7 +9,7 @@ namespace AnalysisITC.Core.Tests;
 public sealed class PercentileAndSummarySamplingTests
 {
     [Theory]
-    [InlineData(1, 0, 0)]
+    [InlineData(1, -123, -123)]
     [InlineData(39, 0, 38)]
     [InlineData(40, 0, 39)]
     [InlineData(41, 1, 39)]

@@ -99,6 +99,9 @@ namespace AnalysisITC.Core.Numerics
             if (distribution == null || distribution.Count == 0)
                 return mean.HasValue ? new FloatWithError(mean.Value, 0) : new FloatWithError(0, 0);
 
+            if (distribution.Count == 1)
+                return new FloatWithError(mean ?? distribution[0], 0);
+
             var average = mean ?? distribution.Average();
             var sum = distribution.Sum(d => Math.Pow(d - average, 2));
             var denominator = mean.HasValue ? distribution.Count : distribution.Count - 1;
