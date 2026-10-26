@@ -62,8 +62,10 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class FtItcInterpretationClient : IAnalysisInterpretationProvider
     {
-        public const string RequestSchemaVersion = "ft-itc-relay-request-6.0";
-        public const string ResponseSchemaVersion = "ft-itc-relay-response-6.0";
+        public const string RequestSchemaVersion = "ft-itc-relay-request-7.0";
+        public const string ResponseSchemaVersion = "ft-itc-relay-response-7.0";
+        public const string VersionSixRequestSchemaVersion = "ft-itc-relay-request-6.0";
+        public const string VersionSixResponseSchemaVersion = "ft-itc-relay-response-6.0";
         public const string PreviousRequestSchemaVersion = "ft-itc-relay-request-5.0";
         public const string PreviousResponseSchemaVersion = "ft-itc-relay-response-5.0";
         public const string TransitionalRequestSchemaVersion = "ft-itc-relay-request-4.0";
@@ -199,6 +201,7 @@ namespace AnalysisITC.Core.Interpretation
             var evaluation = string.IsNullOrWhiteSpace(request.OperatorCode)
                 && !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
             var bearer = request.OperatorCode;
+            var selectedProvider = request.RequestedProvider ?? AppSettings.InterpretationProvider ?? "openai";
             var selectedModel = request.RequestedModel;
             var selectedReasoning = request.RequestedReasoningEffort;
             var selectedGuidance = request.RequestedGuidanceVariant;
@@ -212,6 +215,9 @@ namespace AnalysisITC.Core.Interpretation
                 throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
                     "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use the default setting.", ex);
             }
+            if (!currentOptions.Providers.Any(value => value.Id == selectedProvider))
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure,
+                    "The selected interpretation provider is not available. Choose a provider in Preferences.");
             var maximumRequestBytes = currentOptions.MaximumRequestBytes;
             if (maximumRequestBytes <= 0 || maximumRequestBytes > MaximumRequestBytes)
                 throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
@@ -240,7 +246,7 @@ namespace AnalysisITC.Core.Interpretation
                         selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
                         selectedGuidance = string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant)
                             ? AppSettings.InterpretationEvaluationGuidanceVariant : request.RequestedGuidanceVariant;
-                        var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
+                        var selected = options.Models.FirstOrDefault(model => model.Provider == selectedProvider && string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
                         if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
                         if (string.IsNullOrWhiteSpace(selectedGuidance)) selectedGuidance = options.DefaultGuidanceVariant;
                         if (!options.GuidanceVariants.Any(item => string.Equals(item.Id, selectedGuidance, StringComparison.Ordinal)))
@@ -268,6 +274,7 @@ namespace AnalysisITC.Core.Interpretation
             var relay = new RelayRequest
             {
                 RequestSchemaVersion = RequestSchemaVersion,
+                Provider = selectedProvider,
                 OmitScientificGuidance = request.OmitScientificGuidance,
                 TaskType = taskType,
                 OutputInstructions = request.Prompt.ResponseFormatInstructions,
@@ -584,6 +591,7 @@ namespace AnalysisITC.Core.Interpretation
         sealed class RelayRequest
         {
             public string RequestSchemaVersion { get; set; }
+            public string Provider { get; set; }
             public bool OmitScientificGuidance { get; set; }
             public string TaskType { get; set; }
             public string OutputInstructions { get; set; }
@@ -617,8 +625,43 @@ namespace AnalysisITC.Core.Interpretation
         }
     }
 
+    public sealed class InterpretationProviderOption
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public override string ToString() => Name ?? Id ?? "";
+    }
+
+    public static class InterpretationProviderPresentation
+    {
+        public const string Label = "Provider";
+        public const string Tooltip = "Service receiving the interpretation evidence";
+        public const string ProviderDefault = "default";
+        public const string ProviderDefaultLabel = "Provider default";
+
+        // Reasoning selectors show labels; both conversions leave other values unchanged.
+        public static string ReasoningLabel(string value) => value == ProviderDefault ? ProviderDefaultLabel : value;
+        public static string ReasoningValue(string label) => label == ProviderDefaultLabel ? ProviderDefault : label;
+    }
+
     public sealed class InterpretationOperatorOptionsResponse
     {
+        public List<InterpretationProviderOption> Providers { get; set; } = new List<InterpretationProviderOption>
+            { new InterpretationProviderOption { Id = "openai", Name = "OpenAI" } };
+        public InterpretationOperatorOptionsResponse ForProvider(string provider)
+        {
+            return new InterpretationOperatorOptionsResponse
+            {
+                Providers = Providers, AccessDetails = AccessDetails, AccessTier = AccessTier,
+                AccessTierName = AccessTierName, Mode = Mode, PresetRevision = PresetRevision,
+                DefaultModel = Models.Any(value => value.Provider == provider && value.Id == DefaultModel)
+                    ? DefaultModel : Models.FirstOrDefault(value => value.Provider == provider && value.SelectionType != "summary")?.Id,
+                DefaultReasoningEffort = DefaultReasoningEffort, MaximumRequestBytes = MaximumRequestBytes,
+                Presets = Presets, Models = Models.Where(value => value.Provider == provider || value.SelectionType == "summary").ToList(),
+                GuidanceVariants = GuidanceVariants, DefaultGuidanceVariant = DefaultGuidanceVariant,
+                SupportsGuidanceOmission = SupportsGuidanceOmission, Quota = Quota,
+            };
+        }
         public InterpretationAccessDetails AccessDetails { get; set; }
         public string AccessTier { get; set; }
         public string AccessTierName { get; set; }
@@ -737,6 +780,7 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class InterpretationOperatorModelOption
     {
+        public string Provider { get; set; } = "openai";
         public string Id { get; set; }
         public string DisplayName { get; set; }
         public string Description { get; set; }

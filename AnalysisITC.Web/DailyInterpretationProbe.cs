@@ -185,6 +185,8 @@ internal sealed class DailyInterpretationProbe
     {
         using var stream = typeof(DailyInterpretationProbe).Assembly.GetManifestResourceStream("AnalysisITC.Web.Diagnostics.daily-interpretation-probe.json")!;
         var request = JsonNode.Parse(stream)!.AsObject();
+        request["requestSchemaVersion"] = FtItcInterpretationClient.RequestSchemaVersion;
+        request["provider"] = "openai";
         request["clientRequestId"] = requestId;
         request["package"]!["report"]!["dateUtc"] = now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
         return request;

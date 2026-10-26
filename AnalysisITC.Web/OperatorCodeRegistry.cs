@@ -359,7 +359,7 @@ public readonly record struct InterpretationGenerationSelection(
     string Model, string ReasoningEffort, string? RequestedModel, string? RequestedReasoningEffort,
     string? OperatorCodeId, string RequestedPreset, string EffectivePreset, string AccessTier,
     string PresetRevision, string ResponseSchemaVersion, string TaskType, string GuidanceVariant,
-    bool OmitScientificGuidance);
+    bool OmitScientificGuidance, string Provider = "openai");
 
 public static class InterpretationGenerationSelector
 {
@@ -375,6 +375,11 @@ public static class InterpretationGenerationSelector
         var auth = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
         if (request.Headers.ContainsKey("Authorization") && !auth.IsAuthorized)
         { selection=default; error=(403,"operator_access_denied","The supplied access code is invalid, expired, or revoked."); return false; }
+        if (validated.Provider is not ("openai" or "mistral"))
+        { selection=default; error=(400,"invalid_interpretation_provider","The requested provider is unknown."); return false; }
+        if (validated.Provider == "mistral" && !options.Mistral.IsConfigured)
+        { selection=default; error=(503,"interpretation_provider_unavailable","The selected interpretation provider is not available."); return false; }
+        var provider = validated.Provider;
         var config = presets.Read();
         if (validated.RequestSchemaVersion == FtItcInterpretationClient.LegacyRequestSchemaVersion)
         {
@@ -388,16 +393,19 @@ public static class InterpretationGenerationSelector
                 if (!Allowed(effectiveModel,effectiveReasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
                 selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
             }
-            var instant=config.Presets.Single(x=>x.Id=="instant");
+            var instant=config.Presets.Single(x=>x.Id=="instant").MappingFor("openai");
             selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.OperatorCodeId,"fast","instant",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
         }
         var tier=auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public;
         var responseVersion = validated.RequestSchemaVersion == FtItcInterpretationClient.RequestSchemaVersion
             ? FtItcInterpretationClient.ResponseSchemaVersion
+            : validated.RequestSchemaVersion == FtItcInterpretationClient.VersionSixRequestSchemaVersion
+                ? FtItcInterpretationClient.VersionSixResponseSchemaVersion
             : validated.RequestSchemaVersion == FtItcInterpretationClient.PreviousRequestSchemaVersion
                 ? FtItcInterpretationClient.PreviousResponseSchemaVersion
                 : FtItcInterpretationClient.TransitionalResponseSchemaVersion;
         if (hasGuidanceOverride && validated.RequestSchemaVersion != FtItcInterpretationClient.RequestSchemaVersion
+            && validated.RequestSchemaVersion != FtItcInterpretationClient.VersionSixRequestSchemaVersion
             && validated.RequestSchemaVersion != FtItcInterpretationClient.PreviousRequestSchemaVersion)
         { selection=default; error=(400,"invalid_guidance_override","Guidance selection requires relay version 5 or later."); return false; }
         if (validated.TaskType == "summary")
@@ -406,10 +414,10 @@ public static class InterpretationGenerationSelector
             { selection=default; error=(400,"invalid_guidance_override","Summary always uses its summary-specific guidance."); return false; }
             if (hasOverride || hasGuidanceOverride)
             { selection=default; error=(400,"invalid_generation_override","Summary uses its server-defined model and reasoning setting."); return false; }
-            var summary=config.Summary;
+            var summary=config.Summary.MappingFor(provider);
             selection=new(summary.Model,summary.ReasoningEffort,null,null,
                 auth.OperatorCodeId,"summary","summary",tier,
-                config.Revision,responseVersion,"summary",config.DefaultGuidanceVariant,false); error=default; return true;
+                config.Revision,responseVersion,"summary",config.DefaultGuidanceVariant,false,provider); error=default; return true;
         }
         if (validated.OmitScientificGuidance && (!auth.IsAuthorized || tier != InterpretationAccessTiers.Administrator))
         { selection=default; error=(403,"operator_access_denied","Administrator access is required to omit scientific guidance."); return false; }
@@ -426,16 +434,17 @@ public static class InterpretationGenerationSelector
         {
             if (validated.GenerationProfile!="custom" || string.IsNullOrWhiteSpace(model) || string.IsNullOrWhiteSpace(reasoning))
             { selection=default; error=(400,"invalid_generation_override","Administrator requests require custom profile, model, and reasoning headers."); return false; }
-            if (!Allowed(model,reasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
-            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation",guidance,validated.OmitScientificGuidance); error=default; return true;
+            if (!Allowed(model,reasoning,options,provider)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
+            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation",guidance,validated.OmitScientificGuidance,provider); error=default; return true;
         }
         if (hasOverride) { selection=default; error=(403,"operator_access_denied","Administrator access is required for model and reasoning controls."); return false; }
         if (!GenerationPresetRegistry.PresetIdsForTier(config, tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
         { selection=default; error=(403,"generation_preset_denied","The selected interpretation depth is not available with this access level."); return false; }
         var preset=config.Presets.Single(x=>x.Id==validated.GenerationProfile);
-        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.OperatorCodeId,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false);
+        var mapping=preset.MappingFor(provider);
+        selection=new(mapping.Model,mapping.ReasoningEffort,null,null,auth.OperatorCodeId,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false,provider);
         error = default; return true;
     }
 
-    static bool Allowed(string model,string reasoning,InterpretationOptions options) => options.AllowedModels.TryGetValue(model,out var allowed)&&allowed.ReasoningEfforts.Contains(reasoning,StringComparer.Ordinal);
+    static bool Allowed(string model,string reasoning,InterpretationOptions options,string provider = "openai") => options.AllowedModels.TryGetValue(model,out var allowed)&&allowed.Provider==provider&&allowed.ReasoningEfforts.Contains(reasoning,StringComparer.Ordinal);
 }

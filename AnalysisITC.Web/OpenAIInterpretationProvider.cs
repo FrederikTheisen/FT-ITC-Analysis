@@ -8,8 +8,10 @@ using Microsoft.Extensions.Options;
 
 namespace AnalysisITC.Web;
 
-public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvider
+public sealed class OpenAIInterpretationProvider : IHostedInterpretationProvider
 {
+    public string ProviderId => "openai";
+    readonly InterpretationOptions configured;
     const int MaximumResponseBytes = 1024 * 1024;
     readonly HttpClient client;
     readonly OpenAIInterpretationOptions options;
@@ -17,7 +19,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
     readonly InterpretationUsageStore? usageStore;
 
     public OpenAIInterpretationProvider(HttpClient client, IOptions<InterpretationOptions> configured, InterpretationUsageStore? usageStore = null)
-    { this.client = client; options = configured.Value.OpenAI; dailyProbe = configured.Value.DailyProbe; this.usageStore = usageStore; }
+    { this.client = client; this.configured = configured.Value; options = configured.Value.OpenAI; dailyProbe = configured.Value.DailyProbe; this.usageStore = usageStore; }
 
     public async Task<AnalysisInterpretationProviderResponse> GenerateAsync(
         AnalysisInterpretationGenerationRequest request, CancellationToken cancellationToken)
@@ -89,7 +91,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         }
     }
 
-    static List<string> RawOmissions(JsonNode? package) => package?["omissions"] is JsonArray omissions
+    internal static List<string> RawOmissions(JsonNode? package) => package?["omissions"] is JsonArray omissions
         ? omissions.Select(value => value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text) ? text : null)
             .Where(text => !string.IsNullOrWhiteSpace(text)).Cast<string>().ToList()
         : new List<string>();
@@ -126,7 +128,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             ["instructions"] = prompt.SystemInstructions,
             ["input"] = prompt.UserMessage,
             ["max_output_tokens"] = dailyProbe.IsProbeAccount(request.OperatorCodeId)
-                ? Math.Min(options.MaxOutputTokens, DailyInterpretationProbe.MaximumOutputTokens) : options.MaxOutputTokens,
+                ? Math.Min(OutputLimit(effectiveModel), DailyInterpretationProbe.MaximumOutputTokens) : OutputLimit(effectiveModel),
             ["store"] = false,
             ["truncation"] = "disabled",
         };
@@ -338,6 +340,9 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         }
     }
 
+    int OutputLimit(string model) => configured.AllowedModels.TryGetValue(model, out var value)
+        ? value.MaxOutputTokens ?? options.MaxOutputTokens : options.MaxOutputTokens;
+
     void BeginAttempt(AnalysisInterpretationGenerationRequest request, int number)
     {
         // A missing or disabled ledger cannot result in a hosted HTTP call.
@@ -374,7 +379,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         {
             RequestId=request.ServerExecutionId,
             ServerExecutionId=request.ServerExecutionId,
-            TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
+            TaskType=request.TaskType, AttemptNumber=number, Provider="openai", ProviderResponseId=responseId, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
             GuidanceVariant=request.TaskType == "summary" ? null : request.RequestedGuidanceVariant,
             GuidanceRevision=request.EffectiveGuidanceRevision,
             TimestampUtc=DateTime.UtcNow, LatencyMs=latency, Model=model, ReasoningEffort=reasoning, FileSearchEnabled=retrieval,

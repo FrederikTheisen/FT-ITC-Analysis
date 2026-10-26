@@ -510,3 +510,62 @@ Worker/Caddy secret provisioning, validation, rollout and rollback order after
 deployment approval. The application retains its one-hop forwarding boundary.
 Deployed with approval on 2026-10-21; real-client IPv4 forwarding was verified from
 two networks. Live IPv6 forwarding remains unverified.
+
+## Mistral provider activation
+
+The service reads `Interpretation__Mistral__ApiKey` from the existing protected
+`/etc/ftitc-web/interpretation.env`. Install it through `sudoedit`; preserve
+other entries and the existing root:ftitc-web ownership and mode 0640. Never
+place the secret in repository files, CLI arguments, diagnostics or exports.
+No restart is needed merely to stage the key before deploying provider support.
+
+Non-secret `Interpretation:Mistral` settings live in the installed application
+configuration so both Web and the admin CLI can read them. They include
+`Enabled` (initially false), `Endpoint`, `TimeoutSeconds`, `MaxOutputTokens`
+and seed `PresetMappings`. Seed mappings only fill presets that have no Mistral
+mapping in the registry file; once the registry has been written, editing them
+has no effect. Change Mistral mappings through the admin console or CLI.
+Mistral mappings are validated only while Mistral is enabled, so a stale
+Mistral model never blocks OpenAI. Models in `AllowedModels` declare `Provider`,
+`ReasoningEfforts` and optional `MaxOutputTokens`; prices remain keyed by model
+ID. The Mistral default output allowance is 15,000 tokens, including reasoning;
+it can be overridden per model. Validate the allowance with representative inputs,
+since a request may exhaust it before returning a final answer. Configure
+`https://api.eu.mistral.ai/v1/chat/completions`, verify the models
+through that region's `/v1/models`, and include current regional pricing.
+Do not substitute the global endpoint when EU processing is required.
+
+Check Mistral's applicable retention/training controls and hosted-model terms
+before enabling user access. Regional inference does not establish zero data
+retention or regional handling of every operational record. References:
+https://docs.mistral.ai/inference/regional-inference and
+https://docs.mistral.ai/admin/monitor-comply/zero-data-retention.
+
+Preserve installed OpenAI configuration and customised preset mappings. The
+schema-12 registry retains shared names, descriptions, tiers, quotas and size
+limits and adds mappings for each provider. Set mappings through the admin
+console or `generation-presets set <preset> <model> <reasoning> --provider mistral`.
+Omitting `--provider` retains OpenAI CLI behavior. `default` is a real reasoning
+choice meaning omit the API parameter. The daily scheduled probe remains OpenAI.
+Mistral Summary and Fast should use a fast model with minimal reasoning. Their
+source seed mappings use Small 4 (`mistral-small-2603`) with explicit `none`,
+rather than leaving reasoning to the provider default. Existing registries need
+the corresponding provider-specific admin updates; seed edits do not change them.
+Usage details and CSV exports include provider identity; summaries and exports
+accept `--provider`.
+
+Follow the scoped staging, consistent backup, migration rehearsal and compatible
+recovery procedure above. Stage Web and status-email together; keep Mistral
+disabled until model/pricing configuration and complete mappings validate.
+Verify preserved account balances and client claims. Never restore an older
+ledger over new charges during rollback.
+
+Live activation permits four tiny invented-evidence requests total: Summary
+and Fast once per provider. Use short output limits, estimate cost before each
+call and check its durable receipt afterward. The combined estimated ceiling
+is USD 0.10. Stop on errors, unresolved billing or a projected overrun; never
+retry automatically or increase limits to obtain a passing result. Restore
+normal output limits after the checks. Check loopback health, public status,
+public exclusion of internal health and admin operation. Disable Mistral if
+its checks fail. These are operational smoke tests, not scientific validation
+or evidence of equivalent speed or interpretation quality.

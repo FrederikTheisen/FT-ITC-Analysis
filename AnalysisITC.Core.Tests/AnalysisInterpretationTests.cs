@@ -794,7 +794,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("relay-model", response.Model);
         using var body = JsonDocument.Parse(handler.RequestBody);
         var names = body.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
-        Assert.Equal(new[] { "requestSchemaVersion", "omitScientificGuidance", "taskType", "outputInstructions", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
+        Assert.Equal(new[] { "requestSchemaVersion", "provider", "omitScientificGuidance", "taskType", "outputInstructions", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
         Assert.False(body.RootElement.GetProperty("omitScientificGuidance").GetBoolean());
         Assert.Equal(prompt.ResponseFormatInstructions, body.RootElement.GetProperty("outputInstructions").GetString());
         Assert.Equal("/api/interpretation/generate", handler.RequestUri.AbsolutePath);
@@ -1424,7 +1424,7 @@ public sealed class AnalysisInterpretationTests
             var taskType = JsonDocument.Parse(RequestBody).RootElement.GetProperty("taskType").GetString();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-6.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"" + (taskType == "summary" ? "summary" : "instant") + "\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-7.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"" + (taskType == "summary" ? "summary" : "instant") + "\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }
@@ -1468,7 +1468,7 @@ public sealed class AnalysisInterpretationTests
             var taskType = JsonDocument.Parse(body).RootElement.GetProperty("taskType").GetString();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-6.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-7.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }

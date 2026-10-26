@@ -429,7 +429,7 @@ Conditions show nominal initial concentrations in syringe ▸ cell order, target
 Fixed estimates have no uncertainty interval. Combined spread and approximate propagated intervals remain distinct from model-estimated uncertainty; see **Analysis results**. Exported warnings remain visible, and structurally unusable results cannot be exported.
 
 ## Online interpretation
-In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the read-only draft against your results, then choose **Use in report** to include it. Edit it in the report builder if needed. Generation requires an internet connection; local analysis and PDF export remain available without it.
+In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the read-only draft against your results, then choose **Use in report** to include it. Edit it in the report builder if needed. Choose **Provider** to select the service receiving the evidence; the available models and presets depend on your access. Generation requires an internet connection; local analysis and PDF export remain available without it.
 
 Completed structuring, electrostatics, and protonation results are included when available. Generation uses saved estimates and does not rerun analyses. Tandem source data are included only when selected. **Evidence level** selects cumulative detail for fitted members: Results; Injection data; Processing details; Thermograms. Results includes fitted values, uncertainty, assessments and fit diagnostics. Higher levels add injection comparisons, then integration and baseline details, then compressed traces. Supporting experiments always provide summary metadata. Processing details and Thermograms add processing settings and baseline summaries; injection rows or traces are not sent for supporting experiments. Injection data is the default where permitted; Public access uses Results. Standard permits Injection data; Advanced and Administrator also permit Processing details and Thermograms. Thermograms requires a fresh selection each time the dialog opens.
 
@@ -441,7 +441,7 @@ The dialog shows package size against your request limit and blocks oversized re
 
 # Privacy and local packages
 
-Generate sends selected names, comments, conditions, fits, injection evidence, and your context to the hosted interpretation service, which uses OpenAI. This is separate from the browser-based Project Viewer. Review https://app.ft-itc.org/privacy.html before sending sensitive material.
+Generate sends selected names, comments, conditions, fits, injection evidence, and your context to the hosted interpretation service, which uses the selected OpenAI or Mistral provider. This is separate from the browser-based Project Viewer. Review https://app.ft-itc.org/privacy.html before sending sensitive material.
 
 The service retains usage metadata without automatic expiry, excluding full scientific evidence and generated text. Provider and infrastructure retention are separate, with no guaranteed deletion deadline. Canceling does not retract sent data.
 

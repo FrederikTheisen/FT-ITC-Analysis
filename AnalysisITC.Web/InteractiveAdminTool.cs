@@ -548,7 +548,7 @@ public sealed class InteractiveAdminTool
         }
         PrintAccountGroup(connection, record.Id, since, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
         PrintAccountGroup(connection, record.Id, since, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS executions,coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved_cost_count,coalesce(sum(waived_unknown_count),0) AS waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
-        PrintAccountGroup(connection, record.Id, since, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS executions,coalesce(sum(total_tokens),0) AS total_tokens,coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved_cost_count,coalesce(sum(waived_unknown_count),0) AS waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
+        PrintAccountGroup(connection, record.Id, since, "Models and reasoning", "SELECT provider,coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS executions,coalesce(sum(total_tokens),0) AS total_tokens,coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved_cost_count,coalesce(sum(waived_unknown_count),0) AS waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY provider,effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
         PrintAccountGroup(connection, record.Id, since, "Recent executions", "SELECT request_id AS server_execution_id,client_request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
     }
 
@@ -612,7 +612,7 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,operator_code_id,effective_model,effective_reasoning,effective_preset,outcome,http_status,latency_ms,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,operator_code_id,effective_model,effective_reasoning,effective_preset,outcome,http_status,latency_ms,known_cost,unresolved_cost_count,waived_unknown_count,provider FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
         output.WriteLine(); output.WriteLine();
@@ -620,6 +620,7 @@ public sealed class InteractiveAdminTool
         {
             if (count++ > 0) output.WriteLine();
             output.WriteLine($"Entry: {Db(reader,0)} · {TimeDb(reader,1)} · User: {UserId(reader,2)}");
+            output.WriteLine($"  Provider: {DisplayValue(reader,12)}");
             output.WriteLine($"  Model: {DisplayValue(reader,3)} · Reasoning: {DisplayValue(reader,4)} · Preset: {PresetName(reader,5)}");
             output.WriteLine($"  Status: {DisplayValue(reader,6)} · HTTP: {DisplayValue(reader,7)} · Time: {Seconds(reader,8)} s · {ListCost(reader,9,10,11)}");
         }
@@ -633,7 +634,7 @@ public sealed class InteractiveAdminTool
         using var connection = usage.OpenForCommand();
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE request_id=$id";
+            command.CommandText = "SELECT provider,request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE request_id=$id";
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
             if (!reader.Read()) { output.WriteLine("No execution has that ID."); return; }
             output.WriteLine(); output.WriteLine("Execution");
@@ -641,7 +642,7 @@ public sealed class InteractiveAdminTool
         }
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT attempt_number,timestamp_utc,guidance_variant,guidance_revision,openai_response_id,provider_request_id,latency_ms,model,reasoning,file_search_enabled,file_search_calls,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,model_cost,file_search_cost,combined_cost,pricing_revision,outcome,http_status,error_code,context_fallback,retrieval_fallback FROM attempts WHERE request_id=$id ORDER BY attempt_number";
+            command.CommandText = "SELECT attempt_number,provider,coalesce(provider_response_id,openai_response_id) AS provider_response_id,timestamp_utc,guidance_variant,guidance_revision,openai_response_id,provider_request_id,latency_ms,model,reasoning,file_search_enabled,file_search_calls,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,model_cost,file_search_cost,combined_cost,pricing_revision,outcome,http_status,error_code,context_fallback,retrieval_fallback FROM attempts WHERE request_id=$id ORDER BY attempt_number";
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
             while (reader.Read()) { output.WriteLine(); output.WriteLine($"Provider attempt {Db(reader,0)}"); for (var i=1;i<reader.FieldCount;i++) output.WriteLine($"  {Label(DisplayColumnName(reader.GetName(i)))}: {DisplayDb(reader,i)}"); }
         }
@@ -650,9 +651,11 @@ public sealed class InteractiveAdminTool
     void Summary()
     {
         var since = PromptSince("Time horizon", "7d"); if (since is null) return;
+        var provider = options.AllowedModels.Values.Select(value => value.Provider).Distinct().Count() > 1 ? Prompt("Provider filter (blank for all)") ?? "" : "";
         var model = Prompt("Model filter (blank for all)") ?? ""; var op = Prompt("Operator ID filter (blank for all)") ?? "";
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand(); var clauses = new List<string> { "started_utc >= $since" };
         command.Parameters.AddWithValue("$since", since.Value.ToString("O"));
+        if (!string.IsNullOrWhiteSpace(provider)) { clauses.Add("provider=$provider"); command.Parameters.AddWithValue("$provider", provider); }
         if (!string.IsNullOrWhiteSpace(model)) { clauses.Add("effective_model=$model"); command.Parameters.AddWithValue("$model", model); }
         if (!string.IsNullOrWhiteSpace(op)) { clauses.Add("operator_code_id=$operator"); command.Parameters.AddWithValue("$operator", op); }
         command.CommandText = $"SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE {string.Join(" AND ",clauses)}";
@@ -767,18 +770,24 @@ public sealed class InteractiveAdminTool
             output.WriteLine($"  Preset: {preset.DisplayName}");
             output.WriteLine($"  Current model: {preset.Model}");
             output.WriteLine($"  Current reasoning: {preset.ReasoningEffort}");
-            var models = options.AllowedModels.Keys.OrderBy(x => x).ToArray();
-            var model = SelectMenuWithDefault("model-choice", true, preset.Model, false,
+            var providerIds = options.AllowedModels.Values.Select(value => value.Provider).Distinct().OrderBy(value => value).ToArray();
+            var provider = providerIds.Length == 1 ? providerIds[0] : SelectMenuWithDefault("provider-choice", true, "openai", false,
+                providerIds.Select(value => new MenuOption(value, value)).Append(new("back", "Back")).ToArray());
+            if (provider is null or "back") continue;
+            var mapping = preset.MappingFor(provider);
+            output.WriteLine($"  Provider: {provider}");
+            var models = options.AllowedModels.Where(value => value.Value.Provider == provider).Select(value => value.Key).OrderBy(x => x).ToArray();
+            var model = SelectMenuWithDefault("model-choice", true, mapping.Model, false,
                 models.Select(value => new MenuOption(value, value)).Append(new("back", "Back")).ToArray());
             if (model is null or "back") continue;
             var efforts = options.AllowedModels[model].ReasoningEfforts;
-            var defaultEffort = efforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal) ? preset.ReasoningEffort : efforts[0];
+            var defaultEffort = efforts.Contains(mapping.ReasoningEffort, StringComparer.Ordinal) ? mapping.ReasoningEffort : efforts[0];
             var effort = SelectMenuWithDefault("reasoning-choice", true, defaultEffort, false,
                 efforts.Select(value => new MenuOption(value, value)).Append(new("back", "Back")).ToArray());
             if (effort is null or "back") continue;
-            output.WriteLine($"  Old: {preset.Model} / {preset.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
+            output.WriteLine($"  Old: {mapping.Model} / {mapping.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
             if (!Confirm("Apply this preset mapping?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
-            var updated = presets.Update(id, model, effort);
+            var updated = presets.Update(id, model, effort, provider);
             output.WriteLine($"Preset updated. Revision: {updated.Revision}");
         }
     }
@@ -792,6 +801,9 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · shared quota · retrieval disabled");
         output.WriteLine($"    {value.Summary.Description}");
         foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort} · tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");output.WriteLine($"    {preset.Description}");}
+        foreach (var preset in AllPresets(value))
+            foreach (var mapping in preset.Mappings.Where(entry => entry.Key != "openai"))
+                output.WriteLine($"  {preset.DisplayName} · {mapping.Key}: {mapping.Value.Model} / {mapping.Value.ReasoningEffort}");
         output.WriteLine($"  Quota accounting started: {FormatTime(value.QuotaAccountingStartedAtUtc)}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
         foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");

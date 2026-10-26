@@ -555,3 +555,21 @@ Unresolved accounting holds survive disposal, restart, elapsed time and month ch
 They require audited settlement or an explicit administrative waiver while generation
 is paused and drained. A waiver permits progress without pretending unknown provider
 cost was zero. See the deployment notes for inspection and recovery procedures.
+
+## Relay version 7: provider selection
+
+`ft-itc-relay-request-7.0` adds an optional `provider` string: `openai` (the
+omitted-field default) or `mistral`. Versions 3–6 always resolve to OpenAI.
+The options response adds `providers: [{ id, name }]`; administrator model
+entries identify their `provider`. Presets, descriptions, tier access and
+allowances remain shared. Every enabled provider requires a complete mapping
+for Summary and all four interpretation presets.
+
+Unknown providers return `invalid_interpretation_provider`; disabled or
+unconfigured providers return `interpretation_provider_unavailable`, before
+admission or dispatch. Generation never switches providers automatically.
+The existing response `provider`, `model` and `reasoningEffort` fields capture
+actual generation provenance. `default` reasoning denotes provider default
+and omits the provider API's reasoning parameter; it does not denote `none`.
+Mistral uses the existing prompt with retrieval disabled. Summary continues
+to use its dedicated guidance with retrieval disabled for either provider.

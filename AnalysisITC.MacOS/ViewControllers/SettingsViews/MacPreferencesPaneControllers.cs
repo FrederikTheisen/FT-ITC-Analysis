@@ -202,6 +202,9 @@ namespace AnalysisITC
         bool loadingInterpretationState;
         bool interpretationAccessVerified;
         string verifiedInterpretationAccessCode = "";
+        NSPopUpButton InterpretationProviderPopup;
+        string selectedInterpretationProvider = AppSettings.InterpretationProvider;
+        bool populatingProviders;
         NSPopUpButton InterpretationGuidancePopup;
         NSStackView InterpretationGuidanceRow;
         NSLayoutConstraint interpretationAccountInfoHeight;
@@ -214,6 +217,7 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
             CreateInterpretationGuidanceControl();
+            CreateInterpretationProviderControl();
             ConfigureInterpretationEvaluationControls();
             InterpretationAccessDetailsLabel.Cell.Wraps = true;
             InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
@@ -251,6 +255,7 @@ namespace AnalysisITC
             CancelInterpretationOperations();
             VerifyInterpretationAccessButton.Enabled = true;
             loadingInterpretationState = true;
+            selectedInterpretationProvider = state.InterpretationProvider;
             InterpretationOperatorCodeField.StringValue = NormalizeInterpretationAccessCode(state.InterpretationOperatorCode);
             interpretationOptions = null;
             interpretationAccount = null;
@@ -262,6 +267,7 @@ namespace AnalysisITC
                 interpretationOptions = cached;
                 interpretationAccessVerified = true;
                 verifiedInterpretationAccessCode = InterpretationOperatorCodeField.StringValue ?? "";
+                selectedInterpretationProvider = state.InterpretationProvider;
                 PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort,state.InterpretationEvaluationGuidanceVariant);
                 InterpretationAccessLabel.StringValue = "Access: Verified (cached)";
                 if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
@@ -274,7 +280,7 @@ namespace AnalysisITC
             else
             {
                 SetPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel);
-                SetPopupText(InterpretationReasoningPopup, state.InterpretationEvaluationReasoningEffort);
+                SetPopupText(InterpretationReasoningPopup, InterpretationProviderPresentation.ReasoningLabel(state.InterpretationEvaluationReasoningEffort));
                 InterpretationAccessLabel.StringValue = "Access: Not verified";
                 UpdateInterpretationAccountSummary(cached: false);
             }
@@ -288,8 +294,9 @@ namespace AnalysisITC
         internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
             state.InterpretationOperatorCode = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
+            state.InterpretationProvider = selectedInterpretationProvider;
             state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
-            state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationEvaluationReasoningEffort = InterpretationProviderPresentation.ReasoningValue(InterpretationReasoningPopup.TitleOfSelectedItem ?? "");
             state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
                 .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "";
             state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
@@ -514,13 +521,23 @@ namespace AnalysisITC
             if (interpretationOptions == null) return;
             var model = interpretationOptions.Models.FirstOrDefault(value => value.Id == InterpretationModelPopup.TitleOfSelectedItem);
             var previous = InterpretationReasoningPopup.TitleOfSelectedItem;
-            InterpretationReasoningPopup.RemoveAllItems(); InterpretationReasoningPopup.AddItems((model?.ReasoningEfforts ?? new System.Collections.Generic.List<string>()).ToArray());
-            SelectPopupText(InterpretationReasoningPopup, preferred ?? previous, interpretationOptions.DefaultReasoningEffort);
+            InterpretationReasoningPopup.RemoveAllItems(); InterpretationReasoningPopup.AddItems((model?.ReasoningEfforts ?? new System.Collections.Generic.List<string>()).Select(InterpretationProviderPresentation.ReasoningLabel).ToArray());
+            SelectPopupText(InterpretationReasoningPopup, InterpretationProviderPresentation.ReasoningLabel(preferred ?? previous), InterpretationProviderPresentation.ReasoningLabel(interpretationOptions.DefaultReasoningEffort));
             InterpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
         }
 
         void PopulateInterpretationChoices(string preset,string model,string reasoning,string guidance)
         {
+            populatingProviders = true;
+            InterpretationProviderPopup?.RemoveAllItems();
+            if (interpretationOptions != null)
+            {
+                InterpretationProviderPopup?.AddItems(interpretationOptions.Providers.Select(value => value.Name).ToArray());
+                var index = interpretationOptions.Providers.FindIndex(value => value.Id == selectedInterpretationProvider);
+                if (index >= 0) InterpretationProviderPopup?.SelectItem(index);
+                else { InterpretationProviderPopup?.AddItem(selectedInterpretationProvider + " (not available)"); InterpretationProviderPopup?.SelectItem(interpretationOptions.Providers.Count); }
+            }
+            populatingProviders = false;
             InterpretationModelPopup.RemoveAllItems();
             if(interpretationOptions?.Mode=="presets")
             {
@@ -529,7 +546,7 @@ namespace AnalysisITC
             }
             else
             {
-                InterpretationModelPopup.AddItems(interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>()); SelectPopupText(InterpretationModelPopup,model,interpretationOptions?.DefaultModel);
+                InterpretationModelPopup.AddItems(interpretationOptions?.Models.Where(x=>x.Provider==selectedInterpretationProvider || x.SelectionType=="summary").Select(x=>x.Id).ToArray()??Array.Empty<string>()); SelectPopupText(InterpretationModelPopup,model,interpretationOptions?.Models.FirstOrDefault(x=>x.Provider==selectedInterpretationProvider && x.SelectionType!="summary")?.Id);
                 UpdateReasoningPopup(reasoning);
             }
             InterpretationGuidancePopup?.RemoveAllItems();
@@ -547,6 +564,34 @@ namespace AnalysisITC
             if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"Interpretation depth";}
             if(InterpretationReasoningPopup?.Superview!=null)InterpretationReasoningPopup.Superview.Hidden=!custom;
             if(InterpretationGuidanceRow!=null)InterpretationGuidanceRow.Hidden=!custom;
+        }
+
+        void CreateInterpretationProviderControl()
+        {
+            var parent = InterpretationReasoningPopup?.Superview?.Superview as NSStackView;
+            if (parent == null) return;
+            InterpretationProviderPopup = new NSPopUpButton(CoreGraphics.CGRect.Empty, false)
+                { TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = InterpretationProviderPresentation.Tooltip };
+            InterpretationProviderPopup.WidthAnchor.ConstraintEqualToConstant(240).Active = true;
+            var row = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Alignment = NSLayoutAttribute.FirstBaseline, Distribution = NSStackViewDistribution.Fill,
+                Spacing = 10, TranslatesAutoresizingMaskIntoConstraints = false };
+            var label = NSTextField.CreateLabel(InterpretationProviderPresentation.Label);
+            label.ToolTip = InterpretationProviderPresentation.Tooltip;
+            label.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            row.AddArrangedSubview(label); row.AddArrangedSubview(InterpretationProviderPopup);
+            // Place Provider above the depth/model row, as in Avalonia.
+            var depthRowIndex = Array.IndexOf(parent.ArrangedSubviews, InterpretationModelPopup?.Superview);
+            if (depthRowIndex >= 0) parent.InsertArrangedSubview(row, depthRowIndex); else parent.AddArrangedSubview(row);
+            InterpretationProviderPopup.Activated += (_, _) =>
+            {
+                var index = (int)InterpretationProviderPopup.IndexOfSelectedItem;
+                if (populatingProviders || interpretationOptions == null || index < 0 || index >= interpretationOptions.Providers.Count) return;
+                selectedInterpretationProvider = interpretationOptions.Providers[index].Id;
+                var currentPreset = interpretationOptions.Presets.FirstOrDefault(x => x.Name == InterpretationModelPopup.TitleOfSelectedItem)?.Id
+                    ?? AppSettings.InterpretationGenerationPreset;
+                PopulateInterpretationChoices(currentPreset, "", "", "");
+            };
         }
 
         void CreateInterpretationGuidanceControl()

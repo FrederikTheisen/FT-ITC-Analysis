@@ -7,6 +7,7 @@ public sealed class InterpretationOptions
     public bool Enabled { get; set; } = false;
     public InterpretationRateLimitOptions RateLimit { get; set; } = new();
     public OpenAIInterpretationOptions OpenAI { get; set; } = new();
+    public MistralInterpretationOptions Mistral { get; set; } = new();
     public InterpretationOperatorOptions OperatorAccess { get; set; } = new();
     public InterpretationUsageOptions UsageLog { get; set; } = new();
     public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/interpretation-service.json";
@@ -44,7 +45,7 @@ public sealed class RegistrationOptions
     public string SecretConfigurationPath { get; set; } = "/etc/ftitc-web/registration-turnstile.json";
     public string DatabasePath { get; set; } = "/var/lib/ftitc-web/self-registration.db";
     public string TermsVersion { get; set; } = "ft-itc-terms-1.0";
-    public string PrivacyVersion { get; set; } = "ft-itc-privacy-1.0";
+    public string PrivacyVersion { get; set; } = "ft-itc-privacy-1.1";
     public string TermsPath { get; set; } = "/terms";
     public string PrivacyPath { get; set; } = "/privacy";
     public string MailConfigurationPath { get; set; } = "/etc/ftitc-web/registration-email.json";
@@ -93,7 +94,21 @@ public sealed class InterpretationUsageOptions
 
 public sealed class InterpretationModelOptions
 {
+    public string Provider { get; set; } = "openai";
+    public int? MaxOutputTokens { get; set; }
     public string[] ReasoningEfforts { get; set; } = Array.Empty<string>();
+}
+
+public sealed class MistralInterpretationOptions
+{
+    public Dictionary<string, GenerationPresetMapping> PresetMappings { get; set; } = new(StringComparer.Ordinal);
+    public bool Enabled { get; set; }
+    public string Endpoint { get; set; } = "https://api.eu.mistral.ai/v1/chat/completions";
+    public string ApiKey { get; set; } = "";
+    public int TimeoutSeconds { get; set; } = 600;
+    public int MaxOutputTokens { get; set; } = 15000;
+    public bool IsConfigured => Enabled && !string.IsNullOrWhiteSpace(ApiKey)
+        && Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri) && uri.Scheme == "https";
 }
 
 public sealed class InterpretationPricingOptions

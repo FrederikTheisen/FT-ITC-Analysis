@@ -6,14 +6,15 @@ namespace AnalysisITC.Web;
 
 public sealed class InterpretationRelayService
 {
-    readonly IAnalysisInterpretationProvider? provider;
+    readonly Dictionary<string, IAnalysisInterpretationProvider> providers;
 
     public InterpretationRelayService(IEnumerable<IAnalysisInterpretationProvider> providers)
     {
-        provider = providers.SingleOrDefault();
+        this.providers = providers.ToDictionary(value => (value as IHostedInterpretationProvider)?.ProviderId ?? "openai", StringComparer.Ordinal);
     }
 
-    public bool IsConfigured => provider is not null;
+    public bool IsConfigured => providers.Count > 0;
+    public bool HasProvider(string id) => providers.ContainsKey(id);
 
     public async Task<InterpretationRelayResponse> GenerateAsync(
         ValidatedInterpretationRequest request,
@@ -21,7 +22,7 @@ public sealed class InterpretationRelayService
         CancellationToken cancellationToken,
         string? serverExecutionId = null)
     {
-        if (provider is null)
+        if (!providers.TryGetValue(selection.Provider, out var provider))
             throw new InvalidOperationException("No interpretation provider is configured.");
 
         AnalysisInterpretationProviderResponse response;
@@ -37,6 +38,7 @@ public sealed class InterpretationRelayService
             EffectiveGuidanceRevision = selection.TaskType == "summary"
                 ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant),
             RequestedModel = selection.Model,
+            RequestedProvider = selection.Provider,
             RequestedReasoningEffort = selection.ReasoningEffort,
             RequestedGuidanceVariant = selection.GuidanceVariant,
             OmitScientificGuidance = selection.OmitScientificGuidance,
@@ -65,7 +67,7 @@ public sealed class InterpretationRelayService
 
         return new InterpretationRelayResponse(
             selection.ResponseSchemaVersion,
-            selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion ? selection.TaskType : null,
+            selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.VersionSixResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion ? selection.TaskType : null,
             request.ClientRequestId,
             response.Provider,
             response.Model,
@@ -77,7 +79,7 @@ public sealed class InterpretationRelayService
             response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
             response.ScientificGuidanceRevision
                 ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant)),
-            (selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion)
+            (selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.VersionSixResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion)
                 && selection.TaskType != "summary" ? selection.GuidanceVariant : null,
             response.ScientificInstructionsFingerprint ?? "",
             response.OutputInstructionsFingerprint ?? "",
@@ -115,4 +117,9 @@ public sealed class InterpretationProviderResponseException : Exception
         : base("The interpretation provider returned an invalid response.")
     {
     }
+}
+
+public interface IHostedInterpretationProvider : IAnalysisInterpretationProvider
+{
+    string ProviderId { get; }
 }

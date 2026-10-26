@@ -76,6 +76,8 @@ and below the text. A single-line row is 16 pt tall in both desktop renderers.
 
 ## I. Interpretation
 
+Generated provenance uses the saved provider (OpenAI or Mistral), model and reasoning. The provider selector does not add report rows or change the native project format.
+
 The interpretation evidence level applies fully to fitted result members.
 Selected supporting experiments always contribute summary metadata; Processing
 details and Thermograms add processing settings and scalar baseline statistics

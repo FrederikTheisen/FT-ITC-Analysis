@@ -64,6 +64,12 @@ public sealed class HealthCheckService
         }
 
         checks.Add(CheckConfiguration());
+        if (options.Mistral.Enabled)
+        {
+            var valid = options.Mistral.IsConfigured && options.AllowedModels.Any(value => value.Value.Provider == "mistral");
+            checks.Add(valid ? HealthCheckResult.Pass("interpretation.mistral", "Mistral configuration")
+                : HealthCheckResult.Fail("interpretation.mistral", "Mistral configuration", "Mistral credentials, HTTPS endpoint or models are incomplete"));
+        }
         checks.Add(CheckUsageDatabase());
         return new("Interpretation", checks);
     }

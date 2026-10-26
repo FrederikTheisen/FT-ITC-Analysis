@@ -46,6 +46,7 @@ public sealed partial class InterpretationUsageStore
         // execution identity even before a request summary can be finalized.
         var identity = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["provider"] = "e.provider",
             ["request_id"] = "e.execution_id", ["execution_id"] = "e.execution_id",
             ["client_request_id"] = "e.client_request_id", ["operator_code_id"] = "CASE WHEN h.execution_id IS NOT NULL THEN h.operator_code_id ELSE e.operator_code_id END",
             ["task_type"] = "e.task_type", ["effective_preset"] = "e.effective_preset",

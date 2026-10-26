@@ -1670,6 +1670,10 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock interpretationOptionDescription = Hint("");
         readonly TextBlock generatedProvenance = new TextBlock { IsVisible = false, TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock generationLabel = Heading("Generation");
+        readonly ComboBox interpretationProviderCombo = Combo(170);
+        InterpretationOperatorOptionsResponse? providerOptions;
+        string selectedProvider = AppSettings.InterpretationProvider;
+        bool populatingProviders;
         readonly ComboBox interpretationPresetCombo = Combo(170);
         readonly ComboBox interpretationModelCombo = Combo(170);
         readonly ComboBox interpretationReasoningCombo = Combo(170);
@@ -1717,6 +1721,8 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationPresetSelectionRow = SelectionRow("Interpretation depth", interpretationPresetCombo, 180);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
+            interpretationSelectionControls.Children.Add(SelectionRow(InterpretationProviderPresentation.Label, interpretationProviderCombo));
+            ToolTip.SetTip(interpretationProviderCombo, InterpretationProviderPresentation.Tooltip);
             interpretationSelectionControls.Children.Add(interpretationPresetSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationModelSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
@@ -1761,6 +1767,12 @@ namespace AnalysisITC.Avalonia.Tools
             savePackage.Click += async (_, _) => await SavePackageAsync(StorageProvider.SaveFilePickerAsync);
             AutomationProperties.SetName(savePackage, "Save interpretation package locally without generation");
             generate.Click += async (_, _) => await GenerateAsync(httpClient);
+            interpretationProviderCombo.SelectionChanged += (_, _) =>
+            {
+                if (populatingProviders || interpretationProviderCombo.SelectedItem is not InterpretationProviderOption provider) return;
+                selectedProvider = provider.Id;
+                PopulateInterpretationChoices(providerOptions);
+            };
             interpretationPresetCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
             interpretationModelCombo.SelectionChanged += (_, _) =>
             {
@@ -1927,9 +1939,17 @@ namespace AnalysisITC.Avalonia.Tools
             var selectedModel = interpretationModelCombo.SelectedItem as string;
             var selectedReasoning = interpretationReasoningCombo.SelectedItem as string;
             interpretationOptions = options;
+            providerOptions = interpretationOptions;
+            populatingProviders = true;
+            var providers = providerOptions?.Providers.ToList() ?? new List<InterpretationProviderOption>();
+            if (!providers.Any(value => value.Id == selectedProvider)) providers.Add(new InterpretationProviderOption { Id = selectedProvider, Name = selectedProvider + " (not available)" });
+            interpretationProviderCombo.ItemsSource = providers;
+            interpretationProviderCombo.SelectedItem = providers.First(value => value.Id == selectedProvider);
+            interpretationOptions = providerOptions?.Providers.Any(value => value.Id == selectedProvider) == true ? providerOptions.ForProvider(selectedProvider) : null;
+            populatingProviders = false;
             interpretationAccessCheckFailed = false;
-            interpretationAccessAllowsGeneration = options != null
-                && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options);
+            interpretationAccessAllowsGeneration = interpretationOptions != null
+                && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(interpretationOptions);
             UpdateInterpretationAccountSummary();
             UpdateOptionalPackageInclusionControls(options);
 
@@ -2010,14 +2030,15 @@ namespace AnalysisITC.Avalonia.Tools
             var modelId = interpretationModelCombo.SelectedItem as string;
             var model = interpretationOptions.Models.FirstOrDefault(item => item.Id == modelId);
             var choices = model?.ReasoningEfforts ?? new List<string>();
-            interpretationReasoningCombo.ItemsSource = choices;
+            var labels = choices.Select(InterpretationProviderPresentation.ReasoningLabel).ToList();
+            interpretationReasoningCombo.ItemsSource = labels;
             var selected = !string.IsNullOrWhiteSpace(preferred)
-                ? preferred
+                ? InterpretationProviderPresentation.ReasoningLabel(preferred)
                 : string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
-                ? interpretationOptions.DefaultReasoningEffort
-                : AppSettings.InterpretationEvaluationReasoningEffort;
-            interpretationReasoningCombo.SelectedItem = choices.FirstOrDefault(value => value == selected)
-                ?? choices.FirstOrDefault();
+                ? InterpretationProviderPresentation.ReasoningLabel(interpretationOptions.DefaultReasoningEffort)
+                : InterpretationProviderPresentation.ReasoningLabel(AppSettings.InterpretationEvaluationReasoningEffort);
+            interpretationReasoningCombo.SelectedItem = labels.FirstOrDefault(value => value == selected)
+                ?? labels.FirstOrDefault();
             interpretationReasoningCombo.IsEnabled = model?.SelectionType != "summary";
             UpdateGuidanceOmissionControl();
         }
@@ -2029,17 +2050,15 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 var model = interpretationModelCombo.SelectedItem as string;
                 if (model == "summary")
-                    return new AnalysisInterpretationGenerationSelection { TaskType = "summary", PresetId = "summary" };
-                return new AnalysisInterpretationGenerationSelection
-                {
+                    return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider, TaskType = "summary", PresetId = "summary" };
+                return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider,
                     Model = model,
-                    ReasoningEffort = interpretationReasoningCombo.SelectedItem as string,
+                    ReasoningEffort = InterpretationProviderPresentation.ReasoningValue(interpretationReasoningCombo.SelectedItem as string),
                     OmitScientificGuidance = omitScientificGuidance.IsChecked == true,
                 };
             }
             var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
-            return new AnalysisInterpretationGenerationSelection
-                { TaskType = preset?.TaskType ?? "interpretation", PresetId = preset?.Id ?? "instant" };
+            return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider, TaskType = preset?.TaskType ?? "interpretation", PresetId = preset?.Id ?? "instant" };
         }
 
         void UpdateInterpretationSetting()
@@ -2274,6 +2293,8 @@ namespace AnalysisITC.Avalonia.Tools
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
             if (!SaveInputs()) return;
+            AppSettings.InterpretationProvider = selectedProvider;
+            AppSettings.Save();
             var generationCancellation = new CancellationTokenSource();
             cancellation = generationCancellation;
             var generationToken = generationCancellation.Token;
@@ -2324,6 +2345,8 @@ namespace AnalysisITC.Avalonia.Tools
             questionBox.IsEnabled = contextBox.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
             evidenceLevelCombo.IsEnabled = !value && interpretationOptions != null;
             if (value) generate.IsEnabled = false; else UpdateGenerateButton();
+            // Stays usable when the saved provider is unavailable, so another can be chosen.
+            interpretationProviderCombo.IsEnabled = !value && providerOptions != null;
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;
             interpretationReasoningCombo.IsEnabled = selectionEnabled

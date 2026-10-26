@@ -67,6 +67,7 @@ namespace AnalysisITC.Core.Application
         // Empty means use the server-selected guidance default.  Explicit values are
         // administrator experiments and must be version IDs accepted by the server.
         public static string InterpretationEvaluationGuidanceVariant { get; set; } = "";
+        public static string InterpretationProvider { get; set; } = "openai";
         public static string InterpretationGenerationPreset { get; set; } = "instant";
         public static bool InterpretationAccessVerified { get; set; }
         public static string InterpretationAccessCodeHash { get; set; } = "";
@@ -356,6 +357,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
             Storage.SetString("InterpretationEvaluationReasoningEffort", InterpretationEvaluationReasoningEffort);
             Storage.SetString("InterpretationEvaluationGuidanceVariant", InterpretationEvaluationGuidanceVariant);
+            Storage.SetString("InterpretationProvider", InterpretationProvider);
             Storage.SetString("InterpretationGenerationPreset", InterpretationGenerationPreset);
             Storage.SetBool("InterpretationAccessVerified", InterpretationAccessVerified);
             Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
@@ -476,6 +478,7 @@ namespace AnalysisITC.Core.Application
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
             InterpretationEvaluationReasoningEffort = Storage.GetString("InterpretationEvaluationReasoningEffort") ?? "";
             InterpretationEvaluationGuidanceVariant = Storage.GetString("InterpretationEvaluationGuidanceVariant") ?? "";
+            InterpretationProvider = Storage.GetString("InterpretationProvider") ?? "openai";
             InterpretationGenerationPreset = Storage.GetString("InterpretationGenerationPreset") ?? "instant";
             InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";

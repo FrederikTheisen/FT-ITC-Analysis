@@ -84,6 +84,9 @@ internal sealed class PreferencesWindow : Window
     readonly TextBlock interpretationAccessStatus = StatusNote();
     readonly Grid interpretationAccessDetails = AccountDetailsGrid();
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
+    readonly ComboBox interpretationProviderCombo = new() { Width = FormControlWidth };
+    string selectedInterpretationProvider = AppSettings.InterpretationProvider;
+    bool populatingProviders;
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationGuidanceCombo = new() { Width = FormControlWidth };
@@ -275,6 +278,13 @@ internal sealed class PreferencesWindow : Window
         };
         verifyInterpretationAccessButton.Click += (_, _) => TrackInterpretationOperation(VerifyInterpretationAccessAsync());
         registerInterpretationButton.Click += (_, _) => OpenInterpretationRegistration();
+        ToolTip.SetTip(interpretationProviderCombo, InterpretationProviderPresentation.Tooltip);
+        interpretationProviderCombo.SelectionChanged += (_, _) =>
+        {
+            if (populatingProviders || interpretationProviderCombo.SelectedItem is not InterpretationProviderOption provider) return;
+            selectedInterpretationProvider = provider.Id;
+            PopulateInterpretationChoices((interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id ?? "instant", "", "", "");
+        };
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         autoSaveEnabledCheck.IsCheckedChanged += (_, _) => UpdateAutoSaveControls();
@@ -412,6 +422,7 @@ internal sealed class PreferencesWindow : Window
             registerInterpretationButton,
             interpretationAccessStatus,
             interpretationAccessDetails,
+            Row(InterpretationProviderPresentation.Label, interpretationProviderCombo),
             interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
             interpretationModelRow = Row("Model", interpretationModelCombo),
             interpretationReasoningRow = Row("Reasoning effort", interpretationReasoningCombo),
@@ -553,6 +564,7 @@ internal sealed class PreferencesWindow : Window
         autoSaveFileLimitBox.Text = state.AutoSaveFileLimit.ToString(CultureInfo.CurrentCulture);
         recoveryPromptCheck.IsChecked = state.PromptForAutoSaveRecovery;
         loadingInterpretationState = true;
+        selectedInterpretationProvider = state.InterpretationProvider;
         interpretationOperatorCodeBox.Text = state.InterpretationOperatorCode;
         interpretationOptions = null;
         interpretationAccessVerified = false;
@@ -562,6 +574,7 @@ internal sealed class PreferencesWindow : Window
             interpretationOptions = cached;
             interpretationAccessVerified = true;
             verifiedInterpretationAccessCode = interpretationOperatorCodeBox.Text ?? "";
+            selectedInterpretationProvider = state.InterpretationProvider;
             PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort, state.InterpretationEvaluationGuidanceVariant);
             interpretationAccessStatus.Text = "Access: Verified (cached)";
             if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
@@ -575,8 +588,9 @@ internal sealed class PreferencesWindow : Window
         {
             interpretationModelCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationModel) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationModel };
             interpretationModelCombo.SelectedItem = state.InterpretationEvaluationModel;
-            interpretationReasoningCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationReasoningEffort) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationReasoningEffort };
-            interpretationReasoningCombo.SelectedItem = state.InterpretationEvaluationReasoningEffort;
+            var reasoningLabel = InterpretationProviderPresentation.ReasoningLabel(state.InterpretationEvaluationReasoningEffort);
+            interpretationReasoningCombo.ItemsSource = string.IsNullOrWhiteSpace(reasoningLabel) ? Array.Empty<string>() : new[] { reasoningLabel };
+            interpretationReasoningCombo.SelectedItem = reasoningLabel;
             interpretationAccessStatus.Text = "Access: Not verified";
             interpretationAccount = null;
             interpretationAccountFetchedAtUtc = null;
@@ -758,8 +772,9 @@ internal sealed class PreferencesWindow : Window
         state.AutoSaveFileLimit = autoSaveFileLimit;
         state.PromptForAutoSaveRecovery = recoveryPromptCheck.IsChecked == true;
         state.InterpretationOperatorCode = interpretationOperatorCodeBox.Text ?? "";
+        state.InterpretationProvider = selectedInterpretationProvider;
         state.InterpretationEvaluationModel = interpretationModelCombo.SelectedItem as string ?? "";
-        state.InterpretationEvaluationReasoningEffort = interpretationReasoningCombo.SelectedItem as string ?? "";
+        state.InterpretationEvaluationReasoningEffort = InterpretationProviderPresentation.ReasoningValue(interpretationReasoningCombo.SelectedItem as string ?? "");
         state.InterpretationEvaluationGuidanceVariant = (interpretationGuidanceCombo.SelectedItem as InterpretationGuidanceVariantOption)?.Id ?? "";
         state.InterpretationGenerationPreset = (interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id ?? "instant";
         state.InterpretationAccessVerified = HasVerifiedInterpretationAccess;
@@ -1075,10 +1090,16 @@ internal sealed class PreferencesWindow : Window
 
     void PopulateInterpretationChoices(string preset,string model,string reasoning,string guidance)
     {
+        populatingProviders = true;
+        var providers = interpretationOptions?.Providers.ToList() ?? new List<InterpretationProviderOption>();
+        if (!providers.Any(value => value.Id == selectedInterpretationProvider)) providers.Add(new InterpretationProviderOption { Id = selectedInterpretationProvider, Name = selectedInterpretationProvider + " (not available)" });
+        interpretationProviderCombo.ItemsSource = providers;
+        interpretationProviderCombo.SelectedItem = providers.First(value => value.Id == selectedInterpretationProvider);
+        populatingProviders = false;
         interpretationPresetCombo.ItemsSource=interpretationOptions?.Presets??new List<InterpretationPresetOption>();
         interpretationPresetCombo.SelectedItem=interpretationOptions?.Presets.FirstOrDefault(x=>x.Id==preset)??interpretationOptions?.Presets.FirstOrDefault();
-        interpretationModelCombo.ItemsSource=interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>();
-        interpretationModelCombo.SelectedItem=interpretationOptions?.Models.Any(x=>x.Id==model)==true?model:interpretationOptions?.Models.FirstOrDefault()?.Id;
+        interpretationModelCombo.ItemsSource=interpretationOptions?.Models.Where(x=>x.Provider==selectedInterpretationProvider || x.SelectionType=="summary").Select(x=>x.Id).ToArray()??Array.Empty<string>();
+        interpretationModelCombo.SelectedItem=interpretationOptions?.Models.Any(x=>x.Id==model && (x.Provider==selectedInterpretationProvider || x.SelectionType=="summary"))==true?model:interpretationOptions?.Models.FirstOrDefault(x=>x.Provider==selectedInterpretationProvider || x.SelectionType=="summary")?.Id;
         UpdateInterpretationReasoningChoices(reasoning);
         interpretationGuidanceCombo.ItemsSource=interpretationOptions?.GuidanceVariants??new List<InterpretationGuidanceVariantOption>();
         interpretationGuidanceCombo.SelectedItem=interpretationOptions?.GuidanceVariants.FirstOrDefault(x=>x.Id==guidance)
@@ -1126,11 +1147,13 @@ internal sealed class PreferencesWindow : Window
     void UpdateInterpretationReasoningChoices(string? preferred = null)
     {
         if (interpretationOptions == null || interpretationModelCombo.SelectedItem is not string model) return;
-        var allowed = interpretationOptions.Models.FirstOrDefault(value => value.Id == model)?.ReasoningEfforts ?? new List<string>();
-        var selected = preferred ?? interpretationReasoningCombo.SelectedItem as string;
+        var allowed = (interpretationOptions.Models.FirstOrDefault(value => value.Id == model)?.ReasoningEfforts ?? new List<string>())
+            .Select(InterpretationProviderPresentation.ReasoningLabel).ToList();
+        var selected = preferred is null ? interpretationReasoningCombo.SelectedItem as string : InterpretationProviderPresentation.ReasoningLabel(preferred);
+        var defaultLabel = InterpretationProviderPresentation.ReasoningLabel(interpretationOptions.DefaultReasoningEffort);
         interpretationReasoningCombo.ItemsSource = allowed;
         interpretationReasoningCombo.SelectedItem = selected is not null && allowed.Contains(selected) ? selected
-            : allowed.Contains(interpretationOptions.DefaultReasoningEffort) ? interpretationOptions.DefaultReasoningEffort : allowed.FirstOrDefault();
+            : allowed.Contains(defaultLabel) ? defaultLabel : allowed.FirstOrDefault();
         interpretationReasoningCombo.IsEnabled = model != "summary";
     }
 

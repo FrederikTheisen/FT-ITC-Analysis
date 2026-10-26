@@ -31,7 +31,7 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 11;
+    const int CurrentSchemaVersion = 12;
     const string CompileTimeDefaultGuidanceId = "3.7.3";
     public const int AbsoluteMaximumRequestKiB = 2048;
     public const int MaximumDescriptionLength = 500;
@@ -46,23 +46,30 @@ public sealed class GenerationPresetRegistry
         var text = ReadConfiguredText(path);
         var value = text is null ? Defaults() : JsonSerializer.Deserialize<GenerationPresetConfiguration>(text, JsonOptions);
         value = Upgrade(value ?? throw new InvalidDataException("The generation-preset registry is invalid."));
+        foreach (var preset in new[] { value.Summary }.Concat(value.Presets))
+        {
+            preset.Mappings.TryAdd("openai", new() { Model = preset.Model, ReasoningEffort = preset.ReasoningEffort });
+            if (options.Mistral.PresetMappings.TryGetValue(preset.Id, out var mapping))
+                preset.Mappings.TryAdd("mistral", new() { Model = mapping.Model, ReasoningEffort = mapping.ReasoningEffort });
+        }
         Validate(value);
         return value;
     }
 
-    public GenerationPresetConfiguration Update(string presetId, string model, string reasoning)
+    public GenerationPresetConfiguration Update(string presetId, string model, string reasoning, string provider = "openai")
     {
+        // Validation skips disabled providers, so check an edited mapping directly.
+        if (!IsValidMapping(provider, model, reasoning))
+            throw new ArgumentException($"The {provider} model and reasoning combination is not allowed.", nameof(model));
         var value = Read();
         if (presetId == "summary")
         {
-            value.Summary.Model = model;
-            value.Summary.ReasoningEffort = reasoning;
+            value.Summary.SetMapping(provider, model, reasoning);
             Touch(value); Write(value); return value;
         }
         var preset = value.Presets.SingleOrDefault(item => item.Id == presetId)
             ?? throw new ArgumentException("Unknown preset.", nameof(presetId));
-        preset.Model = model;
-        preset.ReasoningEffort = reasoning;
+        preset.SetMapping(provider, model, reasoning);
         Touch(value);
         Write(value);
         return value;
@@ -159,8 +166,25 @@ public sealed class GenerationPresetRegistry
         catch (DirectoryNotFoundException) { return null; }
     }
 
+    bool IsValidMapping(string provider, string model, string reasoning) =>
+        provider is "openai" or "mistral"
+        && options.AllowedModels.TryGetValue(model, out var allowed)
+        && allowed.Provider == provider && allowed.ReasoningEfforts.Contains(reasoning, StringComparer.Ordinal);
+
     void Validate(GenerationPresetConfiguration value)
     {
+        foreach (var preset in new[] { value.Summary }.Concat(value.Presets))
+        {
+            // A disabled provider's mappings are kept but not checked, so a stale
+            // Mistral model cannot make the registry unreadable for OpenAI.
+            foreach (var entry in preset.Mappings)
+                if (entry.Key is not ("openai" or "mistral")
+                    || (entry.Key == "openai" || options.Mistral.IsConfigured)
+                        && !IsValidMapping(entry.Key, entry.Value.Model, entry.Value.ReasoningEffort))
+                    throw new InvalidDataException($"Preset '{preset.Id}' has an invalid {entry.Key} mapping.");
+            if (options.Mistral.IsConfigured && !preset.Mappings.ContainsKey("mistral"))
+                throw new InvalidDataException($"Preset '{preset.Id}' requires a Mistral mapping before enabling Mistral.");
+        }
         string[] required = ["instant", "fast", "standard", "in-depth"];
         var ids = value.Presets.Select(x => x.Id).ToArray();
         if (value.SchemaVersion != CurrentSchemaVersion || ids.Length != required.Length
@@ -241,7 +265,7 @@ public sealed class GenerationPresetRegistry
         upgraded.GlobalPublicRequestWindowHours = value.GlobalPublicRequestWindowHours > 0 ? value.GlobalPublicRequestWindowHours : 24;
         foreach (var preset in upgraded.Presets)
         {
-            if (value.SchemaVersion < CurrentSchemaVersion || preset.AllowedTiers.Count == 0)
+            if (value.SchemaVersion < 11 || preset.AllowedTiers.Count == 0)
                 preset.AllowedTiers = DefaultAllowedTiers(preset.Id).ToList();
             preset.DisplayName = preset.Id switch
             {
@@ -345,13 +369,33 @@ public sealed class GenerationPresetConfiguration
     public int GlobalPublicRequestWindowHours { get; set; } = 24;
 }
 
+public sealed class GenerationPresetMapping
+{
+    public string Model { get; set; } = "";
+    public string ReasoningEffort { get; set; } = "default";
+}
+
 public sealed class GenerationPreset
 {
+    public Dictionary<string, GenerationPresetMapping> Mappings { get; set; } = new(StringComparer.Ordinal);
+    public GenerationPresetMapping MappingFor(string provider) => provider == "openai"
+        ? new() { Model = Model, ReasoningEffort = ReasoningEffort }
+        : Mappings.TryGetValue(provider, out var mapping) ? mapping
+        : throw new InvalidDataException($"Preset '{Id}' has no mapping for {provider}.");
+    public void SetMapping(string provider, string model, string reasoning)
+    {
+        if (provider == "openai") { Model = model; ReasoningEffort = reasoning; }
+        Mappings[provider] = new() { Model = model, ReasoningEffort = reasoning };
+    }
     public string Id { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public string Description { get; set; } = "";
-    public string Model { get; set; } = "";
-    public string ReasoningEffort { get; set; } = "";
+    string model = "";
+    string reasoning = "";
+    public string Model { get => Mappings.TryGetValue("openai", out var value) ? value.Model : model;
+        set { model = value; if (Mappings.TryGetValue("openai", out var mapping)) mapping.Model = value; } }
+    public string ReasoningEffort { get => Mappings.TryGetValue("openai", out var value) ? value.ReasoningEffort : reasoning;
+        set { reasoning = value; if (Mappings.TryGetValue("openai", out var mapping)) mapping.ReasoningEffort = value; } }
     public List<string> AllowedTiers { get; set; } = [];
 }
 

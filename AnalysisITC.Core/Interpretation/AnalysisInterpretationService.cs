@@ -34,6 +34,7 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class AnalysisInterpretationGenerationRequest
     {
+        public string RequestedProvider { get; set; }
         public string TaskType { get; set; } = "interpretation";
         public string ClientRequestId { get; set; }
         public string GenerationProfile { get; set; } = "instant";
@@ -77,6 +78,7 @@ namespace AnalysisITC.Core.Interpretation
     /// </summary>
     public sealed class AnalysisInterpretationGenerationSelection
     {
+        public string Provider { get; set; }
         public string TaskType { get; set; } = "interpretation";
         public string PresetId { get; set; }
         public string Model { get; set; }
@@ -174,6 +176,7 @@ namespace AnalysisITC.Core.Interpretation
                         : generationSelection?.PresetId ?? "instant",
                     RequestedPreset = taskType == "summary" ? "summary" : generationSelection?.IsCustom == true ? null : generationSelection?.PresetId,
                     RequestedModel = generationSelection?.Model,
+                    RequestedProvider = generationSelection?.Provider,
                     RequestedReasoningEffort = generationSelection?.ReasoningEffort,
                     OmitScientificGuidance = generationSelection?.OmitScientificGuidance == true,
                     Package = package,

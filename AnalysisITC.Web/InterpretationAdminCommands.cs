@@ -144,13 +144,13 @@ public static class InterpretationAdminCommands
         }
         if (args[0] == "show" && args.Length >= 2)
         {
-            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,trace_id,operator_code_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,effective_guidance_variant,guidance_revision FROM execution_usage WHERE request_id=$id"; command.Parameters.AddWithValue("$id", args[1]);
+            using var command = connection.CreateCommand(); command.CommandText = "SELECT provider,request_id AS server_execution_id,client_request_id,trace_id,operator_code_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,effective_guidance_variant,guidance_revision FROM execution_usage WHERE request_id=$id"; command.Parameters.AddWithValue("$id", args[1]);
             using var reader = command.ExecuteReader(); if (!reader.Read()) return NotFound(error); NamedRow(reader, output); return 0;
         }
         if (args[0] == "inspect")
         {
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,operator_code_id,started_utc,outcome,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE (unresolved_cost_count>0 OR waived_unknown_count>0)";
+            command.CommandText = "SELECT provider,request_id AS server_execution_id,client_request_id,operator_code_id,started_utc,outcome,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE (unresolved_cost_count>0 OR waived_unknown_count>0)";
             if (Value(args,"--operator") is string account)
             {
                 command.CommandText += " AND operator_code_id=$operator";
@@ -172,12 +172,14 @@ public static class InterpretationAdminCommands
         if (args[0] == "list")
         {
             var limit = int.TryParse(Value(args, "--limit"), out var parsed) ? Math.Clamp(parsed, 1, 10000) : 100;
-            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,coalesce(operator_code_id,'public') AS user_id FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit"; command.Parameters.AddWithValue("$since", since.ToString("O")); command.Parameters.AddWithValue("$limit", limit);
+            using var command = connection.CreateCommand(); command.CommandText = "SELECT provider,request_id AS server_execution_id,client_request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,coalesce(operator_code_id,'public') AS user_id FROM execution_usage WHERE started_utc >= $since AND ($provider IS NULL OR provider=$provider) ORDER BY started_utc DESC LIMIT $limit"; command.Parameters.AddWithValue("$since", since.ToString("O")); command.Parameters.AddWithValue("$limit", limit);
+            command.Parameters.AddWithValue("$provider", (object?)Value(args,"--provider") ?? DBNull.Value);
             using var reader = command.ExecuteReader(); while (reader.Read()) NamedRow(reader, output); return 0;
         }
         if (args[0] == "summary")
         {
             var clauses = new List<string> { "started_utc >= $since" }; using var command = connection.CreateCommand(); command.Parameters.AddWithValue("$since", since.ToString("O"));
+            if (Value(args,"--provider") is string provider) { clauses.Add("provider=$provider"); command.Parameters.AddWithValue("$provider",provider); }
             if (Value(args,"--model") is string model) { clauses.Add("effective_model=$model"); command.Parameters.AddWithValue("$model",model); }
             if (Value(args,"--operator") is string op) { clauses.Add("operator_code_id=$operator"); command.Parameters.AddWithValue("$operator",op); }
             command.CommandText = $"SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE {string.Join(" AND ",clauses)}";
@@ -186,7 +188,7 @@ public static class InterpretationAdminCommands
         if (args[0] == "export")
         {
             var file = Value(args,"--output") ?? throw new ArgumentException("--output is required.");
-            ExportUsage(store, since, file); return 0;
+            ExportUsage(store, since, file, Value(args,"--provider")); return 0;
         }
         return Help(error);
     }
@@ -228,10 +230,13 @@ public static class InterpretationAdminCommands
 
     static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
     {
+        var provider = Value(args, "--provider") ?? "openai";
+        var providerIndex = Array.IndexOf(args, "--provider");
+        if (providerIndex >= 0) args = args.Where((_, index) => index != providerIndex && index != providerIndex + 1).ToArray();
         if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
-        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O} default_guidance={value.DefaultGuidanceVariant}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers shared_quota retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}  tiers={string.Join(',', item.AllowedTiers)}\n  description={item.Description}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O} default_guidance={value.DefaultGuidanceVariant}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers shared_quota retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}  tiers={string.Join(',', item.AllowedTiers)}\n  description={item.Description}");foreach(var preset in new[]{value.Summary}.Concat(value.Presets))foreach(var mapping in preset.Mappings.Where(entry=>entry.Key!="openai"))output.WriteLine($"{preset.Id} provider={mapping.Key} model={mapping.Value.Model} reasoning={mapping.Value.ReasoningEffort}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
         if(args.Length==1&&args[0]=="public-limits"){var value=registry.Read();output.WriteLine($"installation_monthly_usd={value.PublicMonthlyUsd.ToString(CultureInfo.InvariantCulture)} installation_requests={value.PublicRequestLimit} installation_window_hours={value.PublicRequestWindowHours} global_monthly_usd={value.GlobalPublicMonthlyUsd.ToString(CultureInfo.InvariantCulture)} global_requests={value.GlobalPublicRequestLimit} global_window_hours={value.GlobalPublicRequestWindowHours}");return 0;}
-        if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
+        if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3],provider);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-description"){var value=registry.UpdateDescription(args[1],args[2]);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],decimal.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-request-size"){var value=registry.UpdateRequestSizeLimit(args[1],int.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
@@ -285,9 +290,9 @@ public static class InterpretationAdminCommands
         return CsvQuoted(value);
     }
     static string CsvQuoted(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
-    internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file)
+    internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file, string? provider = null)
     {
-        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,CASE WHEN unresolved_cost_count=0 AND waived_unknown_count=0 THEN known_cost ELSE NULL END AS total_cost FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));
+        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT provider,request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,CASE WHEN unresolved_cost_count=0 AND waived_unknown_count=0 THEN known_cost ELSE NULL END AS total_cost FROM execution_usage WHERE started_utc >= $since AND ($provider IS NULL OR provider=$provider) ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O")); command.Parameters.AddWithValue("$provider",(object?)provider ?? DBNull.Value);
         using var reader = command.ExecuteReader(); using var writer = new StreamWriter(file, false, new UTF8Encoding(false));
         writer.WriteLine(string.Join(",", Enumerable.Range(0,reader.FieldCount).Select(reader.GetName).Select(Csv)));
         while(reader.Read()) writer.WriteLine(string.Join(",",Enumerable.Range(0,reader.FieldCount).Select(i=>Csv(Db(reader,i)))));

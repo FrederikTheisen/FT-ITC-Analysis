@@ -720,7 +720,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
             }, CancellationToken.None));
 
         Assert.Equal(AnalysisInterpretationFailureKind.ServiceFailure, exception.Kind);
-        Assert.Contains("HTTP 503", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("not available", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

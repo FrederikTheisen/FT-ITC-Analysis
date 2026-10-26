@@ -24,16 +24,18 @@ public sealed class InterpretationRequestReader
             var errors = new Dictionary<string, string[]>();
             var schema = Text("requestSchemaVersion"); var taskType = Text("taskType"); var output = Text("outputInstructions"); var format = Text("outputFormatVersion"); var profile = Text("generationProfile"); var id = Text("clientRequestId");
             if (schema != FtItcInterpretationClient.RequestSchemaVersion
+                && schema != FtItcInterpretationClient.VersionSixRequestSchemaVersion
                 && schema != FtItcInterpretationClient.PreviousRequestSchemaVersion
                 && schema != FtItcInterpretationClient.TransitionalRequestSchemaVersion
                 && schema != FtItcInterpretationClient.LegacyRequestSchemaVersion)
                 errors["requestSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
-            if ((schema == FtItcInterpretationClient.RequestSchemaVersion || schema == FtItcInterpretationClient.PreviousRequestSchemaVersion)
+            if ((schema == FtItcInterpretationClient.RequestSchemaVersion || schema == FtItcInterpretationClient.VersionSixRequestSchemaVersion || schema == FtItcInterpretationClient.PreviousRequestSchemaVersion)
                 && taskType is not ("interpretation" or "summary"))
                 errors["taskType"] = new[] { "Use interpretation or summary." };
-            if (schema != FtItcInterpretationClient.RequestSchemaVersion && schema != FtItcInterpretationClient.PreviousRequestSchemaVersion) taskType = "interpretation";
+            if (schema != FtItcInterpretationClient.RequestSchemaVersion && schema != FtItcInterpretationClient.VersionSixRequestSchemaVersion
+                && schema != FtItcInterpretationClient.PreviousRequestSchemaVersion) taskType = "interpretation";
             var omitScientificGuidance = false;
-            if (schema == FtItcInterpretationClient.RequestSchemaVersion)
+            if (schema == FtItcInterpretationClient.RequestSchemaVersion || schema == FtItcInterpretationClient.VersionSixRequestSchemaVersion)
             {
                 if (!root.TryGetProperty("omitScientificGuidance", out var omit) || omit.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                     errors["omitScientificGuidance"] = new[] { "A Boolean value is required." };
@@ -50,7 +52,11 @@ public sealed class InterpretationRequestReader
             if (!root.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.Object) errors["package"] = new[] { "A package object is required." };
             else if (!package.TryGetProperty("packageSchemaVersion", out var version) || version.ValueKind != JsonValueKind.String || !AnalysisInterpretationPackageBuilder.SupportedPackageSchemaVersions.Contains(version.GetString(), StringComparer.Ordinal)) errors["package.packageSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
             if (errors.Count > 0) return new(null, new(422, "invalid_interpretation_request", "Invalid interpretation request", "The interpretation request failed validation.", errors), stream.BytesRead);
-            return new(new(schema!, taskType!, id!, profile!, format!, output!, package.Clone(), omitScientificGuidance), null, stream.BytesRead);
+            if (schema == FtItcInterpretationClient.RequestSchemaVersion && root.TryGetProperty("provider", out var providerValue)
+                && providerValue.ValueKind != JsonValueKind.String)
+                return Fail(422, "invalid_interpretation_provider", "Invalid provider", "Provider must be a string.", bytesRead: stream.BytesRead);
+            var provider = schema == FtItcInterpretationClient.RequestSchemaVersion ? Text("provider") ?? "openai" : "openai";
+            return new(new(schema!, taskType!, id!, profile!, format!, output!, package.Clone(), omitScientificGuidance, provider), null, stream.BytesRead);
         }
         catch (RequestBodyTooLargeException) { return TooLarge(); }
         catch (JsonException) { return Fail(400, "invalid_interpretation_json", "Invalid interpretation JSON", "The request body is malformed.", new Dictionary<string, string[]> { ["$"] = new[] { "Provide valid JSON." } }); }
@@ -60,7 +66,7 @@ public sealed class InterpretationRequestReader
 }
 public sealed record InterpretationRequestFailure(int StatusCode, string Code, string Title, string Detail, IReadOnlyDictionary<string, string[]>? Errors);
 public sealed class InterpretationRequestReadResult { public InterpretationRequestReadResult(ValidatedInterpretationRequest? request, InterpretationRequestFailure? failure, long bytesRead = 0) { Request = request; Failure = failure; BytesRead = bytesRead; } public ValidatedInterpretationRequest? Request { get; } public InterpretationRequestFailure? Failure { get; } public long BytesRead { get; } }
-public sealed record ValidatedInterpretationRequest(string RequestSchemaVersion, string TaskType, string ClientRequestId, string GenerationProfile, string OutputFormatVersion, string OutputInstructions, JsonElement PackageJson, bool OmitScientificGuidance = false);
+public sealed record ValidatedInterpretationRequest(string RequestSchemaVersion, string TaskType, string ClientRequestId, string GenerationProfile, string OutputFormatVersion, string OutputInstructions, JsonElement PackageJson, bool OmitScientificGuidance = false, string Provider = "openai");
 sealed class RequestBodyTooLargeException : Exception;
 
 sealed class SizeLimitedReadStream : Stream

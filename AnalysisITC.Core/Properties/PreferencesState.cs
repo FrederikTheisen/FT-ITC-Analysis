@@ -42,6 +42,7 @@ namespace AnalysisITC.Core.Application
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
         public string InterpretationEvaluationGuidanceVariant { get; set; } = "";
+        public string InterpretationProvider { get; set; } = "openai";
         public string InterpretationGenerationPreset { get; set; } = "instant";
         public bool InterpretationAccessVerified { get; set; }
         public string InterpretationAccessCodeHash { get; set; } = "";
@@ -179,6 +180,7 @@ namespace AnalysisITC.Core.Application
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
                 InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
                 InterpretationEvaluationGuidanceVariant = AppSettings.InterpretationEvaluationGuidanceVariant,
+                InterpretationProvider = AppSettings.InterpretationProvider,
                 InterpretationGenerationPreset = AppSettings.InterpretationGenerationPreset,
                 InterpretationAccessVerified = AppSettings.InterpretationAccessVerified,
                 InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
@@ -322,6 +324,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
             AppSettings.InterpretationEvaluationGuidanceVariant = InterpretationEvaluationGuidanceVariant ?? "";
+            AppSettings.InterpretationProvider = InterpretationProvider ?? "openai";
             AppSettings.InterpretationGenerationPreset = InterpretationGenerationPreset ?? "instant";
             AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";

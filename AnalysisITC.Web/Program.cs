@@ -123,6 +123,13 @@ if (openAIConfiguration?.IsConfigured == true)
     builder.Services.AddScoped<IAnalysisInterpretationProvider>(services =>
         services.GetRequiredService<OpenAIInterpretationProvider>());
 }
+var mistralConfiguration = builder.Configuration.GetSection(InterpretationOptions.SectionName)
+    .GetSection(nameof(InterpretationOptions.Mistral)).Get<MistralInterpretationOptions>();
+if (mistralConfiguration?.IsConfigured == true)
+{
+    builder.Services.AddHttpClient<MistralInterpretationProvider>(client => client.Timeout = Timeout.InfiniteTimeSpan);
+    builder.Services.AddScoped<IAnalysisInterpretationProvider>(services => services.GetRequiredService<MistralInterpretationProvider>());
+}
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -304,7 +311,7 @@ app.MapGet("/api/interpretation/status", (
         requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion, responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
         currentPackageSchemaVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion,
         supportedPackageSchemaVersions = AnalysisInterpretationPackageBuilder.SupportedPackageSchemaVersions,
-        supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.TransitionalRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
+        supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.VersionSixRequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.TransitionalRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
 });
 
 app.MapGet("/api/registration/status", (IOptions<InterpretationOptions> configured, InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability) =>
@@ -463,7 +470,8 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
     var publicStatus = authentication.IsPublicClient ? publicQuotas.GetStatus(authentication.OperatorCodeId!) : default;
     var value = configured.Value; var presetConfiguration = presets.Read();
     var requestedVersion = request.Query["requestSchemaVersion"].FirstOrDefault();
-    var versionSix = string.Equals(requestedVersion, FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
+    var versionSeven = string.Equals(requestedVersion, FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
+    var versionSix = versionSeven || string.Equals(requestedVersion, FtItcInterpretationClient.VersionSixRequestSchemaVersion, StringComparison.Ordinal);
     var versionWithSummary = versionSix || string.Equals(requestedVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, StringComparison.Ordinal);
     var summaryQuota = quotas.GetStatus(authentication.OperatorCodeId, tier, "summary");
     var summaryChoices = versionWithSummary
@@ -485,11 +493,14 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
             return new { id = item.Id, name = item.DisplayName, description = item.Description,
                 quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
         }).Cast<object>());
-    var modelChoices = value.AllowedModels.OrderBy(item => item.Key)
-        .Select(item => new { id = item.Key, displayName = item.Key, selectionType = "model", description = (string?)null,
+    var modelChoices = value.AllowedModels.Where(item => item.Value.Provider == "openai" || versionSeven && value.Mistral.IsConfigured).OrderBy(item => item.Key)
+        .Select(item => new { id = item.Key, provider = item.Value.Provider, displayName = item.Key, selectionType = "model", description = (string?)null,
             reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>();
     return Results.Ok(new
     {
+        providers = new[] { new { id = "openai", name = "OpenAI" } }
+            .Where(_ => value.OpenAI.IsConfigured)
+            .Concat(versionSeven && value.Mistral.IsConfigured ? new[] { new { id = "mistral", name = "Mistral" } } : []).ToArray(),
         accessTier = tier,
         accessTierName = InterpretationAccessTiers.DisplayName(tier),
         accessDetails = accessRecord is null ? null : new { name = accessRecord.Label, expiresAtUtc = accessRecord.ExpiresAtUtc },
@@ -503,7 +514,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
             : summaryChoices.Concat(presetChoices).ToArray(),
         models = tier == InterpretationAccessTiers.Administrator
             ? (versionWithSummary
-                    ? new[] { new { id = "summary", displayName = "Summary", selectionType = "summary",
+                    ? new[] { new { id = "summary", provider = "openai", displayName = "Summary", selectionType = "summary",
                         description = presetConfiguration.Summary.Description,
                         reasoningEfforts = new[] { presetConfiguration.Summary.ReasoningEffort } } }.Cast<object>()
                     : Enumerable.Empty<object>())
@@ -609,7 +620,8 @@ app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOption
     {
         defaultModel = value.OpenAI.Model,
         defaultReasoningEffort = value.OpenAI.ReasoningEffort,
-        models = value.AllowedModels.OrderBy(item => item.Key).Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
+        models = value.AllowedModels.Where(item => item.Value.Provider == "openai").OrderBy(item => item.Key)
+            .Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
         guidanceVariants = ScientificGuidance.Variants
             .Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }),
         defaultGuidanceVariant = presets.Read().DefaultGuidanceVariant,
@@ -712,10 +724,16 @@ app.MapPost("/api/interpretation/generate", async (
     }
     if (!selected)
     {
+        if (selectionError.Code is "invalid_interpretation_provider" or "interpretation_provider_unavailable")
+            return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, "Interpretation provider unavailable");
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
         return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
     }
+
+    if (relay.IsConfigured && !relay.HasProvider(selection.Provider))
+        return Problem(503, "interpretation_provider_unavailable",
+            "The selected interpretation provider is not available.", "Interpretation provider unavailable");
 
     var diagnosticAccount = options.Value.DailyProbe.IsProbeAccount(selection.OperatorCodeId);
     var diagnosticRequest = request.Headers[DailyInterpretationProbe.RequestHeader] == "1";
@@ -730,8 +748,8 @@ app.MapPost("/api/interpretation/generate", async (
         // never a client-provided diagnostic flag. The ordinary authentication,
         // preset, quota, admission, relay and accounting paths still apply.
         selection = selection with { EffectivePreset = DailyInterpretationProbe.PresetId };
-        if (!diagnosticRequest || result.Request!.TaskType != "interpretation" || result.Request.GenerationProfile != "instant"
-            || result.Request.RequestSchemaVersion != FtItcInterpretationClient.RequestSchemaVersion
+        if (selection.Provider != "openai" || !diagnosticRequest || result.Request!.TaskType != "interpretation" || result.Request.GenerationProfile != "instant"
+            || result.Request.RequestSchemaVersion is not (FtItcInterpretationClient.RequestSchemaVersion or FtItcInterpretationClient.VersionSixRequestSchemaVersion)
             || result.Request.ClientRequestId != DailyInterpretationProbe.RequestId(selection.OperatorCodeId!, started))
         {
             RecordRejectedAdmission("invalid_daily_probe", StatusCodes.Status422UnprocessableEntity);
@@ -838,6 +856,7 @@ app.MapPost("/api/interpretation/generate", async (
         RequestedModel = selection.RequestedModel,
         RequestedReasoning = selection.RequestedReasoningEffort,
         EffectiveModel = selection.Model,
+        Provider = selection.Provider,
         EffectiveReasoning = selection.ReasoningEffort,
         Outcome = "admitted",
         RequestVersion = result.Request.RequestSchemaVersion,
@@ -985,7 +1004,8 @@ app.MapPost("/api/interpretation/generate", async (
                 RequestedPreset = selection.RequestedPreset, EffectivePreset = selection.EffectivePreset,
                 AccessTier = selection.AccessTier, PresetRevision = selection.PresetRevision,
                 RequestedModel = selection.RequestedModel, RequestedReasoning = selection.RequestedReasoningEffort,
-                EffectiveModel = selection.Model, EffectiveReasoning = selection.ReasoningEffort,
+                EffectiveModel = selection.Model,
+        Provider = selection.Provider, EffectiveReasoning = selection.ReasoningEffort,
                 RequestedGuidanceVariant = result.Request?.OmitScientificGuidance == true
                     ? ScientificGuidance.NoGuidanceVariant : request.Headers["X-FTITC-Guidance-Variant"].FirstOrDefault(),
                 EffectiveGuidanceVariant = selection.TaskType == "summary" ? null : selection.GuidanceVariant,

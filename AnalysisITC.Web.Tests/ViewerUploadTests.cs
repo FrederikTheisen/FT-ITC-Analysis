@@ -137,7 +137,7 @@ public sealed class ViewerUploadTests : IClassFixture<ViewerUploadApplicationFac
         Assert.Contains("<strong>Retention and deletion:</strong>", privacy);
         Assert.Contains("AI interpretation traceability", privacy, StringComparison.Ordinal);
         Assert.Contains("SHA-256", privacy, StringComparison.Ordinal);
-        Assert.DoesNotContain("OpenAI", privacy, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("OpenAI or Mistral", privacy, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);
         Assert.Contains("id=\"processed-mode-raw\"", html);

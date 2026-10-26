@@ -332,7 +332,7 @@ static class SettingsUpdateTests
                 var client = new FtItcInterpretationClient(http, new Uri("https://example.invalid"));
                 Wait(Task.Run(() => client.GetInterpretationOptionsAsync("")));
             }
-            Check(events.SequenceEqual(new[] { "applied", "updated" }), "Enrollment notification order changed");
+            Check(events.SequenceEqual(new[] { "updated" }), "Enrollment must notify without reapplying preferences");
             events.Clear();
             Wait(Task.Run(() => AppSettings.PersistInterpretationAccessVerification("test-code",
                 new InterpretationOperatorOptionsResponse())));

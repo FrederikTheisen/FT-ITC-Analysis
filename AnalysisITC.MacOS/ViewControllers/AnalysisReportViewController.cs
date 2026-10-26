@@ -1687,6 +1687,10 @@ namespace AnalysisITC
         readonly NSButton retryServiceStatus = Button("Retry");
         readonly NSTextField interpretationAccountSummary = Label("");
         readonly NSTextField interpretationSetting = Label("");
+        readonly NSPopUpButton interpretationProviderPopup = Popup();
+        InterpretationOperatorOptionsResponse providerOptions;
+        string selectedProvider = AppSettings.InterpretationProvider;
+        bool populatingProviders;
         readonly NSPopUpButton interpretationPresetPopup = Popup();
         readonly NSPopUpButton interpretationModelPopup = Popup();
         readonly NSPopUpButton interpretationReasoningPopup = Popup();
@@ -1869,6 +1873,15 @@ namespace AnalysisITC
             savePackage.Activated += (sender, e) => SavePackage();
             SetAccessibilityLabel(savePackage, "Save interpretation package locally without generation");
             generate.Activated += async (sender, e) => await GenerateAsync();
+            interpretationProviderPopup.ToolTip = InterpretationProviderPresentation.Tooltip;
+            interpretationProviderPopup.Activated += (sender, e) =>
+            {
+                if (populatingProviders || providerOptions == null) return;
+                var index = (int)interpretationProviderPopup.IndexOfSelectedItem;
+                if (index < 0 || index >= providerOptions.Providers.Count) return;
+                selectedProvider = providerOptions.Providers[index].Id;
+                PopulateInterpretationChoices(providerOptions);
+            };
             interpretationPresetPopup.Activated += (sender, e) => UpdateInterpretationSetting();
             interpretationModelPopup.Activated += (sender, e) => { PopulateReasoningChoices(); UpdateInterpretationSetting(); };
             interpretationReasoningPopup.Activated += (sender, e) => UpdateInterpretationSetting();
@@ -1922,6 +1935,19 @@ namespace AnalysisITC
             if (interpretationOptions == null && !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
                 && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
                 interpretationOptions = cached;
+            providerOptions = interpretationOptions;
+            populatingProviders = true;
+            interpretationProviderPopup.RemoveAllItems();
+            if (providerOptions != null)
+            {
+                interpretationProviderPopup.AddItems(providerOptions.Providers.Select(value => value.Name).ToArray());
+                var index = providerOptions.Providers.FindIndex(value => value.Id == selectedProvider);
+                if (index >= 0) interpretationProviderPopup.SelectItem(index);
+                else { interpretationProviderPopup.AddItem(selectedProvider + " (not available)"); interpretationProviderPopup.SelectItem(providerOptions.Providers.Count); }
+                interpretationOptions = index >= 0 ? providerOptions.ForProvider(selectedProvider) : null;
+            }
+            populatingProviders = false;
+            AddInterpretationSelectionRow(InterpretationProviderPresentation.Label, interpretationProviderPopup);
             interpretationAccessCheckFailed = false;
             interpretationAccessAllowsGeneration = interpretationOptions != null
                 && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(interpretationOptions);
@@ -2009,11 +2035,11 @@ namespace AnalysisITC
             var model = interpretationOptions.Models.FirstOrDefault(item => item.Id == interpretationModelPopup.TitleOfSelectedItem);
             var choices = model?.ReasoningEfforts ?? new List<string>();
             interpretationReasoningPopup.RemoveAllItems();
-            interpretationReasoningPopup.AddItems(choices.ToArray());
-            var selected = !string.IsNullOrWhiteSpace(preferred) ? preferred
+            interpretationReasoningPopup.AddItems(choices.Select(InterpretationProviderPresentation.ReasoningLabel).ToArray());
+            var selected = !string.IsNullOrWhiteSpace(preferred) ? InterpretationProviderPresentation.ReasoningValue(preferred)
                 : string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
                 ? interpretationOptions.DefaultReasoningEffort : AppSettings.InterpretationEvaluationReasoningEffort;
-            if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(selected);
+            if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(InterpretationProviderPresentation.ReasoningLabel(selected));
             else if (choices.Count > 0) interpretationReasoningPopup.SelectItem(0);
             interpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
             UpdateGuidanceOmissionControl();
@@ -2026,17 +2052,15 @@ namespace AnalysisITC
             {
                 var model = interpretationModelPopup.TitleOfSelectedItem;
                 if (model == "summary")
-                    return new AnalysisInterpretationGenerationSelection { TaskType = "summary", PresetId = "summary" };
-                return new AnalysisInterpretationGenerationSelection
-                {
+                    return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider, TaskType = "summary", PresetId = "summary" };
+                return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider,
                     Model = model,
-                    ReasoningEffort = interpretationReasoningPopup.TitleOfSelectedItem,
+                    ReasoningEffort = InterpretationProviderPresentation.ReasoningValue(interpretationReasoningPopup.TitleOfSelectedItem),
                     OmitScientificGuidance = omitScientificGuidance.State == NSCellStateValue.On,
                 };
             }
             var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
-            return new AnalysisInterpretationGenerationSelection
-            {
+            return new AnalysisInterpretationGenerationSelection { Provider = selectedProvider,
                 TaskType = index < interpretationPresets.Count ? interpretationPresets[index].TaskType : "interpretation",
                 PresetId = index < interpretationPresets.Count ? interpretationPresets[index].Id : "instant",
             };
@@ -2246,6 +2270,8 @@ namespace AnalysisITC
                 if (alert.RunModal() != (int)NSAlertButtonReturn.First) return;
             }
             SaveInputs();
+            AppSettings.InterpretationProvider = selectedProvider;
+            AppSettings.Save();
             var generationCancellation = new CancellationTokenSource();
             cancellation = generationCancellation;
             var generationToken = generationCancellation.Token;
@@ -2319,6 +2345,8 @@ namespace AnalysisITC
             evidenceLevelPopup.Enabled = !value && interpretationOptions != null;
             savePackage.Enabled = use.Enabled = !value;
             if (value) generate.Enabled = false; else UpdateGenerateButton();
+            // Stays usable when the saved provider is unavailable, so another can be chosen.
+            interpretationProviderPopup.Enabled = !value && providerOptions != null;
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
