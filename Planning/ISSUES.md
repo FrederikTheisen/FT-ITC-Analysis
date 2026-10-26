@@ -1959,13 +1959,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-221 - Reopening and saving regenerates embedded Null-comparison solution ids
 
 - Priority: Not set.
-- Status: Open (2026-10-23). Observed in saved packages; consequence not assessed. No fix proposed or authorized.
+- Status: Resolved locally (2026-10-26).
 - Origin: ITC-216 investigation (comparison of re-saved packages).
-- Location: Core `DataReaders/FTXTCReader.cs` (`RestoreOffsetSolution` creates the detached Offset solution through `SolutionInterface.FromModel` and does not restore the saved id); `DataExport/FTXTCFormat.cs` (Null-comparison capture writes the solution's current id).
+- Location: Core `DataReaders/FTXTCReader.cs` (`RestoreNullComparison`, `RestoreOffsetSolution`); `DataExport/FTXTCFormat.cs` (`CaptureNullComparison`, `CaptureSolution`).
 - Problem: Each Null-comparison member embeds an Offset solution with an `id`. Restoration builds that solution with a new GUID and ignores the saved one, so every load and save writes new ids. Two load/save cycles of `JORS Table1.ftxtc` produced packages that differed only in GUID values (13 `solution.json` and 8 `result.json` entries, plus the manifest); the differences inspected were these embedded ids. With GUIDs masked, all 128 entries were identical.
-- Consequence: Saved files are not byte-reproducible, which hampers comparing saves and checksum-based checks. Whether any consumer (fingerprints, identity matching, interpretation evidence) reads these embedded ids was not checked.
+- Consequence: Regenerated ids change embedded JSON and manifest hashes on unchanged reopen/save cycles. Embedded Null solution ids also participate in generic duplicate-import detection and copy remapping. Source review found no use of these ids in interpretation Null evidence or its freshness fingerprint; no change to scientific values was established.
+- Resolution: Immediately after reconstructing each detached Null solution, `RestoreNullComparison` restores its nonblank saved id through the existing `SetID` method. Missing embedded state and missing/null/blank ids retain the freshly generated id, which is preserved after saving. Saved ids remain opaque strings. The writer, detached-data reconstruction, scientific calculations, public interfaces, and schema versions are unchanged.
+- Validation: Before the fix, 32 regression cases failed solely on the added identity assertions, with 29 other cases passing. After the fix, all 102 focused persistence, bookkeeping, and import cases pass. Coverage includes attached, pooled and independent comparisons, Save Selected, opaque non-GUID ids, missing embedded state and missing/null/blank ids over two round trips, unchanged comparison evidence, and copied Null solutions receiving different ids that survive reopening. Full Core suite: 5,129 passed, 1 existing skip, 0 failures. `git diff --check` passes.
 - Related: [ITC-148](#itc-148---reopening-changes-the-embedded-null-solutions-heat-method-provenance) (another reopen/resave change in the same embedded solution).
-- Evidence: Package comparison (2026-10-23). Evidence directory as for ITC-216.
+- Evidence: Package comparison (2026-10-23), evidence directory as for ITC-216. Regression logs and TRX results (2026-10-26): `/private/tmp/itc221-20261026/` (`before`, `focused`, `core-full`).
 
 ## ITC-222 - Result titles extend into the validity stamp
 

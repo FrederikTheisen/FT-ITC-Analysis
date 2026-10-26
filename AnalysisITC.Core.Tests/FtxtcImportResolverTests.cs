@@ -386,6 +386,8 @@ public sealed class FtxtcImportResolverTests : IDisposable
                     comparison.Members.SelectMany(item => item.Points).Select(point => point.PredictedHeatJoules));
                 Assert.Contains(comparison.Members, item => item.ExperimentId == member.Data.UniqueID);
                 Assert.Contains(comparison.NullSolutions, solution => solution.Data.UniqueID == member.Data.UniqueID);
+                var originalNullIds = before.NullSolutions.Select(solution => solution.Guid).ToHashSet();
+                Assert.All(comparison.NullSolutions, solution => Assert.DoesNotContain(solution.Guid, originalNullIds));
                 Assert.Equal(original.GetMemberBindingAssessment(original.Solution.Solutions[j]).EffectiveOutcome,
                     copy.GetMemberBindingAssessment(member).EffectiveOutcome);
             }
@@ -398,6 +400,13 @@ public sealed class FtxtcImportResolverTests : IDisposable
             var reopened = restored.OfType<AnalysisResult>().Single(result => result.UniqueID == copy.UniqueID);
             Assert.Equal(copy.MemberAssessments.Select(member => member.Assessment.EffectiveOutcome),
                 reopened.MemberAssessments.Select(member => member.Assessment.EffectiveOutcome));
+            foreach (var member in copy.Solution.Solutions)
+            {
+                var comparison = copy.GetMemberNullComparison(member);
+                if (comparison == null) continue;
+                var reopenedMember = Assert.Single(reopened.Solution.Solutions, solution => solution.Guid == member.Guid);
+                NullComparisonPersistenceTests.AssertNullSolutionIds(comparison, reopened.GetMemberNullComparison(reopenedMember));
+            }
         }
     }
 

@@ -1246,6 +1246,8 @@ namespace AnalysisITC.Core.DataReaders
                     restored.Convergence == null ? null : SolverConvergence.FromSnapshot(restored.Convergence),
                     comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance,
                     heatMethod);
+                if (!string.IsNullOrWhiteSpace(member.Solution?.Id))
+                    nullSolution.SetID(member.Solution.Id);
                 nullSolution.RestoreValidity(binding?.IsValid ?? member.Solution?.IsValid ?? true);
                 comparison.NullSolutions.Add(nullSolution);
             }

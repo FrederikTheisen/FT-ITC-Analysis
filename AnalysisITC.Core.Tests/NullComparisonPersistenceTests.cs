@@ -40,6 +40,7 @@ public sealed class NullComparisonPersistenceTests
         var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false, method: method);
         NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
             SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        Assert.Single(model.Solution.NullComparison.NullSolutions).SetID("saved-null-fit/" + heatMethod);
         model.Data.UpdateSolution(model);
         var result = includeResult ? CreateResult(model) : null;
         result?.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
@@ -75,11 +76,13 @@ public sealed class NullComparisonPersistenceTests
             else Assert.Equal(model.Data.HeatMethod, experiment.HeatMethod);
             Assert.Equal(!reprocessExperiment, experiment.Solution.IsValid);
             AssertComparisonEvidence(expectedComparison, experiment.Solution.NullComparison);
+            AssertNullSolutionIds(expectedComparison, experiment.Solution.NullComparison);
             Assert.NotSame(experiment, Assert.Single(experiment.Solution.NullComparison.NullSolutions).Data);
             if (includeResult)
             {
                 var restoredResult = Assert.Single(restored.Containers.OfType<AnalysisResult>());
                 AssertComparisonEvidence(expectedComparison, restoredResult.NullComparison);
+                AssertNullSolutionIds(expectedComparison, restoredResult.NullComparison);
                 Assert.Equivalent(expectedAssessment, restoredResult.BindingAssessment, strict: true);
                 Assert.False(restoredResult.IsModified);
                 Assert.NotSame(restoredResult.Solution.Solutions[0].Data,
@@ -233,6 +236,7 @@ public sealed class NullComparisonPersistenceTests
             Assert.Equal(model.Solution.Guid, experiment.Solution.Guid);
             Assert.Equal(model.Solution.Parameters, experiment.Solution.Parameters);
             AssertComparisonEvidence(expected, experiment.Solution.NullComparison);
+            AssertNullSolutionIds(expected, experiment.Solution.NullComparison);
             Assert.NotSame(experiment, experiment.Solution.NullComparison.NullSolutions.Single().Data);
         }
     }
@@ -283,12 +287,14 @@ public sealed class NullComparisonPersistenceTests
             {
                 result = Assert.Single(restored.Containers.OfType<AnalysisResult>());
                 AssertComparisonEvidence(expectedResultComparison, result.NullComparison);
+                AssertNullSolutionIds(expectedResultComparison, result.NullComparison);
                 Assert.Equivalent(expectedAssessment, result.BindingAssessment, strict: true);
                 Assert.Equivalent(expectedAssessments, result.MemberAssessments.Select(member => member.Assessment).ToArray(), strict: true);
                 Assert.False(result.IsModified);
                 foreach (var member in result.Solution.Solutions)
                 {
                     AssertComparisonEvidence(expected[member.Data.UniqueID], member.NullComparison);
+                    AssertNullSolutionIds(expected[member.Data.UniqueID], member.NullComparison);
                     Assert.NotSame(member.Data, Assert.Single(result.NullComparison.NullSolutions,
                         solution => solution.Data.UniqueID == member.Data.UniqueID).Data);
                 }
@@ -300,6 +306,7 @@ public sealed class NullComparisonPersistenceTests
             {
                 var comparison = experiment.Solution.NullComparison;
                 AssertComparisonEvidence(expected[experiment.UniqueID], comparison);
+                AssertNullSolutionIds(expected[experiment.UniqueID], comparison);
                 Assert.Equal(!pooled, comparison.IsIndependentMemberComparison);
                 Assert.Equal(pooled ? models.Count : 1, comparison.Members.Count);
                 Assert.NotSame(experiment, Assert.Single(comparison.NullSolutions,
@@ -379,6 +386,69 @@ public sealed class NullComparisonPersistenceTests
         {
             [model.Data.UniqueID] = ("dumas-simpson", 2),
         });
+    }
+
+    [Theory]
+    [InlineData("solution")]
+    [InlineData("missing")]
+    [InlineData("null")]
+    [InlineData("empty")]
+    [InlineData("whitespace")]
+    public async Task MissingEmbeddedNullIdsAreGeneratedAndRetainedAfterSaving(string missingState)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        model.Data.UpdateSolution(model);
+        using var package = await Write(model.Data, CreateResult(model));
+        using var historical = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
+        {
+            if (!path.EndsWith("/solution.json", StringComparison.Ordinal)
+                && !path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
+            var node = JsonNode.Parse(bytes);
+            if (node["nullComparison"] is not { } comparison) return bytes;
+            foreach (var member in comparison["members"].AsArray())
+            {
+                if (missingState == "solution") member.AsObject().Remove("solution");
+                else if (missingState == "missing") member["solution"].AsObject().Remove("id");
+                else member["solution"]["id"] = missingState switch
+                {
+                    "empty" => "",
+                    "whitespace" => " \t",
+                    _ => null,
+                };
+            }
+            return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+        }, schemaMinor: FTXTCFormat.SchemaMinor);
+        historical.Position = 0;
+        var restored = await FTXTCReader.ReadWithRecovery(historical, FtxtcReadPolicy.Strict);
+        Assert.Empty(restored.Issues);
+        var experiment = Assert.Single(restored.Containers.OfType<ExperimentData>());
+        var result = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+        var expectedAttached = experiment.Solution.NullComparison;
+        var expectedResult = result.NullComparison;
+        foreach (var comparison in new[] { expectedAttached, expectedResult })
+        {
+            AssertComparisonEvidence(model.Solution.NullComparison, comparison);
+            var solution = Assert.Single(comparison.NullSolutions);
+            Assert.False(string.IsNullOrWhiteSpace(solution.Guid));
+            Assert.NotEqual(model.Solution.Guid, solution.Guid);
+        }
+
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var resaved = await Write(experiment, result);
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(resaved);
+            resaved.Position = 0;
+            restored = await FTXTCReader.ReadWithRecovery(resaved, FtxtcReadPolicy.Strict);
+            Assert.Empty(restored.Issues);
+            experiment = Assert.Single(restored.Containers.OfType<ExperimentData>());
+            result = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+            AssertComparisonEvidence(expectedAttached, experiment.Solution.NullComparison);
+            AssertNullSolutionIds(expectedAttached, experiment.Solution.NullComparison);
+            AssertComparisonEvidence(expectedResult, result.NullComparison);
+            AssertNullSolutionIds(expectedResult, result.NullComparison);
+        }
     }
 
     [Fact]
@@ -484,6 +554,13 @@ public sealed class NullComparisonPersistenceTests
         var issue = Assert.Single(recovery.Issues);
         Assert.Equal("null-comparison-skipped", issue.Code);
         Assert.Equal(model.Solution.Guid, issue.ComponentId);
+    }
+
+    internal static void AssertNullSolutionIds(NullModelComparison expected, NullModelComparison actual)
+    {
+        Assert.NotNull(actual);
+        Assert.Equal(expected.NullSolutions.Select(solution => (solution.Data.UniqueID, solution.Guid)),
+            actual.NullSolutions.Select(solution => (solution.Data.UniqueID, solution.Guid)));
     }
 
     internal static void AssertComparisonEvidence(NullModelComparison expected, NullModelComparison actual)
