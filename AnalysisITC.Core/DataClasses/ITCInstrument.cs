@@ -142,7 +142,7 @@ namespace AnalysisITC.Core.Data
         TAInstrumentsITCStandard = 8,
 
         [ITCInstrument("TA Instruments ITC Low Vol", "", "TAITC",
-            cellv: 190.0,
+            cellv: 170.0,
             syrv: 250,
             deadv: 60)]
         TAInstrumentsITCLowVolume = 16,
