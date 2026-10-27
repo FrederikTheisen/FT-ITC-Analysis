@@ -56,7 +56,6 @@ namespace AnalysisITC.Avalonia.Details
             Width = 760;
             Height = 660;
             MinWidth = 760;
-            MaxWidth = 760;
             MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 

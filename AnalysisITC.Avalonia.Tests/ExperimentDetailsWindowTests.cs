@@ -34,6 +34,38 @@ public sealed class ExperimentDetailsWindowTests
         });
     }
 
+    [AvaloniaFact]
+    public void ResizingDetailsRetainsTheRequestedSizeAndExpandsTheForm() => Run(() =>
+    {
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        global::Avalonia.Application.Current!.Styles.Add(theme);
+        var window = new ExperimentDetailsWindow(Data("resizable details"));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var initialNameWidth = Field<TextBox>(window, "nameBox").Bounds.Width;
+
+            foreach (var size in new[] { (Width: 1000, Height: 800), (Width: 850, Height: 600) })
+            {
+                window.Width = size.Width;
+                window.Height = size.Height;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.Equal(size.Width, window.ClientSize.Width);
+                Assert.Equal(size.Height, window.ClientSize.Height);
+                Assert.Equal(size.Width, Assert.IsType<DockPanel>(window.Content).Bounds.Width);
+                Assert.True(Field<TextBox>(window, "nameBox").Bounds.Width > initialNameWidth);
+            }
+        }
+        finally
+        {
+            window.Close();
+            global::Avalonia.Application.Current!.Styles.Remove(theme);
+        }
+    });
+
     [AvaloniaTheory]
     [InlineData("Ideal continuous mixing", InjectionHeatMethod.IdealContinuousMixing)]
     [InlineData("Discrete displacement", InjectionHeatMethod.DiscreteDisplacement)]

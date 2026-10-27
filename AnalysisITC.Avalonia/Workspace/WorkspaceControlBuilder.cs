@@ -482,7 +482,7 @@ namespace AnalysisITC.Avalonia.Workspace
             {
                 Content = text,
                 MinWidth = width,
-                Height = 24,
+                Height = 26,
                 Padding = ButtonPadding,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
@@ -495,7 +495,7 @@ namespace AnalysisITC.Avalonia.Workspace
             {
                 Content = text,
                 MinWidth = width,
-                Height = 24,
+                Height = 26,
                 Padding = ButtonPadding,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
