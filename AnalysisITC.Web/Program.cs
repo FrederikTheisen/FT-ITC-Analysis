@@ -293,7 +293,7 @@ app.MapGet("/assets/ft-itc-icon-32.png", (HttpContext context) => ViewerIcon(con
 app.MapGet("/assets/ft-itc-icon-64.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-64.png"));
 app.MapGet("/assets/ft-itc-icon-256.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-256.png"));
 
-app.MapGet("/api/viewer/token", (HttpContext context, IAntiforgery antiforgery) =>
+app.MapMethods("/api/viewer/token", ["GET", "HEAD"], (HttpContext context, IAntiforgery antiforgery) =>
 {
     var tokens = antiforgery.GetAndStoreTokens(context);
     context.Response.Headers.CacheControl = "no-store";

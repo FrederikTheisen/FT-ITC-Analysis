@@ -448,6 +448,21 @@ public sealed class DailyStatusHealthTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("HEAD")]
+    public async Task ViewerEndpointSupportsBrowserAndExternalBadgeProbes(string method)
+    {
+        using var factory = new InterpretationTestFactory();
+        using var http = factory.CreateClient();
+        using var request = new HttpRequestMessage(new HttpMethod(method), "/api/viewer/token");
+
+        using var response = await http.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
     DailyStatusEmail Reporter(Func<Task<HealthReport>> health, Action<string, string> sent,
         DailyStatusCheck? service = null, DailyStatusCheck? endpoint = null, bool paused = false,
         Func<string, Task<DailyStatusCheck>>? endpoints = null, DailyInterpretationProbe? diagnostic = null)

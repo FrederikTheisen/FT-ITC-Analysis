@@ -191,6 +191,13 @@ This is a daily check from Cloudflare's network, not continuous monitoring or pr
 of reachability from every client network. If MIST cannot run or send email at all,
 this self-report cannot notify an outage; that requires a separately hosted monitor.
 
+The README viewer badge also probes the website's `/api/viewer/token` proxy route.
+Shields uses `HEAD`, which the viewer endpoint explicitly supports alongside `GET`.
+Using the Cloudflare route lets Shields return an offline badge when UCPH's origin
+connection stalls, rather than stalling badge delivery on a direct connection.
+Deploy Web's `HEAD` support before publishing the updated README URL. The badge
+checks viewer endpoint reachability; it does not test project uploads or generation.
+
 Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
 section appears before the operational checks, with a separate card for each active account
 or public installation. Each card shows the available name/label, account ID, access tier,
