@@ -5,7 +5,7 @@ namespace AnalysisITC.Web;
 
 public sealed partial class DailyStatusEmail
 {
-    static readonly string[] ReportSections = ["Service", "Health (web service)", "Server storage", "Registration pipeline",
+    static readonly string[] ReportSections = ["Service", "Health (web service)", "Local readiness (web service)", "External access (Cloudflare to MIST)", "Server storage", "Registration pipeline",
         "Registration account overview", "Previous-day usage", "User activity", "Interpretation diagnostic"];
 
     internal static string RenderHtml(string report) => RenderHtml(new DailyStatusReport(report,
@@ -45,7 +45,7 @@ public sealed partial class DailyStatusEmail
             .Append(report.HasAttention ? "#b42318;background:#fff1f0" : "#217346;background:#edf7f0")
             .Append("\"><strong>Overall status: ").Append(report.HasAttention ? "ATTENTION" : "OK")
             .Append("</strong><br/><span style=\"font-size:13px\">")
-            .Append(report.HasAttention ? "One or more checks need attention. See the operational details below." : "All reported operational checks are healthy.")
+            .Append(report.HasAttention ? "One or more checks need attention. See the operational details below." : "No checks reported a failure or warning. See check times and scope below.")
             .Append("</span></p>");
 
         if (sections.TryGetValue("Previous-day usage", out var usageLines))

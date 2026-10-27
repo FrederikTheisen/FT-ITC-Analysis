@@ -173,6 +173,24 @@ interpretation pause or retirement is not itself a failure; transport and
 storage failures still require attention. Update both Web and standalone
 status-email binaries together when changing these checks. A preview exercises
 the same non-billable health and alert decisions as a send, without sending email.
+The email separates local readiness from external access. Local HTTP checks cover
+interpretation status, registration status and viewer-token issuance. The direct
+public-URL check originates on MIST and is labelled accordingly. External checks
+use the existing website Worker at `https://ft-itc.org/api/registration/status`
+and `/api/viewer/token`: Cloudflare opens an outside connection into MIST, testing
+the public ingress separately from loopback access. No Worker change is required.
+These are reachability checks, not registration submissions, project uploads or
+interpretation generation. A valid registration response can report registrations
+unavailable while still proving reachability. Each check uses a unique query and
+no-cache/no-store request headers; redirects, cached responses, malformed bodies,
+timeouts and transport errors cannot pass. Local and external failures independently
+produce `[ATTENTION]`; an unavailable check never establishes public availability.
+The endpoint checks within each group run concurrently to bound their contribution
+to the scheduled service timeout. Skipped local checks remain labelled skipped.
+This is a daily check from Cloudflare's network, not continuous monitoring or proof
+of reachability from every client network. If MIST cannot run or send email at all,
+this self-report cannot notify an outage; that requires a separately hosted monitor.
+
 Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
 section appears before the operational checks, with a separate card for each active account
 or public installation. Each card shows the available name/label, account ID, access tier,
@@ -217,6 +235,8 @@ Diagnostic executions use the server-assigned `daily-diagnostic` effective prese
 the existing ledger. The email's ordinary usage counts, last-user-request time and
 user-activity list exclude them. A separate Interpretation diagnostic section reports
 the current check and its cost, plus diagnostic activity in the reported usage period.
+The result is explicitly limited to its checked time; a saved successful generation
+does not override a failing fresh local or external access check.
 Full accounting and administrative usage exports retain these executions and costs,
 including unresolved charges; no financial evidence is deleted or zeroed. Include the
 protected credential and daily state directory in deployment/recovery backups.

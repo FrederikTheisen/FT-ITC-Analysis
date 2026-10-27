@@ -185,6 +185,7 @@ public sealed class DailyStatusHealthTests : IDisposable
 
         Assert.True(subject?.StartsWith(attention ? "[ATTENTION]" : "[OK]", StringComparison.Ordinal) == true, subject + "\n" + html);
         if (attention) Assert.Contains(state.ToUpperInvariant(), html);
+        if (state == "skipped") Assert.Contains("SKIPPED", html);
         // The intentionally contradictory overall label is ignored in favour of individual states.
         Assert.Equal(attention, (await ServiceHealthCheck.ReadAsync(http)).HasAttention);
     }
@@ -279,6 +280,55 @@ public sealed class DailyStatusHealthTests : IDisposable
     }
 
     [Theory]
+    [InlineData("/api/registration/status")]
+    [InlineData("/api/viewer/token")]
+    public async Task OutsideAccessFailureFlagsEmailEvenWhenLocalChecksAndSavedInterpretationPass(string failedPath)
+    {
+        using var http = Response(HealthJson("pass"));
+        var stamp = new DateTimeOffset(2026, 10, 15, 5, 0, 0, TimeSpan.Zero);
+        var configured = new InterpretationOptions { DailyProbe = new() { Enabled = true, StateDirectory = Path.Combine(directory, "probe") } };
+        var options = Options.Create(configured);
+        Directory.CreateDirectory(configured.DailyProbe.StateDirectory);
+        File.WriteAllText(Path.Combine(configured.DailyProbe.StateDirectory, "2026-10-15.json"), JsonSerializer.Serialize(
+            new DailyInterpretationProbeResult(new(2026, 10, 15), stamp, HealthCheckState.Pass, "successful saved test")));
+        var probe = new DailyInterpretationProbe(configured, new InterpretationServiceAvailability(options),
+            new InterpretationUsageStore(options, NullLogger<InterpretationUsageStore>.Instance));
+        string? subject = null, html = null;
+        var checkedUrls = new List<Uri>();
+        var reporter = Reporter(() => ServiceHealthCheck.ReadAsync(http), (value, body) => { subject = value; html = body; },
+            endpoints: url =>
+            {
+                var uri = new Uri(url);
+                checkedUrls.Add(uri);
+                return Task.FromResult(new DailyStatusCheck("endpoint result", uri.Host == "ft-itc.org" && uri.AbsolutePath == failedPath));
+            }, diagnostic: probe);
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, new StringWriter(), new StringWriter()));
+
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+        Assert.Contains(checkedUrls, uri => uri.Host == "127.0.0.1");
+        Assert.Contains(checkedUrls, uri => uri.Host == "app.ft-itc.org");
+        Assert.Contains(checkedUrls, uri => uri.Host == "ft-itc.org" && uri.AbsolutePath == failedPath);
+        Assert.Contains("External access", html);
+        Assert.Contains("Daily public submission result", html);
+        Assert.Contains("successful saved test", html);
+        Assert.Equal(HealthCheckState.Pass, (await probe.RunAsync(false, stamp.AddHours(1))).State);
+    }
+
+    [Fact]
+    public async Task LocalHttpFailureFlagsEmailEvenWhenBothOutsideChecksPass()
+    {
+        using var http = Response(HealthJson("pass"));
+        string? subject = null;
+        var reporter = Reporter(() => ServiceHealthCheck.ReadAsync(http), (value, _) => subject = value,
+            endpoints: url => Task.FromResult(new DailyStatusCheck("endpoint result", new Uri(url).Host == "127.0.0.1")));
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, new StringWriter(), new StringWriter()));
+
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(false, false, true)]
     [InlineData(true, false, false)]
     [InlineData(true, true, true)]
@@ -306,8 +356,101 @@ public sealed class DailyStatusHealthTests : IDisposable
         Assert.Equal(unavailable, result.InterpretationUnavailable);
     }
 
+    [Theory]
+    [InlineData("/api/registration/status", 200, "{\"available\":true}", false)]
+    [InlineData("/api/registration/status", 200, "{\"available\":false}", false)]
+    [InlineData("/api/registration/status", 200, "{\"available\":\"true\"}", true)]
+    [InlineData("/api/registration/status", 200, "{}", true)]
+    [InlineData("/api/registration/status", 302, "{\"available\":true}", true)]
+    [InlineData("/api/registration/status", 503, "{\"available\":true}", true)]
+    [InlineData("/api/viewer/token", 200, "{\"requestToken\":\"private-token\"}", false)]
+    [InlineData("/api/viewer/token", 200, "{\"requestToken\":\" \"}", true)]
+    [InlineData("/api/viewer/token", 200, "{\"requestToken\":null}", true)]
+    [InlineData("/api/viewer/token", 200, "{\"requestToken\":42}", true)]
+    [InlineData("/api/viewer/token", 200, "{\"available\":true}", true)]
+    [InlineData("/api/viewer/token", 200, "<html>private error detail</html>", true)]
+    [InlineData("/api/viewer/token", 502, "private error detail", true)]
+    public async Task OutsideEndpointsRequireTheirOwnSuccessfulResponseContract(string path, int status, string body, bool attention)
+    {
+        using var http = Response(body, (HttpStatusCode)status);
+
+        var result = await DailyStatusEmail.CheckEndpointAsync(http, "https://ft-itc.org" + path);
+
+        Assert.Equal(attention, result.HasAttention);
+        Assert.False(result.InterpretationUnavailable);
+        Assert.DoesNotContain("private", result.Detail);
+    }
+
+    [Fact]
+    public async Task EachOutsideCheckRequestsFreshEvidenceWithoutDiscardingExistingQuery()
+    {
+        var urls = new HashSet<string>();
+        using var http = new HttpClient(new CheckingHandler(request =>
+        {
+            Assert.Equal("ft-itc.org", request.RequestUri!.Host);
+            Assert.Equal("/api/registration/status", request.RequestUri.AbsolutePath);
+            Assert.Contains("retained=1&mist-status-check=", request.RequestUri.Query);
+            Assert.True(request.Headers.CacheControl!.NoCache);
+            Assert.True(request.Headers.CacheControl.NoStore);
+            Assert.True(urls.Add(request.RequestUri.AbsoluteUri));
+            return new(HttpStatusCode.OK) { Content = new StringContent("{\"available\":true}") };
+        }));
+
+        for (var i = 0; i < 2; i++)
+            Assert.False((await DailyStatusEmail.CheckEndpointAsync(http, "https://ft-itc.org/api/registration/status?retained=1")).HasAttention);
+    }
+
+    [Theory]
+    [InlineData("Age", "0")]
+    [InlineData("CF-Cache-Status", "HIT")]
+    [InlineData("CF-Cache-Status", "STALE")]
+    [InlineData("CF-Cache-Status", "UPDATING")]
+    public async Task CachedSuccessfulOutsideResponseCannotEstablishCurrentReachability(string header, string value)
+    {
+        using var http = new HttpClient(new CheckingHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"available\":true}") };
+            response.Headers.Add(header, value);
+            return response;
+        }));
+
+        Assert.True((await DailyStatusEmail.CheckEndpointAsync(http, "https://ft-itc.org/api/registration/status")).HasAttention);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OutsideConnectionFailureOrTimeoutCannotPass(bool timeout)
+    {
+        using var http = new HttpClient(new CheckingHandler(_ =>
+        {
+            if (timeout) throw new TaskCanceledException("private timeout");
+            throw new HttpRequestException("private transport detail");
+        }));
+
+        var result = await DailyStatusEmail.CheckEndpointAsync(http, "https://ft-itc.org/api/registration/status");
+
+        Assert.True(result.HasAttention);
+        Assert.DoesNotContain("private", result.Detail);
+    }
+
+    [Fact]
+    public async Task ReachabilityChecksAcceptTheActualApplicationResponseContracts()
+    {
+        using var factory = new InterpretationTestFactory();
+        using var http = factory.CreateClient();
+
+        foreach (var path in new[] { "/api/interpretation/status", "/api/registration/status", "/api/viewer/token" })
+        {
+            // TestServer routes these requests in-process; no public network is used.
+            var result = await DailyStatusEmail.CheckEndpointAsync(http, "https://ft-itc.org" + path);
+            Assert.False(result.HasAttention, path + ": " + result.Detail);
+        }
+    }
+
     DailyStatusEmail Reporter(Func<Task<HealthReport>> health, Action<string, string> sent,
-        DailyStatusCheck? service = null, DailyStatusCheck? endpoint = null, bool paused = false)
+        DailyStatusCheck? service = null, DailyStatusCheck? endpoint = null, bool paused = false,
+        Func<string, Task<DailyStatusCheck>>? endpoints = null, DailyInterpretationProbe? diagnostic = null)
     {
         var configured = new InterpretationOptions
         {
@@ -339,14 +482,15 @@ public sealed class DailyStatusHealthTests : IDisposable
         using (usage.OpenForCommand()) { }
         return new(usage, availability, Path.Combine(directory, "mail.json"),
             () => Task.FromResult(service ?? new("active", false)),
-            _ => Task.FromResult(endpoint ?? new("HTTP 200; interpretation available", false)),
+            endpoints ?? (_ => Task.FromResult(endpoint ?? new("HTTP 200; interpretation available", false))),
             (subject, body) => { sent(subject, body); return Task.CompletedTask; },
             () => new DateTimeOffset(2026, 10, 15, 6, 0, 0, TimeSpan.Zero),
             // Registration is disabled in these alert-aggregation tests. Do not
             // fingerprint pooled accounting journals while other suites clear pools.
             registrationDiagnostic: new(configured.Registration, Path.Combine(directory, "unused-diagnostic.db"), registration, availability),
             registrationSummary: new(options, registration, availability),
-            storageCapacity: new([directory], _ => new("/", 100L << 30, 40L << 30)), healthCheck: health);
+            storageCapacity: new([directory], _ => new("/", 100L << 30, 40L << 30)), healthCheck: health,
+            interpretationDiagnostic: diagnostic);
     }
 
     static string HealthJson(string state) => JsonSerializer.Serialize(new
@@ -363,6 +507,12 @@ public sealed class DailyStatusHealthTests : IDisposable
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+    }
+
+    sealed class CheckingHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(response(request));
     }
 
     sealed class LoopbackStartupFilter : IStartupFilter

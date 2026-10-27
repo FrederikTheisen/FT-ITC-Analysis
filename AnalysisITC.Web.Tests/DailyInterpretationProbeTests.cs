@@ -236,7 +236,8 @@ public sealed class DailyInterpretationProbeTests
         Assert.Contains("Requests: 1\n", ordinary);
         Assert.Contains("Provider attempts: 1\n", ordinary);
         Assert.DoesNotContain(fixture.AccountId, ordinary);
-        Assert.Contains("Daily public submission: PASS", report.Text);
+        Assert.Contains("Daily public submission result: PASS", report.Text);
+        Assert.Contains("This result applies only to the checked time", report.Text);
         Assert.Contains("Previous-day submissions: 1", report.Text);
         Assert.Equal(2L, fixture.Scalar("SELECT count(*) FROM attempt_receipts"));
         Assert.Equal(1L, fixture.Scalar("SELECT count(*) FROM execution_usage WHERE effective_preset='daily-diagnostic'"));

@@ -490,7 +490,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
         Assert.Contains("ftitc-web: check unavailable", report);
         Assert.Contains("Local API: check unavailable", report);
-        Assert.Contains("Public API: check unavailable", report);
+        Assert.Contains("Public API (from MIST): check unavailable", report);
         Assert.Contains("Requests: 0", report);
         Assert.Contains("Estimated cost: $0.0000", report);
         Assert.Contains("Last request: none", report);

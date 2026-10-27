@@ -82,21 +82,8 @@ public sealed partial class DailyStatusEmail
             $"Period: {Format(start)} to {Format(end)} (end exclusive)",
             "",
             "Service",
+            "  Checks started: " + Format(now()),
         };
-        try
-        {
-            // Always supplied by the live web process in production. Never fall back
-            // to root's filesystem access if that process cannot return its checks.
-            var report = await healthCheck();
-            hasAttention |= report.HasAttention;
-            lines.Add(""); lines.Add("Health (web service)");
-            foreach (var group in report.Groups)
-            {
-                var attention = group.Checks.Where(check => check.State is HealthCheckState.Warning or HealthCheckState.Fail).ToArray();
-                lines.Add($"  {group.Name}: {(attention.Length == 0 ? "ok" : string.Join("; ", attention.Select(check => $"{check.State.ToString().ToUpperInvariant()} — {check.Name}: {check.Reason}")))}");
-            }
-        }
-        catch { hasAttention = true; lines.Add("\nHealth (web service)\n  FAIL — service health checks unavailable"); }
         try
         {
             var service = await serviceCheck();
@@ -113,18 +100,45 @@ public sealed partial class DailyStatusEmail
             lines.Add("  Interpretation policy: " + policy.Status);
         }
         catch { hasAttention = true; lines.Add("  Interpretation policy: check unavailable"); }
-        foreach (var (label, url) in new[] { ("Local API", LocalUrl), ("Public API", PublicUrl) })
+        lines.Add("  Direct HTTP checks originate on MIST.");
+        foreach (var (label, endpoint) in await CheckEndpointsAsync(
+            ("Local API", LocalUrl), ("Public API (from MIST)", PublicUrl),
+            ("Local registration endpoint", "http://127.0.0.1:5000/api/registration/status"),
+            ("Local viewer endpoint", "http://127.0.0.1:5000/api/viewer/token")))
         {
-            try
+            hasAttention |= endpoint.HasAttention;
+            // A valid paused/retired policy is intentional; transport and
+            // protocol failures still require attention in that state.
+            hasAttention |= endpoint.InterpretationUnavailable && !intentionallyUnavailable;
+            lines.Add($"  {label}: {endpoint.Detail}");
+        }
+
+        try
+        {
+            // Always supplied by the live web process in production. Never fall back
+            // to root's filesystem access if that process cannot return its checks.
+            var report = await healthCheck();
+            hasAttention |= report.HasAttention;
+            lines.Add(""); lines.Add("Local readiness (web service)");
+            lines.Add("  Configuration, storage and assets; public access is checked separately.");
+            foreach (var group in report.Groups)
             {
-                var endpoint = await endpointCheck(url);
-                hasAttention |= endpoint.HasAttention;
-                // A valid paused/retired policy is intentional; transport and
-                // protocol failures still require attention in that state.
-                hasAttention |= endpoint.InterpretationUnavailable && !intentionallyUnavailable;
-                lines.Add($"  {label}: {endpoint.Detail}");
+                var details = group.Checks.Where(check => check.State != HealthCheckState.Pass).ToArray();
+                lines.Add($"  {group.Name}: {(details.Length == 0 ? "PASS — local checks passed" : string.Join("; ", details.Select(check => $"{check.State.ToString().ToUpperInvariant()} — {check.Name}: {check.Reason}")))}");
             }
-            catch { hasAttention = true; lines.Add($"  {label}: check unavailable"); }
+        }
+        catch { hasAttention = true; lines.Add("\nLocal readiness (web service)\n  FAIL — service health checks unavailable"); }
+
+        lines.Add(""); lines.Add("External access (Cloudflare to MIST)");
+        lines.Add("  Checks started: " + Format(now()));
+        lines.Add("  The website proxy opens an outside connection into MIST for each check.");
+        lines.Add("  These checks test endpoint reachability, not interpretation generation or project uploads.");
+        foreach (var (label, endpoint) in await CheckEndpointsAsync(
+            ("Registration endpoint", "https://ft-itc.org/api/registration/status"),
+            ("Viewer endpoint", "https://ft-itc.org/api/viewer/token")))
+        {
+            hasAttention |= endpoint.HasAttention;
+            lines.Add($"  {label}: {(endpoint.HasAttention ? "FAIL" : "PASS")} — {endpoint.Detail}");
         }
 
         DailyInterpretationProbeResult? probe = null;
@@ -279,8 +293,9 @@ public sealed partial class DailyStatusEmail
         if (probe is not null)
         {
             lines.Add(""); lines.Add("Interpretation diagnostic");
-            lines.Add($"  Daily public submission: {probe.State.ToString().ToUpperInvariant()} — {probe.Reason}");
+            lines.Add($"  Daily public submission result: {probe.State.ToString().ToUpperInvariant()} — {probe.Reason}");
             lines.Add("  Checked: " + Format(probe.CheckedAtUtc));
+            lines.Add("  This result applies only to the checked time. Saved runs are reused for that day.");
             lines.Add("  Latest test cost: " + (probe.KnownCost is decimal cost
                 ? "$" + cost.ToString("0.0000000", CultureInfo.InvariantCulture)
                     + (probe.UnresolvedCosts + probe.WaivedCosts > 0 ? " known subtotal; total unknown" : " estimated")
@@ -411,9 +426,19 @@ public sealed partial class DailyStatusEmail
         }
     }
 
+    // Bound each group by one HTTP timeout rather than multiplying the timeout
+    // by its endpoint count within the scheduled service's time budget.
+    async Task<(string Label, DailyStatusCheck Check)[]> CheckEndpointsAsync(params (string Label, string Url)[] endpoints) =>
+        await Task.WhenAll(endpoints.Select(async endpoint =>
+        {
+            try { return (endpoint.Label, await endpointCheck(endpoint.Url)); }
+            catch { return (endpoint.Label, new DailyStatusCheck("check unavailable", true)); }
+        }));
+
     static async Task<DailyStatusCheck> CheckEndpointAsync(string url)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        using var http = new HttpClient(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
+        { Timeout = TimeSpan.FromSeconds(8) };
         return await CheckEndpointAsync(http, url);
     }
 
@@ -421,12 +446,32 @@ public sealed partial class DailyStatusEmail
     {
         try
         {
-            using var response = await http.GetAsync(url);
+            var uri = new Uri(url);
+            // The website's existing Worker proxies these paths to MIST. A unique
+            // query plus revalidation headers prevents a cached status from passing.
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                url + (uri.Query.Length == 0 ? "?" : "&") + "mist-status-check=" + Guid.NewGuid().ToString("N"));
+            request.Headers.CacheControl = new() { NoCache = true, NoStore = true };
+            using var response = await http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return new($"HTTP {(int)response.StatusCode}; endpoint check failed", true);
+            if (response.Headers.Age is not null || response.Headers.TryGetValues("CF-Cache-Status", out var cacheStates)
+                && cacheStates.Any(state => state.Equals("HIT", StringComparison.OrdinalIgnoreCase)
+                    || state.Equals("STALE", StringComparison.OrdinalIgnoreCase) || state.Equals("UPDATING", StringComparison.OrdinalIgnoreCase)))
+                return new("cached response; current reachability could not be verified", true);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            if (uri.AbsolutePath == "/api/viewer/token")
+            {
+                var token = body.RootElement.GetProperty("requestToken");
+                return token.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(token.GetString())
+                    ? new($"HTTP {(int)response.StatusCode}; viewer token endpoint reachable", false)
+                    : new("viewer token response invalid", true);
+            }
             var value = body.RootElement.GetProperty("available");
             if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                 return new("check unavailable", true);
             var available = value.GetBoolean();
+            if (uri.AbsolutePath == "/api/registration/status")
+                return new($"HTTP {(int)response.StatusCode}; registration endpoint reachable; registration {(available ? "available" : "unavailable")}", false);
             return new($"HTTP {(int)response.StatusCode}; interpretation {(available ? "available" : "unavailable")}",
                 !response.IsSuccessStatusCode, !available);
         }
