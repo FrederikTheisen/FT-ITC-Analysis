@@ -398,7 +398,9 @@ The application derives thermodynamic quantities from the fitted affinity and en
 > -T\Delta S = \Delta G - \Delta H
 > $$
 >
-> Here, $R$ is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
+> Here, $R = 8.31446261815324\ \mathrm{J\,mol^{-1}\,K^{-1}}$ is the molar gas constant. Its exact SI value is $R = k_{\mathrm{B}} N_{\mathrm{A}}$, where $k_{\mathrm{B}} = 1.380649 \times 10^{-23}\ \mathrm{J\,K^{-1}}$ is the Boltzmann constant and $N_{\mathrm{A}} = 6.02214076 \times 10^{23}\ \mathrm{mol^{-1}}$ is the Avogadro constant; both are exact SI defining constants ([NIST CODATA values](https://physics.nist.gov/cuu/Constants/Table/allascii.txt)). The application represents this value at double precision.
+>
+> The final relationship matches the **−TΔS** quantity reported by the application.
 
 ## Fitting calculation
 

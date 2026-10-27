@@ -8,7 +8,7 @@ namespace AnalysisITC.Core.Numerics
 {
     public static class FWEMath
     {
-        const double ln10 = 2.302585093;
+        private static readonly double ln10 = Math.Log(10.0);
 
         #region Math methods
 

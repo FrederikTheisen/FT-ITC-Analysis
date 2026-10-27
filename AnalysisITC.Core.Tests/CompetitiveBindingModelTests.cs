@@ -24,7 +24,7 @@ namespace AnalysisITC.Core.Tests
 
             var (kd, enthalpy) = CompetitorResultAttributeResolver.EvaluateSummary(source, target);
 
-            Assert.Equal(Math.Exp(-25000 / (8.3145 * 308.15)), kd.Value, 12);
+            Assert.Equal(Math.Exp(-25000 / (8.31446261815324 * 308.15)), kd.Value, 12);
             Assert.Equal(-40000, enthalpy.Value, 8);
         }
 

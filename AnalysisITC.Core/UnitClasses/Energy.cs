@@ -206,7 +206,10 @@ namespace AnalysisITC.Core.Units
         public const double CalToJouleFactor = 4.184;
         public const double JouleToCalFactor = 1 / 4.184;
         private const double MicroFactor = 0.000001;
-        public static readonly Energy R = new Energy(8.3145);
+        // R = kB * NA using exact SI values from the NIST CODATA table:
+        // https://physics.nist.gov/cuu/Constants/Table/allascii.txt
+        // kB is J/K and NA is 1/mol, giving R in J/(mol K).
+        public static readonly Energy R = new Energy(1.380649e-23 * 6.02214076e23);
 
         public FloatWithError FloatWithError { get; set; }
         public double Value => FloatWithError.Value;

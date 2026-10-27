@@ -235,6 +235,8 @@ Use **Update Result** after changing inputs. Existing results retain the values 
 
 Choose an evaluation temperature to inspect thermodynamic quantities. The default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Evaluation does not refit the data.
 
+Thermodynamic conversions use the molar gas constant R = 8.31446261815324 J/(mol·K) and temperature in kelvin. R is the exact SI product of the Boltzmann and Avogadro constants, represented at double precision.
+
 Results and the Analysis Result Exporter each remember their Celsius/Kelvin choice for the current application session. Both start from **Preferences > Temperature units**. Changing that preference resets both choices immediately; changing either workflow's selector affects only that workflow. Switching units preserves the physical evaluation temperature.
 
 Use **Export result...** to choose results, summary or individual rows, value and uncertainty columns, and CSV or TSV output. The same table can be copied. Numeric tables use decimal points regardless of regional settings.

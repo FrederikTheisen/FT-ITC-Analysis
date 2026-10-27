@@ -198,26 +198,28 @@ public sealed class AnalysisResultStoichiometryExportTests
     }
 
     [Fact]
-    public void OrdinaryTablesAndQuickCopyAreByteIdenticalToPreChangeOutput()
+    public void OrdinaryTablesAndQuickCopyMatchItc134ThermodynamicBaselines()
     {
         var one = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "ordinary one");
         var two = Cr019Fixtures.Create(AnalysisModel.TwoSetsOfSites, false, "ordinary two");
         var competitive = Cr019Fixtures.Create(AnalysisModel.CompetitiveBinding, false, "ordinary competitive");
-        // Pre-CR-019 UTF-8 baselines, joined with two LF characters. Normalize only
-        // platform line endings so these byte-content checks also run on Windows.
+        // ITC-134 UTF-8 baselines, joined with two LF characters. Exact R changes
+        // the displayed -T∆S values; the complete output remains byte-checked so
+        // column layout, metadata, and every other value stay protected. Normalize
+        // only platform line endings so these checks also run on Windows.
         var cases = new[]
         {
-            (new[] { one }, "3E9AE704B7BA550A909DA2CBC941298765BEAD97AFFF9206056798D83194DB87"),
-            (new[] { two }, "4FEC3E36ACD5339DA4DE8D59CC64107FB6CB7C1603643C177BC012637E0C5013"),
-            (new[] { competitive }, "8B8C4F7553A585A1BA54398ED7E34071595B949E6B7DF51CCAB497A9340E3EE8"),
-            (new[] { one, two }, "E11F4EF710CCABD4A27FAEAF5C8418E85ACBFEEDFC06FC9CC76B59F511C0E0D4"),
-            (new[] { two, one }, "BD68E523164E89D34448400B2D833A5A514FAA35E32D7D422DF0CFAC9AC37B85"),
+            (new[] { one }, "BE434C27481E4BAB0657B180F9DC64023D0CFC2C67AFF68A34946DFBD0D144D5"),
+            (new[] { two }, "5B4FFBED4E12170A666B688E3BAF1877AF5AD65A0757DC47200EC1B23ECCF72F"),
+            (new[] { competitive }, "FD2C1F11DE4507FBFD52476BE60C268648C2BDDC3DE7F06E726D650F8B3227BF"),
+            (new[] { one, two }, "63654465E06A8352FCD377E44C4367603185D6E13690230846ED97F967460564"),
+            (new[] { two, one }, "D5C07A3D40AB6E4038929CF352C9C3C1CFB9222A422BC89F7F2FC7ACECE98EF2"),
         };
         foreach (var (results, expected) in cases)
             Assert.Equal(expected, Hash(Cr019Fixtures.Layouts().Select(options => AnalysisResultTableExporter.Build(results, options))));
-        Assert.Equal("F892B68FEAB6D0402A6B3DAD388823DD122090500281C5AE008DAF8EC9C17230", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(one, style))));
-        Assert.Equal("05F519D287D1A1DFF89CE4F5CF910E08755C7CEDCEA28E58F6CC363F75292577", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(two, style))));
-        Assert.Equal("1949C51D0A5A859DF5150538949CD46AE71E6258D16224775BBF29CF3D8A3CEE", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
+        Assert.Equal("F41DE59220E9885E57D25AE40F852FDCCB34DC31513D25CF3AFAD2A7354FF9EF", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(one, style))));
+        Assert.Equal("8E7C3C3CD3A08C39172142DFF1654B8B795E615950AC3EF9F59B4F4263E2D7B9", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(two, style))));
+        Assert.Equal("A8470E130B4D20FCCD32EA9B4272F2B1D29DBBE5CC42736EE6C4EC179889206C", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
     }
 
     [Fact]
