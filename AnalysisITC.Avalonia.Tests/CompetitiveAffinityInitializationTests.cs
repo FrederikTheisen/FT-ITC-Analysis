@@ -188,12 +188,10 @@ public sealed class CompetitiveAffinityInitializationTests
     {
         var culture = CultureInfo.CurrentCulture;
         var concentrationUnit = AppSettings.DefaultConcentrationUnit;
-        var inputKd = AppSettings.InputAffinityAsDissociationConstant;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             AppSettings.DefaultConcentrationUnit = ConcentrationUnit.nM;
-            AppSettings.InputAffinityAsDissociationConstant = true;
             Dispatcher.UIThread.Invoke(() =>
             {
                 DataManager.Clear(DataClearMode.ResetSession);
@@ -205,7 +203,6 @@ public sealed class CompetitiveAffinityInitializationTests
         {
             CultureInfo.CurrentCulture = culture;
             AppSettings.DefaultConcentrationUnit = concentrationUnit;
-            AppSettings.InputAffinityAsDissociationConstant = inputKd;
         }
     }
 

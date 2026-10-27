@@ -102,7 +102,6 @@ namespace AnalysisITC.Core.Application
         public SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
         public bool DefaultSplinePointTimeDragging { get; set; } = false;
         public bool IntegrationRegionCopyIncludesStart { get; set; } = false;
-        public bool InputAffinityAsDissociationConstant { get; set; } = true;
         public ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public int DefaultBootstrapIterations { get; set; } = 100;
         public double MinimumTemperatureSpanForFitting { get; set; } = 3;
@@ -203,7 +202,6 @@ namespace AnalysisITC.Core.Application
                 DefaultSplineHandleMode = AppSettings.DefaultSplineHandleMode,
                 DefaultSplinePointTimeDragging = AppSettings.DefaultSplinePointTimeDragging,
                 IntegrationRegionCopyIncludesStart = AppSettings.IntegrationRegionCopyIncludesStart,
-                InputAffinityAsDissociationConstant = AppSettings.InputAffinityAsDissociationConstant,
                 DefaultErrorEstimationMethod = AppSettings.DefaultErrorEstimationMethod,
                 DefaultBootstrapIterations = AppSettings.DefaultBootstrapIterations,
                 MinimumTemperatureSpanForFitting = AppSettings.MinimumTemperatureSpanForFitting,
@@ -347,7 +345,6 @@ namespace AnalysisITC.Core.Application
             AppSettings.DefaultSplineHandleMode = DefaultSplineHandleMode;
             AppSettings.DefaultSplinePointTimeDragging = DefaultSplinePointTimeDragging;
             AppSettings.IntegrationRegionCopyIncludesStart = IntegrationRegionCopyIncludesStart;
-            AppSettings.InputAffinityAsDissociationConstant = InputAffinityAsDissociationConstant;
             AppSettings.DefaultErrorEstimationMethod = DefaultErrorEstimationMethod;
             AppSettings.DefaultBootstrapIterations = DefaultBootstrapIterations;
             AppSettings.MinimumTemperatureSpanForFitting = MinimumTemperatureSpanForFitting;

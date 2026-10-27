@@ -197,8 +197,6 @@ namespace AnalysisITC.Core.Application
         public static bool IntegrationRegionCopyIncludesStart { get; set; }
 
         //Fitting
-        public static bool InputAffinityAsDissociationConstant { get; set; }
-
         public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; }
         public static int DefaultBootstrapIterations { get; set; }
         public static double MinimumTemperatureSpanForFitting { get; set; }
@@ -307,7 +305,6 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
             Storage.SetInt("DefaultTemperatureUnit", (int)DefaultTemperatureUnit);
             Storage.SetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument);
-            Storage.SetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             Storage.SetString("LastDocumentUrl", LastDocumentPath);
             Storage.SetBool("EnableExtendedParameterLimits", EnableExtendedParameterLimits);
             Storage.SetInt("ParameterLimitSetting", (int)ParameterLimitSetting);
@@ -424,7 +421,6 @@ namespace AnalysisITC.Core.Application
                 Storage.Synchronize();
             }
             DefaultDesignerInstrument = NormalizeDesignerInstrument(Storage.GetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument));
-            InputAffinityAsDissociationConstant = Storage.GetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentPath = NormalizeDocumentPath(Storage.GetString("LastDocumentUrl"));
             BuffersPreparedAtRoomTemperature = Storage.GetBool("BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
             CreateSingleAnalysisResult = Storage.GetBool("CreateSingleAnalysisResult", CreateSingleAnalysisResult);

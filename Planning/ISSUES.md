@@ -1244,15 +1244,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Validation boundary: Automated AppKit and headless Avalonia control checks, not mouse-driven verification. Native copy uses the actual macOS pasteboard; native file checks combine the configured production table builder with the protected production file writer. Avalonia uses its clipboard service and save-picker test doubles with real file writes. The operating-system save dialog itself is not automated.
 - Evidence: `/private/tmp/itc154-native-before.log`, `/private/tmp/itc154-avalonia-before.log`, `/private/tmp/itc154-core-focused.log`, `/private/tmp/itc154-avalonia-final.log`, `/private/tmp/itc154-native-final.log`, `/private/tmp/itc154-core-full.log`.
 
-## ITC-155 - Avalonia ignores the stored affinity-input preference
+## ITC-155 - Remove the unused affinity-input preference
 
-- Priority: Low; conditional input-presentation mismatch.
-- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Priority: Low; unused preference cleanup and consistent Kd entry.
+- Status: Resolved locally (2026-10-27).
 - Origin: Corrected scope of UI review finding 6.
-- Location: `AnalysisITC.Avalonia/Workspace/Analysis/AnalysisParameterRowBuilder.cs` (`ParameterDisplay.From`); native `CustomViews/AnalysisInspectorViews.cs` and `CustomViews/ParameterValueAdjustmentView.cs`; Core `AppSettings.InputAffinityAsDissociationConstant` and `PreferencesState`.
-- Problem: Avalonia always displays/accepts Kd, while native editors honour the stored choice between Kd and log10 association constant. Both default to Kd, so divergence requires the preference to be false. Neither Preferences UI exposes this choice. The cited native `ParameterOptionControl_Activated` method has no references and does not establish an accessible toggle.
-- Suggested direction: Decide whether both apps should retain selectable Kd/log10 association-constant entry or adopt one presentation. If retaining the setting, apply it consistently to labels, units, conversions, ranges and sliders in both apps and provide an explicit way to select it. Keep canonical internal coordinates and fitted values unchanged.
-- Verify: Both stored preference values, reciprocal range/slider direction, unit changes, untouched drafts and equivalent internal values after entry.
+- Location: Core `Properties/AppSettings.cs` and `Properties/PreferencesState.cs`; native `CustomViews/AnalysisInspectorViews.cs` and `CustomViews/ParameterValueAdjustmentView.cs`; both desktop preference-refresh paths.
+- Finding: Neither app exposed an affinity-input mode control. The native `ParameterOptionControl_Activated` method was unreferenced and unconnected. Avalonia already used Kd unconditionally; native editors had an alternate log10 association-constant path reachable only through the hidden stored preference. This was not a demonstrated mismatch reachable through ordinary controls.
+- Resolution: Keep Kd entry in both apps, using the selected concentration unit. Removed the preference from settings, persistence and refresh handling, removed the unused native handler, and made native formatting, parsing and unit labels unconditionally use Kd. Obsolete stored keys are ignored. No selector was added; canonical internal log10 association-constant coordinates and fitted values are unchanged.
+- Validation: Added native and Avalonia control regressions with an obsolete stored `false` value, checking µM/nM labels and conversions, ascending Kd ranges, untouched values, invalid nonpositive input and designer slider endpoints. Full Core suite passed (5,202 passed, one skipped); focused Core preference tests passed (20); focused Avalonia tests passed (53); native `AffinityInputTests`, `AnalysisParameterDraftTests` and `ExperimentDesignerTests` passed against the current workspace. These are automated AppKit/headless Avalonia control checks, not mouse-driven verification. No packaging or signing was run.
 
 ## ITC-156 - Selective Preferences Apply and session temperature units
 

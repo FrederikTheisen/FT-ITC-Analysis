@@ -1937,7 +1937,6 @@ public partial class MainWindow : Window
         AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
         if (changes.ContainsAny(
             nameof(PreferencesState.ParameterLimitSetting),
-            nameof(PreferencesState.InputAffinityAsDissociationConstant),
             nameof(PreferencesState.DefaultConcentrationUnit)))
             AnalysisWorkspace.RefreshIncludedDataState();
         if (changes.ContainsAny(

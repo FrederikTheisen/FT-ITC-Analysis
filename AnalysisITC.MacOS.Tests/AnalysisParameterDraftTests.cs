@@ -326,10 +326,8 @@ static class AnalysisParameterDraftTests
     static void CompetitiveAffinityInitializationUsesActiveControls()
     {
         var priorUnit = AppSettings.DefaultConcentrationUnit;
-        var priorKdInput = AppSettings.InputAffinityAsDissociationConstant;
         var culture = CultureInfo.CurrentCulture;
         AppSettings.DefaultConcentrationUnit = ConcentrationUnit.nM;
-        AppSettings.InputAffinityAsDissociationConstant = true;
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         var failures = new List<string>();
         try
@@ -344,7 +342,6 @@ static class AnalysisParameterDraftTests
         finally
         {
             AppSettings.DefaultConcentrationUnit = priorUnit;
-            AppSettings.InputAffinityAsDissociationConstant = priorKdInput;
             CultureInfo.CurrentCulture = culture;
         }
         Check(failures.Count == 0, string.Join("\n", failures));

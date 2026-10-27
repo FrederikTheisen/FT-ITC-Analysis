@@ -73,8 +73,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         {
                             if (Key.GetProperties().ParentType == ParameterType.Affinity1)
                             {
-                                if (AppSettings.InputAffinityAsDissociationConstant) return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
-                                else return value;
+                                return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
                             }
                             else if (UsesEnergyScale(Key)) return Energy.ConvertToJoule(value, DisplayEnergyUnit);
                             else return value;
@@ -230,15 +229,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
         }
 
-        private void ParameterOptionControl_Activated(object sender, EventArgs e)
-        {
-            if (Key.GetProperties().ParentType == ParameterType.Affinity1) AppSettings.InputAffinityAsDissociationConstant = (sender as NSSegmentedControl).SelectedSegment == 1;
-
-            SetInputField();
-
-            CheckInput();
-        }
-
         private void Lock_Activated(object sender, EventArgs e)
         {
             HasBeenAffectedFlag = true;
@@ -382,7 +372,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             };
 
             // Set unit info in label
-            if (Mode != AdjustmentViewMode.Analysis && Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
+            if (Mode != AdjustmentViewMode.Analysis && Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
                 Label.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString($"{Label.StringValue} ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})", Label.Font);
             else if (Mode != AdjustmentViewMode.Analysis && ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
                 Label.StringValue += " (" + DisplayEnergyUnit.GetProperties().Unit + "/mol)";
@@ -463,7 +453,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         void SetupAnalysisUnitLabel()
         {
             string unit = null;
-            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
+            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
                 unit = AppSettings.DefaultConcentrationUnit.GetProperties().Name;
             else if (Parameter.Key.GetProperties().ParentType == ParameterType.HeatCapacity1
                 || Parameter.Key.GetProperties().ParentType == ParameterType.Entropy1)
@@ -585,12 +575,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
             {
-                if (AppSettings.InputAffinityAsDissociationConstant)
-                {
-                    var number = AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10, value);
-                    return Convert.ToDouble(String.Format("{0:G3}", number)).ToString();
-                }
-                return value.ToString("G2");
+                var number = AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10, value);
+                return Convert.ToDouble(String.Format("{0:G3}", number)).ToString();
             }
 
             if (UsesEnergyScale(Parameter.Key))

@@ -274,7 +274,6 @@ namespace AnalysisITC
 
             if (changes.ContainsAny(
                     nameof(PreferencesState.ParameterLimitSetting),
-                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
                     nameof(PreferencesState.DefaultConcentrationUnit)))
                 Workspace.TryRebuild();
 
@@ -284,13 +283,11 @@ namespace AnalysisITC
                     nameof(PreferencesState.NumberPrecision),
                     nameof(PreferencesState.UncertaintyDisplayStyle),
                     nameof(PreferencesState.ParameterLimitSetting),
-                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
                     nameof(PreferencesState.DefaultConcentrationUnit)))
                 GraphView.Invalidate();
 
             if (changes.ContainsAny(
                     nameof(PreferencesState.ParameterLimitSetting),
-                    nameof(PreferencesState.InputAffinityAsDissociationConstant),
                     nameof(PreferencesState.DefaultConcentrationUnit),
                     nameof(PreferencesState.EnergyUnitFamily),
                     nameof(PreferencesState.NumberPrecision),

@@ -333,7 +333,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             var parent = key.GetProperties().ParentType;
 
-            if (parent == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
+            if (parent == ParameterType.Affinity1)
                 return AppSettings.DefaultConcentrationUnit.GetProperties().Name;
             if (parent == ParameterType.HeatCapacity1 || parent == ParameterType.Entropy1)
                 return energyUnit.GetProperties().Unit + "/mol/K";
@@ -353,14 +353,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             if (parent == ParameterType.Affinity1)
             {
-                if (AppSettings.InputAffinityAsDissociationConstant)
-                {
-                    var display = AppSettings.DefaultConcentrationUnit.GetProperties().Mod
-                        / Math.Pow(10, value);
-                    return FormatNumber(display);
-                }
-
-                return value.ToString("G4", CultureInfo.CurrentCulture);
+                var display = AppSettings.DefaultConcentrationUnit.GetProperties().Mod
+                    / Math.Pow(10, value);
+                return FormatNumber(display);
             }
 
             if (UsesEnergyScale(key))
@@ -396,7 +391,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (!TryParseNumber(text, out var displayValue)) return false;
 
             var parent = parameter.Key.GetProperties().ParentType;
-            if (parent == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
+            if (parent == ParameterType.Affinity1)
             {
                 if (displayValue <= 0) return false;
                 internalValue = Math.Log10(
