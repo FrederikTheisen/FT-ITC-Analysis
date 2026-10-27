@@ -18,6 +18,36 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class ExperimentDesignerWindowTests
 {
     [AvaloniaFact]
+    public void DesignerOpensWithoutBlockingWorkspaceAndClosesWithItsOwner()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var owner = new MainWindow();
+        owner.SetStartupReady();
+        owner.Show();
+        try
+        {
+            var opening = owner.OpenExperimentDesignerAsync();
+            var designer = Assert.IsType<ExperimentDesignerWindow>(Assert.Single(owner.OwnedWindows));
+
+            Assert.True(designer.IsVisible);
+            Assert.False(designer.IsDialog);
+            Assert.True(opening.IsCompletedSuccessfully);
+
+            owner.Close();
+
+            Assert.False(designer.IsVisible);
+            Assert.Empty(owner.OwnedWindows);
+        }
+        finally
+        {
+            foreach (var child in owner.OwnedWindows.ToArray()) child.Close();
+            DocumentDirtyTracker.MarkClean();
+            owner.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaFact]
     public void NoiseLevelDefaultsToTheExistingSimulationMagnitudeAndFollowsNoiseEnablement()
     {
         Dispatcher.UIThread.Invoke(() =>

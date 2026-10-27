@@ -679,11 +679,13 @@ public partial class MainWindow : Window
             StatusBarManager.SetStatus($"Could not open {destination}", 3000);
     }
 
-    internal async Task OpenExperimentDesignerAsync()
+    internal Task OpenExperimentDesignerAsync()
     {
-        var dialog = new ExperimentDesignerWindow();
-        await dialog.ShowDialog(this);
+        var designer = new ExperimentDesignerWindow();
+        designer.Closed += (_, _) => RefreshMenuState();
+        designer.Show(this);
         RefreshMenuState();
+        return Task.CompletedTask;
     }
 
     internal async Task OpenBufferSubtractionToolAsync()
