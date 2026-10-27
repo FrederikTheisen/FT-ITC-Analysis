@@ -23,6 +23,8 @@ Open these tools from **Tools**. Designer simulations stay in their window; Buff
 
 The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injection **Count**, and **Volume uL**. Count and volume define the injection schedule. **Automatic injection volume** derives the injection volume from the selected instrument’s standard syringe volume and injection count. **Small first injection** gives the first injection of each load a smaller volume and marks it excluded. The **Simulation** section contains noise controls. **Tandem simulation** creates consecutive loads, with **Segments** setting the number of loads. The designer uses its tandem back-mixing model between loads.
 
+The TA presets distinguish Nano ITC and Affinity ITC, each with low- and standard-volume cells. Their cell volumes are representative effective volumes, rather than individual instrument calibrations. Nano ITC low volume uses a 50 µL syringe; the other TA presets use 250 µL.
+
 ![Experiment Designer Setup view showing the synthetic fit, instrument, concentrations, injection schedule, automatic volume, small first injection, tandem, and noise controls.](../assets/experiment-designer-setup.png)
 
 The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. Parameter sliders use practical editing ranges; enter a value in the text field to set a value beyond a slider's range. 

@@ -36,7 +36,7 @@ Choose the input that matches the stage of your work. A **raw thermogram** conta
 | Extension | Source | Imported content |
 | --- | --- | --- |
 | `.itc` | MicroCal-style raw data | Raw thermogram and injections |
-| `.nitc` | TA Instruments NanoITC native data | Raw thermogram and injections |
+| `.nitc` | TA Instruments Nano ITC / Affinity ITC native data | Raw thermogram and injections |
 | `.ta` | TA Instruments/NanoAnalyze export | Raw thermogram and injections |
 | `.apj` | PEAQ-ITC project | Raw thermogram and injections from each experiment |
 | `.opj` | Origin project file | Raw thermogram or integrated heats, according to the recognized worksheet |
@@ -44,6 +44,8 @@ Choose the input that matches the stage of your work. A **raw thermogram** conta
 | `.aff` | Integrated-heats table | Integrated heats and injections |
 | `.dh` | Fixed-layout integrated-heats file | Integrated heats, injections, and experiment metadata |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
+
+TA instrument names use recorded instrument metadata when available. Otherwise, FT-ITC Analysis estimates the instrument from the effective cell volume; this is a best guess, especially when instrument volumes are similar. The imported cell volume is retained for calculations.
 
 Raw thermogram imports (`.itc`, `.nitc`, `.ta`, and `.apj`) open as unprocessed Experiment Data. Process and fit them in FT-ITC Analysis. A PEAQ-ITC `.apj` import adds every experiment in the file; its existing processing and fits are not imported.
 

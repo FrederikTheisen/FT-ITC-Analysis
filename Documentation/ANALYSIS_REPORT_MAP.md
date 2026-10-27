@@ -395,7 +395,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Syringe concentration | |
 | | · Injections | |
 | | · Experiment settings (subheading) | |
-| | ·· Instrument | |
+| | ·· Instrument | shared instrument name, including Nano ITC / Affinity ITC and volume class; generic TA identities remain generic |
 | | ·· Cell volume (µL) | |
 | | ·· Stirring speed (rpm) | omitted if not recorded |
 | | ·· Feedback | omitted if not recorded |
@@ -411,7 +411,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Previously reported as: 1A | |
 | | · Source file | |
 | | · External / Cell / Syringe IDs | as E02 |
-| | · Instrument | |
+| | · Instrument | same shared instrument name as E02 |
 | | · Temperature | |
 | | · Cell concentration | |
 | | · Syringe concentration | |

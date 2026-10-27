@@ -20,9 +20,11 @@ Dates recorded in data files are read-only. If only a filesystem date is availab
 
 # Compatible file formats
 
-**Raw data:** MicroCal-style `.itc`, TA Instruments `.nitc` and `.ta`, and PEAQ-ITC `.apj`.
+**Raw data:** MicroCal-style `.itc`, TA Instruments Nano ITC / Affinity ITC `.nitc` and TA `.ta`, and PEAQ-ITC `.apj`.
 
 **Origin projects:** `.opj`. The first compatible ITC worksheet supplies a raw trace when available, otherwise integrated heats. Origin fits and processing are not imported; ResultsLog text is retained as provenance.
+
+Instrument identification uses recorded metadata first, then an estimate from cell volume when needed. Volume-based identification is a best guess and retains the imported cell volume for calculations.
 
 **Integrated heats:** `.dat`, `.aff`, and `.dh`. The first injection is excluded from fitting by default; include it manually if appropriate. For `.dat` and `.aff`, choose whether to **Recalculate concentrations and ratios** from injection volumes or retain the table progression. The **Recalculate concentrations on integrated-heat import** preference sets the initial choice; you can override it for each import. Enter the experiment temperature in °C during import. `.dh` concentrations are always calculated.
 
@@ -473,7 +475,7 @@ Use **File > Export**, context menus, or the result exporter for data and figure
 Figures use current processing. After changing baselines or integration regions, rerun the fit before exporting; processing edits do not automatically refit curves. Supporting Figure retains its sources and layout during the current document session.
 
 ## Experiment designer
-Use the \designer to check a proposed titration before collecting data. Select the instrument, cell and syringe concentrations, injection count, volume mode, and optional small first injection. Volumes can be entered manually or calculated from syringe capacity.
+Use the \designer to check a proposed titration before collecting data. Select the instrument, cell and syringe concentrations, injection count, volume mode, and optional small first injection. Volumes can be entered manually or calculated from syringe capacity. TA presets distinguish Nano ITC and Affinity ITC in low- and standard-volume configurations. Cell-volume defaults are representative effective volumes. Nano ITC low volume uses a 50 µL syringe; the other TA presets use 250 µL.
 
 Choose a model and adjust parameters to inspect the predicted titration. Enable **Simulate noise** and set **Noise level** to explore its effect. Fit the simulated data to examine whether the design may constrain the model.
 
