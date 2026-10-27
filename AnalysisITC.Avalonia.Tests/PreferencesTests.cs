@@ -495,7 +495,10 @@ public sealed class PreferencesTests
 
     [AvaloniaTheory]
     [InlineData(ITCInstrument.MicroCalITC200)]
-    [InlineData(ITCInstrument.TAInstrumentsITCStandard)]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCStandard)]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCLowVolume)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCStandard)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCLowVolume)]
     public void DesignerInstrumentPreferenceLoadsAndRoundTrips(ITCInstrument instrument)
     {
         var window = new PreferencesWindow();

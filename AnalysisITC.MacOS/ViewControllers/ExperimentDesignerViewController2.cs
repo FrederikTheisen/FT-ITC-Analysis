@@ -305,6 +305,7 @@ namespace AnalysisITC
                 instrument = ITCInstrument.MicroCalITC200;
 
             Instrument = instrument;
+            if (InstrumentControl != null) InstrumentControl.ToolTip = instrument.GetProperties().Name;
 
             if (InstrumentControl?.Menu != null)
             {

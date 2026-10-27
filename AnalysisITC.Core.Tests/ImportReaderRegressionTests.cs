@@ -234,9 +234,9 @@ public sealed class ImportReaderRegressionTests : IDisposable
     }
 
     [Theory]
-    [InlineData(0.199e-3, ITCInstrument.TAInstrumentsITCLowVolume)] // nearer the ITC200's 204 µL than TA's 190 µL
-    [InlineData(0.190e-3, ITCInstrument.TAInstrumentsITCLowVolume)]
-    [InlineData(0.950e-3, ITCInstrument.TAInstrumentsITCStandard)]
+    [InlineData(0.199e-3, ITCInstrument.TAInstrumentsAffinityITCLowVolume)] // A known TA source must not become MicroCal.
+    [InlineData(0.190e-3, ITCInstrument.TAInstrumentsAffinityITCLowVolume)]
+    [InlineData(0.950e-3, ITCInstrument.TAInstrumentsNanoITCStandard)]
     public void TaCellVolumeOnlySelectsTaInstruments(double cellVolume, ITCInstrument expected)
     {
         Assert.Equal(expected, ITCInstrumentAttribute.ResolveTAInstrument(cellVolume));
@@ -251,7 +251,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
         foreach (var path in paths)
         {
             var experiment = NanoItcReader.ReadPath(path);
-            Assert.Equal(ITCInstrumentAttribute.ResolveTAInstrument(experiment.CellVolume), experiment.Instrument);
+            Assert.Equal(ITCInstrument.TAInstrumentsAffinityITCLowVolume, experiment.Instrument);
         }
     }
 

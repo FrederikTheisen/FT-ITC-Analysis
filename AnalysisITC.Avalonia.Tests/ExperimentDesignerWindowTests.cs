@@ -9,6 +9,8 @@ using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
 
 using Xunit;
 
@@ -17,6 +19,33 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ExperimentDesignerWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCLowVolume, 170, 5)]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCStandard, 950, 25)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCLowVolume, 185, 25)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCStandard, 965, 25)]
+    public void TaPresetsGenerateCorrectVolumesThroughRealControls(ITCInstrument instrument, double cellMicrolitres, double injectionMicrolitres)
+    {
+        var window = new ExperimentDesignerWindow();
+        try
+        {
+            var choices = ITCInstrumentAttribute.GetITCInstruments();
+            Assert.Equal(4, choices.Count(ITCInstrumentAttribute.IsTAInstrument));
+            window.InstrumentComboForTesting.SelectedIndex = choices.IndexOf(instrument);
+            window.SmallFirstInjectionCheckForTesting.IsChecked = false;
+            window.AutoVolumeCheckForTesting.IsChecked = true;
+            window.InjectionCountStepperForTesting.Value = 10;
+
+            var data = window.GenerationFactoryForTesting!.Model.Data;
+            Assert.Equal(instrument, data.Instrument);
+            Assert.Equal(cellMicrolitres * 1e-6, data.CellVolume, 12);
+            Assert.All(data.Injections, injection => Assert.Equal(injectionMicrolitres * 1e-6, injection.Volume, 12));
+            Assert.Equal(instrument.GetProperties().Name, window.InstrumentComboForTesting.SelectedItem);
+            Assert.Equal(instrument.GetProperties().Name, ToolTip.GetTip(window.InstrumentComboForTesting));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void DesignerOpensWithoutBlockingWorkspaceAndClosesWithItsOwner()
     {

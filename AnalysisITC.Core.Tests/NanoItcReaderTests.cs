@@ -54,11 +54,11 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(182e-6, experiment.CellVolume, 12);
             Assert.Equal(25d, experiment.TargetTemperature, 12);
             Assert.Equal(125d, experiment.StirringSpeed, 12);
-            Assert.Equal(ITCInstrument.TAInstrumentsITCLowVolume, experiment.Instrument);
+            Assert.Equal(ITCInstrument.TAInstrumentsAffinityITCLowVolume, experiment.Instrument);
             Assert.Equal(ExperimentDateSource.DataFile, experiment.DateSource);
             Assert.False(experiment.Processor.BaselineCompleted);
             Assert.Null(experiment.BaseLineCorrectedDataPoints);
-            Assert.Contains("NanoITC source: file 3", experiment.Comments);
+            Assert.Contains("TA ITC source: file 3", experiment.Comments);
             Assert.Contains("serial T21004", experiment.Comments);
             Assert.Contains("software 3.8.0.18730", experiment.Comments);
             Assert.Contains("firmware", experiment.Comments);

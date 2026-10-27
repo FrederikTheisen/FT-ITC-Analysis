@@ -11,6 +11,7 @@ using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 using Xunit;
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Core.Data;
 
 namespace AnalysisITC.Core.Tests;
 
@@ -25,6 +26,22 @@ public sealed class PreferencesStateTests : IDisposable
     readonly InMemorySettingsStore store = new();
 
     public PreferencesStateTests() => PlatformServices.RegisterSettingsStore(store);
+
+    [Theory]
+    [InlineData(ITCInstrument.TAInstrumentsITCLowVolume, ITCInstrument.TAInstrumentsNanoITCLowVolume)]
+    [InlineData(ITCInstrument.TAInstrumentsITCStandard, ITCInstrument.TAInstrumentsAffinityITCStandard)]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCLowVolume, ITCInstrument.TAInstrumentsNanoITCLowVolume)]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCStandard, ITCInstrument.TAInstrumentsNanoITCStandard)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCLowVolume, ITCInstrument.TAInstrumentsAffinityITCLowVolume)]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCStandard, ITCInstrument.TAInstrumentsAffinityITCStandard)]
+    public void TaDesignerPreferencesLoadMigrateAndPersist(ITCInstrument saved, ITCInstrument expected)
+    {
+        store.SetInt("DefaultDesignerInstrument", (int)saved);
+        AppSettings.Load();
+        Assert.Equal(expected, AppSettings.DefaultDesignerInstrument);
+        AppSettings.Save();
+        Assert.Equal((int)expected, store.GetInt("DefaultDesignerInstrument"));
+    }
 
     public void Dispose()
     {

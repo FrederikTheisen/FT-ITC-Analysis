@@ -480,6 +480,24 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(expected, report.ApprovedInterpretation.InterpretationMarkdown);
     }
 
+    [Theory]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCLowVolume, "ta-nano-itc-low-volume", "TA Instruments Nano ITC (Low Volume)")]
+    [InlineData(ITCInstrument.TAInstrumentsNanoITCStandard, "ta-nano-itc-standard", "TA Instruments Nano ITC (Standard Volume)")]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCLowVolume, "ta-affinity-itc-low-volume", "TA Instruments Affinity ITC (Low Volume)")]
+    [InlineData(ITCInstrument.TAInstrumentsAffinityITCStandard, "ta-affinity-itc-standard", "TA Instruments Affinity ITC (Standard Volume)")]
+    public async Task TaInstrumentEvidenceUsesSpecificIdentityAndRecordedVolume(ITCInstrument identity, string id, string name)
+    {
+        var result = await LoadResult();
+        var data = result.Solution.Solutions[0].Data;
+        data.Instrument = identity;
+        data.CellVolume = 167e-6;
+        var package = AnalysisInterpretationPackageBuilder.Build(ReportFor(result), result);
+        var instrument = package.Result.Experiments[0].Instrument;
+        Assert.Equal(id, instrument.ModelId);
+        Assert.Equal(name, instrument.ModelName);
+        Assert.Equal(167e-6, instrument.CellVolumeLitres.Value, 12);
+    }
+
     [Fact]
     public async Task NonFinitePackageValuesBecomeExplicitUnavailableNulls()
     {

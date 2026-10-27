@@ -75,7 +75,7 @@ namespace AnalysisITC.Core.DataReaders
         PEAQITCProject = 7,
         [ITCFormat("Origin ITC Project File", "Legacy Origin project containing ITC data", ".opj")]
         OriginProject = 8,
-        [ITCFormat("TA Instruments NanoITC Data File", "Native data format produced by NanoITC instruments", ".nitc")]
+        [ITCFormat("TA Instruments ITC Data File", "Native data format produced by Nano ITC and Affinity ITC instruments", ".nitc")]
         NanoITC = 9
     }
 

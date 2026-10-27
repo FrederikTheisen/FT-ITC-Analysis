@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;
@@ -42,8 +43,10 @@ namespace AnalysisITC.Core.Data
                 ITCInstrument.MicroCalITC200,
                 ITCInstrument.MalvernITC200,
                 ITCInstrument.MicroCalVPITC,
-                ITCInstrument.TAInstrumentsITCLowVolume,
-                ITCInstrument.TAInstrumentsITCStandard,
+                ITCInstrument.TAInstrumentsNanoITCLowVolume,
+                ITCInstrument.TAInstrumentsNanoITCStandard,
+                ITCInstrument.TAInstrumentsAffinityITCLowVolume,
+                ITCInstrument.TAInstrumentsAffinityITCStandard,
             };
         }
 
@@ -51,7 +54,7 @@ namespace AnalysisITC.Core.Data
         {
             if (string.IsNullOrEmpty(line)) return ITCInstrument.Unknown;
 
-            foreach (var instrument in GetITCInstruments())
+            foreach (var instrument in GetITCInstruments().Where(instrument => (instrument & ITCInstrument.MicroCal) != 0))
             {
                 if (line.Contains(instrument.GetProperties().InstrumentCode)) return instrument;
             }
@@ -60,10 +63,55 @@ namespace AnalysisITC.Core.Data
         }
 
         /// <summary>
-        /// TA Instruments files only distinguish the two TA cell sizes; cell volume in litres.
+        /// Identifies a TA instrument from explicit native metadata, then effective cell volume in litres.
         /// </summary>
-        public static ITCInstrument ResolveTAInstrument(double cellVolume)
+        public static ITCInstrument ResolveTAInstrument(double cellVolume, string instrumentSettings = null, string isAffinity = null)
+        {
+            var lowVolume = cellVolume <= 0.2e-3;
+            foreach (var line in (instrumentSettings ?? "").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var match = Regex.Match(line, @"^\s*Instrument\s+Type\s*:\s*(.*?)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (!match.Success) continue;
+                var type = match.Groups[1].Value;
+                if (Regex.IsMatch(type, @"^Nano\s*ITC$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                    return lowVolume ? ITCInstrument.TAInstrumentsNanoITCLowVolume : ITCInstrument.TAInstrumentsNanoITCStandard;
+                if (Regex.IsMatch(type, @"^Affinity(?:\s+ITC)?(?:\s*\([^\r\n)]*\))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                    return lowVolume ? ITCInstrument.TAInstrumentsAffinityITCLowVolume : ITCInstrument.TAInstrumentsAffinityITCStandard;
+            }
+
+            if (bool.TryParse(isAffinity, out var affinity) && affinity)
+                return lowVolume ? ITCInstrument.TAInstrumentsAffinityITCLowVolume : ITCInstrument.TAInstrumentsAffinityITCStandard;
+
+            var instrument = ClosestInstrument(cellVolume, GetITCInstruments().Where(IsTAInstrument));
+            return instrument == ITCInstrument.Unknown ? GenericTAInstrument(cellVolume) : instrument;
+        }
+
+        static ITCInstrument GenericTAInstrument(double cellVolume)
             => cellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
+
+        public static bool IsTAInstrument(ITCInstrument instrument) => instrument is
+            ITCInstrument.TAInstrumentsITCStandard or ITCInstrument.TAInstrumentsITCLowVolume or
+            ITCInstrument.TAInstrumentsNanoITCStandard or ITCInstrument.TAInstrumentsNanoITCLowVolume or
+            ITCInstrument.TAInstrumentsAffinityITCStandard or ITCInstrument.TAInstrumentsAffinityITCLowVolume;
+
+        static ITCInstrument ClosestInstrument(double cellVolume, IEnumerable<ITCInstrument> instruments)
+        {
+            if (double.IsNaN(cellVolume) || double.IsInfinity(cellVolume) || cellVolume <= 0) return ITCInstrument.Unknown;
+            var candidates = instruments.Select(instrument =>
+            {
+                var referenceVolume = instrument.GetProperties().StandardCellVolume;
+                return (Instrument: instrument, Distance: Math.Abs(cellVolume - referenceVolume), Volume: referenceVolume);
+            }).Where(candidate => candidate.Distance < candidate.Volume * 0.3)
+                .OrderBy(candidate => candidate.Distance).ToList();
+            if (candidates.Count == 0) return ITCInstrument.Unknown;
+
+            // Treat mathematically equal distances alike despite floating-point subtraction rounding.
+            if (candidates.Count > 1 && IsTAInstrument(candidates[0].Instrument) && IsTAInstrument(candidates[1].Instrument)
+                && Math.Abs(candidates[0].Distance - candidates[1].Distance) <= cellVolume * 1e-12)
+                return GenericTAInstrument(cellVolume);
+
+            return candidates[0].Instrument;
+        }
 
         public static void ResolveInstrument(ExperimentData data)
         {
@@ -72,21 +120,9 @@ namespace AnalysisITC.Core.Data
 
             AppEventHandler.PrintAndLog("Resolving Instrument...");
 
-            var candidates = new List<(double, ITCInstrument)>();
-
-            foreach (var instrument in GetITCInstruments())
-            {
-                var instrument_cell_volume = instrument.GetProperties().StandardCellVolume;
-                var delta_v = Math.Abs(data.CellVolume - instrument_cell_volume);
-
-                if (delta_v < instrument_cell_volume * 0.3f)
-                    candidates.Add((delta_v, instrument));
-            }
-
-            if (candidates.Count > 0)
-            {
-                data.Instrument = candidates.OrderBy(instr => instr.Item1).First().Item2;
-            }
+            data.Instrument = data.DataSourceFormat is ITCDataFormat.NanoITC or ITCDataFormat.TAITC
+                ? ResolveTAInstrument(data.CellVolume)
+                : ClosestInstrument(data.CellVolume, GetITCInstruments());
 
             AppEventHandler.PrintAndLog($"{data.Instrument}", 1);
         }
@@ -146,6 +182,24 @@ namespace AnalysisITC.Core.Data
             syrv: 250,
             deadv: 60)]
         TAInstrumentsITCLowVolume = 16,
+
+        // Effective-volume defaults: TA NanoAnalyze guide, p. 15. Dead volumes retain
+        // the existing TA size-class assumptions rather than instrument calibrations.
+        [ITCInstrument("TA Instruments Nano ITC (Standard Volume)", "", "TAITC",
+            cellv: 950, syrv: 250, deadv: 200)]
+        TAInstrumentsNanoITCStandard = 32,
+
+        [ITCInstrument("TA Instruments Nano ITC (Low Volume)", "", "TAITC",
+            cellv: 170, syrv: 50, deadv: 60)]
+        TAInstrumentsNanoITCLowVolume = 64,
+
+        [ITCInstrument("TA Instruments Affinity ITC (Standard Volume)", "", "TAITC",
+            cellv: 965, syrv: 250, deadv: 200)]
+        TAInstrumentsAffinityITCStandard = 128,
+
+        [ITCInstrument("TA Instruments Affinity ITC (Low Volume)", "", "TAITC",
+            cellv: 185, syrv: 250, deadv: 60)]
+        TAInstrumentsAffinityITCLowVolume = 256,
 
         MicroCal = MicroCalITC200 | MalvernITC200 | MicroCalVPITC
     }

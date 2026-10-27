@@ -1029,6 +1029,7 @@ namespace AnalysisITC.Core.Interpretation
             ITCInstrument.MicroCalVPITC => "microcal-vp-itc",
             ITCInstrument.TAInstrumentsITCStandard => "ta-itc-standard",
             ITCInstrument.TAInstrumentsITCLowVolume => "ta-itc-low-volume",
+            ITCInstrument.TAInstrumentsNanoITCLowVolume => "ta-nano-itc-low-volume", ITCInstrument.TAInstrumentsNanoITCStandard => "ta-nano-itc-standard", ITCInstrument.TAInstrumentsAffinityITCLowVolume => "ta-affinity-itc-low-volume", ITCInstrument.TAInstrumentsAffinityITCStandard => "ta-affinity-itc-standard",
             _ => null,
         };
 

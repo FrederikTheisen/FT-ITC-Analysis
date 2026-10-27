@@ -617,7 +617,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     [InlineData("run.dh", ITCDataFormat.IntegratedHeats, "run.dh (Integrated Heats File)")]
     [InlineData("run.apj", ITCDataFormat.PEAQITCProject, "run.apj (PEAQ-ITC Project File)")]
     [InlineData("run.opj", ITCDataFormat.OriginProject, "run.opj (Origin ITC Project File)")]
-    [InlineData("run.nitc", ITCDataFormat.NanoITC, "run.nitc (TA Instruments NanoITC Data File)")]
+    [InlineData("run.nitc", ITCDataFormat.NanoITC, "run.nitc (TA Instruments ITC Data File)")]
     [InlineData("run.itc", ITCDataFormat.Unknown, "run.itc (Unknown format)")]
     [InlineData("run.itc", (ITCDataFormat)12345, "run.itc (Unknown format)")]
     [InlineData("run.itc", (ITCDataFormat)1, "run.itc (Unknown format)")]

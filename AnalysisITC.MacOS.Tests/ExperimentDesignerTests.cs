@@ -36,10 +36,14 @@ static class ExperimentDesignerTests
             AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 10, true, 34.3);
             AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 10, false, 31.0);
             AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalVPITC, 2, true, 309.5);
-            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsITCStandard, 10, true, 27.7);
-            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsITCLowVolume, 10, false, 25.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsNanoITCStandard, 10, true, 27.7);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsAffinityITCStandard, 10, false, 25.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsAffinityITCLowVolume, 10, false, 25.0);
+            AutomaticVolumeMatchesSchedule(ITCInstrument.TAInstrumentsNanoITCLowVolume, 10, false, 5.0);
             AutomaticVolumeMatchesSchedule(ITCInstrument.MicroCalITC200, 2, true, 39.0);
             AutomaticVolumeMatchesSchedule(ITCInstrument.MalvernITC200, 2, false, 19.5);
+            TaPresetsGenerateCorrectCellVolumes();
+            TaPreferencesRoundTripThroughRealControls(args[1]);
             ManualVolumeHasNoUpperCeiling();
             ArchivedVolumeControlsMatchSchedule(args[1]);
             SetupAndModelChangesKeepEnteredValues(autoRun: true);
@@ -89,6 +93,63 @@ static class ExperimentDesignerTests
             CheckSchedule(controller, count, smallFirst, expectedMicroliters);
             Check(Math.Abs(field.DoubleValue - expectedMicroliters) < 1e-10,
                 "turning Auto off keeps the effective volume: " + context);
+        }
+    }
+
+    static void TaPresetsGenerateCorrectCellVolumes()
+    {
+        using (var controller = CreateController())
+        {
+            var instruments = Outlet<NSPopUpButton>(controller, "InstrumentControl");
+            Check(instruments.ItemCount == 7, "designer offers three MicroCal and four actual TA instruments");
+            var presets = new[] {
+                new { Instrument = ITCInstrument.TAInstrumentsNanoITCLowVolume, Volume = 170.0 },
+                new { Instrument = ITCInstrument.TAInstrumentsNanoITCStandard, Volume = 950.0 },
+                new { Instrument = ITCInstrument.TAInstrumentsAffinityITCLowVolume, Volume = 185.0 },
+                new { Instrument = ITCInstrument.TAInstrumentsAffinityITCStandard, Volume = 965.0 }
+            };
+            foreach (var preset in presets)
+            {
+                instruments.SelectItemWithTag((int)preset.Instrument);
+                Invoke(controller, "InstrumentControlAction", instruments);
+                var data = Factory(controller).Model.Data;
+                Check(data.Instrument == preset.Instrument, "selected TA identity reaches simulation");
+                Check(instruments.ToolTip == preset.Instrument.GetProperties().Name, "full selected instrument name is available on hover");
+                Check(Math.Abs(data.CellVolume - preset.Volume / 1e6) < 1e-15, "TA simulation uses effective cell volume");
+            }
+        }
+    }
+
+    static void TaPreferencesRoundTripThroughRealControls(string storyboardPath)
+    {
+        foreach (var type in typeof(ExperimentDesignerViewController2).Assembly.GetTypes().Where(type =>
+            !type.IsAbstract && typeof(NSObject).IsAssignableFrom(type)
+            && (type.Name.Contains("Preferences") || type.Name == "FlippedPreferencesDocumentView")))
+            new Class(type);
+
+        using (var resources = NSBundle.FromPath(Path.GetDirectoryName(storyboardPath)))
+        using (var storyboard = NSStoryboard.FromName("Preferences", resources))
+        using (var window = (NSWindowController)storyboard.InstantiateControllerWithIdentifier("PreferencesWindowController"))
+        {
+            Check(window.Window != null, "Preferences window loads");
+            window.GetType().GetMethod("LoadState", Instance).Invoke(window,
+                new object[] { PreferencesState.FromSettings(), true });
+            var panes = (Array)window.GetType().GetField("panes", Instance).GetValue(window);
+            var general = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("InstrumentPopup", Instance) != null);
+            var popup = (NSPopUpButton)general.GetType().GetProperty("InstrumentPopup", Instance).GetValue(general);
+            Check(popup.ItemCount == 7, "Preferences offers four actual TA instruments");
+            foreach (var instrument in ITCInstrumentAttribute.GetITCInstruments().Where(ITCInstrumentAttribute.IsTAInstrument))
+            {
+                var draft = PreferencesState.FromSettings();
+                draft.DefaultDesignerInstrument = instrument;
+                general.GetType().GetMethod("LoadState", Instance).Invoke(general, new object[] { draft });
+                Check((int)popup.SelectedItem.Tag == (int)instrument, "saved TA preference selects the actual instrument");
+                Check(popup.SelectedItem.Title == instrument.GetProperties().Name, "TA preference uses its shared full name");
+                var updated = PreferencesState.Defaults();
+                var arguments = new object[] { updated, null };
+                Check((bool)general.GetType().GetMethod("TryUpdateState", Instance).Invoke(general, arguments), "TA preference is accepted");
+                Check(updated.DefaultDesignerInstrument == instrument, "selected TA preference round-trips");
+            }
         }
     }
 

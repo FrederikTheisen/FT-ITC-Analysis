@@ -40,7 +40,7 @@ for native_test in "${native_tests[@]}"; do
     fi
 done
 for native_test in "${native_tests[@]}"; do
-    if [[ "$native_test" == FinalFigureSmoothnessPreferencesTests ]]; then
+    if [[ "$native_test" == FinalFigureSmoothnessPreferencesTests || "$native_test" == ExperimentDesignerTests ]]; then
         xcrun ibtool --compile "$check_dir/Preferences.storyboardc" AnalysisITC.MacOS/Preferences.storyboard \
             --errors --warnings > "$check_dir/preferences-diagnostics.plist" 2> "$check_dir/preferences-compiler.log" || {
                 cat "$check_dir/preferences-diagnostics.plist" "$check_dir/preferences-compiler.log"

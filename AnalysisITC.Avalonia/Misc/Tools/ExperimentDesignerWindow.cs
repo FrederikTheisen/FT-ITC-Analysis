@@ -266,6 +266,7 @@ namespace AnalysisITC.Avalonia.Tools
                     RawDataReader.ProcessInjections(data);
 
                 instrumentInfoText.Text = $"Syringe volume: {instrument.GetProperties().StandardSyringeVolume * LiterToMicroliter:F1} µL\nCell volume: {instrument.GetProperties().StandardCellVolume * LiterToMicroliter:F1} µL";
+                ToolTip.SetTip(instrumentCombo, instrument.GetProperties().Name);
                 injectionInfoText.Text = InjectionDescription(data);
 
                 // Replace the experiment and model together so a failure keeps the previous simulation.

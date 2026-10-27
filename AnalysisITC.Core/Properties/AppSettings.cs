@@ -14,6 +14,7 @@ using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Application
 {
@@ -578,6 +579,9 @@ namespace AnalysisITC.Core.Application
         static ITCInstrument NormalizeDesignerInstrument(int instrument)
         {
             var normalized = (ITCInstrument)instrument;
+
+            if (normalized is ITCInstrument.TAInstrumentsITCStandard or ITCInstrument.TAInstrumentsITCLowVolume)
+                return ITCInstrumentAttribute.ResolveTAInstrument(normalized.GetProperties().StandardCellVolume);
 
             if (ITCInstrumentAttribute.GetITCInstruments().Contains(normalized))
                 return normalized;

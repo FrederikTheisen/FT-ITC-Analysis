@@ -24,6 +24,33 @@ namespace AnalysisITC.Core.Tests
     public sealed class FtxtcJsonSchemaValidationTests
     {
         [Theory]
+        [InlineData(ITCInstrument.TAInstrumentsNanoITCLowVolume, "ta-nano-itc-low-volume", "TA Instruments Nano ITC (Low Volume)")]
+        [InlineData(ITCInstrument.TAInstrumentsNanoITCStandard, "ta-nano-itc-standard", "TA Instruments Nano ITC (Standard Volume)")]
+        [InlineData(ITCInstrument.TAInstrumentsAffinityITCLowVolume, "ta-affinity-itc-low-volume", "TA Instruments Affinity ITC (Low Volume)")]
+        [InlineData(ITCInstrument.TAInstrumentsAffinityITCStandard, "ta-affinity-itc-standard", "TA Instruments Affinity ITC (Standard Volume)")]
+        [InlineData(ITCInstrument.TAInstrumentsITCLowVolume, "ta-itc-low-volume", "TA Instruments ITC Low Vol")]
+        [InlineData(ITCInstrument.TAInstrumentsITCStandard, "ta-itc-standard", "TA Instruments ITC Standard")]
+        public async Task TaInstrumentIdentitiesValidateRoundTripAndReachViewer(ITCInstrument instrument, string wireId, string name)
+        {
+            var source = new ExperimentData("instrument.nitc") { Instrument = instrument, CellVolume = 182e-6 };
+            source.DataPoints.Add(new DataPoint(0, 0, 25));
+            source.DataPoints.Add(new DataPoint(1, 0, 25));
+            source.Injections.Add(new InjectionData(source, 1e-6));
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { source });
+            AssertPackageJsonValidates(package);
+            Assert.Equal(wireId, ReadJson(package, "experiments/000000/experiment.json")["instrument"].GetValue<string>());
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+            Assert.Equal(instrument, restored.Instrument);
+            Assert.Equal(182e-6, restored.CellVolume, 12);
+            Assert.Contains(restored.GetInfoString(), line => line.Contains(name));
+            package.Position = 0;
+            var viewer = await new AnalysisITC.Core.Viewer.ViewerDocumentReader().ReadAsync(package, "instrument.ftxtc", AnalysisITC.Core.Viewer.ViewerFileFormat.Ftxtc);
+            Assert.Equal(name, Assert.Single(viewer.Experiments).Instrument);
+        }
+
+        [Theory]
         [InlineData("originDescription", "null")]
         [InlineData("originDescription", "\"\"")]
         [InlineData("originDescription", "\"Recorded merge\\nSources: first + second\"")]

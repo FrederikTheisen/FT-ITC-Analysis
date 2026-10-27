@@ -594,11 +594,13 @@ namespace AnalysisITC.Core.DataReaders
             var cellVolumeMicrolitres = RequiredMetadataNumber(metadata, "cellvolume");
             if (cellVolumeMicrolitres <= 0)
                 throw NanoItcNrbfParser.DataError("KVP metadata 'cellvolume' must be positive.");
+            metadata.TryGetValue("OtherInstrumentSettings", out var instrumentSettings);
+            metadata.TryGetValue("IsAffinityITCData", out var isAffinity);
             var experiment = new ExperimentData(fileName)
             {
                 DataSourceFormat = ITCDataFormat.NanoITC,
                 CellVolume = cellVolumeMicrolitres * 1e-6,
-                Instrument = ITCInstrumentAttribute.ResolveTAInstrument(cellVolumeMicrolitres * 1e-6),
+                Instrument = ITCInstrumentAttribute.ResolveTAInstrument(cellVolumeMicrolitres * 1e-6, instrumentSettings, isAffinity),
                 CellConcentration = new FloatWithError(OptionalMetadataNumber(metadata, "cellconcentration") * 1e-3),
                 SyringeConcentration = new FloatWithError(OptionalMetadataNumber(metadata, "syringeconcentration") * 1e-3),
                 StirringSpeed = OptionalMetadataNumber(metadata, "stirrate", -1),
@@ -721,8 +723,8 @@ namespace AnalysisITC.Core.DataReaders
             AddProvenance(provenance, metadata, "firmwareVer", "firmware");
 
             var provenanceText = provenance.Count == 0
-                ? "NanoITC source"
-                : "NanoITC source: " + string.Join("; ", provenance);
+                ? "TA ITC source"
+                : "TA ITC source: " + string.Join("; ", provenance);
             if (string.IsNullOrEmpty(vendorComment)) return provenanceText;
             return vendorComment + Environment.NewLine + provenanceText;
         }
