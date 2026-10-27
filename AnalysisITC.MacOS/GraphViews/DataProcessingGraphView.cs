@@ -49,6 +49,7 @@ namespace AnalysisITC
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
         MouseOverFeatureEvent SelectedFeature { get; set; } = null;
         public int PeakZoomWidth { get; set; } = 1;
+        public double BaselineZoomLevel { get; set; } = 1;
         public VerticalZoomMode CurrentVerticalZoomMode { get; private set; } = VerticalZoomMode.AllData;
         public HorizontalZoomMode CurrentHorizontalZoomMode { get; private set; } = HorizontalZoomMode.AllPeaks;
         int selectedPeak = -1;
@@ -187,46 +188,11 @@ namespace AnalysisITC
 
         public void ZoomBaseline()
         {
-            if (Data == null) return;
-            if (Data.Processor.Interpolator?.Baseline == null || Data.Processor.Interpolator?.Baseline.Count == 0) return;
-            if (Graph == null) return;
+            if (Graph == null || !ProcessingZoomPresentation.TryGetBaselineRange(
+                Data, Graph.XAxis.Min, Graph.XAxis.Max, ShowBaselineCorrected, BaselineZoomLevel,
+                out var yMin, out var yMax)) return;
 
-            var xmin = Graph.XAxis.Min;
-            var xmax = Graph.XAxis.Max;
-
-            var baselinemin = double.MaxValue;
-            var baselinemax = double.MinValue;
-
-            if (!ShowBaselineCorrected)
-                for (int i = 0; i < Data.DataPoints.Count; i++)
-                {
-                    DataPoint dp = Graph.DataPoints[i];
-
-                    if (dp.Time < xmin) continue;
-                    else if (dp.Time > xmax) break;
-
-                    var blp = Data.Processor.Interpolator.Baseline[i];
-
-                    if (blp < baselinemin) baselinemin = (double)blp;
-                    if (blp > baselinemax) baselinemax = (double)blp;
-                }
-            else
-            {
-                baselinemin = 0;
-                baselinemax = 0;
-            }
-
-            var datapoints = Data.Processor.Interpolator.GetInterpolatedDataPoints(xmin, xmax);
-
-            if (datapoints.Count == 0) return;
-
-            var mean = datapoints.Select(dp => dp.Power).Average();
-            var ymin = datapoints.Min(dp => dp.Power);
-            var ymax = datapoints.Max(dp => dp.Power);
-
-            var delta = Math.Min(mean - ymin, ymax - mean);
-
-            Graph.SetYAxisRange(baselinemin - delta * 3f, baselinemax + delta * 3f);
+            Graph.SetYAxisRange(yMin, yMax);
 
             CurrentVerticalZoomMode = VerticalZoomMode.Baseline;
 

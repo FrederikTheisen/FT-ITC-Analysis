@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using AnalysisITC.Avalonia.Workspace;
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -37,6 +38,8 @@ namespace AnalysisITC.Avalonia.Processing
         readonly ComboBox splineDensityCombo = Combo(new[] { "Sparse", "Balanced", "Dense" });
         readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
         readonly NumericUpDown peakWidthStepper = Stepper(3, 1, 5, 2);
+        readonly SegmentedSelector baselineZoomSelector = Segmented(
+            ProcessingZoomPresentation.BaselineZoomLabels.ToArray(), ProcessingZoomPresentation.DefaultBaselineZoomIndex);
 
         readonly NumericUpDown degreeStepper = Stepper(12, PolynomialLeastSquaresInterpolator.MinimumDegree, PolynomialLeastSquaresInterpolator.MaximumDegree, 1);
         readonly Slider integrationStartSlider = Slider(-30, 30, 0.1);
@@ -93,6 +96,7 @@ namespace AnalysisITC.Avalonia.Processing
                 "Freeze processing results and disable integration-region and spline-point editing.");
             ToolTip.SetTip(copyActiveButton, ProcessingCopyPresentation.ActiveTooltip);
             ToolTip.SetTip(copyNewButton, ProcessingCopyPresentation.NewTooltip);
+            ToolTip.SetTip(baselineZoomSelector, ProcessingZoomPresentation.BaselineZoomTooltip);
             BuildLayout();
             WireEvents();
             ApplyViewOptions();
@@ -233,7 +237,8 @@ namespace AnalysisITC.Avalonia.Processing
                 showIntegrationCheck,
                 correctedCheck,
                 cursorInfoCheck,
-                Labeled("Zoom width", NumericFieldWithSuffix(peakWidthStepper, "peaks"))
+                Labeled("Zoom width", NumericFieldWithSuffix(peakWidthStepper, "peaks")),
+                Labeled("Baseline zoom", baselineZoomSelector)
             }));
 
             return panel;
@@ -264,6 +269,12 @@ namespace AnalysisITC.Avalonia.Processing
 
         void WireEvents()
         {
+            baselineZoomSelector.SelectionChanged += (_, _) =>
+            {
+                graph.BaselineZoomLevel = ProcessingZoomPresentation.BaselineZoomLevels[baselineZoomSelector.SelectedIndex];
+                if (graph.CurrentVerticalZoomMode == ProcessingGraphControl.VerticalZoomMode.Baseline)
+                    graph.ZoomBaseline();
+            };
             baselineTypeCombo.SelectionChanged += async (_, _) => await ChangeBaselineTypeAsync();
             splineAlgorithmCombo.SelectionChanged += async (_, _) => await ChangeSplineAlgorithmAsync();
             splineDensityCombo.SelectionChanged += async (_, _) => await ChangeSplineDensityAsync();
@@ -295,7 +306,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             showBaselineCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
             showIntegrationCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
-            correctedCheck.IsCheckedChanged += (_, _) => ApplyViewOptions(refit: true);
+            correctedCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
             cursorInfoCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
             discardIntegratedCheck.IsCheckedChanged += async (_, _) => await ChangeDiscardIntegratedAsync();
             showSplineHandlesCheck.IsCheckedChanged += (_, _) => SetSplineHandlesFromControl();
@@ -730,16 +741,13 @@ namespace AnalysisITC.Avalonia.Processing
             }
         }
 
-        void ApplyViewOptions(bool refit = false)
+        void ApplyViewOptions()
         {
             graph.SetFeatureVisibility(
                 showBaselineCheck.IsChecked == true,
                 showIntegrationCheck.IsChecked == true,
                 correctedCheck.IsChecked == true,
                 cursorInfoCheck.IsChecked == true);
-
-            if (refit)
-                graph.FitToData();
         }
 
         void ToggleLock()

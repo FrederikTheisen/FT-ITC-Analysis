@@ -44,6 +44,7 @@ static class ProcessingCopyButtonsTests
                 SynchronizationContext.SetSynchronizationContext((SynchronizationContext)Activator.CreateInstance(cocoa, true));
             }
             AppEventHandler.ShowAppMessage = (_, error) => errors.Add(error.Message);
+            Run("baseline zoom presets and corrected display", () => BaselineZoomPresets(args[1]));
             foreach (var scope in new[] { "All", "Active", "New" })
                 foreach (var locked in new[] { false, true })
                     Run(scope + ", source locked=" + locked, () => CopiesToScope(args[1], scope, locked));
@@ -163,6 +164,61 @@ static class ProcessingCopyButtonsTests
             Check(statuses.Any(status => status.Contains("skipped 1 experiment without a thermogram")),
                 "the existing skipped-thermogram feedback was not reported");
         }
+    }
+
+    static void BaselineZoomPresets(string storyboard)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var data = new ExperimentData("baseline-zoom.itc");
+        var powers = new[] { 8, 10, 100, 100, 100, 10, 12, 10 };
+        for (var i = 0; i < powers.Length; i++) data.DataPoints.Add(new DataPoint(i, powers[i] * 1e-6f));
+        var injection = InjectionData.FromPEAQFile(data, 0, true, 2, 1e-6, 5, 1, 25);
+        data.Injections.Add(injection);
+        injection.SetIntegrationLengthByTime(2);
+        data.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+        data.Processor.DiscardIntegratedPoints = true;
+        data.Processor.Interpolator.Baseline = new[] { 9, 9, 9, 10, 10, 11, 11, 11 }
+            .Select(value => new AnalysisITC.Core.Units.Energy(value * 1e-6)).ToList();
+        data.Processor.SubtractBaseline();
+        DataManager.AddData(data);
+        using (var view = new ArchivedProcessView(storyboard))
+        {
+            Select(data);
+            var graph = Outlet<DataProcessingGraphView>(view.Controller, "BaselineGraphView");
+            var control = (NSSegmentedControl)typeof(DataProcessingViewControllet)
+                .GetField("baselineZoomControl", Instance).GetValue(view.Controller);
+            Check(control != null && control.SegmentCount == 4 && control.SelectedSegment == 1, "default baseline preset missing");
+            view.Controller.View.LayoutSubtreeIfNeeded();
+            Check(control.Frame.Width >= 160 && control.Frame.Height > 0, "baseline presets are not laid out");
+            Check(control.ToolTip == ProcessingZoomPresentation.BaselineZoomTooltip, "shared tooltip missing");
+            var before = graph.Graph.YAxis.Min;
+            control.SelectedSegment = 3;
+            Check(NSApplication.SharedApplication.SendAction(control.Action, control.Target, control), "preset did not dispatch");
+            Check(graph.Graph.YAxis.Min == before && graph.CurrentVerticalZoomMode == DataProcessingGraphView.VerticalZoomMode.AllData,
+                "changing a preset changed the all-data view");
+            graph.Graph.SetXAxisRange(0, 7);
+            graph.ZoomBaseline();
+            CheckZoomRange(graph, 7.5, 12.5);
+            for (var i = 0; i < 4; i++)
+            {
+                control.SelectedSegment = i;
+                Check(NSApplication.SharedApplication.SendAction(control.Action, control.Target, control), "preset did not dispatch");
+                var margin = new[] { 12.0, 6.0, 3.0, 1.5 }[i];
+                CheckZoomRange(graph, 9 - margin, 11 + margin);
+                graph.SetFeatureVisibility(true, true, true, false);
+                CheckZoomRange(graph, -margin, margin);
+                graph.SetFeatureVisibility(true, true, false, false);
+            }
+            graph.Initialize(data);
+            Check(graph.BaselineZoomLevel == 4, "initializing a graph lost the view-local zoom level");
+        }
+    }
+
+    static void CheckZoomRange(DataProcessingGraphView graph, double minimum, double maximum)
+    {
+        Check(Math.Abs(graph.Graph.YAxis.Min - minimum * 1e-6) < 1e-10, "unexpected baseline minimum: " + graph.Graph.YAxis.Min);
+        Check(Math.Abs(graph.Graph.YAxis.Max - maximum * 1e-6) < 1e-10, "unexpected baseline maximum: " + graph.Graph.YAxis.Max);
+        Check(graph.CurrentVerticalZoomMode == DataProcessingGraphView.VerticalZoomMode.Baseline, "baseline mode lost");
     }
 
     static void UnavailableSource(string storyboard, string selection)

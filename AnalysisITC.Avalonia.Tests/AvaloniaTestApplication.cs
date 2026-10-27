@@ -23,7 +23,8 @@ public static class TestAppBuilder
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_PROJECT_INFORMATION_QA_DIRECTORY"))
             || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_HELP_QA_DIRECTORY"))
             || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_CR050_QA_DIRECTORY"))
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_SALT_QA_DIRECTORY")))
+            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_SALT_QA_DIRECTORY"))
+            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_BASELINE_QA_DIRECTORY")))
             return builder.UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
         return builder.UseHeadless(new AvaloniaHeadlessPlatformOptions());
     }

@@ -47,7 +47,7 @@ Drag a non-button area of a Data or Analysis Result row to reorder the list. Pro
 **Clear Processing > Selected / Active / All** restores processing defaults and clears calculated baselines, integrated thermogram heats, and attached fits. Imported integrated heats, raw data, concentrations, injection choices, and attributes are retained. Saved Analysis Results remain but may be out of date. Clear Processing has no Undo and is unavailable while busy.
 
 ## Processing data
-For raw thermograms, open **Processing** to define the baseline and integration regions. Integrated-heat imports skip this step. Zoom in to inspect the baseline and peak boundaries; double-click an injection to focus on it.
+For raw thermograms, open **Processing** to define the baseline and integration regions. Integrated-heat imports skip this step. Zoom in to inspect the baseline and peak boundaries; double-click an injection to focus on it. **Peak zoom width** controls how many peaks are shown. **Baseline zoom** adjusts the baseline margin: 1× is the default, higher values give a closer view, and 0.5× gives more context while keeping baseline drift visible.
 
 # Choosing a baseline
 

@@ -35,6 +35,7 @@ namespace AnalysisITC
         bool integrationSliderChanged;
         ProcessingActivity.ProcessingLease integrationSliderActivity;
         MacCalculationControls calculationControls;
+        NSSegmentedControl baselineZoomControl;
         readonly Dictionary<NSMenuItem, string> idleMenuTooltips = new();
 
         private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
@@ -80,6 +81,7 @@ namespace AnalysisITC
             CopyProcessingToAllButton.ToolTip = ProcessingCopyPresentation.AllTooltip;
             CopyProcessingToActiveButton.ToolTip = ProcessingCopyPresentation.ActiveTooltip;
             CopyProcessingToNewButton.ToolTip = ProcessingCopyPresentation.NewTooltip;
+            ConfigureBaselineZoomControl();
             ConfigureProcessingOptionsMenu();
             RefreshProcessingSummary();
             UpdateProcessingCopyUI();
@@ -92,6 +94,47 @@ namespace AnalysisITC
                 ConvertToLinearSplineButton, ConvertToSmoothSplineButton,
                 CopyProcessingToAllButton, CopyProcessingToActiveButton, CopyProcessingToNewButton,
             }.Where(control => control is not IntegrationRangeSlider { IsTrackingRange: true }), UpdateUI);
+        }
+
+        void ConfigureBaselineZoomControl()
+        {
+            if (baselineZoomControl != null || PeakZoomWidthSegControl?.Superview?.Superview is not NSStackView viewStack) return;
+
+            var label = NSTextField.CreateLabel("Baseline zoom");
+            label.TextColor = NSColor.SecondaryLabel;
+            label.TranslatesAutoresizingMaskIntoConstraints = false;
+            baselineZoomControl = new NSSegmentedControl
+            {
+                SegmentCount = ProcessingZoomPresentation.BaselineZoomLevels.Count,
+                SegmentStyle = NSSegmentStyle.Capsule,
+                ControlSize = NSControlSize.Small,
+                SelectedSegment = ProcessingZoomPresentation.DefaultBaselineZoomIndex,
+                ToolTip = ProcessingZoomPresentation.BaselineZoomTooltip,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            for (var i = 0; i < ProcessingZoomPresentation.BaselineZoomLabels.Count; i++)
+                baselineZoomControl.SetLabel(ProcessingZoomPresentation.BaselineZoomLabels[i], i);
+            baselineZoomControl.AddConstraint(NSLayoutConstraint.Create(
+                baselineZoomControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, null, NSLayoutAttribute.NoAttribute, 1, 169));
+            baselineZoomControl.Activated += (_, _) =>
+            {
+                BaselineGraphView.BaselineZoomLevel = ProcessingZoomPresentation.BaselineZoomLevels[(int)baselineZoomControl.SelectedSegment];
+                if (BaselineGraphView.CurrentVerticalZoomMode == DataProcessingGraphView.VerticalZoomMode.Baseline)
+                    BaselineGraphView.ZoomBaseline();
+            };
+            var row = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Alignment = NSLayoutAttribute.CenterY,
+                Distribution = NSStackViewDistribution.Fill,
+                Spacing = 5,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            row.AddArrangedSubview(label);
+            row.AddArrangedSubview(baselineZoomControl);
+            viewStack.AddArrangedSubview(row);
+            viewStack.AddConstraint(NSLayoutConstraint.Create(
+                row, NSLayoutAttribute.Width, NSLayoutRelation.Equal, viewStack, NSLayoutAttribute.Width, 1, 0));
         }
 
         private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)

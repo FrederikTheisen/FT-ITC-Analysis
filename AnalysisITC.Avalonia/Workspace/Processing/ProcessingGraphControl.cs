@@ -12,6 +12,7 @@ using Avalonia.Media;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -101,6 +102,7 @@ namespace AnalysisITC.Avalonia.Processing
         }
 
         public int PeakZoomWidth { get; set; } = 1;
+        public double BaselineZoomLevel { get; set; } = 1;
         public bool ShowBaseline { get; set; } = true;
         public bool ShowIntegrationRegions { get; set; } = true;
         public bool ShowBaselineCorrected { get; set; }
@@ -217,49 +219,12 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ZoomBaseline()
         {
-            var data = Experiment;
-            if (!hasView || data?.Processor?.Interpolator?.Baseline == null || data.Processor.Interpolator.Baseline.Count == 0)
-                return;
+            if (!hasView || !ProcessingZoomPresentation.TryGetBaselineRange(
+                Experiment, view.XMin, view.XMax, ShowBaselineCorrected, BaselineZoomLevel,
+                out var yMin, out var yMax)) return;
 
-            if (ShowBaselineCorrected)
-            {
-                var corrected = DisplayDataPoints()
-                    .Where(point => point.Time >= view.XMin && point.Time <= view.XMax)
-                    .ToList();
-
-                if (corrected.Count < 2) return;
-
-                var power = Power;
-                var yMin = corrected.Min(point => power.Convert(point.Power));
-                var yMax = corrected.Max(point => power.Convert(point.Power));
-                var span = Math.Max(Math.Abs(yMin), Math.Abs(yMax));
-                if (span < double.Epsilon) span = 1;
-
-                view = new GraphViewport(view.XMin, view.XMax, -span * 1.15, span * 1.15);
-            }
-            else
-            {
-                var baseline = BaselinePoints()
-                    .Where(point => point.Time >= view.XMin && point.Time <= view.XMax)
-                    .ToList();
-
-                if (baseline.Count < 2) return;
-
-                var dataPoints = DisplayDataPoints()
-                    .Where(point => point.Time >= view.XMin && point.Time <= view.XMax)
-                    .ToList();
-
-                var power = Power;
-                var baselineMin = baseline.Min(point => power.Convert(point.Power));
-                var baselineMax = baseline.Max(point => power.Convert(point.Power));
-                var mean = dataPoints.Count > 0 ? dataPoints.Average(point => power.Convert(point.Power)) : (baselineMin + baselineMax) / 2;
-                var dataMin = dataPoints.Count > 0 ? dataPoints.Min(point => power.Convert(point.Power)) : baselineMin;
-                var dataMax = dataPoints.Count > 0 ? dataPoints.Max(point => power.Convert(point.Power)) : baselineMax;
-                var delta = Math.Min(Math.Abs(mean - dataMin), Math.Abs(dataMax - mean));
-                if (delta < double.Epsilon) delta = Math.Max(1, Math.Abs(baselineMax - baselineMin));
-
-                view = new GraphViewport(view.XMin, view.XMax, baselineMin - delta * 3, baselineMax + delta * 3);
-            }
+            var power = Power;
+            view = new GraphViewport(view.XMin, view.XMax, power.Convert(yMin), power.Convert(yMax));
 
             CurrentVerticalZoomMode = VerticalZoomMode.Baseline;
             ViewModeChanged?.Invoke(this, EventArgs.Empty);

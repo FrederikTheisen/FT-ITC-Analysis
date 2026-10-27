@@ -31,6 +31,7 @@ The view controls separate horizontal and vertical scaling:
 
 - **All Y** shows the complete power range, while **Baseline Y** emphasizes the baseline region.
 - **All Peaks** shows the full injection series, while **Selected Peak** focuses on the current injection.
+- **Peak zoom width** chooses how many peaks are visible when focused. **Baseline zoom** adjusts the margin around the baseline: 1× is the default, higher values give a closer view, and 0.5× gives more context. The full baseline drift remains visible.
 - Dragging an empty part of the graph zooms into the selected region.
 
 ## Baseline models and editing
