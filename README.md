@@ -5,7 +5,7 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.14832177-blue?logo=zenodo)](https://doi.org/10.5281/zenodo.14832177)
 [![Website status](https://img.shields.io/website?url=https%3A%2F%2Fft-itc.org&label=website)](https://ft-itc.org)
 [![Web viewer status](https://img.shields.io/website?url=https%3A%2F%2Fft-itc.org%2Fapi%2Fviewer%2Ftoken&label=web%20viewer&up_message=online&down_message=offline&down_color=red)](https://app.ft-itc.org)
-[![Automatic interpretation status](https://img.shields.io/website?url=https%3A%2F%2Fapp.ft-itc.org%2Fapi%2Finterpretation%2Fstatus&label=automatic%20interpretation&up_message=reachable&down_message=unreachable&down_color=red)](https://app.ft-itc.org/api/interpretation/status)
+[![Automatic interpretation status](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapp.ft-itc.org%2Fapi%2Finterpretation%2Fstatus&query=%24.status&label=automatic%20interpretation)](https://app.ft-itc.org/api/interpretation/status)
 
 [Website](https://ft-itc.org) ·
 [Manual](https://ft-itc.org/manual) ·
@@ -20,8 +20,8 @@ supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figures, reports, and data export.
 
-> **Online service interruption — 28 October 2026.** MIST-hosted services are
-> currently unreachable from outside UCPH during university network restrictions.
+> **Online service interruption — 28 October 2026.** Hosted services are
+> currently unreachable due to maintanence of the part of the University of Copenhagen.
 > This affects the web viewer and automatic interpretation. Desktop processing,
 > fitting, saving, figures, and report and data export remain available locally.
 
