@@ -129,21 +129,26 @@ public sealed class StartupFileActivationCoordinatorTests
         var batches = new List<string[]>();
         var activeReads = 0;
         var maxConcurrentReads = 0;
-        var completion = coordinator.Request(new[] { "/tmp/from-menu.ftxtc" });
-        coordinator.QueueActivation(new[] { "/tmp/initial.ftxtc", "/tmp/initial.ftxtc" });
+        var fromMenu = Path.Combine(Path.GetTempPath(), "from-menu.ftxtc");
+        var initial = Path.Combine(Path.GetTempPath(), "initial.ftxtc");
+        var duringConfirmation = Path.Combine(Path.GetTempPath(), "during-confirmation.ftxtc");
+        var duringRecovery = Path.Combine(Path.GetTempPath(), "during-recovery.ftxtc");
+        var duringRead = Path.Combine(Path.GetTempPath(), "during-read.ftxtc");
+        var completion = coordinator.Request(new[] { fromMenu });
+        coordinator.QueueActivation(new[] { initial, initial });
 
         var continued = await coordinator.InitializeAsync(
             async () =>
             {
                 order.Add("confirm");
-                coordinator.QueueActivation(new[] { "/tmp/during-confirmation.ftxtc" });
+                coordinator.QueueActivation(new[] { duringConfirmation });
                 await Task.Yield();
                 return true;
             },
             async () =>
             {
                 order.Add("recovery");
-                coordinator.QueueActivation(new[] { "/tmp/during-recovery.ftxtc" });
+                coordinator.QueueActivation(new[] { duringRecovery });
                 await Task.Yield();
             },
             async paths =>
@@ -154,7 +159,7 @@ public sealed class StartupFileActivationCoordinatorTests
                 order.Add("read");
                 Assert.False(coordinator.IsReady);
                 if (batches.Count == 1)
-                    coordinator.QueueActivation(new[] { "/tmp/during-read.ftxtc" });
+                    coordinator.QueueActivation(new[] { duringRead });
                 await Task.Yield();
                 activeReads--;
             },
@@ -170,8 +175,8 @@ public sealed class StartupFileActivationCoordinatorTests
         Assert.Equal(1, maxConcurrentReads);
         Assert.Equal(new[]
         {
-            new[] { "/tmp/from-menu.ftxtc", "/tmp/initial.ftxtc", "/tmp/during-confirmation.ftxtc", "/tmp/during-recovery.ftxtc" },
-            new[] { "/tmp/during-read.ftxtc" }
+            new[] { fromMenu, initial, duringConfirmation, duringRecovery },
+            new[] { duringRead }
         }, batches);
         Assert.True(coordinator.IsReady);
     }

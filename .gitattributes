@@ -1,0 +1,7 @@
+# Scientific reference checksums cover exact bytes, including line endings.
+# Keep generated text fixtures and their generators identical on every platform.
+AnalysisITC.Tests/ScientificValidation/**/*.DH text eol=lf
+AnalysisITC.Tests/ScientificValidation/**/*.itc text eol=lf
+AnalysisITC.Tests/ScientificValidation/**/*.dat text eol=lf
+AnalysisITC.Tests/ScientificValidation/**/*.json text eol=lf
+AnalysisITC.Tests/ScientificValidation/**/*.py text eol=lf
