@@ -5,6 +5,7 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.14832177-blue?logo=zenodo)](https://doi.org/10.5281/zenodo.14832177)
 [![Website status](https://img.shields.io/website?url=https%3A%2F%2Fft-itc.org&label=website)](https://ft-itc.org)
 [![Web viewer status](https://img.shields.io/website?url=https%3A%2F%2Fft-itc.org%2Fapi%2Fviewer%2Ftoken&label=web%20viewer&up_message=online&down_message=offline&down_color=red)](https://app.ft-itc.org)
+[![Automatic interpretation status](https://img.shields.io/website?url=https%3A%2F%2Fapp.ft-itc.org%2Fapi%2Finterpretation%2Fstatus&label=automatic%20interpretation&up_message=reachable&down_message=unreachable&down_color=red)](https://app.ft-itc.org/api/interpretation/status)
 
 [Website](https://ft-itc.org) ·
 [Manual](https://ft-itc.org/manual) ·
@@ -19,10 +20,10 @@ supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figures, reports, and data export.
 
-> **Version 1.5 is coming soon.** This README describes the upcoming release;
-> some features listed below are not available in the current public version.
-> See the [latest public release notes](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest)
-> for what is currently available.
+> **Online service interruption — 28 October 2026.** MIST-hosted services are
+> currently unreachable from outside UCPH during university network restrictions.
+> This affects the web viewer and automatic interpretation. Desktop processing,
+> fitting, saving, figures, and report and data export remain available locally.
 
 [<img src="Documentation/assets/program-overview.png" width="800" alt="Annotated FT-ITC Analysis interface showing navigation, processing, fitting, publication figures, and analysis results.">](Documentation/assets/program-overview.png)
 
@@ -103,6 +104,8 @@ processing settings, fit results, analysis results, and comments.
 
 The [web viewer](https://app.ft-itc.org) displays saved projects in a browser.
 Optional automated interpretation is available when preparing an analysis report.
+Both features require the hosted services to be available; see the service
+interruption notice above.
 
 For validation methods, reference data, reproduction steps, and limits, see the
 [scientific evidence matrix](AnalysisITC.Tests/ScientificValidation/README.md).
