@@ -7,9 +7,9 @@ type: software
 authors:
   - family-names: Theisen
     given-names: Frederik Friis
-version: 1.4.2
-date-released: 2026-08-13
-doi: 10.5281/zenodo.21919400
+version: 1.5.0
+date-released: 2026-10-28
+doi: 10.5281/zenodo.23728392
 identifiers:
   - type: doi
     value: 10.5281/zenodo.14832177

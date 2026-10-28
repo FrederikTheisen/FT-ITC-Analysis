@@ -1,11 +1,42 @@
-##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
-
-##VERSION 1.5.0
-added parameter correlation matrix (bootstrap only)
-added sequential binding model (two to four sites)
-added global fitting offset contraint option
-added profile-likelihood error estimation
-
+#VERSION 1.5.0 Paper publication release
+Feature: added Sequential Binding Sites model (two to four sites)
+Feature: added Null model binding assessment with Null prediction overlay and Modify Assessment override
+Feature: added profile-likelihood uncertainty estimation
+Feature: added parameter correlation matrix (bootstrap only)
+Feature: added AIC information criteria for model comparison
+Feature: added global fitting Offset constraint option
+Feature: added linked temperature calculation for affinity
+Feature: added selectable injection bookkeeping: MicroCal, Ideal continuous mixing and Discrete displacement
+Feature: added warnings for parameters at fitting boundaries
+Feature: added molar RMSD and c-values to results
+Feature: saved Analysis Results can be updated with new uncertainty estimates
+Feature: added Analysis Report with preview, saved reports and PDF export
+Feature: added optional automated report interpretation (online service, OpenAI or Mistral AI)
+Feature: added Project Information and Traceability Mode
+Feature: added Origin .opj, TA NanoITC .nitc and .dh integrated-heat imports
+Feature: integrated-heat imports accept absolute or normalized heats in any heat unit
+Feature: added tandem detection prompt, model-free mixing criterion and back-mixing for up to five experiments
+Feature: added Final Figure font choice, tick options and observations-only model selection
+Feature: added Celsius/Kelvin and molar energy unit choices to exports
+Feature: added ordered undo, drag-to-reorder, copy/paste and file drop onto the data list
+Feature: added Experiment Designer noise levels and adjustable result table column widths
+Feature: update check now uses GitHub releases
+Change: concentration uncertainty is resampled from a lognormal distribution
+Change: stricter Nelder-Mead convergence and faster sequential and two-site fitting
+Change: integrated-heat uncertainty is weighted by contributing durations
+Change: exports, graphs and reports always use period decimals
+Change: projects are saved only as .ftxtc; .ftitc files can still be opened
+Change: removed the asymmetric least squares baseline
+Change: updated Avalonia to 12.1.4; workflow navigation moved into the macOS title bar
+Science: corrected Kd,app, weighted AIC and the salt-dependence slope
+Science: heat direction now follows the raw integrated peak area
+Science: corrected bootstrap temperature uncertainty and percentile confidence bounds
+Science: aligned the proton sign and buffer enthalpy convention across all outputs
+Science: fixed buffer ionic-strength correction convergence
+Fix: buffer reference changes now invalidate dependent processing and fits
+Fix: hardened project saving and preserved processing metadata on reopen
+Fix: fixed PEAQ, TA and integrated-heat import issues
+Fix: many layout, export and Final Figure fixes on both desktop apps
 
 #VERSION 1.4.2
 macOS: updated preferences user interface
