@@ -174,6 +174,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public FinalFigureWorkspaceControl()
         {
+            RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
             ToolTip.SetTip(uncertaintyCombo, UncertaintyDisplayPresentation.StyleTooltip);
             BuildLayout();
             WireEvents();
