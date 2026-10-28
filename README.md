@@ -1,3 +1,8 @@
+> **Online service interruption 28 October 2026. Ongoing.** Hosted services are
+> currently unreachable due to maintanence of the part of the University of Copenhagen.
+> This affects the web viewer and automatic interpretation. Desktop processing,
+> fitting, saving, figures, and report and data export remain available locally.
+
 # FT-ITC Analysis
 
 [![Latest release](https://img.shields.io/github/v/release/FrederikTheisen/FT-ITC-Analysis?display_name=tag&sort=semver&label=release)](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest)
@@ -19,11 +24,6 @@ analyzing, and presenting isothermal titration calorimetry (ITC) data. It
 supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figures, reports, and data export.
-
-> **Online service interruption — 28 October 2026.** Hosted services are
-> currently unreachable due to maintanence of the part of the University of Copenhagen.
-> This affects the web viewer and automatic interpretation. Desktop processing,
-> fitting, saving, figures, and report and data export remain available locally.
 
 [<img src="Documentation/assets/program-overview.png" width="800" alt="Annotated FT-ITC Analysis interface showing navigation, processing, fitting, publication figures, and analysis results.">](Documentation/assets/program-overview.png)
 
