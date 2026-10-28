@@ -123,7 +123,26 @@ git pull --ff-only
 
 Do not pull if `git status --short` reports changes you want to keep.
 
-## 5. Run the tests
+## 5. Build with the packaging script (recommended)
+
+After installing the tools above, run this from the repository root:
+
+```powershell
+pwsh -NoProfile -File .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1
+```
+
+This runs both test projects, publishes the app, and compiles a new unsigned
+installer. It reads the version from the project and prints the exact path to
+`artifacts\packages\FT-ITC-Analysis-<version>-win-x64-setup.exe` on success.
+Run that installer to update the installed app, then follow the checks in
+section 8. Publishing alone does not update your installed copy.
+
+Inno Setup is found automatically in standard locations or on PATH. For a
+custom installation, add `-InnoSetupCompiler "C:\path\to\ISCC.exe"`.
+
+Sections 5a through 7 describe the equivalent manual steps if you need them.
+
+## 5a. Run the tests manually
 
 Run the test projects separately:
 

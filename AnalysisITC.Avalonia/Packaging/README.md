@@ -73,14 +73,22 @@ git describe --tags --exact-match
 expected `v<version>` tag. These are deliberate operator checks; the packaging
 script does not hide them in release-policy logic.
 
-Run the tests and publish the self-contained x64 application:
+Run the tests, publish the self-contained x64 application, and create its unsigned installer:
 
 ```powershell
 pwsh -NoProfile -File .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1
 ```
 
-The script is deliberately short. For development, run it from your current
-branch without doing the tag checks above.
+The script finds Inno Setup 6 on PATH or in its standard per-user and system
+installation directories. For a custom location, pass
+`-InnoSetupCompiler "C:\path\to\ISCC.exe"`. It reads the project version and
+creates `artifacts\packages\FT-ITC-Analysis-<version>-win-x64-setup.exe` from
+the fresh publish output, then prints the exact installer path. Install that
+file to update your installed app. An existing installer at that same path is
+removed before the tests run, so a failed build cannot leave a stale copy there.
+
+For development, run it from your current branch without doing the tag checks
+above. Signed installers and Store packages use the separate steps below.
 
 ### Set packaging variables
 
@@ -105,7 +113,8 @@ name shown under `C:\Program Files (x86)\Windows Kits\10\bin`.
 
 ### Build an unsigned direct-download installer
 
-These commands compile the installer without signing it:
+The packaging script already creates this installer. To recompile it manually
+from the published output without signing it:
 
 
 ```powershell
