@@ -1,5 +1,5 @@
 > **Online service interruption 28 October 2026. Ongoing.** Hosted services are
-> currently unreachable due to maintanence of the part of the University of Copenhagen.
+> currently unreachable due to maintanence of the University of Copenhagen hosted web services.
 > This affects the web viewer and automatic interpretation. Desktop processing,
 > fitting, saving, figures, and report and data export remain available locally.
 
