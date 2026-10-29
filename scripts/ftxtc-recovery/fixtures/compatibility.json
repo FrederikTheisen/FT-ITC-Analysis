@@ -1,0 +1,2032 @@
+{
+  "contract_version": 1,
+  "cases": [
+    {
+      "schema": [
+        1,
+        2
+      ],
+      "project_schema": 2,
+      "file": "schema-1.2.ftxtc",
+      "origin": "Byte-for-byte copy of AnalysisITC.Tests/SeArgT_Pu1210_TwoSetsOfSites.ftxtc",
+      "source_sha256": "3b197635617e464cfbc544774122d94f86b270f4baefb1dbe0a0a5dd7b60cfd9",
+      "exit_code": 0,
+      "objects": [
+        {
+          "identity": [
+            "experiment",
+            "a81993ff-6377-4e48-b4d7-de5a176864d0",
+            "experiments/000000/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "20220829_argT_Pu1210_ARG_competition_1(1)",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "1c4100c5-57b4-4e61-a5a4-b9fe8c91cd41",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 25,
+              "values_sha256": "e8adb6c8f6e155b72f0fd859fd623068e83d4ffab7b2eb26964748a9b14238ea"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3808,
+              "values_sha256": "63ad07365a15e7b684ebda9498fc196711736ee81dd57335224a2ae3d417cf56"
+            }
+          },
+          "metadata_sha256": "6517e19dab46a6a658fea2358696b6143edfe5ce021dfe9a1d2fe77ec24a77d2"
+        },
+        {
+          "identity": [
+            "experiment",
+            "8eb39fed-f232-499d-8eb9-17ebce0c8b18",
+            "experiments/000001/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "20220829_argT_Pu1210_ARG_competition_2(1)",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "4427db8d-1700-4c5f-b525-b31997c634f2",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 25,
+              "values_sha256": "dda62b38e96deaae2ab6ae65a5b4669d01293b9537ab0d0cd6ecd9a834352856"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3809,
+              "values_sha256": "fd60582d5c418be5e672bf74a816806dcd7bcdcc0a9388a4b947e713c2c24eb7"
+            }
+          },
+          "metadata_sha256": "dc0e13ed18900891cb94c0deefa19bf246491ea5bbe6e66ec7381928cf5c0b4a"
+        },
+        {
+          "identity": [
+            "solution",
+            "1bd8fe89-7e25-4510-8096-e154a16d2879",
+            "solutions/000000/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "a81993ff-6377-4e48-b4d7-de5a176864d0",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 18,
+              "values_sha256": "f31d57d6a5fd5b5f36a5fb307f1dce917147475871992e7814b38f151d51cbba"
+            }
+          },
+          "metadata_sha256": "502dd22c43afbdc0912dbf7ce519e1e421b69baeefba641ad55079728ede6957"
+        },
+        {
+          "identity": [
+            "solution",
+            "1c4100c5-57b4-4e61-a5a4-b9fe8c91cd41",
+            "solutions/000001/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "a81993ff-6377-4e48-b4d7-de5a176864d0",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 18,
+              "values_sha256": "334af333db41ca2ab93bcae523e1758fbd97d24e2a2cae86d9a956cbf6ab36b8"
+            }
+          },
+          "metadata_sha256": "f58f3dee0d27bf22ec8fc7200c09bdbcf499dbc7bf723f631334e5dfd91616f1"
+        },
+        {
+          "identity": [
+            "solution",
+            "22e8ef73-3cbe-4394-826b-5e964f758cee",
+            "solutions/000002/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "8eb39fed-f232-499d-8eb9-17ebce0c8b18",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 18,
+              "values_sha256": "8dd028c7e04213507a4acfcfa0b73bb98b3f317575760e6c27a8a53c3266fcd8"
+            }
+          },
+          "metadata_sha256": "8975623657b72daee9056549e381d34605c50307fed452521848b6767b94842e"
+        },
+        {
+          "identity": [
+            "solution",
+            "4427db8d-1700-4c5f-b525-b31997c634f2",
+            "solutions/000003/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "8eb39fed-f232-499d-8eb9-17ebce0c8b18",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 18,
+              "values_sha256": "03a7e1cd08df7c5338e19f23febdedd7f2fb9e53de94150647bde39c148fe71f"
+            }
+          },
+          "metadata_sha256": "b015afa06a2e4584604aec1144a9dd274a34b51aeb74e9479f6a8f6befb4fd82"
+        },
+        {
+          "identity": [
+            "result",
+            "f84a54a3-6ead-49ce-8d43-ef8770bd6d6f",
+            "results/000000/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "TwoSetsOfSites",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"1c4100c5-57b4-4e61-a5a4-b9fe8c91cd41\", \"4427db8d-1700-4c5f-b525-b31997c634f2\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            }
+          },
+          "metadata_sha256": "1c74d4b228cd1cf3451ba103f899b08b4b72c3bb29f28ecc2cd907699bda5b2a"
+        },
+        {
+          "identity": [
+            "result",
+            "e69420da-cb0e-484c-9e62-e6eb792417c8",
+            "results/000001/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "Global.TwoSetsOfSites",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"1bd8fe89-7e25-4510-8096-e154a16d2879\", \"22e8ef73-3cbe-4394-826b-5e964f758cee\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 6,
+              "values_sha256": "5e33effa3d63c0001b9b00fe5e109065e910c37edfe3b9098e2dbc1eb34684b4"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 4,
+              "values_sha256": "b69d603c35677281debc930bf13dc2f5764cd71e0dd3fed53bf0987e7dd9938a"
+            }
+          },
+          "metadata_sha256": "d9a613a9dea5de6b23bba06aae6ad0ebc0850909dc7720dd7e88661b425695db"
+        }
+      ]
+    },
+    {
+      "schema": [
+        1,
+        3
+      ],
+      "project_schema": 2,
+      "file": "schema-1.3.ftxtc",
+      "origin": "Byte-for-byte copy of AnalysisITC.Tests/Tandem/280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc",
+      "source_sha256": "d17a0219b72cb6fc1606d894dbd8eba051c94cb3e3f47cdf80a2ff0dc02a3b87",
+      "exit_code": 0,
+      "objects": [
+        {
+          "identity": [
+            "experiment",
+            "76eebe4f-2441-4a4e-987b-fd2660fd7e02",
+            "experiments/000000/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "280-430-D2mut-1p6mM-JNK-200uM-1-1",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 26,
+              "values_sha256": "043fc9ee30979754b20728be7d9e41bf84b740507f2587640f786ade69948530"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3959,
+              "values_sha256": "baa57d466cf018923e87e0d627d9b4a8e340ddaba8ff5f07fe14cbeb5b7dc4c2"
+            }
+          },
+          "metadata_sha256": "f9c44b38bc1c88cbff601177a6a9eb702a0cdd90904d90074c7d162c0d6d0e1d"
+        },
+        {
+          "identity": [
+            "experiment",
+            "fd404488-fc56-4bec-a917-ccbce0e881f9",
+            "experiments/000001/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "280-430-D2mut-1p6mM-JNK-200uM-1-2",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 26,
+              "values_sha256": "8eeb6b426931458ea8f1ba004ea7d313af721676db9964be4a9073468e07c3cb"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3959,
+              "values_sha256": "a1de6d1d279d84fbadb28081ba28a4e47df32651cd876d68d380876f4f152688"
+            }
+          },
+          "metadata_sha256": "6ed66b291da2fb3bb8ec8704b03b127e46d2e4546c85ccb14d3881985598b15e"
+        },
+        {
+          "identity": [
+            "experiment",
+            "67d0ab02-849f-469f-ab46-ff391125ceb7",
+            "experiments/000002/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "280-430-D2mut-1p6mM-JNK-200uM-1-3",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 26,
+              "values_sha256": "40b02c9f13b43f0fd70f8976b7ff5e5d26ddb8cd993d40bca7df08c5d01fb15e"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3958,
+              "values_sha256": "f0d6982794b6641bfd78852bd191cffdb274eca5510d08f45f473dee6735d798"
+            }
+          },
+          "metadata_sha256": "ae939784c74f25ee6c703987755c5da32810a23b3ded25a5a3b925f8bb9993eb"
+        },
+        {
+          "identity": [
+            "experiment",
+            "51359701-4273-4e89-a1ee-b9f0c68b670c",
+            "experiments/000003/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "Tandem_280-430-D2mut-1p6mM-JNK-200uM-1-1",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "5c36f96f-310b-4a1e-a5c7-77ea0b218c9e",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 78,
+              "values_sha256": "9bc481e4e1764987746ed6959c912e098fcfae3475cf99ec29cda6abd5bd0119"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 11876,
+              "values_sha256": "5ca490d1acc9e426b7a1f01b60db06e6b2a48eecd6d313c151cde26994c6f95f"
+            }
+          },
+          "metadata_sha256": "57f3db0e1afe12af7522aef956928f00db95704a6893ddb90a656e740f1b3965"
+        },
+        {
+          "identity": [
+            "experiment",
+            "17b66376-bb37-426b-9bec-43bbe2f27a98",
+            "experiments/000004/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "Tandem_280-430-D2mut-1p6mM-JNK-200uM-1-1",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "56fcd744-6eba-4908-8b0f-0884af14b092",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 78,
+              "values_sha256": "b3b30f4018bb9dc2d2bbc92a932d7039579082da32237233043ec6c8e47d95cd"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 11876,
+              "values_sha256": "5ca490d1acc9e426b7a1f01b60db06e6b2a48eecd6d313c151cde26994c6f95f"
+            }
+          },
+          "metadata_sha256": "e286665d8434836e854e600369babef874007c3797e6b5a4f56e9b0b81411029"
+        },
+        {
+          "identity": [
+            "solution",
+            "56fcd744-6eba-4908-8b0f-0884af14b092",
+            "solutions/000000/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "17b66376-bb37-426b-9bec-43bbe2f27a98",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "617c88c24ac9c6be9e2c717032b511d7aaf4dce7d47c93ddf011a839a1c49155"
+            }
+          },
+          "metadata_sha256": "2610ec70e0a451d32161a304bd27e0ba159e2db7f698fb15ecef8f5108ab12d7"
+        },
+        {
+          "identity": [
+            "solution",
+            "5c36f96f-310b-4a1e-a5c7-77ea0b218c9e",
+            "solutions/000001/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "51359701-4273-4e89-a1ee-b9f0c68b670c",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "0ec04f3044c0fe6b2628f0f619d8c0923b1e535d262824c71874b86cf886901d"
+            }
+          },
+          "metadata_sha256": "a2cce871d0e1d1971c4cd4ab42603186c35db68d52b724c4c39722c9f1642b69"
+        }
+      ]
+    },
+    {
+      "schema": [
+        1,
+        4
+      ],
+      "project_schema": 2,
+      "file": "schema-1.4.ftxtc",
+      "origin": "Byte-for-byte copy of AnalysisITC.Tests/SolutionIdentityTracingTest/saved_and_loaded.ftxtc",
+      "source_sha256": "061a3fffc655d4585c53dfaf99721af2fc210847a499497fc09807707d8632ae",
+      "exit_code": 0,
+      "objects": [
+        {
+          "identity": [
+            "experiment",
+            "d578cc2a-234c-4ebe-a1d4-319bb990fae6",
+            "experiments/000000/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "buffercobaltBlank",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 35,
+              "values_sha256": "67780f0b8450f6114511942e8a2ea616104269b8ef6fd258296d50f55acab0c2"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3706,
+              "values_sha256": "c8bf8d5d28e0c799d7f7c67005706f5ddcf1e769498f353c2d8faed93bb9a018"
+            }
+          },
+          "metadata_sha256": "acaf0af24a41c41c7ef9b849db0ef2425fff92892513f66506a8ded949e69cad"
+        },
+        {
+          "identity": [
+            "experiment",
+            "ed628781-b14e-4ae8-b1a0-848eb650638d",
+            "experiments/000001/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "HSA-Co",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "7e89a994-9247-42c9-a112-bfcef145edaa",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 34,
+              "values_sha256": "2ad529532caf5fe74abb4599e49111f9cee468147debf42c9a4f4f9fdea39297"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 3602,
+              "values_sha256": "f5c7f86c199cf4ae665e7b795b0c4a73453f2a9a2b2aba5c2aa6504cf2b592de"
+            }
+          },
+          "metadata_sha256": "a56a1270742f1c352a77a2c597d935bf5c25da810264f3fbe558e84e093d1d78"
+        },
+        {
+          "identity": [
+            "solution",
+            "7e89a994-9247-42c9-a112-bfcef145edaa",
+            "solutions/000000/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "ed628781-b14e-4ae8-b1a0-848eb650638d",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 20,
+              "values_sha256": "d2db1ca3e6dd9a10304bf53bd2d99547564783ad4424761b2fe1cfbe57c473c4"
+            },
+            "profile_bounds.csv": {
+              "columns": [
+                "parameterId",
+                "scope",
+                "experimentId",
+                "index",
+                "unit",
+                "bestValue",
+                "lowerBound",
+                "upperBound",
+                "lower_outcome",
+                "lower_endpoint",
+                "upper_outcome",
+                "upper_endpoint"
+              ],
+              "rows": 7,
+              "values_sha256": "0e0f98a8b75ba5de275b3d830c6382479740e757135990ecb1230867c43affff"
+            }
+          },
+          "metadata_sha256": "aba9f7282c5e3d52d1d6ea46c7030b375857a5e6ed541303dd59059a719a131f"
+        },
+        {
+          "identity": [
+            "solution",
+            "bcf770cc-eae8-494c-a332-cd0ae9b4d76e",
+            "solutions/000001/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "ed628781-b14e-4ae8-b1a0-848eb650638d",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 20,
+              "values_sha256": "237e277a261c764f8fd320141e9d630ccb545bd2778c2f083a2dc46524f2a3c1"
+            }
+          },
+          "metadata_sha256": "86962ca7629ae42f564ca70d10cffdd5119bd594e9950959383e857b8a8e4e0b"
+        },
+        {
+          "identity": [
+            "result",
+            "4c0ee445-b9e4-4410-9eca-12b35382730a",
+            "results/000000/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "SequentialBindingSites",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"bcf770cc-eae8-494c-a332-cd0ae9b4d76e\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            }
+          },
+          "metadata_sha256": "db040cb90b682b5112f8f3f5adb6a44ad693acf479b613da879a423a764aa533"
+        },
+        {
+          "identity": [
+            "result",
+            "f461507a-2939-4652-8c35-b995c173119f",
+            "results/000001/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "SequentialBindingSites (2)",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"7e89a994-9247-42c9-a112-bfcef145edaa\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            }
+          },
+          "metadata_sha256": "8a3a4d6b0dadae0147ac43664a9aa9bca2175c58e817fba25ad6463b1697eab4"
+        }
+      ]
+    },
+    {
+      "schema": [
+        1,
+        5
+      ],
+      "project_schema": 3,
+      "file": "schema-1.5.ftxtc",
+      "origin": "Hand-authored structural/numerical fixture: project schema 3, contentOrder, no reports; not an original historical-writer archive.",
+      "source_sha256": "f1e86a599258ea73d27fa13a40b4dece1c985b53602c7efafac59559445607e7",
+      "exit_code": 0,
+      "objects": [
+        {
+          "identity": [
+            "experiment",
+            "e1",
+            "experiments/000000/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "Zoë 李明 / ../CON",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "s1",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 2,
+              "values_sha256": "c6c851fc469d5fda499f5ca7b3d271ce19ce45e71ef726d9c9d39fc5bec92fbd"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 2,
+              "values_sha256": "0c2d11beafa5a5a49be3a541eb289ba69dfac4302335b8ea0dad7df482f7f176"
+            }
+          },
+          "metadata_sha256": "3a36141785e163c7865b5963c2851c92136b89a4703e7676d5da8077a7923595"
+        },
+        {
+          "identity": [
+            "solution",
+            "s1",
+            "solutions/000000/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "e1",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 7,
+              "values_sha256": "da714f9f35ffc8ab948da414e0290855dbf2ee230fb0417bf7cc7abafe627b37"
+            },
+            "profile_bounds.csv": {
+              "columns": [
+                "parameterId",
+                "scope",
+                "experimentId",
+                "index",
+                "unit",
+                "bestValue",
+                "lowerBound",
+                "upperBound",
+                "lower_outcome",
+                "lower_endpoint",
+                "upper_outcome",
+                "upper_endpoint"
+              ],
+              "rows": 1,
+              "values_sha256": "7cc5354c1765ed414a5231732b0919b14a9b63a26b588de49e85af36b5b209e7"
+            }
+          },
+          "metadata_sha256": "81747f33309841b2bb4f1b505bd3738810d94af9e8bda48ba34455dd1396aa74"
+        },
+        {
+          "identity": [
+            "result",
+            "r1",
+            "results/000000/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "result",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"s1\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "advanced_parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "addc2a4d0c7fcd8efdf873ebaa2868a1f13e5da0c384f957577eb032b146e63f"
+            },
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 1,
+              "values_sha256": "c75df297f163eb326e82f93dabc1ff53b9d3516e7bf297ed172570163052b85b"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 1,
+              "values_sha256": "ebe459f5fa44ac6f7420c14c8caa69cf6e997408d9a1d0618bf49397d5b62718"
+            }
+          },
+          "metadata_sha256": "8606fa882722ede502b5093c36628aa5fcde06197fb77df718662f750fa87c38"
+        }
+      ]
+    },
+    {
+      "schema": [
+        1,
+        6
+      ],
+      "project_schema": 4,
+      "file": "schema-1.6.ftxtc",
+      "origin": "Byte-for-byte copy of AnalysisITC.Tests/JORS Example Project.ftxtc",
+      "source_sha256": "18480fa87a8bac143738f8d2a0c217cdecb1ef63726b79c9fb3b458ff3033974",
+      "exit_code": 0,
+      "objects": [
+        {
+          "identity": [
+            "experiment",
+            "30372de6-7aa9-4002-9b55-c5029b3a75e1",
+            "experiments/000000/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "PRLR_W392A_run1",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "f7a5017e-dfd4-411f-847c-6e4c03a4b9a9",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 19,
+              "values_sha256": "0711b015bbe4b974bb79e9ddf7d841c50efdd626732cc1741c54ae10627f01e0"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 2998,
+              "values_sha256": "9313b2a7da7453ff1c90d8179b95264b049fb77f0087b453aaa199a30b8ad499"
+            }
+          },
+          "metadata_sha256": "5a0984faea2184dcea277ad348fb4e75eec2cc58231073f2b76d2bad44784c3a"
+        },
+        {
+          "identity": [
+            "experiment",
+            "0edea981-1a1a-4fe3-82c1-19d38468c314",
+            "experiments/000001/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "PRLR_W392A_run2",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "5864a78a-06a3-452c-88cb-1b13c06c61eb",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 19,
+              "values_sha256": "3e54ee6ccf6312af10cd775950f871f00792fe478b010c7ef626fc478d75d650"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 2998,
+              "values_sha256": "2ed6088a43a15b03aeabb3128f933b503153928b320f35db4b683fe29a882971"
+            }
+          },
+          "metadata_sha256": "9b869ccd4b66e83cd3ef8f16f3289c6d75aaf3d2032c2a9fc9483905f68cacbc"
+        },
+        {
+          "identity": [
+            "experiment",
+            "6e93d477-e056-445b-9905-5462bbf7d27b",
+            "experiments/000002/experiment.json",
+            ""
+          ],
+          "index_values": {
+            "name": "PRLR_W392A_run3",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "8c29bf16-52d6-4813-852b-144a6ce8e9ad",
+            "issues": ""
+          },
+          "tables": {
+            "injections.csv": {
+              "columns": [
+                "injection_id",
+                "included",
+                "is_integrated",
+                "time_s",
+                "volume_µL",
+                "delay_s",
+                "duration_s",
+                "filter_saved_value",
+                "temperature_°C",
+                "integration_start_delay_s",
+                "integration_end_offset_s",
+                "actual_cell_concentration_µM",
+                "actual_titrant_concentration_µM",
+                "ratio",
+                "heat_direction",
+                "raw_peak_area_µJ",
+                "raw_peak_area_sd_µJ",
+                "raw_peak_area_lower95_µJ",
+                "raw_peak_area_upper95_µJ",
+                "raw_peak_area_is_missing",
+                "corrected_peak_area_µJ",
+                "corrected_peak_area_sd_µJ",
+                "corrected_peak_area_lower95_µJ",
+                "corrected_peak_area_upper95_µJ",
+                "corrected_peak_area_is_missing"
+              ],
+              "rows": 19,
+              "values_sha256": "557e0517f5d46c7e1945d1a3f687e3c17071d8111d3d5f8d24b17d140a4d0754"
+            },
+            "thermogram.csv": {
+              "columns": [
+                "sample_index",
+                "time_s",
+                "raw_power_µW",
+                "temperature_°C",
+                "baseline_µW",
+                "baseline_sd_µW",
+                "baseline_lower95_µW",
+                "baseline_upper95_µW",
+                "adjusted_power_µW"
+              ],
+              "rows": 2998,
+              "values_sha256": "77bd10ff14890ef705e060e4d72a2110b1ff03fbd2f9ff57ad5a7478ea786b36"
+            }
+          },
+          "metadata_sha256": "d7687ea95f09ffa731c00d852fa29724491b38df7d700cfde746782fb0a6862a"
+        },
+        {
+          "identity": [
+            "solution",
+            "02926c4a-f8b5-45b7-b62c-0899ad2e2520",
+            "solutions/000000/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "0edea981-1a1a-4fe3-82c1-19d38468c314",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "1efecc5dbc17ec22760f5b2cb7a33b031360f22a96a7a10b1d372f076a8d6c61"
+            }
+          },
+          "metadata_sha256": "cc6ce42f7aa67164b199e6acc5df383e91908a2fea8946421fc0b63536d8dcae"
+        },
+        {
+          "identity": [
+            "solution",
+            "226eceb7-dd1a-40ff-8bda-00240435a273",
+            "solutions/000001/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "30372de6-7aa9-4002-9b55-c5029b3a75e1",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "55b322e71182e1413d57ddc0ce342b124ce8fd19b18f70c181fccaed3cbc0238"
+            }
+          },
+          "metadata_sha256": "0ca32559a34cb467ce1c74c4e296a13946cdf9090d3f67dd7097348d728c8570"
+        },
+        {
+          "identity": [
+            "solution",
+            "385d4646-6d64-4f02-8699-1aec80d57a86",
+            "solutions/000002/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "6e93d477-e056-445b-9905-5462bbf7d27b",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "e3b3115bd1ab219c4ac82430584e54f0f70401757b89db10515438a8c6e6de72"
+            }
+          },
+          "metadata_sha256": "7d7aef1a002e1a7052d46d37ac457c19a42d584c44f673af26a375335adc232e"
+        },
+        {
+          "identity": [
+            "solution",
+            "5864a78a-06a3-452c-88cb-1b13c06c61eb",
+            "solutions/000003/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "0edea981-1a1a-4fe3-82c1-19d38468c314",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "c3f8f756a983bb366bb397843e08e32379e81eafb57b66d2c4e0faa90cee938f"
+            }
+          },
+          "metadata_sha256": "260b137ebbf1348690b9f5de849cd110024bf2c9a32988ef9dc043b444f64f07"
+        },
+        {
+          "identity": [
+            "solution",
+            "8c29bf16-52d6-4813-852b-144a6ce8e9ad",
+            "solutions/000004/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "6e93d477-e056-445b-9905-5462bbf7d27b",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "5c8c17f22fa5a2a88402ee47a7bb137ffe89858ea902cbfa5aafa67e26bf8748"
+            }
+          },
+          "metadata_sha256": "31f42b16e27a34f54009ad1ad76b9068b92394d47e4f2fd9db1b7d9ad10d6b85"
+        },
+        {
+          "identity": [
+            "solution",
+            "f7a5017e-dfd4-411f-847c-6e4c03a4b9a9",
+            "solutions/000005/solution.json",
+            ""
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "30372de6-7aa9-4002-9b55-c5029b3a75e1",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 10,
+              "values_sha256": "6b39658451abecfd9a90d95cc40c7567bb425479d17cb40101d17571a41eeb43"
+            }
+          },
+          "metadata_sha256": "40b9bb89c32f8ca47b8c03ea163e991929a98dcd32ed8811f8302e8e735b753f"
+        },
+        {
+          "identity": [
+            "result",
+            "91d8688f-1175-4a4a-b85d-574a91919f78",
+            "results/000000/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "OneSetOfSites",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"f7a5017e-dfd4-411f-847c-6e4c03a4b9a9\", \"5864a78a-06a3-452c-88cb-1b13c06c61eb\", \"8c29bf16-52d6-4813-852b-144a6ce8e9ad\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 0,
+              "values_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            }
+          },
+          "metadata_sha256": "4a0e68bea798d97d8c6c4048d570f8f2abc2ceb9a965d6f9fcfad11ffd3da138"
+        },
+        {
+          "identity": [
+            "result",
+            "08ded247-9971-41fc-a8b3-8a7a7dbb1dc5",
+            "results/000001/result.json",
+            ""
+          ],
+          "index_values": {
+            "name": "Global.OneSetOfSites",
+            "status": "recovered",
+            "experiment_id": "",
+            "member_solution_ids": "[\"226eceb7-dd1a-40ff-8bda-00240435a273\", \"02926c4a-f8b5-45b7-b62c-0899ad2e2520\", \"385d4646-6d64-4f02-8699-1aec80d57a86\"]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "constraints.csv": {
+              "columns": [
+                "parameterId",
+                "constraint"
+              ],
+              "rows": 1,
+              "values_sha256": "fb7a84255209bb3480a671a46aaa627470b462a7668ce7dab46b1498d57311f9"
+            },
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 1,
+              "values_sha256": "e9e784a7a096a3aafc2ebb14f2877b18bb1da19d97062d92514e506a023f5d15"
+            }
+          },
+          "metadata_sha256": "31f7c4ce35e2501daaad6e39f34648a999e84eef470570dc53f5fe6d9c69d8a8"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "a928892f-72cf-48de-ba4d-b79d3f48e818",
+            "results/000000/result.json",
+            "results/000000/result.json#nullComparison.members[0].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "30372de6-7aa9-4002-9b55-c5029b3a75e1",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "c4fc4026061975b6f4be451436ebced4c02aa93e5912fe03dc77d84da1aa7f05"
+            }
+          },
+          "metadata_sha256": "f1ab283d0fb17345f70a963da8be2aa3ff258ef780f81863d54a5a21e9b7293a"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "eb16ab33-cc19-4791-92e2-ac290c6f7eb6",
+            "results/000000/result.json",
+            "results/000000/result.json#nullComparison.members[1].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "0edea981-1a1a-4fe3-82c1-19d38468c314",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "5bac37b355f015e99dbc66381158b86e51b1498d1f223d5fbc5c8888a13a0726"
+            }
+          },
+          "metadata_sha256": "f326180961f00b16a9e186cd788212fbf0caae062f2dbd2fe9e99e72925a229b"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "3ce370d6-82bf-4006-a5b2-89f543a23b5b",
+            "results/000000/result.json",
+            "results/000000/result.json#nullComparison.members[2].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "6e93d477-e056-445b-9905-5462bbf7d27b",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "65bc52e77cd3656c584dc41f15e0028410c316dee51df335b6d2fd79d085fb4e"
+            }
+          },
+          "metadata_sha256": "3478fcb8749faa9d742d157dab59d85f7bd611f912bb3fa4d3af1043e062c2f4"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "07e3c3d0-f3a0-4509-a529-a34938ba6c6b",
+            "results/000001/result.json",
+            "results/000001/result.json#nullComparison.members[0].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "30372de6-7aa9-4002-9b55-c5029b3a75e1",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "50337d007112a1d7df260c0f87e73d31fe318d2ffab179ad326842ea11c3d69e"
+            }
+          },
+          "metadata_sha256": "b0752781bbe2cc1170810bb152b9504fb4bff781dbd40b9c903b688e5e55c687"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "f2d0bdb7-c0e1-4304-a13d-de9877101e8f",
+            "results/000001/result.json",
+            "results/000001/result.json#nullComparison.members[1].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "0edea981-1a1a-4fe3-82c1-19d38468c314",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "e8470f0754278ffc508602ca6d341f0e044401c4198b4a740a13d59fb0ff4405"
+            }
+          },
+          "metadata_sha256": "612a8ccb02d7cd1b59401513073490ab0c75551ff2f61a1ef4a211d9143ecaea"
+        },
+        {
+          "identity": [
+            "null_solution",
+            "edab689d-4f88-4e62-9990-3a9e112de1d6",
+            "results/000001/result.json",
+            "results/000001/result.json#nullComparison.members[2].solution"
+          ],
+          "index_values": {
+            "name": "",
+            "status": "recovered",
+            "experiment_id": "6e93d477-e056-445b-9905-5462bbf7d27b",
+            "member_solution_ids": "[]",
+            "attached_solution_id": "",
+            "issues": ""
+          },
+          "tables": {
+            "parameters.csv": {
+              "columns": [
+                "source",
+                "parameter_id",
+                "quantity",
+                "value",
+                "standard_deviation",
+                "lower95",
+                "upper95",
+                "unit",
+                "locked",
+                "is_missing",
+                "notes"
+              ],
+              "rows": 2,
+              "values_sha256": "0a2248271e6b6db0a0708f6e73a3851ff5ae7021b572b44a1ba5a2709a755f03"
+            }
+          },
+          "metadata_sha256": "f3466357ce7fbef7e389c89ff873263641d530764419c5a99ad007387bc0c72f"
+        }
+      ]
+    }
+  ]
+}

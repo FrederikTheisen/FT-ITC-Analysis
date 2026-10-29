@@ -15,3 +15,20 @@ validates ZIP entry safety and uniqueness, manifest membership, checksums,
 cross-document IDs and references, and FTXB header and matrix dimensions. Those
 package-level checks are deliberately outside JSON Schema and are tested through
 the reader.
+
+## Standalone recovery compatibility
+
+Whenever the package version or persisted fields change, also review the standalone
+Python extractor in `scripts/ftxtc-recovery/`. Keep recovery of older public files
+(schema 1.2 onward) working. Run from the repository root:
+
+```sh
+python3 -m unittest discover -s scripts/ftxtc-recovery -v
+```
+
+The suite checks the current writer version against explicit extractor support and
+a frozen compatibility corpus. For a new version, add recovery handling and a new
+fixture with reviewed expected outputs; retain all older archives and expectations.
+Do not re-save historical fixtures with the current writer. Optional-field changes
+within an existing package version also need recovery review and regression coverage.
+See `scripts/ftxtc-recovery/README.md` for the maintenance procedure and fixture provenance.

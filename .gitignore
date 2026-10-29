@@ -438,3 +438,4 @@ CLAUDE.md
 /tools/
 /scripts/*
 !/scripts/caddy/
+!/scripts/ftxtc-recovery/

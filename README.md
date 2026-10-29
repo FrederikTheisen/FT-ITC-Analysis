@@ -17,7 +17,7 @@
 [Quick start](https://ft-itc.org/manual/quick-start) ·
 [Latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) ·
 [Software DOI](https://doi.org/10.5281/zenodo.14832177) ·
-[License](LICENSE.md)
+[Licence](LICENSE.md)
 
 FT-ITC Analysis is an open-source desktop application for processing,
 analyzing, and presenting isothermal titration calorimetry (ITC) data. It
@@ -156,7 +156,7 @@ procedures. Web service settings are in
 [appsettings.json](AnalysisITC.Web/appsettings.json); deployment is covered in the
 [MIST deployment notes](Documentation/Interpretation/MIST_DEPLOYMENT.md).
 
-## Citation and license
+## Citation and licence
 
 Use [CITATION.cff](CITATION.cff) for the version-specific software citation;
 **Help > Citation** also provides citation information. The all-versions software
