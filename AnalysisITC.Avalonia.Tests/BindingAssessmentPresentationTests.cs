@@ -185,8 +185,8 @@ public sealed class BindingAssessmentPresentationTests
             Assert.DoesNotContain("Null (Offset), per experiment", summaryText);
             Assert.Equal("Member assessments", CollectionAssessmentLabel(workspace).Text);
             Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
-            Assert.Contains("Binding detected: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
-            Assert.Contains("Not assessed: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
+            Assert.Equal("Binding detected: 1\nNot assessed: 1",
+                ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
         });
     }
 
@@ -200,15 +200,18 @@ public sealed class BindingAssessmentPresentationTests
 
             result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.BindingDetected);
             workspace.Refresh();
-            Assert.Equal("Binding detected (2 experiments)", CollectionAssessmentValue(workspace).Text);
+            Assert.Equal("Binding detected", CollectionAssessmentValue(workspace).Text);
+            Assert.Equal("Binding detected: 2", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
 
             result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
             workspace.Refresh();
             Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
+            Assert.Equal("Binding detected: 1\nNo binding detected: 1",
+                ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
 
             result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.BindingDetected);
             workspace.Refresh();
-            Assert.Equal("Binding detected (2 experiments)", CollectionAssessmentValue(workspace).Text);
+            Assert.Equal("Binding detected", CollectionAssessmentValue(workspace).Text);
 
             result.UseAutomaticBindingAssessments();
             workspace.Refresh();

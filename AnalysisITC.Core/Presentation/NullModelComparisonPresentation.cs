@@ -240,23 +240,14 @@ namespace AnalysisITC.Core.Presentation
             _ => "Not assessed"
         };
 
-        /// <summary>Compact label for an independent collection, with a count for uniform collections.</summary>
+        /// <summary>Compact assessment label for an independent collection.</summary>
         public static string CollectionAssessmentText(AnalysisResult result)
-        {
-            if (result == null) return OutcomeText(BindingAssessmentSummaryOutcome.NotAssessed);
-            var text = OutcomeText(result.CollectionAssessmentOutcome);
-            return CollectionAssessmentCounts(result).Count > 1
-                ? text
-                : $"{text} ({result.MemberAssessments.Count.ToString(CultureInfo.CurrentCulture)} experiments)";
-        }
+            => OutcomeText(result?.CollectionAssessmentOutcome ?? BindingAssessmentSummaryOutcome.NotAssessed);
 
-        /// <summary>Detailed collection assessment and outcome counts, suitable for a tooltip.</summary>
+        /// <summary>Nonzero member outcome counts, one per tooltip line.</summary>
         public static string CollectionAssessmentTooltip(AnalysisResult result)
-        {
-            var countText = string.Join("; ", CollectionAssessmentCounts(result)
+            => string.Join("\n", CollectionAssessmentCounts(result)
                 .Select(pair => $"{OutcomeText(pair.Key)}: {pair.Value.ToString(CultureInfo.CurrentCulture)}"));
-            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
-        }
 
         /// <summary>Collection assessment label followed by its member outcome counts.</summary>
         public static string CollectionAssessmentSummary(AnalysisResult result)
