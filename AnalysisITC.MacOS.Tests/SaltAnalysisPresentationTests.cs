@@ -48,8 +48,13 @@ static class SaltAnalysisPresentationTests
                 var modes = (IEnumerable)typeof(AnalysisResultTabViewController).GetField("availableGraphTypes", Instance).GetValue(controller);
                 Check(!modes.Cast<object>().Any(mode => mode.ToString() == "IonicStrengthDependence"), "restored Salt remains hidden");
                 var section = (NSView)typeof(AnalysisResultTabViewController).GetMethod("BuildAvailabilitySection", Instance).Invoke(controller, null);
-                var reason = Descendants(section).OfType<NSTextField>().Single(field => field.StringValue.Contains(result.ElectrostaticsAnalysisUnavailableReason));
-                Check(reason.Cell.Wraps && !reason.UsesSingleLineMode, "eligibility reason wraps");
+                var fields = Descendants(section).OfType<NSTextField>().ToList();
+                var heading = fields.Single(field => field.StringValue == "Electrostatics");
+                var status = heading.Superview.Subviews.OfType<NSTextField>().Last();
+                Check(status.StringValue == "Unavailable", "ineligible status");
+                Check(heading.ToolTip == result.ElectrostaticsAnalysisUnavailableReason
+                    && status.ToolTip == result.ElectrostaticsAnalysisUnavailableReason, "eligibility reason on row tooltips");
+                Check(!fields.Any(field => field.StringValue == result.ElectrostaticsAnalysisUnavailableReason), "no detached eligibility paragraph");
             }
             Console.WriteLine("PASS: native salt output availability, zero counter-ion result, shared tooltips, and hidden restored ineligible output");
             return 0;

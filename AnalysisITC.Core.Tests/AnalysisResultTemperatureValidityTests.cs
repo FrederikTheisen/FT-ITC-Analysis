@@ -26,6 +26,18 @@ public sealed class AnalysisResultTemperatureValidityTests : IDisposable
     public void Dispose() => original.ApplyToSettings();
 
     [Theory]
+    [InlineData(0, false)]
+    [InlineData(3, false)]
+    [InlineData(3.01, true)]
+    public void TemperatureUnavailableReasonFollowsTheMinimumSpan(double span, bool available)
+    {
+        var result = Create(25, 25 + span);
+        Assert.Equal(available, result.IsTemperatureDependenceEnabled);
+        Assert.Equal(available, string.IsNullOrEmpty(result.TemperatureDependenceUnavailableReason));
+        if (!available) Assert.Contains("temperature span", result.TemperatureDependenceUnavailableReason);
+    }
+
+    [Theory]
     [InlineData(25, 35)]
     [InlineData(0, -5)]
     [InlineData(-5, 0)]

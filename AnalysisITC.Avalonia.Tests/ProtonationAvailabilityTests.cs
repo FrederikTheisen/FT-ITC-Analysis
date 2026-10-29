@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.LogicalTree;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Xunit;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
@@ -23,7 +25,7 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class ProtonationAvailabilityTests
 {
     [AvaloniaFact]
-    public void MissingThermochemistryShowsSharedReasonAndOmitsProtonationView()
+    public async Task MissingThermochemistryExplainsUnavailableRowWithoutInspectorParagraphs()
     {
         AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
         var result = CreateResult(Buffer.MES, Buffer.Hepes, Buffer.Succinate);
@@ -34,29 +36,62 @@ public sealed class ProtonationAvailabilityTests
         Assert.DoesNotContain(ResultAnalysisViewMode.Protonation, workspace.AvailableViewModes);
         var section = (Control)typeof(AnalysisResultWorkspaceControl)
             .GetMethod("BuildAvailabilitySection", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(workspace, null)!;
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        Application.Current!.Styles.Add(theme);
         var window = new Window { Width = 320, Height = 500, Content = section };
         window.Show();
         try
         {
             window.UpdateLayout();
             var labels = section.GetLogicalDescendants().OfType<TextBlock>().ToList();
-            var reason = Assert.Single(labels, label => label.Text == result.ProtonationAnalysisUnavailableReason);
-            Assert.Contains(longName, reason.Text);
-            Assert.Equal(TextWrapping.Wrap, reason.TextWrapping);
-            Assert.True(reason.Bounds.Height > reason.FontSize * 3, "Long reason must occupy multiple lines.");
-            var location = reason.TranslatePoint(new Point(0, 0), window)!.Value;
-            Assert.True(location.X >= 0 && location.X + reason.Bounds.Width <= window.ClientSize.Width);
-            Assert.True(location.Y >= 0 && location.Y + reason.Bounds.Height <= window.ClientSize.Height);
+            var heading = labels.Single(label => label.Text == "Protonation");
+            var row = (Grid)heading.Parent!;
+            var status = row.Children.OfType<TextBlock>().Last();
+            Assert.Equal("Unavailable", status.Text);
+            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip(status));
+            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip(heading));
+            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip((Control)row.Parent!));
+            Assert.Contains(longName, (string)ToolTip.GetTip(status)!);
+            foreach (var entry in new[]
+            {
+                ("Temperature presentation", result.TemperatureDependenceUnavailableReason),
+                ("Structuring", result.SpolarRecordAnalysisUnavailableReason),
+                ("Electrostatics", result.ElectrostaticsAnalysisUnavailableReason)
+            })
+            {
+                var label = labels.Single(value => value.Text == entry.Item1);
+                var value = ((Grid)label.Parent!).Children.OfType<TextBlock>().Last();
+                Assert.Equal("Unavailable", value.Text);
+                Assert.False(string.IsNullOrWhiteSpace(entry.Item2));
+                Assert.Equal(entry.Item2, ToolTip.GetTip(label));
+                Assert.Equal(entry.Item2, ToolTip.GetTip(value));
+            }
+            Assert.DoesNotContain(labels, label => label.Text == result.ProtonationAnalysisUnavailableReason);
+            Assert.DoesNotContain(labels, label => label.Text == result.ElectrostaticsAnalysisUnavailableReason);
+            var location = status.TranslatePoint(new Point(0, 0), window)!.Value;
+            Assert.True(location.X >= 0 && location.X + status.Bounds.Width <= window.ClientSize.Width);
+            Assert.True(location.Y >= 0 && location.Y + status.Bounds.Height <= window.ClientSize.Height);
             var output = Environment.GetEnvironmentVariable("FTITC_PROJECT_INFORMATION_QA_DIRECTORY");
             if (!string.IsNullOrEmpty(output))
             {
                 Directory.CreateDirectory(output);
                 using var bitmap = new RenderTargetBitmap(new PixelSize(320, 500));
                 bitmap.Render(window);
-                bitmap.Save(Path.Combine(output, "cr021-avalonia-reason.png"), PngBitmapEncoderOptions.Default);
+                bitmap.Save(Path.Combine(output, "available-analyses-avalonia.png"), PngBitmapEncoderOptions.Default);
             }
+            var tooltipTargets = new[] { (Control)status, heading, (Control)row.Parent! };
+            foreach (var target in tooltipTargets) ToolTip.SetShowDelay(target, 0);
+            window.MouseMove(status.TranslatePoint(new Point(status.Bounds.Width - 5, status.Bounds.Height / 2), window)!.Value);
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(50);
+            Assert.True(tooltipTargets.Any(ToolTip.GetIsOpen), "Hovering the unavailable status must show its explanation.");
         }
-        finally { window.Close(); AnalysisResultWorkspaceControl.ResetSessionViewForTesting(); }
+        finally
+        {
+            window.Close();
+            Application.Current.Styles.Remove(theme);
+            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+        }
     }
 
     [AvaloniaFact]
@@ -71,6 +106,11 @@ public sealed class ProtonationAvailabilityTests
                 .GetMethod("BuildAvailabilitySection", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(workspace, null)!;
             Assert.DoesNotContain(section.GetLogicalDescendants().OfType<TextBlock>(),
                 label => label.Text?.Contains("Protonation analysis requires") == true);
+            var heading = section.GetLogicalDescendants().OfType<TextBlock>().Single(label => label.Text == "Protonation");
+            var status = ((Grid)heading.Parent!).Children.OfType<TextBlock>().Last();
+            Assert.Equal("Available", status.Text);
+            Assert.Null(ToolTip.GetTip(heading));
+            Assert.Null(ToolTip.GetTip(status));
         }
         finally { AnalysisResultWorkspaceControl.ResetSessionViewForTesting(); }
     }

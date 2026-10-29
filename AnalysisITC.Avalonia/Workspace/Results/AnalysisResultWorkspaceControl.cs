@@ -1207,18 +1207,17 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildAvailabilitySection()
         {
-            var rows = new List<Control>
+            return Section("Available analyses", new Control[]
             {
-                Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
+                Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable",
+                    rowTooltip: result?.TemperatureDependenceUnavailableReason),
                 Pair(StructuringPresentation.Title, result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable",
-                    labelTooltip: StructuringPresentation.TitleToolTip),
-                Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
-                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
-            };
-            foreach (var reason in new[] { result?.ElectrostaticsAnalysisUnavailableReason, result?.ProtonationAnalysisUnavailableReason }
-                .OfType<string>().Where(reason => !string.IsNullOrWhiteSpace(reason)).Distinct())
-                rows.Add(Message(reason));
-            return Section("Available analyses", rows.ToArray());
+                    labelTooltip: StructuringPresentation.TitleToolTip, rowTooltip: result?.SpolarRecordAnalysisUnavailableReason),
+                Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable",
+                    rowTooltip: result?.ElectrostaticsAnalysisUnavailableReason),
+                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable",
+                    rowTooltip: result?.ProtonationAnalysisUnavailableReason)
+            });
         }
 
         void RefreshCorrelationAnalysis()

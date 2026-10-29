@@ -766,25 +766,18 @@ namespace AnalysisITC
 
         NSView BuildAvailabilitySection()
         {
-            var rows = new List<NSView>
+            return Section("Available analyses", new NSView[]
             {
-                Pair("Temperature presentation", analysisResult.IsTemperatureDependenceEnabled ? "Available" : "Unavailable"),
+                Pair("Temperature presentation", analysisResult.IsTemperatureDependenceEnabled ? "Available" : "Unavailable",
+                    analysisResult.TemperatureDependenceUnavailableReason),
                 Pair(StructuringPresentation.Title, analysisResult.IsSpolarRecordAnalysisEnabled ? "Available" : "Unavailable",
-                    StructuringPresentation.TitleToolTip),
-                Pair("Electrostatics", analysisResult.IsElectrostaticsAnalysisDependenceEnabled ? "Available" : "Unavailable"),
-                Pair("Protonation", analysisResult.IsProtonationAnalysisEnabled ? "Available" : "Unavailable"),
-            };
-            foreach (var text in new[] { analysisResult.ElectrostaticsAnalysisUnavailableReason, analysisResult.ProtonationAnalysisUnavailableReason }
-                .Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
-            {
-                var reason = NSTextField.CreateWrappingLabel(text);
-                reason.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
-                reason.TextColor = NSColor.SecondaryLabel;
-                reason.Selectable = true;
-                reason.TranslatesAutoresizingMaskIntoConstraints = false;
-                rows.Add(reason);
-            }
-            return Section("Available analyses", rows.ToArray());
+                    analysisResult.IsSpolarRecordAnalysisEnabled ? StructuringPresentation.TitleToolTip
+                        : analysisResult.SpolarRecordAnalysisUnavailableReason),
+                Pair("Electrostatics", analysisResult.IsElectrostaticsAnalysisDependenceEnabled ? "Available" : "Unavailable",
+                    analysisResult.ElectrostaticsAnalysisUnavailableReason),
+                Pair("Protonation", analysisResult.IsProtonationAnalysisEnabled ? "Available" : "Unavailable",
+                    analysisResult.ProtonationAnalysisUnavailableReason),
+            });
         }
 
         NSView BuildAnalysisNullComparisonSection()

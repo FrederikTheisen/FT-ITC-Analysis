@@ -95,13 +95,29 @@ static class ProtonationAvailabilityTests
             NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
             root.LayoutSubtreeIfNeeded();
             var fields = Descendants(section).OfType<NSTextField>().ToList();
-            Check(fields.Any(field => field.StringValue == (available ? "Available" : "Unavailable")), "availability status");
+            var protonation = fields.Single(field => field.StringValue == "Protonation");
+            var status = protonation.Superview.Subviews.OfType<NSTextField>().Last();
+            Check(status.StringValue == (available ? "Available" : "Unavailable"), "availability status");
             if (!available)
             {
-                var reason = fields.Single(field => field.StringValue == result.ProtonationAnalysisUnavailableReason);
-                Check(reason.Cell.Wraps && !reason.UsesSingleLineMode, "reason wraps");
-                Check(reason.Frame.Height > 3 * reason.Font.PointSize, "long reason occupies multiple lines");
-                var frame = reason.ConvertRectToView(reason.Bounds, root);
+                Check(status.ToolTip == result.ProtonationAnalysisUnavailableReason, "complete reason on status tooltip");
+                Check(protonation.ToolTip == result.ProtonationAnalysisUnavailableReason, "reason on label tooltip");
+                Check(protonation.Superview.ToolTip == result.ProtonationAnalysisUnavailableReason, "reason on row tooltip");
+                Check(!fields.Any(field => field.StringValue == result.ProtonationAnalysisUnavailableReason), "no detached protonation paragraph");
+                Check(!fields.Any(field => field.StringValue == result.ElectrostaticsAnalysisUnavailableReason), "no detached electrostatics paragraph");
+                foreach (var entry in new[]
+                {
+                    new[] { "Temperature presentation", result.TemperatureDependenceUnavailableReason },
+                    new[] { "Structuring", result.SpolarRecordAnalysisUnavailableReason },
+                    new[] { "Electrostatics", result.ElectrostaticsAnalysisUnavailableReason }
+                })
+                {
+                    var label = fields.Single(field => field.StringValue == entry[0]);
+                    var value = label.Superview.Subviews.OfType<NSTextField>().Last();
+                    Check(value.StringValue == "Unavailable", entry[0] + " status");
+                    Check(!string.IsNullOrWhiteSpace(entry[1]) && label.ToolTip == entry[1] && value.ToolTip == entry[1], entry[0] + " shared reason tooltip");
+                }
+                var frame = status.ConvertRectToView(status.Bounds, root);
                 Check(frame.X >= 0 && frame.Right <= root.Bounds.Width && frame.Y >= 0 && frame.Bottom <= root.Bounds.Height,
                     "reason fits narrow panel");
                 var output = Environment.GetEnvironmentVariable("FTITC_PROJECT_INFORMATION_QA_DIRECTORY");
@@ -121,11 +137,15 @@ static class ProtonationAvailabilityTests
                         using (var contentImage = windowImage.WithImageInRect(crop))
                         using (var bitmap = new NSBitmapImageRep(contentImage))
                         using (var png = bitmap.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary()))
-                            File.WriteAllBytes(Path.Combine(output, "cr021-native-reason.png"), png.ToArray());
+                            File.WriteAllBytes(Path.Combine(output, "available-analyses-native.png"), png.ToArray());
                     }
                 }
             }
-            else Check(!fields.Any(field => field.StringValue.Contains("Protonation analysis requires")), "no unavailable reason");
+            else
+            {
+                Check(!fields.Any(field => field.StringValue.Contains("Protonation analysis requires")), "no unavailable reason");
+                Check(string.IsNullOrEmpty(status.ToolTip) && string.IsNullOrEmpty(protonation.ToolTip), "available row has no unavailability tooltip");
+            }
         }
         finally { window.Close(); }
     }

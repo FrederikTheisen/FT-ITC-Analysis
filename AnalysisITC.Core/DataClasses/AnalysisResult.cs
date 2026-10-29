@@ -98,6 +98,9 @@ namespace AnalysisITC.Core.Data
         public string AdvancedAnalysisUnavailableReason => IsAdvancedAnalysisAvailable
             ? string.Empty
             : "Structuring, protonation, and electrostatics analyses are available only for the one-set-of-sites model.";
+        public string TemperatureDependenceUnavailableReason => IsTemperatureDependenceEnabled
+            ? string.Empty
+            : "Requires a temperature span above the configured minimum.";
         public string SpolarRecordAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
             ? AdvancedAnalysisUnavailableReason
             : IsTemperatureDependenceEnabled ? string.Empty : "Structuring analysis requires a sufficient temperature span.";

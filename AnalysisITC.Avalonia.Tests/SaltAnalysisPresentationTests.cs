@@ -130,7 +130,13 @@ public sealed class SaltAnalysisPresentationTests
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
             Assert.DoesNotContain(ResultAnalysisViewMode.Salt, workspace.AvailableViewModes);
             var section = (Control)typeof(AnalysisResultWorkspaceControl).GetMethod("BuildAvailabilitySection", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(workspace, null)!;
-            Assert.Single(section.GetLogicalDescendants().OfType<TextBlock>(), value => value.Text == result.ElectrostaticsAnalysisUnavailableReason);
+            var labels = section.GetLogicalDescendants().OfType<TextBlock>().ToArray();
+            var heading = labels.Single(value => value.Text == "Electrostatics");
+            var status = ((Grid)heading.Parent!).Children.OfType<TextBlock>().Last();
+            Assert.Equal("Unavailable", status.Text);
+            Assert.Equal(result.ElectrostaticsAnalysisUnavailableReason, ToolTip.GetTip(heading));
+            Assert.Equal(result.ElectrostaticsAnalysisUnavailableReason, ToolTip.GetTip(status));
+            Assert.DoesNotContain(labels, value => value.Text == result.ElectrostaticsAnalysisUnavailableReason);
         }
         finally { AppSettings.MinimumIonSpanForFitting = span; }
     }
