@@ -97,7 +97,7 @@ public sealed class MacWorkflowHeaderTests
     }
 
     [AvaloniaFact]
-    public void PointerKeyboardAndProgrammaticChangesStayInSyncWithoutDuplicateEvents()
+    public void PointerAndProgrammaticChangesStayInSyncWithoutDuplicateEvents()
     {
         WithWindow(true, window =>
         {
@@ -126,18 +126,75 @@ public sealed class MacWorkflowHeaderTests
             Assert.Equal(2, selector.SelectedIndex);
             Assert.Equal(5, tabChanges);
             Assert.Equal(5, selectorChanges);
+        });
+    }
 
-            foreach (var (key, index) in new[] { (Key.Left, 1), (Key.Home, 0), (Key.End, 3), (Key.Right, 3) })
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ClickingWorkspaceNavigatorDoesNotCaptureArrowKeys(bool mac)
+    {
+        WithWindow(mac, window =>
+        {
+            LoadExperiment(window);
+            var tabs = Find<TabControl>(window, "WorkspaceTabs");
+            var selector = Find<SegmentedSelector>(window, "MacWorkflowSelector");
+            var previousFocus = Find<Button>(window, "IncludeNoneButton");
+
+            foreach (var index in new[] { 1, 2, 3, 0 })
             {
-                var args = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key };
-                selector.ChoiceButtons[selector.SelectedIndex].RaiseEvent(args);
-                Assert.True(args.Handled);
+                Assert.True(previousFocus.Focus());
+                var choice = mac ? (Control)selector.ChoiceButtons[index] : (TabItem)tabs.Items[index]!;
+                var point = choice.TranslatePoint(new Point(choice.Bounds.Width / 2, choice.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
                 Assert.Equal(index, tabs.SelectedIndex);
-                Assert.True(selector.ChoiceButtons[index].IsFocused);
-                Assert.Single(selector.ChoiceButtons, choice => choice.IsTabStop);
+
+                foreach (var key in new[] { Key.Right, Key.Left, Key.Down, Key.Up, Key.Home, Key.End })
+                {
+                    PressKey(window, key);
+                    Assert.Equal(index, tabs.SelectedIndex);
+                }
+
+                Assert.False(tabs.IsFocused);
+                Assert.All(tabs.Items.Cast<TabItem>(), tab => Assert.False(tab.IsFocused));
+                Assert.All(selector.ChoiceButtons, button => Assert.False(button.IsFocused));
             }
-            Assert.Equal(8, tabChanges);
-            Assert.Equal(8, selectorChanges);
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TabNavigationSkipsWorkspaceNavigatorAndTextEditingKeepsArrowKeys(bool mac)
+    {
+        WithWindow(mac, window =>
+        {
+            LoadExperiment(window);
+            var tabs = Find<TabControl>(window, "WorkspaceTabs");
+            var selector = Find<SegmentedSelector>(window, "MacWorkflowSelector");
+            tabs.SelectedIndex = 2;
+            window.UpdateLayout();
+            Assert.True(Find<Button>(window, "IncludeNoneButton").Focus());
+
+            for (var index = 0; index < 40; index++)
+            {
+                PressKey(window, Key.Tab);
+                Assert.False(tabs.IsFocused);
+                Assert.All(tabs.Items.Cast<TabItem>(), tab => Assert.False(tab.IsFocused));
+                Assert.All(selector.ChoiceButtons, button => Assert.False(button.IsFocused));
+            }
+
+            var editor = Find<AnalysisWorkspaceControl>(window, "AnalysisWorkspace").BootstrapIterationsBoxForTesting;
+            Assert.True(editor.Focus());
+            editor.Text = "321";
+            editor.CaretIndex = 2;
+            PressKey(window, Key.Left);
+            Assert.Equal(1, editor.CaretIndex);
+            PressKey(window, Key.Right);
+            Assert.Equal(2, editor.CaretIndex);
+            Assert.True(editor.IsFocused);
+            Assert.Equal(2, tabs.SelectedIndex);
         });
     }
 
@@ -263,6 +320,12 @@ public sealed class MacWorkflowHeaderTests
     }
 
     static T Find<T>(MainWindow window, string name) where T : Control => window.FindControl<T>(name)!;
+
+    static void PressKey(Window window, Key key)
+    {
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+    }
 
     static void Select(MainWindow window, ITCDataContainer item)
     {

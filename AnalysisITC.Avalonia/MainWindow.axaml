@@ -30,7 +30,13 @@
                                      Width="440" Height="28" MinHeight="28"
                                      VerticalAlignment="Center" HorizontalAlignment="Center"
                                      AutomationProperties.Name="Experiment workflow"
-                                     chrome:WindowDecorationProperties.ElementRole="User" />
+                                     chrome:WindowDecorationProperties.ElementRole="User">
+                <controls:SegmentedSelector.Styles>
+                    <Style Selector="RadioButton.segmented-choice">
+                        <Setter Property="Focusable" Value="False" />
+                    </Style>
+                </controls:SegmentedSelector.Styles>
+            </controls:SegmentedSelector>
             <TextBlock x:Name="MacResultTitle"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}"
@@ -308,8 +314,8 @@
                           Background="{DynamicResource SectionBorder}" />
 
             <Grid Grid.Column="2" Margin="12,12,6,12">
-                <TabControl x:Name="WorkspaceTabs">
-                    <TabItem Header="Overview">
+                <TabControl x:Name="WorkspaceTabs" Focusable="False">
+                    <TabItem Header="Overview" Focusable="False">
                         <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource PanelBackground}">
                             <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1,1,1,0" Padding="10">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -374,13 +380,13 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="Process Data">
+                    <TabItem Header="Process Data" Focusable="False">
                         <processing:ProcessingWorkspaceControl x:Name="ProcessingWorkspace" />
                     </TabItem>
-                    <TabItem Header="Analyze Data">
+                    <TabItem Header="Analyze Data" Focusable="False">
                         <analysis:AnalysisWorkspaceControl x:Name="AnalysisWorkspace" />
                     </TabItem>
-                    <TabItem Header="Final Figure">
+                    <TabItem Header="Final Figure" Focusable="False">
                         <finalfigure:FinalFigureWorkspaceControl x:Name="FinalFigureWorkspace" />
                     </TabItem>
                 </TabControl>
