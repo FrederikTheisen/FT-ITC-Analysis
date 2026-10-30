@@ -1086,15 +1086,31 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public async Task ExportPdfAsync()
         {
-            await RunExportActionAsync("Final figure export", ExportPdfCoreAsync);
+            await RunExportActionAsync("Final figure export", () => ExportPdfCoreAsync(TopLevel.GetTopLevel(this)));
         }
 
-        async Task ExportPdfCoreAsync()
+        public async Task ExportPdfAsync(TopLevel owner)
+        {
+            await RunExportActionAsync("Final figure export", () => ExportPdfCoreAsync(owner));
+        }
+
+        static IStorageProvider RequireExportStorageProvider(TopLevel? owner, bool selectFolder)
+        {
+            var storage = owner?.StorageProvider
+                ?? throw new InvalidOperationException("The figure export window is unavailable.");
+            if (selectFolder ? !storage.CanPickFolder : !storage.CanSave)
+                throw new InvalidOperationException(selectFolder
+                    ? "Folder selection is unavailable for figure export."
+                    : "File selection is unavailable for figure export.");
+            return storage;
+        }
+
+        async Task ExportPdfCoreAsync(TopLevel? owner)
         {
             var selection = FinalFigureModelPresentation.Selection;
             if (selectedItem is AnalysisResult result)
             {
-                await ExportResultFiguresAsync(result);
+                await ExportResultFiguresAsync(result, owner);
                 return;
             }
 
@@ -1106,8 +1122,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             var experiment = figureExperiment;
 
-            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (storage == null && SaveFilePickerForTesting == null) return;
+            var storage = SaveFilePickerForTesting == null
+                ? RequireExportStorageProvider(owner, selectFolder: false)
+                : null;
 
             var pickerOptions = new FilePickerSaveOptions
             {
@@ -1296,7 +1313,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             ExportFigureBatch(exportable, projectFolderPath, selection, projectFolderName);
         }
 
-        async Task ExportResultFiguresAsync(AnalysisResult result)
+        async Task ExportResultFiguresAsync(AnalysisResult result, TopLevel? owner)
         {
             var selection = FinalFigureModelPresentation.Selection;
             var experiments = GetResultExperiments(result).ToList();
@@ -1307,8 +1324,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 return;
             }
 
-            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (storage == null) return;
+            var storage = RequireExportStorageProvider(owner, selectFolder: true);
 
             var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {

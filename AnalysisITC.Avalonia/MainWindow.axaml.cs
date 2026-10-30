@@ -359,7 +359,7 @@ public partial class MainWindow : Window
 
     internal async Task ExportFinalFigureAsync()
     {
-        await FinalFigureWorkspace.ExportPdfAsync();
+        await FinalFigureWorkspace.ExportPdfAsync(this);
         RefreshMenuState();
     }
 
