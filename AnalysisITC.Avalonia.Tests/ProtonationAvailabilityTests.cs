@@ -48,10 +48,12 @@ public sealed class ProtonationAvailabilityTests
             var row = (Grid)heading.Parent!;
             var status = row.Children.OfType<TextBlock>().Last();
             Assert.Equal("Unavailable", status.Text);
-            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip(status));
-            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip(heading));
-            Assert.Equal(result.ProtonationAnalysisUnavailableReason, ToolTip.GetTip((Control)row.Parent!));
+            var tooltip = "Missing buffer ionization enthalpy: " + longName + ".";
+            Assert.Equal(tooltip, ToolTip.GetTip(status));
+            Assert.Equal(tooltip, ToolTip.GetTip(heading));
+            Assert.Equal(tooltip, ToolTip.GetTip((Control)row.Parent!));
             Assert.Contains(longName, (string)ToolTip.GetTip(status)!);
+            Assert.Contains(longName, result.ProtonationAnalysisUnavailableReason);
             foreach (var entry in new[]
             {
                 ("Temperature presentation", result.TemperatureDependenceUnavailableReason),
@@ -92,6 +94,22 @@ public sealed class ProtonationAvailabilityTests
             Application.Current.Styles.Remove(theme);
             AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
         }
+    }
+
+    [AvaloniaFact]
+    public void AllMissingThermochemistryShowsOnlyTheRequirement()
+    {
+        var result = CreateResult(null, Buffer.Succinate, Buffer.Null);
+        var workspace = new AnalysisResultWorkspaceControl { Result = result };
+        var section = (Control)typeof(AnalysisResultWorkspaceControl)
+            .GetMethod("BuildAvailabilitySection", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(workspace, null)!;
+        var heading = section.GetLogicalDescendants().OfType<TextBlock>().Single(label => label.Text == "Protonation");
+        var status = ((Grid)heading.Parent!).Children.OfType<TextBlock>().Last();
+        Assert.Equal("Unavailable", status.Text);
+        const string tooltip = "Requires buffer attributes with known ionization enthalpies.";
+        Assert.Equal(tooltip, ToolTip.GetTip(heading));
+        Assert.Equal(tooltip, ToolTip.GetTip(status));
+        Assert.Equal(tooltip, ToolTip.GetTip((Control)heading.Parent!.Parent!));
     }
 
     [AvaloniaFact]

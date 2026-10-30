@@ -111,6 +111,7 @@ namespace AnalysisITC.Core.Data
             ? AdvancedAnalysisUnavailableReason
             : protonationAnalysisUnavailableReason;
         string protonationAnalysisUnavailableReason = string.Empty;
+        internal string ProtonationAnalysisUnavailableToolTip { get; private set; }
         internal double SaltAnalysisMinimumSpan { get; private set; }
         bool saltAnalysisIncludesBuffer;
         internal bool SaltAnalysisIncludesBuffer => saltAnalysisIncludesBuffer;
@@ -567,7 +568,8 @@ namespace AnalysisITC.Core.Data
             SaltAnalysisMinimumSpan = AppSettings.MinimumIonSpanForFitting;
             saltAnalysisIncludesBuffer = AppSettings.IncludeBufferInIonicStrengthCalc;
 
-            protonationAnalysisUnavailableReason = ProtonationAnalysisAvailability.GetUnavailableReason(Solution.Solutions);
+            protonationAnalysisUnavailableReason = ProtonationAnalysisAvailability.GetUnavailableReason(Solution.Solutions, out var protonationTooltip);
+            ProtonationAnalysisUnavailableToolTip = protonationTooltip;
             IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && string.IsNullOrEmpty(protonationAnalysisUnavailableReason);
         }
 

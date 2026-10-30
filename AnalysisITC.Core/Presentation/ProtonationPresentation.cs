@@ -1,3 +1,5 @@
+using AnalysisITC.Core.Data;
+
 namespace AnalysisITC.Core.Presentation
 {
     /// <summary>Convention for regression against buffer ionization enthalpy.</summary>
@@ -9,5 +11,11 @@ namespace AnalysisITC.Core.Presentation
         public const string EnthalpyToolTip = "Model-estimated intercept at experimental pH; retains binding-partner protonation heat.";
         public const string RunToolTip = "Estimate net proton uptake and buffer-independent enthalpy.";
         public const string NotRunMessage = "Run the analysis to calculate net proton uptake and buffer-independent enthalpy.";
+
+        public static string AvailabilityToolTip(AnalysisResult result) => result == null || result.IsProtonationAnalysisEnabled
+            ? null
+            : result.IsAdvancedAnalysisAvailable
+                ? result.ProtonationAnalysisUnavailableToolTip
+                : "Requires the one-set-of-sites model.";
     }
 }

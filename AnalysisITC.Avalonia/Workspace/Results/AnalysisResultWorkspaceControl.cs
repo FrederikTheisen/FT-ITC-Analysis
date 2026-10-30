@@ -1217,7 +1217,7 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable",
                     rowTooltip: result?.ElectrostaticsAnalysisUnavailableReason),
                 Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable",
-                    rowTooltip: result?.ProtonationAnalysisUnavailableReason)
+                    rowTooltip: ProtonationPresentation.AvailabilityToolTip(result))
             });
         }
 

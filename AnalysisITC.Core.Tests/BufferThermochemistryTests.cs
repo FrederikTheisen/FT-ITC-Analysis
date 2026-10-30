@@ -111,6 +111,37 @@ public sealed class BufferThermochemistryTests
         else Assert.Contains("two distinct", result.ProtonationAnalysisUnavailableReason);
     }
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(Buffer.Succinate, Buffer.Null)]
+    [InlineData(null, Buffer.Succinate)]
+    public void TooltipSummarizesWhenEveryMemberLacksUsableThermochemistry(Buffer? first, Buffer? second)
+    {
+        var result = CreateResult(first, second);
+        Assert.Equal("Requires buffer attributes with known ionization enthalpies.", ProtonationPresentation.AvailabilityToolTip(result));
+        Assert.False(result.IsProtonationAnalysisEnabled);
+        Assert.Contains("experiment-1", result.ProtonationAnalysisUnavailableReason);
+        Assert.Contains("experiment-2", result.ProtonationAnalysisUnavailableReason);
+    }
+
+    [Fact]
+    public void TooltipListsOnlyMembersMissingThermochemistryInAMixedCollection()
+    {
+        var result = CreateResult(Buffer.MES, null, Buffer.Succinate, Buffer.Hepes, Buffer.Null);
+        Assert.Equal("Missing buffer ionization enthalpy: experiment-2; experiment-3; experiment-5.",
+            ProtonationPresentation.AvailabilityToolTip(result));
+        Assert.False(result.IsProtonationAnalysisEnabled);
+    }
+
+    [Fact]
+    public void TooltipDistinguishesKnownButIdenticalEnthalpiesFromMissingValues()
+    {
+        var result = CreateResult(Buffer.SodiumPhosphate, Buffer.PotassiumPhosphate);
+        Assert.Equal("Requires at least two distinct buffer ionization enthalpies.", ProtonationPresentation.AvailabilityToolTip(result));
+        Assert.False(result.IsProtonationAnalysisEnabled);
+        Assert.Null(ProtonationPresentation.AvailabilityToolTip(CreateResult(Buffer.MES, Buffer.Hepes)));
+    }
+
     [Fact]
     public void MissingMemberDisablesWholeCollectionAndDirectAnalysisRejectsIt()
     {

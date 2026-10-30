@@ -775,7 +775,7 @@ namespace AnalysisITC
                 Pair("Electrostatics", analysisResult.IsElectrostaticsAnalysisDependenceEnabled ? "Available" : "Unavailable",
                     analysisResult.ElectrostaticsAnalysisUnavailableReason),
                 Pair("Protonation", analysisResult.IsProtonationAnalysisEnabled ? "Available" : "Unavailable",
-                    analysisResult.ProtonationAnalysisUnavailableReason),
+                    ProtonationPresentation.AvailabilityToolTip(analysisResult)),
             });
         }
 

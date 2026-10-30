@@ -31,8 +31,11 @@ static class ProtonationAvailabilityTests
         {
             CheckView(CreateResult(Buffer.MES, Buffer.Hepes), true);
             var result = CreateResult(Buffer.MES, Buffer.Hepes, Buffer.Succinate);
-            result.Solution.Solutions[2].Data.Name = "Succinate experiment with a deliberately long descriptive name covering several solution conditions and sample identifiers";
-            CheckView(new AnalysisResult(result.Solution), false);
+            var longName = "Succinate experiment with a deliberately long descriptive name covering several solution conditions and sample identifiers";
+            result.Solution.Solutions[2].Data.Name = longName;
+            CheckView(new AnalysisResult(result.Solution), false, "Missing buffer ionization enthalpy: " + longName + ".");
+            CheckView(CreateResult(null, Buffer.Succinate, Buffer.Null), false,
+                "Requires buffer attributes with known ionization enthalpies.");
             CheckOutput();
             Console.WriteLine("PASS: native protonation availability, signed uptake, complete intervals and shared guidance");
             return 0;
@@ -73,7 +76,7 @@ static class ProtonationAvailabilityTests
         finally { AppSettings.UncertaintyDisplayStyle = previousStyle; }
     }
 
-    static void CheckView(AnalysisResult result, bool available)
+    static void CheckView(AnalysisResult result, bool available, string tooltip = null)
     {
         var handle = Send(Send(new Class(typeof(AnalysisResultTabViewController)).Handle,
             Selector.GetHandle("alloc")), Selector.GetHandle("init"));
@@ -100,9 +103,9 @@ static class ProtonationAvailabilityTests
             Check(status.StringValue == (available ? "Available" : "Unavailable"), "availability status");
             if (!available)
             {
-                Check(status.ToolTip == result.ProtonationAnalysisUnavailableReason, "complete reason on status tooltip");
-                Check(protonation.ToolTip == result.ProtonationAnalysisUnavailableReason, "reason on label tooltip");
-                Check(protonation.Superview.ToolTip == result.ProtonationAnalysisUnavailableReason, "reason on row tooltip");
+                Check(status.ToolTip == tooltip, "conditional reason on status tooltip");
+                Check(protonation.ToolTip == tooltip, "conditional reason on label tooltip");
+                Check(protonation.Superview.ToolTip == tooltip, "conditional reason on row tooltip");
                 Check(!fields.Any(field => field.StringValue == result.ProtonationAnalysisUnavailableReason), "no detached protonation paragraph");
                 Check(!fields.Any(field => field.StringValue == result.ElectrostaticsAnalysisUnavailableReason), "no detached electrostatics paragraph");
                 foreach (var entry in new[]
