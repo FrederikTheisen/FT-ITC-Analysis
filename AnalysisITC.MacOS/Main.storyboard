@@ -6938,7 +6938,7 @@ Gw
                                                 <subviews>
                                                     <button toolTip="Create a saved analysis result after a successful fit." horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-create-result-control">
                                                         <rect key="frame" x="7" y="60" width="286" height="35"/>
-                                                        <buttonCell key="cell" type="check" title="Create Analysis Result" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" borderStyle="border" inset="2" id="analysis-create-result-cell">
+                                                        <buttonCell key="cell" type="check" title="Create analysis result" bezelStyle="regularSquare" imagePosition="trailing" inset="2" id="analysis-create-result-cell">
                                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                             <font key="font" metaFont="system"/>
                                                         </buttonCell>
