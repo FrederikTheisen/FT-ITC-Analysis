@@ -597,9 +597,9 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem(ProjectInformationPresentation.FileMenuTitle, "projectinformation", !ProjectInformationIsOpen,
                 (s, e) => OpenProjectInformation()));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Order by type", "sortbytype", DataManager.Results.Count > 0, (s, e) => DataManager.SortContent(DataManager.SortMode.Type)));
+            menu.AddItem(CreateContextMenuItem("Order by Type", "sortbytype", DataManager.Results.Count > 0, (s, e) => DataManager.SortContent(DataManager.SortMode.Type)));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Remove all data and results", "toolbarremoveall", hasDocumentContent, (s, e) => AppDelegate.CloseAllData()));
+            menu.AddItem(CreateContextMenuItem("Remove All Data and Results", "toolbarremoveall", hasDocumentContent, (s, e) => AppDelegate.CloseAllData()));
 
             FileToolbarMenuButton.Menu = menu;
             FileToolbarMenuButton.Title = "File";
@@ -712,7 +712,7 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem("Details...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
             menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
             menu.AddItem(CreateCopyAttributeMenuItem(hasAttributes));
-            menu.AddItem(CreateContextMenuItem("Clear attributes", "clearattributes", hasAttributes, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Clear Attributes", "clearattributes", hasAttributes, (s, e) =>
             {
                 var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
                 if (!ConfirmationDialog.ConfirmRemoveOrDelete(
@@ -726,13 +726,13 @@ namespace AnalysisITC
             if (hasData && DataManager.Current.DataSourceFormat == ITCDataFormat.IntegratedHeats)
             {
                 menu.AddItem(NSMenuItem.SeparatorItem);
-                menu.AddItem(CreateContextMenuItem("Recalculate actual concentrations", "recalculateactualconcentrations", canRecalculateActualConcentrations, (s, e) => RecalculateActualConcentrations(DataManager.Current)));
+                menu.AddItem(CreateContextMenuItem("Recalculate Actual Concentrations", "recalculateactualconcentrations", canRecalculateActualConcentrations, (s, e) => RecalculateActualConcentrations(DataManager.Current)));
             }
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
-            menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(null, ExportDataSelection.SelectedData)));
+            menu.AddItem(CreateContextMenuItem("Duplicate Data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
+            menu.AddItem(CreateContextMenuItem("Export Data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(null, ExportDataSelection.SelectedData)));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Clear solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Clear Solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
             {
                 var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
                 if (!ConfirmationDialog.ConfirmRemoveOrDelete(
@@ -743,7 +743,7 @@ namespace AnalysisITC
                 DataManager.Current.RemoveModel();
                 UpdateContextToolbarMenu();
             }));
-            menu.AddItem(CreateContextMenuItem("Remove data", "delete", hasData, (s, e) => DeleteSelectedItem()));
+            menu.AddItem(CreateContextMenuItem("Remove Data", "delete", hasData, (s, e) => DeleteSelectedItem()));
         }
 
         void PopulateResultToolbarMenu(NSMenu menu)
@@ -752,14 +752,14 @@ namespace AnalysisITC
             var hasResult = result != null;
             var hasAnyResults = DataManager.Results.Count > 0;
 
-            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Export Result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
             menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", hasResult, (s, e) => OpenAnalysisReportTool()));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
-            menu.AddItem(CreateContextMenuItem("Set active experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
-            menu.AddItem(CreateContextMenuItem("Load solution to experiments", "loadsolutiontoexperiments", hasResult, (s, e) => LoadSelectedResultSolutionsToExperiments()));
+            menu.AddItem(CreateContextMenuItem("Update Result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
+            menu.AddItem(CreateContextMenuItem("Set Active Experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
+            menu.AddItem(CreateContextMenuItem("Load Solution to Experiments", "loadsolutiontoexperiments", hasResult, (s, e) => LoadSelectedResultSolutionsToExperiments()));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Delete result", "deleteresult", hasResult, (s, e) => DeleteSelectedItem()));
+            menu.AddItem(CreateContextMenuItem("Delete Result", "deleteresult", hasResult, (s, e) => DeleteSelectedItem()));
             menu.AddItem(CreateContextMenuItem("Delete All Results", "deleteallresults", hasAnyResults, (s, e) => DeleteAllResults()));
         }
 
@@ -769,12 +769,12 @@ namespace AnalysisITC
             var splineInterpolator = processor?.Interpolator as SplineInterpolator;
             var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
 
-            menu.AddItem(CreateContextMenuItem("Show spline handles", "showsplinehandles", hasSmoothSpline, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Show Spline Handles", "showsplinehandles", hasSmoothSpline, (s, e) =>
             {
                 splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
                 UpdateContextToolbarMenu();
             }, splineInterpolator?.ShowHandles == true));
-            menu.AddItem(CreateContextMenuItem("Move spline points in time", "allowsplinepointtimedragging", splineInterpolator != null, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Move Spline Points in Time", "allowsplinepointtimedragging", splineInterpolator != null, (s, e) =>
             {
                 splineInterpolator.AllowPointTimeDragging = !splineInterpolator.AllowPointTimeDragging;
                 UpdateContextToolbarMenu();
@@ -791,14 +791,14 @@ namespace AnalysisITC
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)
         {
-            menu.AddItem(CreateContextMenuItem("Auto open new result", "autoopennewresult", true, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Auto Open New Result", "autoopennewresult", true, (s, e) =>
             {
                 AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
                 AppSettings.Save();
                 UpdateContextToolbarMenu();
             }, AppSettings.AutoOpenNewAnalysisResult));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Show guides", "analysisshowguides", true, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Show Guides", "analysisshowguides", true, (s, e) =>
             {
                 AnalysisGraphView.ShowFitParameters = !AnalysisGraphView.ShowFitParameters;
                 UpdateContextToolbarMenu();
@@ -822,7 +822,7 @@ namespace AnalysisITC
                 AnalysisGraphView.ShowNullPrediction = !AnalysisGraphView.ShowNullPrediction;
                 UpdateContextToolbarMenu();
             }, AnalysisGraphView.ShowNullPrediction));
-            menu.AddItem(CreateContextMenuItem("Shared axes", "analysissharedaxes", true, (s, e) =>
+            menu.AddItem(CreateContextMenuItem("Shared Axes", "analysissharedaxes", true, (s, e) =>
             {
                 AnalysisGraphView.UseUnifiedAxes = !AnalysisGraphView.UseUnifiedAxes;
                 UpdateContextToolbarMenu();
@@ -831,13 +831,13 @@ namespace AnalysisITC
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateParameterLimitSettingsMenuItem());
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", !stopableProcessRunning, (s, e) => RestoreAnalysisDefaults()));
+            menu.AddItem(CreateContextMenuItem("Restore Analysis Defaults", "restoreanalysisdefaults", !stopableProcessRunning, (s, e) => RestoreAnalysisDefaults()));
         }
 
         NSMenuItem CreateAnalysisFitLineInterpolationMenuItem()
         {
-            var item = CreateContextMenuItem("Fit line interpolation", null, true, null);
-            var submenu = new NSMenu("Fit line interpolation") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Fit Line Interpolation", null, true, null);
+            var submenu = new NSMenu("Fit Line Interpolation") { AutoEnablesItems = false };
 
             submenu.AddItem(CreateContextMenuItem("Linear", "analysisfitlinelinear", true,
                 (s, e) => SetAnalysisFitLineInterpolation(GraphBase.LineSmoothness.Linear),
@@ -858,8 +858,8 @@ namespace AnalysisITC
 
         NSMenuItem CreateParameterLimitSettingsMenuItem()
         {
-            var item = CreateContextMenuItem("Parameter limit settings", null, true, null);
-            var submenu = new NSMenu("Parameter limit settings") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Parameter Limit Settings", null, true, null);
+            var submenu = new NSMenu("Parameter Limit Settings") { AutoEnablesItems = false };
 
             submenu.AddItem(CreateContextMenuItem("Standard", "parameterlimitsstandard", true,
                 (s, e) => SetParameterLimitSetting(ParameterLimitSetting.Standard),
@@ -867,7 +867,7 @@ namespace AnalysisITC
             submenu.AddItem(CreateContextMenuItem("Expanded", "parameterlimitsexpanded", true,
                 (s, e) => SetParameterLimitSetting(ParameterLimitSetting.Extended),
                 AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended));
-            submenu.AddItem(CreateContextMenuItem("No limits", "parameterlimitsnone", true,
+            submenu.AddItem(CreateContextMenuItem("No Limits", "parameterlimitsnone", true,
                 (s, e) => SetParameterLimitSetting(ParameterLimitSetting.NoLimit),
                 AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit));
 
@@ -895,8 +895,8 @@ namespace AnalysisITC
 
         void PopulateFinalFigureToolbarMenu(NSMenu menu)
         {
-            menu.AddItem(CreateContextMenuItem("Export figure...", "exportfigure", DataManager.AnyDataIsAnalyzed, (s, e) => SendActionToResponder("ExportGraphButtonClick:")));
-            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Export Figure...", "exportfigure", DataManager.AnyDataIsAnalyzed, (s, e) => SendActionToResponder("ExportGraphButtonClick:")));
+            menu.AddItem(CreateContextMenuItem("Export Result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
             menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", DataManager.Results.Count > 0, (s, e) => OpenAnalysisReportTool()));
         }
 
@@ -904,8 +904,8 @@ namespace AnalysisITC
         {
             var hasResult = DataManager.SelectedResult != null;
 
-            menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
-            menu.AddItem(CreateContextMenuItem("Export associated final figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
+            menu.AddItem(CreateContextMenuItem("Update Result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
+            menu.AddItem(CreateContextMenuItem("Export Associated Final Figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
             menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", hasResult, (s, e) => OpenAnalysisReportTool()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateErrorStyleMenuItem(hasResult));
@@ -914,19 +914,19 @@ namespace AnalysisITC
 
         NSMenuItem CreateErrorStyleMenuItem(bool enabled)
         {
-            var item = CreateContextMenuItem("Error style", null, enabled, null);
-            var submenu = new NSMenu("Error style") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Error Style", null, enabled, null);
+            var submenu = new NSMenu("Error Style") { AutoEnablesItems = false };
 
             submenu.AddItem(CreateContextMenuItem("Auto", "errorstyleauto", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.Automatic),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic));
-            submenu.AddItem(CreateContextMenuItem("Standard deviation", "errorstylesd", enabled,
+            submenu.AddItem(CreateContextMenuItem("Standard Deviation", "errorstylesd", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviation),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation));
-            submenu.AddItem(CreateContextMenuItem("95% confidence interval", "errorstyleci", enabled,
+            submenu.AddItem(CreateContextMenuItem("95% Confidence Interval", "errorstyleci", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.ConfidenceInterval),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval));
-            submenu.AddItem(CreateContextMenuItem("Standard deviation + 95% CI", "errorstyleboth", enabled,
+            submenu.AddItem(CreateContextMenuItem("Standard Deviation + 95% CI", "errorstyleboth", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval));
 
@@ -936,8 +936,8 @@ namespace AnalysisITC
 
         NSMenuItem CreateTemperatureUnitMenuItem(bool enabled)
         {
-            var item = CreateContextMenuItem("Temperature unit", null, enabled, null);
-            var submenu = new NSMenu("Temperature unit") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Temperature Unit", null, enabled, null);
+            var submenu = new NSMenu("Temperature Unit") { AutoEnablesItems = false };
 
             submenu.AddItem(CreateContextMenuItem("Celsius", "temperaturecelsius", enabled,
                 (s, e) => SetAnalysisResultTemperatureUnit(useKelvin: false),
@@ -966,15 +966,15 @@ namespace AnalysisITC
 
         NSMenuItem CreateCopyAttributesMenuItem(bool hasAttributes)
         {
-            var item = CreateContextMenuItem("Copy all attributes", "copyattributes", hasAttributes, null);
-            var submenu = new NSMenu("Copy all attributes") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Copy All Attributes", "copyattributes", hasAttributes, null);
+            var submenu = new NSMenu("Copy All Attributes") { AutoEnablesItems = false };
             var hasOtherExperiments = DataManager.Data.Any(data => data != DataManager.Current);
             var hasActiveTargets = DataManager.Data.Any(data => data != DataManager.Current && data.Include);
 
             submenu.AddItem(CreateContextMenuItem("All", "copyatttoall", hasAttributes && hasOtherExperiments, (s, e) => DataManager.CopySelectedAttributesToAll()));
             submenu.AddItem(CreateContextMenuItem("Active", "copyatttoactive", hasAttributes && hasActiveTargets, (s, e) => DataManager.CopySelectedAttributesToActive()));
             submenu.AddItem(NSMenuItem.SeparatorItem);
-            submenu.AddItem(CreateContextMenuItem("Specific experiments:", null, false, null));
+            submenu.AddItem(CreateContextMenuItem("Specific Experiments:", null, false, null));
 
             var targets = DataManager.Data
                 .Where(data => data != DataManager.Current)
@@ -983,7 +983,7 @@ namespace AnalysisITC
 
             if (targets.Count == 0)
             {
-                submenu.AddItem(CreateContextMenuItem("No other experiments", null, false, null));
+                submenu.AddItem(CreateContextMenuItem("No Other Experiments", null, false, null));
             }
             else
             {
@@ -1000,8 +1000,8 @@ namespace AnalysisITC
 
         NSMenuItem CreateCopyAttributeMenuItem(bool hasAttributes)
         {
-            var item = CreateContextMenuItem("Copy attribute", "copyattribute", hasAttributes, null);
-            var submenu = new NSMenu("Copy attribute") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Copy Attribute", "copyattribute", hasAttributes, null);
+            var submenu = new NSMenu("Copy Attribute") { AutoEnablesItems = false };
             var source = DataManager.Current;
             var targets = DataManager.Data
                 .Where(data => data != source)
@@ -1027,11 +1027,11 @@ namespace AnalysisITC
                 targetMenu.AddItem(CreateContextMenuItem("Active", "copysingleattributetoactive", hasActiveTargets,
                     (s, e) => DataManager.CopySelectedAttributeToActive(sourceAttribute)));
                 targetMenu.AddItem(NSMenuItem.SeparatorItem);
-                targetMenu.AddItem(CreateContextMenuItem("Specific experiments:", null, false, null));
+                targetMenu.AddItem(CreateContextMenuItem("Specific Experiments:", null, false, null));
 
                 if (targets.Count == 0)
                 {
-                    targetMenu.AddItem(CreateContextMenuItem("No other experiments", null, false, null));
+                    targetMenu.AddItem(CreateContextMenuItem("No Other Experiments", null, false, null));
                 }
                 else
                 {

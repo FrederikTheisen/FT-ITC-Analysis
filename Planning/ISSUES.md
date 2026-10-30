@@ -1269,7 +1269,8 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-157 - Desktop command wording and capitalization are inconsistent
 
 - Priority: Low; UI consistency.
-- Status: Open (2026-10-20). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Status: Partially addressed locally (2026-10-30). Native menu capitalization now follows title case, including toolbar, context and processing menus and storyboard-defined items. Common command wording, ellipses and push-button capitalization remain open.
+- Capitalization validation: Native managed code and storyboard compile; all 25 archived processing-copy cases and the native settings harness pass. The Publish content harness passes 21 of 22 groups, including dispatch through the renamed attribute-menu items; its remaining failure concerns model/parameter-box visibility with an empty parameter selection, outside the capitalization changes. The five code/storyboard/test files differ from their pre-edit snapshots only in letter case; storyboard IDs, actions, shortcuts and layout are preserved. No mouse-driven verification was performed.
 - Origin: UI review finding 8.
 - Location: Native `ViewControllers/MainWindowController.cs` context/toolbar menus and `Main.storyboard`; Avalonia `Misc/Menus/AppMenuController.cs`, `Misc/Details/AnalysisResultDetailsWindow.cs` and tool/workspace push buttons.
 - Problem: Native menus mix sentence/title case and use different names from Avalonia for equivalent commands. Push buttons such as `Add selected`, `Save package`, `Restore defaults` and `Copy result table` violate the repository's title-case rule. `Set Active Experiments` also appears as `Select result experiments`; dialog-opening commands mix `...` and `…`.

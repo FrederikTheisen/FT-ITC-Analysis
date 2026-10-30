@@ -424,7 +424,7 @@ namespace AnalysisITC
 
                 NSMenu menu = new NSMenu("New Spline Point");
                 menu.AddItem(new NSMenuItem("New Spline Point..."));
-                menu.AddItem(new NSMenuItem("at data", (s, e) =>
+                menu.AddItem(new NSMenuItem("At Data", (s, e) =>
                 {
                     if (!CanEditProcessing) return;
                     using var activity = ProcessingActivity.TryBegin();
@@ -432,7 +432,7 @@ namespace AnalysisITC
                     using var ownership = activity.Enter();
                     (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true);
                 }) { IndentationLevel = 1 });
-                menu.AddItem(new NSMenuItem("at baseline", (s, e) =>
+                menu.AddItem(new NSMenuItem("At Baseline", (s, e) =>
                 {
                     if (!CanEditProcessing) return;
                     using var activity = ProcessingActivity.TryBegin();

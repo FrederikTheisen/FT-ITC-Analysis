@@ -111,10 +111,10 @@ static class FinalFigureContentControlsTests
                     Check(Controls(controller)[1].State != 0, "Detail menu changed model visibility");
                 }
                 foreach (var pair in new[] {
-                    Tuple.Create("Used in analysis", DisplayAttributeOptions.UsedInAnalysis),
+                    Tuple.Create("Used in Analysis", DisplayAttributeOptions.UsedInAnalysis),
                     Tuple.Create("Buffer", DisplayAttributeOptions.Buffer), Tuple.Create("Salt", DisplayAttributeOptions.Salt),
-                    Tuple.Create("Ionic strength", DisplayAttributeOptions.IonicStrength),
-                    Tuple.Create("Ionization enthalpy", DisplayAttributeOptions.ProtonationEnthalpy),
+                    Tuple.Create("Ionic Strength", DisplayAttributeOptions.IonicStrength),
+                    Tuple.Create("Ionization Enthalpy", DisplayAttributeOptions.ProtonationEnthalpy),
                     Tuple.Create("Competitor", DisplayAttributeOptions.Competitor) })
                 {
                     var before = AppSettings.DisplayAttributeOptions;

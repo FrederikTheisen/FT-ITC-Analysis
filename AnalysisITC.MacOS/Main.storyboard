@@ -3629,7 +3629,7 @@ Developed by Frederik Theisen 2026</string>
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <menu key="submenu" title="Enable by Name" id="yJk-En-GOO">
                                                 <items>
-                                                    <menuItem title="Enable by name" id="HTs-Yx-Psu">
+                                                    <menuItem title="Enable by Name" id="HTs-Yx-Psu">
                                                         <modifierMask key="keyEquivalentModifierMask"/>
                                                         <connections>
                                                             <outlet property="view" destination="gyZ-EV-HHE" id="8c6-5z-Jp1"/>
@@ -4210,7 +4210,7 @@ Gw
                                                     <menuItem title="Open..." id="UMf-o4-xgX"/>
                                                     <menuItem title="Save..." id="4RW-i2-v7J"/>
                                                     <menuItem isSeparatorItem="YES" id="dH8-1N-pYu"/>
-                                                    <menuItem title="Clear all" id="0pC-NZ-cce"/>
+                                                    <menuItem title="Clear All" id="0pC-NZ-cce"/>
                                                 </items>
                                             </menu>
                                         </popUpButtonCell>
@@ -5919,11 +5919,11 @@ Gw
                         <menu key="menu" id="Myt-hf-LFL">
                             <items>
                                 <menuItem title="Options" hidden="YES" id="ELm-tx-dU8"/>
-                                <menuItem title="Lock processor" identifier="lockprocessor" id="Idz-14-35N"/>
+                                <menuItem title="Lock Processor" identifier="lockprocessor" id="Idz-14-35N"/>
                                 <menuItem isSeparatorItem="YES" id="6xr-Ga-lk5"/>
-                                <menuItem title="Convert to spline" id="qkC-S1-PYw">
+                                <menuItem title="Convert to Spline" id="qkC-S1-PYw">
                                     <modifierMask key="keyEquivalentModifierMask"/>
-                                    <menu key="submenu" title="Convert to spline" id="beH-sn-tru">
+                                    <menu key="submenu" title="Convert to Spline" id="beH-sn-tru">
                                         <items>
                                             <menuItem title="Point Density" enabled="NO" id="xKe-5i-nJ1">
                                                 <modifierMask key="keyEquivalentModifierMask"/>
@@ -5932,18 +5932,18 @@ Gw
                                                 </connections>
                                             </menuItem>
                                             <menuItem isSeparatorItem="YES" id="tp7-LQ-jeh"/>
-                                            <menuItem title="Convert to smooth spline" identifier="converttospline" id="YX5-8a-nES"/>
-                                            <menuItem title="Convert to linear spline" identifier="converttolinearspline" id="Vix-A2-hc5">
+                                            <menuItem title="Convert to Smooth Spline" identifier="converttospline" id="YX5-8a-nES"/>
+                                            <menuItem title="Convert to Linear Spline" identifier="converttolinearspline" id="Vix-A2-hc5">
                                                 <modifierMask key="keyEquivalentModifierMask"/>
                                             </menuItem>
                                         </items>
                                     </menu>
                                 </menuItem>
                                 <menuItem isSeparatorItem="YES" id="9A3-7U-NST"/>
-                                <menuItem title="Copy to active" identifier="copytoactive" id="qS2-qE-579">
+                                <menuItem title="Copy to Active" identifier="copytoactive" id="qS2-qE-579">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                 </menuItem>
-                                <menuItem title="Copy to non-processed" identifier="copytononprocessed" id="8aT-QY-D4S">
+                                <menuItem title="Copy to Non-Processed" identifier="copytononprocessed" id="8aT-QY-D4S">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                 </menuItem>
                             </items>
@@ -6549,7 +6549,7 @@ Gw
                                                                                                                     <menuItem title="None" toolTip="No error estimation" id="analysis-error-none"/>
                                                                                                                     <menuItem title="Bootstrap Residuals" state="on" toolTip="Bootstrap fit residuals" id="analysis-error-bootstrap"/>
                                                                                                                     <menuItem title="Leave One Out" toolTip="Assess error using leave-one-out refitting" id="analysis-error-leave-one-out"/>
-                                                                                                                    <menuItem title="Profile likelihood" toolTip="Estimate fixed-95% parameter intervals by conditional likelihood profiling" id="analysis-error-profile-likelihood"/>
+                                                                                                                    <menuItem title="Profile Likelihood" toolTip="Estimate fixed-95% parameter intervals by conditional likelihood profiling" id="analysis-error-profile-likelihood"/>
                                                                                                                 </items>
                                                                                                             </menu>
                                                                                                         </popUpButtonCell>
@@ -7258,11 +7258,11 @@ Gw
                                                             <menu key="menu" id="cfZ-gt-znL">
                                                                 <items>
                                                                     <menuItem title="Experiment Menu" hidden="YES" id="NRI-nq-Bkp"/>
-                                                                    <menuItem title="Experiment attributes..." identifier="openattributes" id="lGa-Vr-Px7"/>
-                                                                    <menuItem title="Copy attributes to all" hidden="YES" identifier="context-copyattributes" id="Qvf-0T-CFK"/>
-                                                                    <menuItem title="Copy attributes to" id="i5n-Tj-5PR">
+                                                                    <menuItem title="Experiment Attributes..." identifier="openattributes" id="lGa-Vr-Px7"/>
+                                                                    <menuItem title="Copy Attributes to All" hidden="YES" identifier="context-copyattributes" id="Qvf-0T-CFK"/>
+                                                                    <menuItem title="Copy Attributes to" id="i5n-Tj-5PR">
                                                                         <modifierMask key="keyEquivalentModifierMask"/>
-                                                                        <menu key="submenu" title="Copy attributes to" autoenablesItems="NO" id="bie-d2-dqb">
+                                                                        <menu key="submenu" title="Copy Attributes to" autoenablesItems="NO" id="bie-d2-dqb">
                                                                             <items>
                                                                                 <menuItem title="All" identifier="copyatttoall" id="2ZQ-LF-S3J">
                                                                                     <modifierMask key="keyEquivalentModifierMask"/>
@@ -7284,14 +7284,14 @@ Gw
                                                                         </menu>
                                                                     </menuItem>
                                                                     <menuItem isSeparatorItem="YES" id="Bjc-Vx-rQB"/>
-                                                                    <menuItem title="Duplicate data" identifier="duplicate" id="5SX-zc-QAp"/>
-                                                                    <menuItem title="Export data..." identifier="context-export" id="bbi-sm-cZP"/>
+                                                                    <menuItem title="Duplicate Data" identifier="duplicate" id="5SX-zc-QAp"/>
+                                                                    <menuItem title="Export Data..." identifier="context-export" id="bbi-sm-cZP"/>
                                                                     <menuItem isSeparatorItem="YES" id="n9q-ZG-8We"/>
-                                                                    <menuItem title="Toggle active" identifier="toggleinclude" id="IEU-1U-vSD"/>
-                                                                    <menuItem title="Clear solution" identifier="clearsolution" id="CqF-Kz-qRT">
+                                                                    <menuItem title="Toggle Active" identifier="toggleinclude" id="IEU-1U-vSD"/>
+                                                                    <menuItem title="Clear Solution" identifier="clearsolution" id="CqF-Kz-qRT">
                                                                         <attributedString key="attributedTitle"/>
                                                                     </menuItem>
-                                                                    <menuItem title="Remove data" identifier="delete" id="70R-oH-bXM">
+                                                                    <menuItem title="Remove Data" identifier="delete" id="70R-oH-bXM">
                                                                         <attributedString key="attributedTitle"/>
                                                                     </menuItem>
                                                                 </items>
@@ -8197,11 +8197,11 @@ IA
                                                                                                                                 <menuItem title="Temperature" state="on" id="ff-attr-temp-menu"/>
                                                                                                                                 <menuItem title="Concentrations" state="on" id="ff-attr-conc-menu"/>
                                                                                                                                 <menuItem isSeparatorItem="YES" id="ff-attr-detail-separator"/>
-                                                                                                                                <menuItem title="Used in analysis" state="on" id="Zct-g8-zy5"/>
+                                                                                                                                <menuItem title="Used in Analysis" state="on" id="Zct-g8-zy5"/>
                                                                                                                                 <menuItem title="Buffer" id="myM-oP-Kjb"/>
                                                                                                                                 <menuItem title="Salt" id="yYk-Vh-qHW"/>
-                                                                                                                                <menuItem title="Ionic strength" id="1Da-Cc-fSu"/>
-                                                                                                                                <menuItem title="Ionization enthalpy" id="23R-ZG-3GG"/>
+                                                                                                                                <menuItem title="Ionic Strength" id="1Da-Cc-fSu"/>
+                                                                                                                                <menuItem title="Ionization Enthalpy" id="23R-ZG-3GG"/>
                                                                                                                                 <menuItem title="Competitor" id="fX9-zQ-tFs"/>
                                                                                                                             </items>
                                                                                                                         </menu>

@@ -327,7 +327,7 @@ namespace AnalysisITC
         {
             if (ProcessingOptionsMenuItems().Any(item => item.Identifier == ShowSplineHandlesMenuIdentifier)) return;
 
-            var item = new NSMenuItem("Show spline handles")
+            var item = new NSMenuItem("Show Spline Handles")
             {
                 Identifier = ShowSplineHandlesMenuIdentifier
             };
@@ -343,7 +343,7 @@ namespace AnalysisITC
         {
             if (ProcessingOptionsMenuItems().Any(item => item.Identifier == AllowSplinePointTimeDraggingMenuIdentifier)) return;
 
-            var item = new NSMenuItem("Move spline points in time")
+            var item = new NSMenuItem("Move Spline Points in Time")
             {
                 Identifier = AllowSplinePointTimeDraggingMenuIdentifier
             };
@@ -433,16 +433,16 @@ namespace AnalysisITC
                 switch (item.Identifier)
                 {
                     case LockProcessorMenuIdentifier:
-                        item.Title = Processor?.IsLocked == true ? "Unlock processor" : "Lock processor";
+                        item.Title = Processor?.IsLocked == true ? "Unlock Processor" : "Lock Processor";
                         item.Enabled = hasProcessor;
                         break;
                     case ShowSplineHandlesMenuIdentifier:
-                        item.Title = "Show spline handles";
+                        item.Title = "Show Spline Handles";
                         item.Enabled = hasSmoothSpline;
                         item.State = splineInterpolator?.ShowHandles == true ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;
                     case AllowSplinePointTimeDraggingMenuIdentifier:
-                        item.Title = "Move spline points in time";
+                        item.Title = "Move Spline Points in Time";
                         item.Enabled = splineInterpolator != null;
                         item.State = splineInterpolator?.AllowPointTimeDragging == true ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;
@@ -463,7 +463,7 @@ namespace AnalysisITC
                         item.Enabled = hasProcessor;
                         break;
                     default:
-                        if (item.Title == "Convert to spline")
+                        if (item.Title == "Convert to Spline")
                             item.Enabled = canConvertToAnySpline;
                         else if (item.Title == "Point Density")
                             item.Enabled = canChooseConversionDensity;
