@@ -359,9 +359,10 @@ namespace AnalysisITC
         {
             if (ProcessingOptionsMenuItems().Any(item => item.Identifier == IntegrationRegionCopyIncludesStartMenuIdentifier)) return;
 
-            var item = new NSMenuItem("Copy integration start to next")
+            var item = new NSMenuItem(ProcessingCopyPresentation.IncludeStartMenuTitle)
             {
-                Identifier = IntegrationRegionCopyIncludesStartMenuIdentifier
+                Identifier = IntegrationRegionCopyIncludesStartMenuIdentifier,
+                ToolTip = ProcessingCopyPresentation.IncludeStartTooltip
             };
 
             var timeDraggingItemIndex = ProcessingOptionsMenuButton.Menu.Items
@@ -446,7 +447,8 @@ namespace AnalysisITC
                         item.State = splineInterpolator?.AllowPointTimeDragging == true ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;
                     case IntegrationRegionCopyIncludesStartMenuIdentifier:
-                        item.Title = "Copy integration start to next";
+                        item.Title = ProcessingCopyPresentation.IncludeStartMenuTitle;
+                        item.ToolTip = ProcessingCopyPresentation.IncludeStartTooltip;
                         item.Enabled = true;
                         item.State = AppSettings.IntegrationRegionCopyIncludesStart ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;

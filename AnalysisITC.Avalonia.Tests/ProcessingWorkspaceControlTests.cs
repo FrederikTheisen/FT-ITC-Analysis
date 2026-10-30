@@ -242,7 +242,7 @@ public sealed class ProcessingWorkspaceControlTests : IAsyncLifetime
             var checks = workspace.GetLogicalDescendants().OfType<CheckBox>().ToArray();
             var handles = checks.Single(check => Equals(check.Content, "Show spline handles"));
             var timeDragging = checks.Single(check => Equals(check.Content, "Move spline points in time"));
-            var copyStart = checks.Single(check => Equals(check.Content, "Copy start time to next"));
+            var copyStart = checks.Single(check => Equals(check.Content, ProcessingCopyPresentation.IncludeStartLabel));
             var discard = checks.Single(check => Equals(check.Content, "Discard integrated regions"));
             var options = new[] { handles, timeDragging, copyStart };
             var tips = options.Select(ToolTip.GetTip).ToArray();

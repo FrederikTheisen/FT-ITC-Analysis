@@ -101,7 +101,7 @@ The experiment records that its end points came from **Fit Peaks**, and the anal
 
 ### Copy a region to the next injection
 
-Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary relative to the injection start and advances to the next injection. **Copy start time to next** includes the start boundary in that operation.
+Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary relative to the injection start and advances to the next injection. Enable **Include start time when copying** to copy both boundaries.
 
 ## Propagate and lock processing
 

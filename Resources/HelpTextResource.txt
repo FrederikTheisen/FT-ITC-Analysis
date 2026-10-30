@@ -65,7 +65,7 @@ Polynomial and segmented baselines can be converted to splines for manual adjust
 
 Include the peak response while avoiding unnecessary baseline noise. **Start** and **Length** are both offsets from injection onset: Start = 2 s and Length = 20 s define an 18 s region. **\peakfit** estimates end points automatically.
 
-Drag the blue markers to adjust individual injections. When focused on one injection, **\space** copies its end-point offset to the next and advances the view. Enable **Copy start time to next** to copy both boundaries.
+Drag the blue markers to adjust individual injections. When focused on one injection, **\space** copies its end-point offset to the next and advances the view. Enable **Include start time when copying** to copy both boundaries.
 
 # Locking processing
 

@@ -779,12 +779,14 @@ namespace AnalysisITC
                 splineInterpolator.AllowPointTimeDragging = !splineInterpolator.AllowPointTimeDragging;
                 UpdateContextToolbarMenu();
             }, splineInterpolator?.AllowPointTimeDragging == true));
-            menu.AddItem(CreateContextMenuItem("Copy integration start to next", "integrationregioncopyincludesstart", true, (s, e) =>
+            var includeStartItem = CreateContextMenuItem(ProcessingCopyPresentation.IncludeStartMenuTitle, "integrationregioncopyincludesstart", true, (s, e) =>
             {
                 AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
                 AppSettings.Save();
                 UpdateContextToolbarMenu();
-            }, AppSettings.IntegrationRegionCopyIncludesStart));
+            }, AppSettings.IntegrationRegionCopyIncludesStart);
+            includeStartItem.ToolTip = ProcessingCopyPresentation.IncludeStartTooltip;
+            menu.AddItem(includeStartItem);
         }
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)

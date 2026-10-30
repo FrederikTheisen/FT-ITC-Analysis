@@ -52,7 +52,7 @@ namespace AnalysisITC.Avalonia.Processing
         readonly CheckBox discardIntegratedCheck = Check("Discard integrated regions", true, "Exclude already integrated regions when recalculating the baseline.");
         readonly CheckBox showSplineHandlesCheck = Check("Show spline handles", false, "Show editable control points for a spline baseline.");
         readonly CheckBox moveSplinePointsCheck = Check("Move spline points in time", false, "Allow drag operations to change a spline point's time as well as its value.");
-        readonly CheckBox copyIntegrationStartCheck = Check("Copy start time to next", true, "Include the integration start time when copying a region to the next injection.");
+        readonly CheckBox copyIntegrationStartCheck = Check(ProcessingCopyPresentation.IncludeStartLabel, true, ProcessingCopyPresentation.IncludeStartTooltip);
 
         readonly Button lockProcessorButton = Button("Lock", 72);
         readonly Button copyActiveButton = Button("Active", 96);
@@ -206,13 +206,13 @@ namespace AnalysisITC.Avalonia.Processing
             panel.Children.Add(Section(baselineHeader, new Control[]
             {
                 baselineEditingPanel,
+                discardIntegratedCheck,
                 showSplineHandlesCheck,
                 moveSplinePointsCheck
             }));
             panel.Children.Add(Section(integrationHeader, new Control[]
             {
                 integrationEditingPanel,
-                discardIntegratedCheck,
                 copyIntegrationStartCheck
             }));
             panel.Children.Add(Section("Processing actions", new Control[]
