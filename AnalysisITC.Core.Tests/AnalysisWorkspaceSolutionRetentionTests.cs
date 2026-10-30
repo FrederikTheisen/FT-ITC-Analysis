@@ -24,6 +24,86 @@ namespace AnalysisITC.Core.Tests;
 public sealed class AnalysisWorkspaceSolutionRetentionTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void RebuildDiagnosticsRequireVerboseAndDescribeIncludedData(bool verbose, bool global)
+    {
+        var previousVerbose = AppSettings.Verbose;
+        var previousOutput = Console.Out;
+        using var output = new StringWriter();
+        try
+        {
+            AppSettings.Verbose = verbose;
+            var first = CreateReadyExperiment("logging-first.itc", 20);
+            var second = CreateReadyExperiment("logging-second.itc", 30);
+            first.Injections[0].Include = false;
+            var workspace = new AnalysisWorkspace();
+            workspace.Session.IsGlobal = global;
+            var logBefore = AppEventHandler.GetLogReport();
+            Console.SetOut(output);
+
+            Assert.True(workspace.TryRebuild(global ? new[] { first, second } : new[] { first }));
+            Assert.True(workspace.IsReady);
+
+            if (verbose)
+            {
+                var expected = $"DEBUG Analysis | Setup rebuilt: model=OneSetOfSites, mode={(global ? "global" : "single")}, experiments={(global ? 2 : 1)}, includedHeats={(global ? 9 : 4)}";
+                Assert.Contains(expected, output.ToString());
+                Assert.Matches(@"\d{2}:\d{2}:\d{2} DEBUG Analysis", output.ToString());
+                Assert.Contains(expected, AppEventHandler.GetLogReport());
+            }
+            else
+            {
+                Assert.Equal("", output.ToString());
+                Assert.Equal(logBefore, AppEventHandler.GetLogReport());
+            }
+        }
+        finally
+        {
+            Console.SetOut(previousOutput);
+            AppSettings.Verbose = previousVerbose;
+        }
+    }
+
+    [Fact]
+    public void RebuildFailureIsVisibleAndRetainsExceptionWithoutVerbose()
+    {
+        var previousVerbose = AppSettings.Verbose;
+        var previousOutput = Console.Out;
+        using var output = new StringWriter();
+        try
+        {
+            AppSettings.Verbose = false;
+            var experiment = CreateReadyExperiment("logging-failure.itc", 25);
+            var workspace = new AnalysisWorkspace();
+            Assert.True(workspace.TryRebuild(new[] { experiment }));
+            workspace.Session.ModelType = (AnalysisModel)(-1);
+            Exception failure = null;
+            workspace.RebuildFailed += (_, ex) => failure = ex;
+            Console.SetOut(output);
+
+            Assert.False(workspace.TryRebuild(new[] { experiment }));
+
+            Assert.False(workspace.IsReady);
+            Assert.IsType<NotImplementedException>(failure);
+            Assert.Contains("ERROR Analysis | Setup rebuild failed: model=-1, mode=single", output.ToString());
+            Assert.Contains(failure.Message, output.ToString());
+            var report = AppEventHandler.GetLogReport();
+            Assert.Contains("ERROR Analysis | Setup rebuild failed: model=-1, mode=single", report);
+            Assert.Contains(failure.Message, report);
+            Assert.Contains(failure.GetType().FullName, report);
+            Assert.Contains(failure.StackTrace, report);
+        }
+        finally
+        {
+            Console.SetOut(previousOutput);
+            AppSettings.Verbose = previousVerbose;
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ModelSwitchResetsGlobalConstraintsInEitherMode(bool switchInGlobalMode)

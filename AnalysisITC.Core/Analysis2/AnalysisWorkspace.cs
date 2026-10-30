@@ -284,8 +284,10 @@ namespace AnalysisITC.Core.Analysis
 
             Context = rebuiltContext;
 
-            AppEventHandler.Print(
-                $"[AnalysisWorkspace] Rebuilt {Session.ModelType} ({(Session.IsGlobal ? "global" : "single")})", 0);
+            if (AppSettings.Verbose)
+                LogWorkspaceMessage("DEBUG",
+                    $"Setup rebuilt: model={Context.ModelType}, mode={(Context.IsMultiExperiment ? "global" : "single")}, " +
+                    $"experiments={Context.FittingExperimentCount}, includedHeats={Context.FittingPointCount}");
 
             ContextRebuilt?.Invoke(this, EventArgs.Empty);
         }
@@ -337,10 +339,20 @@ namespace AnalysisITC.Core.Analysis
             catch (Exception ex)
             {
                 InvalidateContext();
-                AppEventHandler.Print($"[AnalysisWorkspace] TryRebuild failed: {ex.Message}", 0);
+                LogWorkspaceMessage("ERROR",
+                    $"Setup rebuild failed: model={Session.ModelType}, mode={(Session.IsGlobal ? "global" : "single")}; {ex.Message}");
+                AppEventHandler.AddLog(ex);
                 RebuildFailed?.Invoke(this, ex);
                 return false;
             }
+        }
+
+        static void LogWorkspaceMessage(string level, string message)
+        {
+            var entry = $"{level} Analysis | {message}";
+            AppEventHandler.Print($"{DateTime.Now:HH':'mm':'ss} {entry}");
+            // The support report supplies its own timestamp for each retained entry.
+            AppEventHandler.AddLog(entry);
         }
 
         List<ExperimentData> CurrentDataManagerExperiments()
