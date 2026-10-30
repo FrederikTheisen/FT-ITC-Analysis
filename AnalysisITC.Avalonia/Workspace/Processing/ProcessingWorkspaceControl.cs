@@ -236,9 +236,12 @@ namespace AnalysisITC.Avalonia.Processing
                 showBaselineCheck,
                 showIntegrationCheck,
                 correctedCheck,
-                cursorInfoCheck,
-                Labeled("Zoom width", NumericFieldWithSuffix(peakWidthStepper, "peaks")),
-                Labeled("Baseline zoom", baselineZoomSelector)
+                cursorInfoCheck
+            }));
+            panel.Children.Add(Section("Zoom", new Control[]
+            {
+                Labeled("Width", NumericFieldWithSuffix(peakWidthStepper, "peaks")),
+                Labeled("Baseline", baselineZoomSelector)
             }));
 
             return panel;

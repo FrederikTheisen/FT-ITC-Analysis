@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
 using System.IO;
+using System.Globalization;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Processing;
@@ -110,13 +112,19 @@ public sealed class ProcessingBaselineZoomTests
         Assert.Equal(ProcessingGraphControl.VerticalZoomMode.Baseline, graph.CurrentVerticalZoomMode);
     }
 
-    [AvaloniaFact]
-    public void BaselinePresetsFitInTheDisplayInspector()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BaselinePresetsFitInTheDisplayInspector(bool windowsTypography)
     {
         var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
         Application.Current!.Styles.Add(theme);
         var workspace = new ProcessingWorkspaceControl { Experiment = CreateExperiment() };
-        var window = new Window { Width = 900, Height = 600, Content = workspace };
+        var window = new Window
+        {
+            Width = 900, Height = 600, Content = workspace,
+            FontWeight = windowsTypography ? FontWeight.Medium : FontWeight.Normal
+        };
         try
         {
             window.Show();
@@ -127,6 +135,12 @@ public sealed class ProcessingBaselineZoomTests
             var selector = (SegmentedSelector)typeof(ProcessingWorkspaceControl).GetField("baselineZoomSelector", flags)!.GetValue(workspace)!;
             Assert.True(selector.IsEffectivelyVisible);
             Assert.True(selector.Bounds.Width >= 160);
+            var row = Assert.IsType<Grid>(selector.Parent);
+            var label = Assert.Single(row.Children.OfType<TextBlock>());
+            var text = new FormattedText(label.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface(label.FontFamily, label.FontStyle, label.FontWeight, label.FontStretch), label.FontSize, Brushes.Black);
+            Assert.True(Math.Ceiling(text.WidthIncludingTrailingWhitespace) + 2 <= label.Bounds.Width,
+                $"Baseline label requires {text.WidthIncludingTrailingWhitespace}px plus rendering space but has {label.Bounds.Width}px.");
             foreach (var button in selector.ChoiceButtons)
             {
                 Assert.True(button.Bounds.Width >= 35);
@@ -138,7 +152,7 @@ public sealed class ProcessingBaselineZoomTests
                 Directory.CreateDirectory(directory);
                 using var bitmap = new RenderTargetBitmap(new PixelSize((int)window.ClientSize.Width, (int)window.ClientSize.Height));
                 bitmap.Render(window);
-                bitmap.Save(Path.Combine(directory, "avalonia-baseline-zoom.png"));
+                bitmap.Save(Path.Combine(directory, windowsTypography ? "avalonia-baseline-zoom-medium.png" : "avalonia-baseline-zoom.png"));
             }
         }
         finally

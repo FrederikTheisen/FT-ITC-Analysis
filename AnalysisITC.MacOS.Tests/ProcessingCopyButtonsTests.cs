@@ -189,6 +189,9 @@ static class ProcessingCopyButtonsTests
                 .GetField("baselineZoomControl", Instance).GetValue(view.Controller);
             Check(control != null && control.SegmentCount == 4 && control.SelectedSegment == 1, "default baseline preset missing");
             view.Controller.View.LayoutSubtreeIfNeeded();
+            Check(control.ControlSize == NSControlSize.Small, "baseline presets must use the native small size");
+            Check(control.Font != null && Math.Abs(control.Font.PointSize - NSFont.SmallSystemFontSize) < 0.1,
+                "baseline presets must use the native small font; actual=" + control.Font?.PointSize);
             Check(control.Frame.Width >= 160 && control.Frame.Height > 0, "baseline presets are not laid out");
             Check(control.ToolTip == ProcessingZoomPresentation.BaselineZoomTooltip, "shared tooltip missing");
             var before = graph.Graph.YAxis.Min;

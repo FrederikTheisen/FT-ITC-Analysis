@@ -108,6 +108,7 @@ namespace AnalysisITC
                 SegmentCount = ProcessingZoomPresentation.BaselineZoomLevels.Count,
                 SegmentStyle = NSSegmentStyle.Capsule,
                 ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 SelectedSegment = ProcessingZoomPresentation.DefaultBaselineZoomIndex,
                 ToolTip = ProcessingZoomPresentation.BaselineZoomTooltip,
                 TranslatesAutoresizingMaskIntoConstraints = false
