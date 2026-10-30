@@ -815,8 +815,9 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
                 Pair(
                     "RMSD",
-                    solution.UnweightedRmsd.ToString("G4", CultureInfo.CurrentCulture),
-                    labelTooltip: FitMetricTooltipPresentation.Rmsd(convergence))
+                    RmsdPresentation.FormatHeat(convergence?.UnweightedRmsd, AppSettings.EnergyUnitFamily),
+                    labelTooltip: RmsdPresentation.LabelTooltip,
+                    valueTooltip: FitMetricTooltipPresentation.RmsdValue(convergence))
             };
             if (solution.MolarRMSD.HasValue)
             {
@@ -889,7 +890,7 @@ namespace AnalysisITC.Avalonia.Results
                 : NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
             return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
                 Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(analysisResult) : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, AppSettings.EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip),
                 Pair(independent ? "Member assessments" : "Conclusion", conclusion, rowTooltip: tooltip));
         }
 
@@ -1185,7 +1186,7 @@ namespace AnalysisITC.Avalonia.Results
                 return Section("Null hypothesis test",
                     Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
                     Pair("Model", NullModelComparisonPresentation.NullModel(member), rowTooltip: NullModelComparisonPresentation.NullFitReason(member)),
-                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(member, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(member, AppSettings.EnergyUnitFamily)),
+                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(member, AppSettings.EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(member), labelTooltip: RmsdPresentation.LabelTooltip),
                     Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(assessment, member)));
             }
 
@@ -1193,7 +1194,7 @@ namespace AnalysisITC.Avalonia.Results
             var resultAssessment = analysisResult.BindingAssessment;
             return Section("Null hypothesis test",
                 Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, AppSettings.EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(comparison), labelTooltip: RmsdPresentation.LabelTooltip),
                 Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, comparison)));
         }
 
@@ -1843,7 +1844,8 @@ namespace AnalysisITC.Avalonia.Results
             string? valueBrush = null,
             bool labelContainsMarkdown = false,
             string? labelTooltip = null,
-            string? rowTooltip = null)
+            string? rowTooltip = null,
+            string? valueTooltip = null)
         {
             var panel = new Grid
             {
@@ -1873,6 +1875,7 @@ namespace AnalysisITC.Avalonia.Results
                 ToolTip.SetTip(labelText, rowTooltip);
                 ToolTip.SetTip(valueText, rowTooltip);
             }
+            if (valueTooltip != null) ToolTip.SetTip(valueText, valueTooltip);
             Grid.SetColumn(valueText, 1);
             panel.Children.Add(valueText);
 

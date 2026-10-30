@@ -30,7 +30,7 @@ public sealed class TwoSiteEntropyPresentationTests
             AppSettings.UncertaintyDisplayStyle = style;
             var solution = CreateSolution();
             solution.PresentationEnergyUnitOverride = unit;
-            var inspector = AnalysisParameterSummaryPresentation.BuildInspectorSummary(solution);
+            var inspector = AnalysisParameterSummaryPresentation.BuildInspectorSummary(solution, AnalysisITC.Core.Units.EnergyUnitFamily.Joules);
             var graph = AnalysisParameterSummaryPresentation.BuildLines(solution,
                 AnalysisParameterSummaryPresentation.GraphBoxDisplay(FinalFigureDisplayParameters.Derived));
             var figure = PublicationFigureBuilder.Build(

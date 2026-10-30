@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Core.Presentation
 {
@@ -8,6 +9,8 @@ namespace AnalysisITC.Core.Presentation
     {
         public string Label { get; }
         public string Value { get; }
+        public string LabelTooltip { get; }
+        public string ValueTooltip { get; }
         public bool IsModelHeader { get; }
         /// <summary>Readable model name; set only on the model header row.</summary>
         public string ModelName { get; }
@@ -25,13 +28,17 @@ namespace AnalysisITC.Core.Presentation
             string value,
             bool isModelHeader,
             string modelName = null,
-            string scope = null)
+            string scope = null,
+            string labelTooltip = null,
+            string valueTooltip = null)
         {
             Label = label ?? string.Empty;
             Value = value ?? string.Empty;
             IsModelHeader = isModelHeader;
             ModelName = modelName ?? string.Empty;
             Scope = scope ?? string.Empty;
+            LabelTooltip = labelTooltip ?? string.Empty;
+            ValueTooltip = valueTooltip;
         }
     }
 
@@ -64,7 +71,7 @@ namespace AnalysisITC.Core.Presentation
         public string Scope => Header?.Scope ?? string.Empty;
         public string ScopeToolTip => Header?.ScopeToolTip ?? string.Empty;
 
-        internal static AnalysisFitSummary Create(IReadOnlyList<AnalysisParameterSummaryRow> rows)
+        internal static AnalysisFitSummary Create(IReadOnlyList<AnalysisParameterSummaryRow> rows, string rmsd)
         {
             if (rows == null || rows.Count == 0) return Empty;
             if (!rows[0].IsModelHeader) return new AnalysisFitSummary(null, rows);
@@ -74,8 +81,10 @@ namespace AnalysisITC.Core.Presentation
             if (!string.IsNullOrWhiteSpace(header.Value))
                 gridRows.Add(new AnalysisParameterSummaryRow(
                     AnalysisParameterSummaryPresentation.RmsdLabel,
-                    header.Value,
-                    false));
+                    rmsd,
+                    false,
+                    labelTooltip: RmsdPresentation.LabelTooltip,
+                    valueTooltip: string.Empty));
             for (var index = 1; index < rows.Count; index++)
                 gridRows.Add(rows[index]);
 
@@ -119,8 +128,9 @@ namespace AnalysisITC.Core.Presentation
                | FinalFigureDisplayParameters.Model
                | FinalFigureDisplayParameters.Fitted;
 
-        public static AnalysisFitSummary BuildInspectorSummary(SolutionInterface solution)
-            => AnalysisFitSummary.Create(BuildRows(solution, InspectorDisplay));
+        public static AnalysisFitSummary BuildInspectorSummary(SolutionInterface solution, EnergyUnitFamily family)
+            => AnalysisFitSummary.Create(BuildRows(solution, InspectorDisplay),
+                RmsdPresentation.FormatHeat(solution?.Convergence?.UnweightedRmsd, family));
 
         public static List<AnalysisParameterSummaryRow> BuildRows(
             SolutionInterface solution,

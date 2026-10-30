@@ -79,10 +79,10 @@ func addRow(_ name: String, _ value: String) -> NSTextField {
 }
 
 _ = addRow("Model", "Offset")
-_ = addRow("Null RMSD", "4.184")
+_ = addRow("Null RMSD", "4.184 µJ")
 let numeric = addRow("ΔAICc", "+10")
 let conclusion = addRow("Conclusion", "No binding detected")
-numeric.toolTip = "Null AICc: 110. RMSD unit: µJ."
+numeric.toolTip = "Null AICc: 110."
 inspector.addArrangedSubview(section)
 NSLayoutConstraint(
     item: section, attribute: .width, relatedBy: .equal,

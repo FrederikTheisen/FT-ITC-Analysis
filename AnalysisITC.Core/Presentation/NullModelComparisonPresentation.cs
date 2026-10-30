@@ -14,16 +14,18 @@ namespace AnalysisITC.Core.Presentation
 {
     public sealed class NullModelComparisonDisplayRow
     {
-        public NullModelComparisonDisplayRow(string label, string value, string tooltip)
+        public NullModelComparisonDisplayRow(string label, string value, string tooltip, string labelTooltip = null)
         {
             Label = label ?? "";
             Value = value ?? "";
             Tooltip = tooltip ?? "";
+            LabelTooltip = labelTooltip ?? "";
         }
 
         public string Label { get; }
         public string Value { get; }
         public string Tooltip { get; }
+        public string LabelTooltip { get; }
     }
 
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
@@ -42,7 +44,7 @@ namespace AnalysisITC.Core.Presentation
             return new[]
             {
                 new NullModelComparisonDisplayRow("Model", NullModel(comparison), null),
-                new NullModelComparisonDisplayRow("Null RMSD", NullRmsd(comparison, energyUnitFamily), evidenceTooltip),
+                new NullModelComparisonDisplayRow("Null RMSD", RmsdPresentation.FormatHeat(comparison?.NullInformationCriteria?.ResidualRmsdMicrojoules, energyUnitFamily), evidenceTooltip, RmsdPresentation.LabelTooltip),
                 new NullModelComparisonDisplayRow("ΔAICc", Delta(comparison), evidenceTooltip),
                 new NullModelComparisonDisplayRow("Conclusion", Conclusion(comparison), null),
             };
@@ -135,6 +137,12 @@ namespace AnalysisITC.Core.Presentation
             return $"{NullRmsd(comparison, energyUnitFamily)} / {Delta(comparison)}";
         }
 
+        public static string NullRmsdAndDeltaAiccWithUnit(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
+        {
+            var rmsd = RmsdPresentation.FormatHeat(comparison?.NullInformationCriteria?.ResidualRmsdMicrojoules, energyUnitFamily);
+            return $"{rmsd} / {Delta(comparison)}";
+        }
+
         public static string NullRmsd(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
         {
             var value = comparison?.NullInformationCriteria?.ResidualRmsdMicrojoules;
@@ -145,7 +153,6 @@ namespace AnalysisITC.Core.Presentation
 
         public static string NullEvidenceTooltip(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
         {
-            var rmsdDescription = NullRmsdReason(comparison);
             var criteria = comparison?.NullInformationCriteria;
             var aicc = criteria?.IsAiccAvailable == true
                 ? Aicc(criteria)
@@ -155,11 +162,12 @@ namespace AnalysisITC.Core.Presentation
             var unavailableComparison = AutomaticOutcome(comparison) == BindingAssessmentOutcome.NotAssessed
                 ? $" Comparison unavailable: {ComparisonReason(comparison)}"
                 : string.Empty;
-            return $"{rmsdDescription} Null AICc: {aicc}. RMSD unit: {ThermogramUnits.IntegratedHeatUnit(energyUnitFamily)}.{unavailableComparison}";
+            var fitReason = comparison != null && !comparison.NullFitSucceeded ? NullFitReason(comparison) + " " : string.Empty;
+            return $"{fitReason}Null AICc: {aicc}.{unavailableComparison}";
         }
 
-        /// <summary>Brief numerical tooltip for the live analysis inspector.</summary>
-        public static string AnalysisEvidenceTooltip(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
+        /// <summary>Numeric evidence for the result inspector without repeating the RMSD label or unit.</summary>
+        public static string ResultAnalysisEvidenceTooltip(NullModelComparison comparison)
         {
             var criteria = comparison?.NullInformationCriteria;
             var aicc = criteria?.IsAiccAvailable == true ? Aicc(criteria) : "Unavailable";
@@ -174,9 +182,13 @@ namespace AnalysisITC.Core.Presentation
                                 ? criteria.AiccUnavailableReason
                                 : ComparisonReason(comparison)
                         : string.Empty;
-            return $"Null AICc: {aicc}. RMSD unit: {ThermogramUnits.IntegratedHeatUnit(energyUnitFamily)}." +
+            return $"Null AICc: {aicc}." +
                 (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" {reason}");
         }
+
+        /// <summary>Brief numerical tooltip for the live analysis inspector.</summary>
+        public static string AnalysisEvidenceTooltip(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
+            => ResultAnalysisEvidenceTooltip(comparison);
 
         public static string Conclusion(NullModelComparison comparison)
             => OutcomeText(AutomaticOutcome(comparison));

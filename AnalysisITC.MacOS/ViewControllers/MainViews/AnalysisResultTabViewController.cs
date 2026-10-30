@@ -431,10 +431,9 @@ namespace AnalysisITC
                         CultureInfo.CurrentCulture)),
                 Pair(
                     "RMSD",
-                    Solution.UnweightedRmsd.ToString(
-                        "G4",
-                        CultureInfo.CurrentCulture),
-                    FitMetricTooltipPresentation.Rmsd(Solution.Convergence))
+                    RmsdPresentation.FormatHeat(Solution.Convergence?.UnweightedRmsd, EnergyUnitFamily),
+                    labelTooltip: RmsdPresentation.LabelTooltip,
+                    valueTooltip: FitMetricTooltipPresentation.RmsdValue(Solution.Convergence))
             };
             if (Solution.MolarRMSD.HasValue)
             {
@@ -794,7 +793,7 @@ namespace AnalysisITC
                 return Section("Null hypothesis test",
                     Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
                     Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
-                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
+                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(comparison), labelTooltip: RmsdPresentation.LabelTooltip),
                     Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), NullModelComparisonPresentation.AutomaticRecommendation(assessment, comparison)));
             }
 
@@ -802,7 +801,7 @@ namespace AnalysisITC
             var resultAssessment = result.BindingAssessment;
             return Section("Null hypothesis test",
                 Pair("Model", NullModelComparisonPresentation.NullModel(pooledComparison), NullModelComparisonPresentation.NullFitReason(pooledComparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(pooledComparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(pooledComparison, EnergyUnitFamily)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(pooledComparison, EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(pooledComparison), labelTooltip: RmsdPresentation.LabelTooltip),
                 Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, pooledComparison)));
         }
 
@@ -1639,7 +1638,7 @@ namespace AnalysisITC
             menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
             return SectionWithHeaderAction("Null hypothesis test", menu,
                 Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(result) : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip),
                 Pair(independent ? "Member assessments" : "Conclusion", independent
                     ? NullModelComparisonPresentation.CollectionAssessmentText(result)
                     : NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
@@ -2332,7 +2331,9 @@ namespace AnalysisITC
         static NSView Pair(
             string label,
             string value,
-            string toolTip = null)
+            string toolTip = null,
+            string labelTooltip = null,
+            string valueTooltip = null)
         {
             var labelField = Label(
                 label,
@@ -2365,6 +2366,12 @@ namespace AnalysisITC
                 pair.ToolTip = toolTip;
             }
 
+            if (labelTooltip != null || valueTooltip != null)
+            {
+                labelField.ToolTip = labelTooltip;
+                valueField.ToolTip = valueTooltip;
+                pair.ToolTip = null;
+            }
             return pair;
         }
 

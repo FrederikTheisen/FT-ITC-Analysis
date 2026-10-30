@@ -26,13 +26,13 @@ public sealed class NullModelComparisonPresentationTests
 
         var joules = NullModelComparisonPresentation.AnalysisInspectorRows(comparison, EnergyUnitFamily.Joules);
         Assert.Equal("Offset", joules[0].Value);
-        Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), joules[1].Value);
+        Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture) + " µJ", joules[1].Value);
         Assert.Equal("+10", joules[2].Value);
         Assert.Equal("Inconclusive", joules[3].Value);
 
         // 4.184 µJ = 1 µcal.
         var calories = NullModelComparisonPresentation.AnalysisInspectorRows(comparison, EnergyUnitFamily.Calories);
-        Assert.Equal("1", calories[1].Value);
+        Assert.Equal("1 µcal", calories[1].Value);
     }
 
     [Theory]
@@ -54,7 +54,8 @@ public sealed class NullModelComparisonPresentationTests
         var rows = NullModelComparisonPresentation.AnalysisInspectorRows(Comparison(-2, 4.184), EnergyUnitFamily.Joules);
 
         Assert.Equal("", rows[0].Tooltip);
-        Assert.Contains("RMSD unit: µJ", rows[1].Tooltip);
+        Assert.DoesNotContain("RMSD unit", rows[1].Tooltip);
+        Assert.Equal(RmsdPresentation.LabelTooltip, rows[1].LabelTooltip);
         Assert.Equal(rows[1].Tooltip, rows[2].Tooltip);
         Assert.Equal("", rows[3].Tooltip);
         Assert.Equal("No binding detected", rows[3].Value);

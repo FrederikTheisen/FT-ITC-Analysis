@@ -1102,7 +1102,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             fitSummaryRows.Children.Clear();
 
-            var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(experiment?.Solution);
+            var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(experiment?.Solution, AppSettings.EnergyUnitFamily);
             if (summary.IsEmpty)
             {
                 fitSummaryRows.Children.Add(Text(AnalysisParameterSummaryPresentation.NoFitText));
@@ -1112,7 +1112,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (summary.Header != null)
                 fitSummaryRows.Children.Add(FitSummaryHeader(summary));
             foreach (var row in summary.Rows)
-                fitSummaryRows.Children.Add(FitSummaryRow(row.Label, row.Value));
+                fitSummaryRows.Children.Add(FitSummaryRow(row));
         }
 
         static Control FitSummaryHeader(AnalysisFitSummary summary)
@@ -1146,9 +1146,13 @@ namespace AnalysisITC.Avalonia.Analysis
             };
         }
 
-        static Control FitSummaryRow(string label, string value)
+        static Control FitSummaryRow(AnalysisParameterSummaryRow row)
         {
-            return SummaryRow(MarkdownText(label), MarkdownText(value));
+            var label = MarkdownText(row.Label);
+            var value = MarkdownText(row.Value);
+            if (!string.IsNullOrWhiteSpace(row.LabelTooltip)) ToolTip.SetTip(label, row.LabelTooltip);
+            if (!string.IsNullOrWhiteSpace(row.ValueTooltip)) ToolTip.SetTip(value, row.ValueTooltip);
+            return SummaryRow(label, value);
         }
 
         static Control SummaryRow(TextBlock labelText, TextBlock valueText)
@@ -1187,7 +1191,9 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!string.IsNullOrWhiteSpace(row.Tooltip))
                     ToolTip.SetTip(value, row.Tooltip);
                 nullTestValueTexts[row.Label] = value;
-                nullTestRows.Children.Add(SummaryRow(new TextBlock { Text = row.Label }, value));
+                var label = new TextBlock { Text = row.Label };
+                if (!string.IsNullOrWhiteSpace(row.LabelTooltip)) ToolTip.SetTip(label, row.LabelTooltip);
+                nullTestRows.Children.Add(SummaryRow(label, value));
             }
         }
 

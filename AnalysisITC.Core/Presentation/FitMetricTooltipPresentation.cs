@@ -17,13 +17,16 @@ namespace AnalysisITC.Core.Presentation
         internal static string Rmsd(
             SolverConvergence convergence,
             IFormatProvider provider = null)
+            => "Unweighted root mean square deviation (RMSD) in µJ. " + RmsdValue(convergence, provider);
+
+        internal static string RmsdValue(SolverConvergence convergence, IFormatProvider provider = null)
         {
             provider ??= CultureInfo.CurrentCulture;
             var objective = convergence?.Objective;
             if (!objective.HasValue || double.IsNaN(objective.Value) || double.IsInfinity(objective.Value))
-                return "Unweighted root mean square deviation (RMSD) in µJ. Optimisation objective unavailable.";
+                return "Optimisation objective unavailable.";
 
-            return "Unweighted root mean square deviation (RMSD) in µJ. Optimisation objective = "
+            return "Optimisation objective = "
                 + objective.Value.ToString("G6", provider)
                 + ".";
         }

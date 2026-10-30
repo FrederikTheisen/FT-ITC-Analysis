@@ -121,8 +121,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             var views = rows
                 .Select(row => new NSView[]
                 {
-                    CreateParameterLabel(row.Label),
-                    CreateValueLabel(row.Value),
+                    CreateParameterLabel(row.Label, row.LabelTooltip),
+                    CreateValueLabel(row.Value, row.ValueTooltip),
                 })
                 .ToArray();
             var grid = NSGridView.Create(views);
@@ -140,7 +140,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             AddFullWidth(grid);
         }
 
-        NSTextField CreateParameterLabel(string text)
+        NSTextField CreateParameterLabel(string text, string tooltip)
         {
             var label = CreateLabel(
                 text,
@@ -149,11 +149,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 NSTextAlignment.Left,
                 750,
                 1000);
-            label.ToolTip = PlainText(text);
+            label.ToolTip = string.IsNullOrWhiteSpace(tooltip) ? PlainText(text) : tooltip;
             return label;
         }
 
-        NSTextField CreateValueLabel(string text)
+        NSTextField CreateValueLabel(string text, string tooltip)
         {
             var label = CreateLabel(
                 text,
@@ -162,7 +162,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 NSTextAlignment.Right,
                 249,
                 250);
-            label.ToolTip = PlainText(text);
+            label.ToolTip = tooltip ?? PlainText(text);
             return label;
         }
 

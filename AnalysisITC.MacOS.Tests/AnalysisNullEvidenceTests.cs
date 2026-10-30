@@ -13,6 +13,8 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.UI.MacOS.Drawing;
 
 static class AnalysisNullEvidenceTests
@@ -27,9 +29,11 @@ static class AnalysisNullEvidenceTests
         DataAnalysisViewController controller = null;
         Task notification = null;
         var previousShowNullPrediction = AnalysisGraphView.ShowNullPrediction;
+        var previousFamily = AppSettings.EnergyUnitFamily;
         try
         {
             DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
             var experiment = new ExperimentData("null-evidence.DH");
             for (var index = 0; index < 3; index++)
             {
@@ -55,7 +59,7 @@ static class AnalysisNullEvidenceTests
                 NullFitSucceeded = true,
                 DeltaAicc = 12,
                 BindingInformationCriteria = Criteria(100, 1, 1),
-                NullInformationCriteria = Criteria(112, 2, 2),
+                NullInformationCriteria = Criteria(112, 2, 4.184),
                 Members = { Member(experiment, 40) }
             };
             typeof(SolutionInterface).GetProperty("NullComparison").GetSetMethod(true)
@@ -77,6 +81,19 @@ static class AnalysisNullEvidenceTests
                 && rendered.Contains("Null RMSD") && rendered.Contains("ΔAICc")
                 && rendered.Contains("Conclusion") && rendered.Contains("Offset")
                 && rendered.Contains("+12"), "Saved Null evidence values were not rendered");
+
+            CheckHeatRow(stack, 4.184.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ");
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
+            AppSettings.Save();
+            var unitDeadline = DateTime.UtcNow.AddSeconds(3);
+            while (!Rendered(stack).Contains("1 µcal") && DateTime.UtcNow < unitDeadline)
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.01));
+            CheckHeatRow(stack, "1 µcal");
+            Check(Rendered(stack).Contains("0 µcal"), "Primary fit RMSD did not refresh its unit");
+            Check(string.IsNullOrEmpty(Descendants(stack).OfType<NSTextField>().First(field => field.StringValue == "0 µcal").ToolTip),
+                "Primary fit value tooltip repeats its unit");
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+            AppSettings.Save();
 
             AnalysisGraphView.ShowNullPrediction = true;
             experiment.RemoveModel(notifyDataChange: false);
@@ -189,6 +206,7 @@ static class AnalysisNullEvidenceTests
             var predictions = typeof(DataFittingGraph).GetMethod("NullPredictionPointsFor", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(Outlet<AnalysisGraphView>(controller, "GraphView").DataFittingGraph, new object[] { other }) as System.Collections.IEnumerable;
             Check(predictions != null && predictions.Cast<object>().Any(), "New solution did not restore the prediction overlay data");
+            CheckResultHeatRows();
             Console.WriteLine("PASS: native saved Null rows and solution removal clear controller and graph evidence");
             return 0;
         }
@@ -207,7 +225,72 @@ static class AnalysisNullEvidenceTests
             if (controller != null) controller.Dispose();
             DataManager.Clear(DataClearMode.ResetSession);
             AnalysisGraphView.ShowNullPrediction = previousShowNullPrediction;
+            AppSettings.EnergyUnitFamily = previousFamily;
+            AppSettings.Save();
         }
+    }
+
+    static void CheckResultHeatRows()
+    {
+        var first = CreateExperiment("rmsd-first.DH", 12).Model;
+        var second = CreateExperiment("rmsd-second.DH", 15).Model;
+        first.Solution.NullComparison.NullInformationCriteria = Criteria(112, 2, 4.184);
+        second.Solution.NullComparison.NullInformationCriteria = Criteria(115, 2, 8.368);
+        var single = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = first }));
+        var global = new GlobalModel(new System.Collections.Generic.List<Model> { first, second })
+            { ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions };
+        global.Parameters.AddIndivdualParameter(first.Parameters);
+        global.Parameters.AddIndivdualParameter(second.Parameters);
+        global.Solution = new GlobalSolution(new GlobalSolver { Model = global },
+            new System.Collections.Generic.List<SolutionInterface> { first.Solution, second.Solution },
+            first.Solution.Convergence);
+        var independent = new AnalysisResult(global.Solution);
+        foreach (var scope in new[] { 0, 1, 2 })
+        {
+            var result = scope == 0 ? single : independent;
+            if (scope == 2)
+            {
+                global.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
+                global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
+                typeof(GlobalSolution).GetProperty("NullComparison").GetSetMethod(true).Invoke(global.Solution,
+                    new object[] { first.Solution.NullComparison });
+                result = new AnalysisResult(global.Solution);
+                Check(!result.IsIndependentAssessmentCollection, "Pooled fixture must share fitted parameters");
+            }
+            using (var controller = (AnalysisResultTabViewController)Create(typeof(AnalysisResultTabViewController)))
+            {
+                typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+                foreach (var family in new[] { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories })
+                {
+                    AppSettings.EnergyUnitFamily = family;
+                    foreach (var member in result.Solution.Solutions)
+                    {
+                        DataManager.SelectResultSolution(member);
+                        using (var section = (NSView)typeof(AnalysisResultTabViewController)
+                            .GetMethod("BuildAnalysisNullComparisonSection", Instance).Invoke(controller, null))
+                        {
+                            var label = Descendants(section).OfType<NSTextField>().Single(field => field.StringValue == "RMSD / ΔAICc");
+                            var value = label.Superview.Subviews.OfType<NSTextField>().Single(field => field != label);
+                            var heat = result.IsIndependentAssessmentCollection && member == second.Solution ? (family == EnergyUnitFamily.Joules ? 8.368.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ" : "2 µcal")
+                                : family == EnergyUnitFamily.Joules ? 4.184.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ" : "1 µcal";
+                            Check(value.StringValue.StartsWith(heat + " / +"), "Result analysis heat unit: " + value.StringValue);
+                            Check(label.ToolTip == RmsdPresentation.LabelTooltip, "Result RMSD label explanation");
+                            Check(!value.ToolTip.Contains("unweighted") && !value.ToolTip.Contains("RMSD unit"), "Result value repeats label/unit");
+                        }
+                    }
+                }
+            }
+        }
+        DataManager.ClearResultSolutionSelection();
+    }
+
+    static void CheckHeatRow(NSView root, string expected)
+    {
+        var label = Descendants(root).OfType<NSTextField>().Single(field => field.StringValue == "Null RMSD");
+        var value = label.Superview.Subviews.OfType<NSTextField>().Single(field => field != label);
+        Check(value.StringValue == expected, "Null RMSD value: " + value.StringValue);
+        Check(label.ToolTip == RmsdPresentation.LabelTooltip, "Missing heat explanation on label");
+        Check(value.ToolTip.Contains("Null AICc: 112") && !value.ToolTip.Contains("RMSD unit"), "Value tooltip repeats units or loses evidence");
     }
 
     static DataAnalysisViewController CreateController()

@@ -13,6 +13,7 @@ using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
@@ -239,7 +240,7 @@ public sealed class BindingAssessmentPresentationTests
             var evidenceRow = Assert.Single(workspace.SummaryPanelForTesting.GetLogicalDescendants()
                 .OfType<Border>().Where(border => border.Child is Grid grid
                     && grid.Children.OfType<TextBlock>().Any(block => block.Text == "RMSD / ΔAICc")));
-            Assert.Contains("Null AICc: 20", ToolTip.GetTip(evidenceRow)?.ToString());
+            Assert.Contains(evidenceRow.GetLogicalDescendants().OfType<TextBlock>(), block => ToolTip.GetTip(block)?.ToString()?.Contains("Null AICc: 20") == true);
         });
     }
 
@@ -369,6 +370,66 @@ public sealed class BindingAssessmentPresentationTests
             }
             finally { window.Close(); application.Styles.Remove(theme); workspace.Result = null; }
             details.Close();
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ResultInspectorsFormatHeatAndSeparateExplanationFromEvidence(int scope)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var previous = AppSettings.EnergyUnitFamily;
+            DataManager.Clear(DataClearMode.ResetSession);
+            var independent = scope == 1;
+            var result = scope != 0 ? CreateIndependentResult(out _) : CreateResult(CreateComparison(15));
+            if (scope == 2)
+            {
+                result.Model.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
+                result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
+                result.Solution.NullComparison = CreateComparison(15);
+                result = new AnalysisResult(result.Solution);
+                Assert.False(result.IsIndependentAssessmentCollection);
+            }
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            try
+            {
+                foreach (var family in new[] { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories })
+                {
+                    AppSettings.EnergyUnitFamily = family;
+                    workspace.Refresh(); // The application invokes this after a preference change.
+                    var unit = family == EnergyUnitFamily.Joules ? "µJ" : "µcal";
+                    var value = family == EnergyUnitFamily.Joules ? 4.184.ToString("G4", CultureInfo.CurrentCulture) : "1";
+                    var primary = workspace.SummaryPanelForTesting.GetLogicalDescendants().OfType<TextBlock>()
+                        .Single(block => block.Text == "RMSD");
+                    Assert.Equal(RmsdPresentation.LabelTooltip, ToolTip.GetTip(primary));
+                    var primaryGrid = Assert.IsType<Grid>(primary.Parent);
+                    Assert.Contains(primaryGrid.Children.OfType<TextBlock>(), block => block.Text == "0 " + unit);
+                    foreach (var selected in result.Solution.Solutions)
+                    {
+                        DataManager.SelectResultSolution(selected);
+                        var section = (Control)typeof(AnalysisResultWorkspaceControl)
+                            .GetMethod("BuildAnalysisNullComparisonSection", BindingFlags.Instance | BindingFlags.NonPublic)!
+                            .Invoke(workspace, new object[] { result })!;
+                        var label = section.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Text == "RMSD / ΔAICc");
+                        Assert.Equal(RmsdPresentation.LabelTooltip, ToolTip.GetTip(label));
+                        var grid = Assert.IsType<Grid>(label.Parent);
+                        var numeric = grid.Children.OfType<TextBlock>().Single(block => !ReferenceEquals(block, label));
+                        Assert.Equal(independent && selected == result.Solution.Solutions[1]
+                            ? "Unavailable / Not calculated" : value + " " + unit + " / +15", numeric.Text);
+                        Assert.DoesNotContain("unweighted", ToolTip.GetTip(numeric)?.ToString(), System.StringComparison.OrdinalIgnoreCase);
+                        Assert.DoesNotContain("RMSD unit", ToolTip.GetTip(numeric)?.ToString());
+                    }
+                }
+            }
+            finally
+            {
+                workspace.Result = null;
+                DataManager.Clear(DataClearMode.ResetSession);
+                AppSettings.EnergyUnitFamily = previous;
+            }
         });
     }
 

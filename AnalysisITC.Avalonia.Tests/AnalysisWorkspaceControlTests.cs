@@ -88,7 +88,7 @@ public sealed class AnalysisWorkspaceControlTests
                 try
                 {
                     Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
-                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture) + " µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("+10", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Inconclusive", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.Equal(NullModelComparisonPresentation.AnalysisEvidenceTooltip(
@@ -112,19 +112,19 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.DoesNotContain("Modify assessment", visibleText);
 
                     workspace.Experiment = second;
-                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture) + " µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     var restored = CreateNullComparisonExperiment("restored-private-id", -2, 8.368);
                     workspace.Experiment = restored;
-                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture) + " µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     var pooled = CreateNullComparisonExperiment("pooled-private-id", 15, 4.184, pooledGlobal: true);
                     workspace.Experiment = pooled;
-                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture) + " µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("+15", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.NotNull(workspace.GraphForTesting.NullComparison);
@@ -140,7 +140,7 @@ public sealed class AnalysisWorkspaceControlTests
                     AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
                     AppSettings.Save();
                     Dispatcher.UIThread.RunJobs();
-                    Assert.Equal("2", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("2 µcal", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
 
                     var inconclusive = CreateNullComparisonExperiment("inconclusive-private-id", 8, 4.184);
@@ -298,7 +298,7 @@ public sealed class AnalysisWorkspaceControlTests
                 try
                 {
                     var graph = workspace.GraphForTesting;
-                    var expected = AnalysisParameterSummaryPresentation.BuildInspectorSummary(model.Solution);
+                    var expected = AnalysisParameterSummaryPresentation.BuildInspectorSummary(model.Solution, AnalysisITC.Core.Units.EnergyUnitFamily.Joules);
                     var expectedLabels = expected.Rows.Select(row => PlainText(row.Label)).ToList();
 
                     Assert.Equal(model.ModelName, FitSummaryHeaderText(workspace));
@@ -378,7 +378,7 @@ public sealed class AnalysisWorkspaceControlTests
             Assert.Same(saved.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
             Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
             Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
-            Assert.Equal("2", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Equal("2 µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
             var predictionCheck = workspace.GetLogicalDescendants().OfType<CheckBox>()
                 .Single(check => Equals(check.Content, "Null prediction"));
             Assert.True(predictionCheck.IsEnabled);
@@ -409,7 +409,7 @@ public sealed class AnalysisWorkspaceControlTests
                 Assert.Equal("One-Set-Of-Sites", FitSummaryHeaderText(workspace));
                 Assert.Equal(stoichiometry.ToString("0", CultureInfo.InvariantCulture),
                     FitSummaryValue(workspace, "N"));
-                Assert.Equal("3", workspace.NullTestValueForTesting("Null RMSD").Text);
+                Assert.Equal("3 µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
                 Assert.Same(model.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
             }
 
@@ -450,7 +450,7 @@ public sealed class AnalysisWorkspaceControlTests
             await Publish(() => experiment.UpdateSolution(replacement));
             Assert.Same(replacementComparison, workspace.GraphForTesting.NullComparison);
             Assert.Equal("+7", workspace.NullTestValueForTesting("ΔAICc").Text);
-            Assert.Equal("4", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Equal("4 µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
             Assert.True(workspace.GraphForTesting.ShowNullPrediction);
             Assert.True(workspace.GraphForTesting.NullPredictionValueForTesting(experiment.Injections[0].ID).HasValue);
             Assert.True(predictionCheck.IsEnabled);
@@ -511,7 +511,7 @@ public sealed class AnalysisWorkspaceControlTests
 
             Assert.Same(second, workspace.Experiment);
             Assert.Equal("-6", workspace.NullTestValueForTesting("ΔAICc").Text);
-            Assert.Equal("5", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Equal("5 µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
             Assert.Same(secondModel.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
 
             first.RemoveModel(notifyDataChange: false);
@@ -571,7 +571,7 @@ public sealed class AnalysisWorkspaceControlTests
 
             Assert.Same(fittingModel.Solution.NullComparison, workspace.GraphForTesting.NullComparison);
             Assert.Equal("+11", workspace.NullTestValueForTesting("ΔAICc").Text);
-            Assert.Equal("6", workspace.NullTestValueForTesting("Null RMSD").Text);
+            Assert.Equal("6 µJ", workspace.NullTestValueForTesting("Null RMSD").Text);
         }
         finally
         {

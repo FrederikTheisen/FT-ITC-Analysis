@@ -114,7 +114,7 @@ public sealed class BindingAssessmentTests
             comparison, EnergyUnitFamily.Calories));
         var tooltip = NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily.Calories);
         Assert.Contains("Null AICc: 110", tooltip);
-        Assert.Contains("RMSD unit: µcal", tooltip);
+        Assert.DoesNotContain("RMSD unit", tooltip);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class BindingAssessmentTests
         comparison.Members.Add(new NullModelComparisonMember { ExperimentId = "private-id" });
 
         var tooltip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, EnergyUnitFamily.Calories);
-        Assert.Equal("Null AICc: 110. RMSD unit: µcal.", tooltip);
+        Assert.Equal("Null AICc: 110.", tooltip);
         Assert.DoesNotContain("private-id", tooltip);
         Assert.DoesNotContain("observations", tooltip, StringComparison.OrdinalIgnoreCase);
 
@@ -133,7 +133,7 @@ public sealed class BindingAssessmentTests
         comparison.NullFitReason = "Offset solver did not converge.";
         tooltip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, EnergyUnitFamily.Calories);
         Assert.Contains("Null AICc: 110", tooltip);
-        Assert.Contains("RMSD unit: µcal", tooltip);
+        Assert.DoesNotContain("RMSD unit", tooltip);
         Assert.Contains("Offset solver did not converge.", tooltip);
     }
 

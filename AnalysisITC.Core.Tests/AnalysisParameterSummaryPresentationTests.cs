@@ -14,7 +14,7 @@ public sealed class AnalysisParameterSummaryPresentationTests
     [Fact]
     public void InspectorSummaryWithoutSolutionIsEmpty()
     {
-        var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(null);
+        var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(null, AnalysisITC.Core.Units.EnergyUnitFamily.Joules);
 
         Assert.True(summary.IsEmpty);
         Assert.Null(summary.Header);
@@ -27,7 +27,7 @@ public sealed class AnalysisParameterSummaryPresentationTests
     {
         var model = CreateFittedOneSetOfSites();
 
-        var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(model.Solution);
+        var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(model.Solution, AnalysisITC.Core.Units.EnergyUnitFamily.Joules);
 
         Assert.False(summary.IsEmpty);
         Assert.Equal(model.ModelName, summary.ModelTitle);
@@ -36,7 +36,9 @@ public sealed class AnalysisParameterSummaryPresentationTests
 
         var labels = summary.Rows.Select(row => row.Label).ToList();
         Assert.Equal("RMSD", labels[0]);
-        Assert.Equal(model.Solution.Loss.ToString("G3"), summary.Rows[0].Value);
+        Assert.Equal("0 µJ", summary.Rows[0].Value);
+        Assert.Equal(RmsdPresentation.LabelTooltip, summary.Rows[0].LabelTooltip);
+        Assert.Equal(string.Empty, summary.Rows[0].ValueTooltip);
         Assert.Contains("N", labels);
         Assert.Contains(MarkdownStrings.DissociationConstant, labels);
         Assert.Contains(MarkdownStrings.Enthalpy, labels);

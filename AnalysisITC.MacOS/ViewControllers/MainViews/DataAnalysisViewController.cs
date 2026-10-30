@@ -409,7 +409,7 @@ namespace AnalysisITC
             if (FitSummaryView == null) return;
 
             FitSummaryView.Display(AnalysisParameterSummaryPresentation.BuildInspectorSummary(
-                DataManager.Current?.Solution));
+                DataManager.Current?.Solution, AppSettings.EnergyUnitFamily));
         }
 
         void RefreshAnalysisSummary()
@@ -491,6 +491,7 @@ namespace AnalysisITC
         static NSView NullTestRow(NullModelComparisonDisplayRow row)
         {
             var key = NSTextField.CreateLabel(row.Label);
+            key.ToolTip = row.LabelTooltip;
             key.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
             key.TextColor = NSColor.SecondaryLabel;
             key.WidthAnchor.ConstraintEqualToConstant(72).Active = true;
