@@ -261,19 +261,21 @@ public sealed class AnalysisReportRenderingTests
 
     [AvaloniaTheory]
     [InlineData(AnalysisInterpretationOrigin.Manual, false, "Manual")]
-    [InlineData(AnalysisInterpretationOrigin.AiGenerated, false, "Automatically generated • Cannot verify")]
-    [InlineData(AnalysisInterpretationOrigin.AiGenerated, true, "Automatically generated, user edited • Cannot verify")]
+    [InlineData(AnalysisInterpretationOrigin.AiGenerated, false, "AI-generated • Cannot verify")]
+    [InlineData(AnalysisInterpretationOrigin.AiGenerated, true, "AI-generated; edited by user")]
     public void InterpretationStatusPreservesOriginAndUserEditedWording(AnalysisInterpretationOrigin origin, bool edited, string expected)
     {
         var report = new AnalysisReport();
         if (origin == AnalysisInterpretationOrigin.Manual)
             report.SetManualInterpretation("The approved interpretation is retained.");
         else
+        {
             report.ApproveInterpretation(new AnalysisInterpretationRecord
             {
-                UserEdited = edited,
                 InterpretationMarkdown = "The approved interpretation is retained.",
             });
+            if (edited) report.UpdateApprovedInterpretationText("The approved interpretation is retained, with user edits.");
+        }
         var window = new AnalysisReportWindow();
         const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
         typeof(AnalysisReportWindow).GetField("report", flags)!.SetValue(window, report);

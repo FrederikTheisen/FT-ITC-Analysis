@@ -504,7 +504,7 @@ public sealed class ProjectInformationTests
     }
 
     [Fact]
-    public void IdenticalAiApprovalIsANoOpButExplicitUserEditingReplacesAiOrigin()
+    public void IdenticalAiApprovalIsANoOpButExplicitUserEditingRetainsAiOrigin()
     {
         var report = new AnalysisReport();
         var record = new AnalysisInterpretationRecord
@@ -518,11 +518,13 @@ public sealed class ProjectInformationTests
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         report.UpdateApprovedInterpretationText(record.InterpretationMarkdown);
         Assert.Equal(timestamp, report.LastEditedUtc);
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
+        Assert.True(report.ApprovedInterpretation.UserEdited);
         Assert.True(report.ApprovedInterpretation.ApprovedAtUtc >= approved);
         report.UpdateApprovedInterpretationText("## Overall interpretation\nChanged text.");
         Assert.Equal(timestamp, report.LastEditedUtc);
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
+        Assert.True(report.ApprovedInterpretation.UserEdited);
         Assert.Contains("Changed text.", report.ApprovedInterpretation.InterpretationMarkdown);
     }
 

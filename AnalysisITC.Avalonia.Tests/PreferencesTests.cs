@@ -193,19 +193,24 @@ public sealed class PreferencesTests
         var state = PreferencesState.Defaults();
         state.TraceabilityModeEnabled = true;
         state.PromptForIdentifiersOnImport = false;
+        state.ConfirmUserAtStartup = false;
         state.UserName = "Zoë 李";
 
         window.LoadState(state);
         Assert.True(window.TraceabilityModeCheck.IsChecked);
+        Assert.False(window.ConfirmUserAtStartupCheck.IsChecked);
+        Assert.True(window.ConfirmUserAtStartupCheck.IsEnabled);
         Assert.False(window.PromptForIdentifiersCheck.IsChecked);
         Assert.True(window.PromptForIdentifiersCheck.IsEnabled);
         Assert.Equal("Zoë 李", window.UserNameBox.Text);
 
         window.TraceabilityModeCheck.IsChecked = false;
+        Assert.False(window.ConfirmUserAtStartupCheck.IsEnabled);
         Assert.False(window.PromptForIdentifiersCheck.IsEnabled);
         Assert.True(window.TryBuildState(out var staged));
         Assert.False(staged.TraceabilityModeEnabled);
         Assert.False(staged.PromptForIdentifiersOnImport);
+        Assert.False(staged.ConfirmUserAtStartup);
         Assert.Equal("Zoë 李", staged.UserName);
     }
 
@@ -229,7 +234,7 @@ public sealed class PreferencesTests
             Assert.True(apply.IsCompleted);
 
             Assert.False(window.Applied);
-            Assert.Equal("An operator name is required when Traceability Mode is enabled.", window.StatusText.Text);
+            Assert.Equal("A user name is required when Traceability Mode is enabled.", window.StatusText.Text);
             Assert.True(window.TraceabilityModeCheck.IsChecked);
             Assert.Equal("   ", window.UserNameBox.Text);
             Assert.False(AppSettings.TraceabilityModeEnabled);

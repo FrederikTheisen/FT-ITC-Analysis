@@ -294,6 +294,8 @@ namespace AnalysisITC.Core.Interpretation
             if (report.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Current, Reason = "The interpretation was written by the user." };
             var record = report.ApprovedInterpretation;
+            if (record.UserEdited)
+                return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Current, Reason = "The generated interpretation was edited by the user; generated-text freshness no longer applies." };
             if (record.EvidenceFingerprintScheme != AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme
                 && record.EvidenceFingerprintScheme != AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Unverifiable, Reason = "The approved interpretation has no verifiable evidence-fingerprint scheme." };

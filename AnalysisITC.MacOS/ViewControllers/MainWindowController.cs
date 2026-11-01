@@ -120,7 +120,9 @@ namespace AnalysisITC
 
         Task<bool> ConfirmOperatorAsync()
         {
-            if (!AppSettings.TraceabilityModeEnabled) return Task.FromResult(true);
+            if (!TraceabilityPresentation.ShouldConfirmAtStartup(
+                    AppSettings.TraceabilityModeEnabled, AppSettings.ConfirmUserAtStartup, AppSettings.UserName))
+                return Task.FromResult(true);
 
             Window.MakeKeyAndOrderFront(this);
             NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);

@@ -59,6 +59,7 @@ namespace AnalysisITC.Core.Application
         public static string InterpretationOperatorCode { get; set; } = "";
         public static string UserName { get; set; } = "";
         public static bool TraceabilityModeEnabled { get; set; }
+        public static bool ConfirmUserAtStartup { get; set; } = true;
         public static bool PromptForIdentifiersOnImport { get; set; } = true;
         /// <summary>Hidden installation identity used for anonymous interpretation access.</summary>
         public static string InterpretationPublicClientCode { get; set; } = "";
@@ -349,6 +350,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetString("InterpretationOperatorCode", InterpretationOperatorCode);
             Storage.SetString("UserName", UserName ?? "");
             Storage.SetBool("TraceabilityModeEnabled", TraceabilityModeEnabled);
+            Storage.SetBool("ConfirmUserAtStartup", ConfirmUserAtStartup);
             Storage.SetBool("PromptForIdentifiersOnImport", PromptForIdentifiersOnImport);
             Storage.SetString("InterpretationPublicClientCode", InterpretationPublicClientCode);
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
@@ -469,6 +471,7 @@ namespace AnalysisITC.Core.Application
             InterpretationOperatorCode = Storage.GetString("InterpretationOperatorCode") ?? "";
             UserName = Storage.GetString("UserName") ?? "";
             TraceabilityModeEnabled = Storage.GetBool("TraceabilityModeEnabled", TraceabilityModeEnabled);
+            ConfirmUserAtStartup = Storage.GetBool("ConfirmUserAtStartup", true);
             PromptForIdentifiersOnImport = Storage.GetBool("PromptForIdentifiersOnImport", PromptForIdentifiersOnImport);
             InterpretationPublicClientCode = Storage.GetString("InterpretationPublicClientCode") ?? "";
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);

@@ -83,7 +83,7 @@
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-trace">
                                                             <rect key="frame" x="-2" y="928" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Operator and traceability" id="general-section-trace-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="" id="general-section-trace-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -91,7 +91,7 @@
                                                         </textField>
                                                         <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TraceabilityModeCheck">
                                                             <rect key="frame" x="0.0" y="0.0" width="602" height="18"/>
-                                                            <buttonCell key="cell" type="check" title="Enable Traceability Mode" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-TraceabilityModeCheck-cell">
+                                                            <buttonCell key="cell" type="check" title="" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-TraceabilityModeCheck-cell">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
@@ -99,12 +99,20 @@
                                                                 <action selector="traceabilityModeChanged:" target="general-pane-controller" id="general-TraceabilityModeCheck-action"/>
                                                             </connections>
                                                         </button>
+                                                        <textField horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-TraceabilityModeDescription">
+                                                            <rect key="frame" x="0.0" y="0.0" width="600" height="34"/>
+                                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" title="" id="general-TraceabilityModeDescription-cell">
+                                                                <font metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-row">
                                                             <rect key="frame" x="0.0" y="691" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-label">
                                                                     <rect key="frame" x="-2" y="7" width="344" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Operator name" id="general-ReportAuthorField-label-cell">
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="" id="general-ReportAuthorField-label-cell">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -137,15 +145,22 @@
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorDescription">
                                                             <rect key="frame" x="0.0" y="0.0" width="600" height="34"/>
-                                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" title="Used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled." id="general-ReportAuthorDescription-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" title="" id="general-ReportAuthorDescription-cell">
                                                                 <font metaFont="smallSystem"/>
                                                                 <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
                                                         </textField>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConfirmUserAtStartupCheck">
+                                                            <rect key="frame" x="0.0" y="0.0" width="602" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-ConfirmUserAtStartupCheck-cell">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                        </button>
                                                         <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-PromptForIdentifiersCheck">
                                                             <rect key="frame" x="0.0" y="0.0" width="602" height="18"/>
-                                                            <buttonCell key="cell" type="check" title="Prompt for experiment and sample IDs after import" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-PromptForIdentifiersCheck-cell">
+                                                            <buttonCell key="cell" type="check" title="" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-PromptForIdentifiersCheck-cell">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
@@ -998,6 +1013,11 @@ DQ
                         <outlet property="PreferencesScrollView" destination="general-scroll" id="general-scroll-outlet"/>
                         <outlet property="RecoveryPromptCheck" destination="general-RecoveryPromptCheck" id="general-RecoveryPromptCheck-outlet"/>
                         <outlet property="TraceabilityModeCheck" destination="general-TraceabilityModeCheck" id="general-TraceabilityModeCheck-outlet"/>
+                        <outlet property="TraceabilitySectionLabel" destination="general-section-trace" id="general-TraceabilitySectionLabel-outlet"/>
+                        <outlet property="TraceabilityModeDescription" destination="general-TraceabilityModeDescription" id="general-TraceabilityModeDescription-outlet"/>
+                        <outlet property="UserNameLabel" destination="general-ReportAuthorField-label" id="general-UserNameLabel-outlet"/>
+                        <outlet property="UserNameDescription" destination="general-ReportAuthorDescription" id="general-UserNameDescription-outlet"/>
+                        <outlet property="ConfirmUserAtStartupCheck" destination="general-ConfirmUserAtStartupCheck" id="general-ConfirmUserAtStartupCheck-outlet"/>
                         <outlet property="PromptForIdentifiersCheck" destination="general-PromptForIdentifiersCheck" id="general-PromptForIdentifiersCheck-outlet"/>
                         <outlet property="ReferenceTemperatureField" destination="general-ReferenceTemperatureField" id="general-ReferenceTemperatureField-outlet"/>
                         <outlet property="ReportAuthorField" destination="general-ReportAuthorField" id="general-ReportAuthorField-outlet"/>

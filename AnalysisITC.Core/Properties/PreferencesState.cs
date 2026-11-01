@@ -37,6 +37,7 @@ namespace AnalysisITC.Core.Application
         public string InterpretationOperatorCode { get; set; } = "";
         public string UserName { get; set; } = "";
         public bool TraceabilityModeEnabled { get; set; }
+        public bool ConfirmUserAtStartup { get; set; } = true;
         public bool PromptForIdentifiersOnImport { get; set; } = true;
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
@@ -150,7 +151,7 @@ namespace AnalysisITC.Core.Application
         {
             if (traceabilityModeEnabled && string.IsNullOrWhiteSpace(userName))
             {
-                error = "An operator name is required when Traceability Mode is enabled.";
+                error = TraceabilityPresentation.UserNameRequired;
                 return false;
             }
 
@@ -174,6 +175,7 @@ namespace AnalysisITC.Core.Application
                 InterpretationOperatorCode = AppSettings.InterpretationOperatorCode,
                 UserName = AppSettings.UserName,
                 TraceabilityModeEnabled = AppSettings.TraceabilityModeEnabled,
+                ConfirmUserAtStartup = AppSettings.ConfirmUserAtStartup,
                 PromptForIdentifiersOnImport = AppSettings.PromptForIdentifiersOnImport,
                 UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
@@ -317,6 +319,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.InterpretationOperatorCode = InterpretationOperatorCode ?? "";
             AppSettings.UserName = (UserName ?? "").Trim();
             AppSettings.TraceabilityModeEnabled = TraceabilityModeEnabled;
+            AppSettings.ConfirmUserAtStartup = ConfirmUserAtStartup;
             AppSettings.PromptForIdentifiersOnImport = PromptForIdentifiersOnImport;
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";

@@ -541,7 +541,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task LiveInterpretationEditsReplaceAiAndRemainDirtyAfterUndoWithoutLeavingEditor(bool withHeading)
+    public async Task LiveInterpretationEditsRetainAiOriginAndRemainDirtyAfterUndoWithoutLeavingEditor(bool withHeading)
     {
         ResetData();
         var fixture = CreateResult("Live interpretation");
@@ -563,9 +563,10 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.False(Field<Button>(window, "saveReportButton").IsEnabled);
         var original = editor.Text;
         editor.Text += " added word";
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, session.Draft.ApprovedInterpretation.Origin);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, session.Draft.ApprovedInterpretation.Origin);
+        Assert.True(session.Draft.ApprovedInterpretation.UserEdited);
         Assert.Contains("added word", session.Draft.ApprovedInterpretation.InterpretationMarkdown);
-        Assert.Empty(session.Draft.ApprovedInterpretation.InputFingerprint);
+        Assert.Equal("original fingerprint", session.Draft.ApprovedInterpretation.InputFingerprint);
         Assert.False(DocumentDirtyTracker.IsDirty);
         editor.Text = original;
         Assert.True(session.HasChanges);
@@ -575,7 +576,9 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.False(await window.RequestCloseAsync());
         window.LeavePromptOverride = () => Task.FromResult(0);
         Assert.True(await window.RequestCloseAsync());
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, saved.ApprovedInterpretation.Origin);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, saved.ApprovedInterpretation.Origin);
+        Assert.True(saved.ApprovedInterpretation.UserEdited);
+        Assert.Equal("original fingerprint", saved.ApprovedInterpretation.InputFingerprint);
         Assert.Equal(AnalysisInterpretationResponseParser.ParseManual(original!), saved.ApprovedInterpretation.InterpretationMarkdown);
         Assert.False(session.HasChanges);
     }
@@ -979,6 +982,68 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 using var file = File.Create(Path.Combine(output, fileName));
                 image.SaveTo(file);
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public void OptionalInterpretationSourceQaArtifactsRenderEachSourceWithTraceabilityOnAndOff()
+    {
+        var output = Environment.GetEnvironmentVariable("FTITC_REPORT_QA_OUTPUT");
+        if (!string.IsNullOrWhiteSpace(output)) Directory.CreateDirectory(output);
+        var fixture = CreateResult("Interpretation source QA result with a long scientific name λ β 李明");
+        var report = new AnalysisReport { Name = "Interpretation source provenance visual QA" };
+        report.SetResultIds(new[] { fixture.Result.UniqueID });
+        var ai = new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nGenerated analysis text.",
+            Provider = "A long provider name for wrapping checks",
+            Model = "A deliberately long model identifier with family and revision details 2026-11-01",
+            ReasoningEffort = "high", InputFingerprint = new string('a', 64), EffectiveInputFingerprint = new string('b', 64),
+            GeneratedAtUtc = DateTime.UtcNow.AddHours(-1), ApprovedAtUtc = DateTime.UtcNow,
+        };
+        var cases = new[]
+        {
+            (Name: "manual", Record: new AnalysisInterpretationRecord
+            {
+                Origin = AnalysisInterpretationOrigin.Manual,
+                InterpretationMarkdown = "## Overall interpretation\nWritten by the user.",
+                ApprovedAtUtc = DateTime.UtcNow,
+            }),
+            (Name: "ai", Record: ai),
+            (Name: "edited", Record: Edited(ai)),
+        };
+        var renderer = new SkiaAnalysisReportRenderer();
+        foreach (var item in cases)
+        foreach (var traceability in new[] { false, true })
+        {
+            report.RestoreInterpretation(item.Record);
+            var document = AnalysisReportBuilder.Build(report, id => id == fixture.Result.UniqueID ? fixture.Result : null,
+                _ => null, new AnalysisReportOptions { ExtraTraceability = traceability });
+            var suffix = "interpretation-source-" + item.Name + (traceability ? "-traceability-on" : "-traceability-off");
+            var plan = renderer.CreatePlan(document);
+            var section = Assert.Single(document.Sections, value => value.Kind == AnalysisReportSectionKind.Interpretation);
+            Assert.Equal(traceability, section.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Interpretation source"));
+            AnalysisReportBlock target = traceability
+                ? section.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Interpretation source")
+                : section.Blocks.OfType<AnalysisReportTextBlock>().First(block => !string.IsNullOrWhiteSpace(block.Text));
+            var pageIndex = plan.Pages.ToList().FindIndex(page => page.Fragments.Any(fragment =>
+                ReferenceEquals(fragment.Block, target)));
+            Assert.True(pageIndex >= 0, "The selected interpretation block should have a rendered page.");
+            using var bitmap = renderer.RenderPageBitmap(document, plan, pageIndex, 1200);
+            Assert.True(bitmap.Width > 0 && bitmap.Height > 0);
+            if (string.IsNullOrWhiteSpace(output)) continue;
+            using var image = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+            using var file = File.Create(Path.Combine(output, suffix + ".png"));
+            image.SaveTo(file);
+        }
+
+        static AnalysisInterpretationRecord Edited(AnalysisInterpretationRecord source)
+        {
+            var copy = source.Copy();
+            copy.UserEdited = true;
+            copy.InterpretationMarkdown = "## Overall interpretation\nEdited generated analysis text.";
+            return copy;
         }
     }
 

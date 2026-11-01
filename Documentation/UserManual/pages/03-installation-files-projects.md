@@ -71,7 +71,7 @@ Opening one complete `.ftxtc` project into an empty document makes that file the
 
 ### Traceability Mode at startup
 
-With Traceability Mode enabled, confirm the operator at launch before recovery or requested files are opened. **Continue** saves the name. **Quit** or closing the confirmation exits without changing it or resolving recovery files.
+With Traceability Mode enabled, **Confirm user at startup** asks who is working on this computer before recovery or requested files are opened. The option is on by default. A blank saved user name always prompts, even when the option is off, because Traceability Mode requires a name. The **Confirm User** prompt's **Continue** button saves the entered name; **Quit** or closing the prompt exits without changing it or resolving recovery files.
 
 ## Save projects
 
@@ -81,7 +81,7 @@ Save after fitting or processing finishes. Save commands requested while busy ar
 
 If a save finishes but newer changes remain unsaved, the document stays marked as changed. When this happens while closing, quitting, clearing, or replacing a project, the app keeps the current document open; save again to include those changes.
 
-An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening. Optional external experiment, cell sample/batch, and syringe sample/batch IDs are saved as experiment metadata; each result also retains the operator recorded when it was created or successfully updated.
+An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening. Optional external experiment, cell sample/batch, and syringe sample/batch IDs are saved as experiment metadata; each result also retains the user name recorded when it was created or successfully updated.
 
 **Save Selected...** writes selected project content when you need to share a subset of the project. Confirm the selection before saving and reopen the result if the subset is critical. Selecting Experiment Data saves each selected experiment and its attached solution, if any. If the experiment uses Buffer Subtraction, the reference's heats are stored with it so the correction can be reproduced without the reference experiment. Selecting an Analysis Result saves the result, its member experiments, and the buffer reference experiments they use. It also saves any Analysis Results selected in their **Competitor properties** attributes, with those results' experiments, so the competitor source stays available when the file is opened on its own.
 

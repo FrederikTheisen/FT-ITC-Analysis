@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using AnalysisITC.Avalonia;
+using AnalysisITC.Core.Presentation;
 
 using Xunit;
 
@@ -202,5 +203,36 @@ public sealed class StartupFileActivationCoordinatorTests
         Assert.False(readCalled);
         Assert.False(coordinator.IsReady);
         Assert.False(await coordinator.Request(new[] { "/tmp/late.ftxtc" }));
+    }
+
+    [Theory]
+    [InlineData(true, false, "Ada Lovelace", true, true, "recovery,read,ready")]
+    [InlineData(true, false, "", true, true, "confirm,recovery,read,ready")]
+    [InlineData(true, true, "Ada Lovelace", false, false, "confirm")]
+    [InlineData(false, true, "", false, true, "recovery,read,ready")]
+    public async Task StartupPolicyRunsConfirmationBeforeRecoveryAndQueuedFileReads(
+        bool traceabilityEnabled, bool confirmAtStartup, string userName,
+        bool confirmationResult, bool expectedContinue, string expectedOrder)
+    {
+        var coordinator = new StartupFileActivationCoordinator();
+        var order = new List<string>();
+        var request = coordinator.Request(new[] { "/tmp/traceability-startup.ftxtc" });
+        var shouldConfirm = TraceabilityPresentation.ShouldConfirmAtStartup(
+            traceabilityEnabled, confirmAtStartup, userName);
+
+        var continued = await coordinator.InitializeAsync(
+            () =>
+            {
+                if (!shouldConfirm) return Task.FromResult(true);
+                order.Add("confirm");
+                return Task.FromResult(confirmationResult);
+            },
+            () => { order.Add("recovery"); return Task.CompletedTask; },
+            _ => { order.Add("read"); return Task.CompletedTask; },
+            () => order.Add("ready"));
+
+        Assert.Equal(expectedContinue, continued);
+        Assert.Equal(expectedContinue, await request);
+        Assert.Equal(expectedOrder.Split(','), order);
     }
 }

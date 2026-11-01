@@ -529,20 +529,22 @@ The back-mixing factor is the fraction of a homogeneous dead-volume compartment 
 
 The cubic must keep rising or keep falling across the window. This assumes the local isotherm does not turn near the reload. Where the data barely distinguish fractions, a weak, chosen preference favors 5%; it is not measured mixing information.
 
-## Traceability and attribution
-Enable **Traceability Mode** to keep excluded injections visible in figures and add report attribution, interpretation source and editing history, and sign-off fields. Excluded points remain excluded from fitting.
+## Attribution and traceability
+Enable **Traceability Mode** to keep excluded injections visible in figures and add report attribution, interpretation source, and sign-off fields. Excluded points remain excluded from fitting. Traceability Mode requires a nonblank **User name** and can optionally ask for experiment and sample IDs after loading data.
 
-Confirm the operator at launch. **Continue** saves the entered name; **Quit** or closing the confirmation exits. If the operator changes during a session, update the name in General Preferences before creating or updating results.
+**Confirm user at startup** is on by default and asks who is working on this computer. In the **Confirm User** prompt, **Continue** saves the entered name; **Quit** or closing the prompt exits. If the user changes during a session, update the name in General Preferences before creating or updating results.
 
 # Experiment and sample identifiers
 
-With Traceability Mode and **Prompt for experiment and sample IDs after import** enabled, review identifiers after each raw-data import batch. Project imports do not trigger the review. IDs are optional and may repeat; filenames are not substituted for them. **Apply** saves edits; **Skip** or closing keeps the data without those edits. Use **Details > Identifiers** to edit them later.
+With Traceability Mode and **Review experiment and sample IDs after import** enabled, review identifiers after each raw-data import batch. Project imports do not trigger the review. IDs are optional and may repeat; filenames are not substituted for them. **Apply** saves edits; **Skip** or closing keeps the data without those edits. Use **Details > Identifiers** to edit them later.
 
 # Result and report attribution
 
-New and successfully updated Analysis Results record the current operator. Reports identify their preparer and generation time. In Traceability Mode, enter a **Report ID** and complete the exported signature/date fields as needed; saved analysis operators and experiment/sample IDs are included in report details.
+New and successfully updated Analysis Results record the current user. Reports identify their preparer and generation time. In Traceability Mode, enter a **Report ID** and complete the exported signature/date fields as needed; **Analyzed by** names and experiment/sample IDs are included in report details.
 
-Missing attribution appears as **Not recorded**; blank experiment/sample IDs are shown that way only in Traceability Mode. Preview updates capture the current preparer and time, and export refreshes them if the operator has changed.
+In Traceability Mode, **Interpretation source** identifies user-provided text and its **Last edited** time. Untouched generated text shows **AI-generated** and its model; edited generated text shows **AI-generated; edited by user** and its model.
+
+Missing attribution appears as **Not recorded**; blank experiment/sample IDs are shown that way only in Traceability Mode. Preview updates capture the current preparer and time, and export refreshes them if the user has changed.
 
 ## Additional tools and preferences
 # Experiment attributes

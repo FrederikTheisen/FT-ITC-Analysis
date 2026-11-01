@@ -56,11 +56,9 @@ namespace AnalysisITC.Core.Presentation
             {
                 if (edited.Length > 0)
                 {
-                    if (record?.Origin == AnalysisInterpretationOrigin.AiGenerated)
-                    {
-                        edited = AnalysisInterpretationResponseParser.Parse(edited);
-                    }
-                    else edited = AnalysisInterpretationResponseParser.ParseManual(edited);
+                    edited = record?.Origin == AnalysisInterpretationOrigin.AiGenerated && !record.UserEdited
+                        ? AnalysisInterpretationResponseParser.Parse(edited)
+                        : AnalysisInterpretationResponseParser.ParseManual(edited);
                 }
                 return !string.Equals((record?.InterpretationMarkdown ?? "").Trim(), edited, StringComparison.Ordinal);
             }

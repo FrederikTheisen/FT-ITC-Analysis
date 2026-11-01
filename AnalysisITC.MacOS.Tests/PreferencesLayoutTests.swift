@@ -11,6 +11,26 @@ class PreferencesWindow: NSWindowController {}
 @objc(MacGeneralPreferencesViewController)
 class GeneralPane: NSViewController {
     @objc var ReportAuthorField: NSTextField!
+    @objc var TraceabilitySectionLabel: NSTextField!
+    @objc var TraceabilityModeDescription: NSTextField!
+    @objc var UserNameLabel: NSTextField!
+    @objc var UserNameDescription: NSTextField!
+    @objc var TraceabilityModeCheck: NSButton!
+    @objc var ConfirmUserAtStartupCheck: NSButton!
+    @objc var PromptForIdentifiersCheck: NSButton!
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        TraceabilitySectionLabel.stringValue = "Attribution and traceability"
+        TraceabilityModeDescription.stringValue = "Requires a user name and adds attribution to reports. Optionally asks for experiment and sample IDs after loading data."
+        UserNameLabel.stringValue = "User name"
+        UserNameDescription.stringValue = "Used for new Analysis Results and report attribution. Existing results keep their saved user name."
+        TraceabilityModeCheck.title = "Enable Traceability Mode"
+        ConfirmUserAtStartupCheck.title = "Confirm user at startup"
+        PromptForIdentifiersCheck.title = "Review experiment and sample IDs after import"
+    }
+
+    @objc func traceabilityModeChanged(_ sender: NSButton) {}
 }
 @objc(MacInterpretationPreferencesViewController)
 class InterpretationPane: NSViewController {
@@ -134,7 +154,7 @@ func descendants(_ view: NSView) -> [NSView] {
 let heading = descendants(interpretation.view).compactMap { $0 as? NSTextField }
     .first { $0.stringValue == "Automated interpretation access" }
 let reportAuthorLabel = descendants(general.view).compactMap { $0 as? NSTextField }
-    .first { $0.stringValue == "Operator name" }
+    .first { $0.stringValue == "User name" }
 for item in tabs.tabViewItems {
     let pane = item.viewController!.view
     let scroll = descendants(pane).compactMap { $0 as? NSScrollView }.first
@@ -172,10 +192,10 @@ if let bookkeeping = bookkeeping {
     }
 }
 expect(heading != nil, "automated interpretation heading is missing")
-expect(reportAuthorLabel != nil, "operator name preference is missing")
+expect(reportAuthorLabel != nil, "user name preference is missing")
 let traceabilityHeading = descendants(general.view).compactMap { $0 as? NSTextField }
-    .first { $0.stringValue == "Operator and traceability" }
-let traceabilityChecks = ["Enable Traceability Mode", "Prompt for experiment and sample IDs after import"].map { title in
+    .first { $0.stringValue == "Attribution and traceability" }
+let traceabilityChecks = ["Enable Traceability Mode", "Review experiment and sample IDs after import", "Confirm user at startup"].map { title in
     (title, descendants(general.view).compactMap { $0 as? NSButton }.first { $0.title == title })
 }
 expect(traceabilityHeading != nil, "operator and traceability heading is missing")

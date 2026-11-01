@@ -50,7 +50,7 @@ and below the text. A single-line row is 16 pt tall in both desktop renderers.
 | | · Badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE | worst status of all results |
 | **F02** | **Subtitle** | only when a document label is set |
 | **F03** | **Sign-off** (bottom of front page) | Trace only |
-| | · Prepared by: operator, or Not recorded | |
+| | · Prepared by: user, or Not recorded | |
 | | · Generated at: timestamp | |
 | | · Report ID: ID, or Not recorded | |
 | | · Preparer signature ____ | |
@@ -89,23 +89,26 @@ Whole chapter omitted when the report has no saved interpretation.
 Opening another report clears the builder's text undo and redo history.
 Opening a saved report also refreshes its save buttons.
 
-User text edits immediately replace active AI provenance with manual origin and
+User text edits retain AI origin and generation provenance, set `userEdited`, and
 mark the detached draft unsaved until explicit report saving, including edits
-returned to the original wording. Generated text is read-only in the generation
-dialog and becomes editable after Use in Report. The builder-only review notice
-applies to both origins after any included result content change (including names,
-comments, assessments, and solution updates) or changed result selection. Confirm
-preserves the text and its source; editing records new user text. This notice is
-not I01 and is not printed.
+returned to the original wording. Whitespace-only text clears the interpretation;
+accepting a new generation starts an untouched AI record. Generated text is read-only
+in the generation dialog and becomes editable after Use in Report. The builder-only
+review notice applies to both origins after any included result content change
+(including names, comments, assessments, and solution updates) or changed result
+selection. Confirm preserves the text and its source; editing uses manual parsing
+and the same review checks as other report text, while clearing a prior confirmation.
+Confirm records the current time and result scope to clear the review notice. This
+notice is not I01 and is not printed.
 
 | Code | Content | When / omitted |
 | --- | --- | --- |
-| **I01** | **[Warn] Out-of-date interpretation / Interpretation freshness unknown** | generated text not current; never for manual text |
+| **I01** | **[Warn] Out-of-date interpretation / Interpretation freshness unknown** | untouched generated text not current; not for manual or user-edited AI text |
 | | · Reason + "The approved text has been retained and should be reviewed before use." | |
-| **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual text without "## " gets "Overall interpretation" heading |
-| **I03** | **Source and editing history** (rows) | Trace only |
-| | · Source: Written by the user · Saved | manual text |
-| | · Source: Automatically generated · User edited (Yes / Not marked as user-edited) · AI model (provider, model, reasoning in one row) | generated text; omit missing model details, or "not supplied" if all are missing; no request ID, scientific guidance, generation or approval timestamps |
+| **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual and user-edited AI text use manual parsing; text without "## " gets "Overall interpretation" heading |
+| **I03** | **Interpretation source** (rows) | Trace only |
+| | · Source: User-provided text · Last edited | manual text; no separate user-edited row |
+| | · Source: AI-generated, or AI-generated; edited by user · AI model (provider, model, reasoning in one row) | generated text; edited AI retains model and provenance; omit missing model details, or "not supplied" if all are missing; no AI timestamps, request ID, or scientific guidance |
 
 ## R. Result overview (per result)
 
@@ -121,7 +124,7 @@ makes the whole result Invalid with a named missing-experiment reason; Undo reco
 | **R01** | **Result n. Name** + status badge for this result | full title wraps beside the measured badge with an 8 pt gap |
 | **R02** | **Analysis** | |
 | | · Analysis date | |
-| | · Analysis operator: name, or Not recorded | Trace only |
+| | · Analyzed by: name, or Not recorded | Trace only |
 | | · Model, or "Attempted binding model" | "Attempted" when Std hides binding |
 | | · Member assessments (independent collection) or Binding assessment (single/pooled) | only when Std hides binding (shown in Diag too); independent collections show their common outcome or Mixed assessments |
 | | · Experiments | |

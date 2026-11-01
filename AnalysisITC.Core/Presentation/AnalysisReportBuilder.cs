@@ -287,14 +287,14 @@ namespace AnalysisITC.Core.Presentation
                 AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
             var record = report.ApprovedInterpretation;
             var freshness = report.InterpretationFreshness;
-            if (record.Origin == AnalysisInterpretationOrigin.AiGenerated
+            if (record.Origin == AnalysisInterpretationOrigin.AiGenerated && !record.UserEdited
                 && freshness != AnalysisInterpretationFreshness.Current)
                 section.Add(new AnalysisReportNoticeBlock(
                     freshness == AnalysisInterpretationFreshness.Stale ? "Out-of-date interpretation" : "Interpretation freshness unknown",
                     report.InterpretationFreshnessReason + " The approved text has been retained and should be reviewed before use.",
                     AnalysisReportNoticeLevel.Warning));
             AddMarkdownBlocks(section, record.InterpretationMarkdown,
-                record.Origin == AnalysisInterpretationOrigin.AiGenerated);
+                record.Origin == AnalysisInterpretationOrigin.AiGenerated && !record.UserEdited);
             if (options.ExtraTraceability)
                 AddInterpretationProvenance(section, record);
             return section;
@@ -305,7 +305,8 @@ namespace AnalysisITC.Core.Presentation
             var document = new AnalysisReportDocument { Title = "Interpretation", GeneratedAtUtc = DateTime.UtcNow };
             var section = new AnalysisReportSection(AnalysisReportSectionKind.Interpretation, "interpretation", "Interpretation",
                 AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-            AddMarkdownBlocks(section, markdown, true);
+            AddMarkdownBlocks(section, markdown, provenance == null
+                || provenance.Origin == AnalysisInterpretationOrigin.AiGenerated && !provenance.UserEdited);
             if (AppSettings.TraceabilityModeEnabled)
                 AddInterpretationProvenance(section, provenance ?? new AnalysisInterpretationRecord
                 { Provider = "openai", Model = "configured model", ServiceRequestId = new string('0', 32), GeneratedAtUtc = DateTime.UtcNow, ApprovedAtUtc = DateTime.UtcNow });
@@ -318,16 +319,17 @@ namespace AnalysisITC.Core.Presentation
             var items = record.Origin == AnalysisInterpretationOrigin.Manual
                 ? new[]
                 {
-                    new AnalysisReportKeyValueItem("Source", "Written by the user"),
-                    new AnalysisReportKeyValueItem("Saved", FormatUtc(record.ApprovedAtUtc)),
+                    new AnalysisReportKeyValueItem(AnalysisInterpretationPresentation.SourceLabel,
+                        AnalysisInterpretationPresentation.UserProvidedText),
+                    new AnalysisReportKeyValueItem(AnalysisInterpretationPresentation.LastEditedLabel, FormatUtc(record.ApprovedAtUtc)),
                 }
                 : new[]
                 {
-                    new AnalysisReportKeyValueItem("Source", "Automatically generated"),
-                    new AnalysisReportKeyValueItem("User edited", record.UserEdited ? "Yes" : "Not marked as user-edited"),
+                    new AnalysisReportKeyValueItem(AnalysisInterpretationPresentation.SourceLabel,
+                        record.UserEdited ? AnalysisInterpretationPresentation.AiGeneratedEdited : AnalysisInterpretationPresentation.AiGenerated),
                     new AnalysisReportKeyValueItem("AI model", FormatInterpretationModel(record)),
                 };
-            section.Add(new AnalysisReportKeyValueBlock("Source and editing history", items));
+            section.Add(new AnalysisReportKeyValueBlock(AnalysisInterpretationPresentation.SectionTitle, items));
         }
 
         static string FormatInterpretationModel(AnalysisInterpretationRecord record) =>
@@ -924,7 +926,8 @@ namespace AnalysisITC.Core.Presentation
                 analysisItems.Insert(2, Item(result.IsIndependentAssessmentCollection ? "Member assessments" : "Binding assessment",
                     CollectionAssessmentText(result)));
             if (options.ExtraTraceability)
-                analysisItems.Insert(1, Item("Analysis operator", string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName));
+                analysisItems.Insert(1, Item(TraceabilityPresentation.AnalyzedByLabel,
+                    string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName));
             if (!string.Equals(document.Title, result.Name, StringComparison.Ordinal))
                 analysisItems.Insert(0, Item("Result", result.Name));
             section.Add(new AnalysisReportKeyValueBlock("Analysis", analysisItems));

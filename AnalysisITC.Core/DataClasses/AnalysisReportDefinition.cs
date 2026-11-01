@@ -176,6 +176,7 @@ namespace AnalysisITC.Core.Data
             if (interpretation == null) throw new ArgumentNullException(nameof(interpretation));
             var next = interpretation.Copy();
             next.Origin = AnalysisInterpretationOrigin.AiGenerated;
+            next.UserEdited = false;
             if (next.EvidenceFingerprintScheme == AnalysisInterpretationPromptBuilder.LegacyEvidenceFingerprintScheme
                 && next.ReportNameForFingerprint == null)
                 next.ReportNameForFingerprint = approvedInterpretation?.EvidenceFingerprintScheme == next.EvidenceFingerprintScheme
@@ -217,7 +218,32 @@ namespace AnalysisITC.Core.Data
         }
 
         public void UpdateApprovedInterpretationText(string markdown, string assessmentContextFingerprint = null)
-            => SetManualInterpretation(markdown, assessmentContextFingerprint, userEdit: true);
+        {
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                ClearApprovedInterpretation();
+                return;
+            }
+
+            var text = AnalysisInterpretationResponseParser.ParseManual(markdown);
+            var fingerprint = assessmentContextFingerprint ?? approvedInterpretation?.AssessmentContextFingerprint ?? "";
+            if (approvedInterpretation?.Origin == AnalysisInterpretationOrigin.AiGenerated)
+            {
+                var next = approvedInterpretation.Copy();
+                next.InterpretationMarkdown = text;
+                next.UserEdited = true;
+                next.ReviewedResultIds = resultIds.ToList();
+                next.AssessmentContextFingerprint = fingerprint;
+                next.ConfirmedAtUtc = null;
+                if (ValuesEqual(approvedInterpretation, next)) return;
+                next.ApprovedAtUtc = DateTime.UtcNow;
+                approvedInterpretation = next;
+                MarkModified();
+                return;
+            }
+
+            SetManualInterpretation(markdown, fingerprint, userEdit: true);
+        }
 
         public void ClearApprovedInterpretation()
         {

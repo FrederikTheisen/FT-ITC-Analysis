@@ -139,10 +139,15 @@ and each result's `lastContentChangedUtc` (or historical local `date` when absen
 against the UTC writing/approval/confirmation time. It is separate from fingerprint
 freshness and is not printed.
 
-A user text edit replaces the active interpretation record with manual origin and
-the current writing time and reviewed result scope. AI generation metadata and
-fingerprint provenance are not retained on this manual record. Returning to earlier
-wording does not restore earlier provenance or clear the editing session's dirty flag.
+A user-provided interpretation uses the existing manual origin and saved writing
+time. Editing AI-generated text retains its AI origin, generation details, and
+fingerprints, sets the existing `userEdited` flag, and updates the existing
+approval/review timestamp and reviewed result scope. Such text follows the normal
+manual parsing and report review checks; it is no longer evaluated as untouched AI
+text for freshness. Editing clears a previous confirmation; confirming records the
+current time and reviewed result scope. Whitespace-only text clears the approved
+interpretation. A new accepted generation starts with `userEdited` false. These
+editing semantics use the existing schema 1.6 fields and add no wire fields.
 
 Report metadata optionally stores a `presentationSettings` object containing the optional user-entered `reportId` (empty when absent), title, subtitle, automatic-title state, energy family and optional exact-unit override, temperature unit, uncertainty style, injection-table and repeated-experiment choices, extra traceability state, and advanced-section requests with optional correlation member scope. The optional `expandedExplanations` boolean defaults to false when absent, preserving earlier report presentation. Enum-like fields use stable wire identifiers. Author name, software version, and generation time are refreshed at report generation and are never stored in this object. Older reports without these settings use desktop defaults.
 

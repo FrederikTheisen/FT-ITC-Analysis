@@ -543,11 +543,10 @@ public sealed class AnalysisInterpretationTests
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Text.StartsWith("• Compare", StringComparison.Ordinal));
         Assert.Empty(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>());
         var provenance = Assert.Single(interpretation.Blocks.OfType<AnalysisReportKeyValueBlock>());
-        Assert.Equal("Source and editing history", provenance.Title);
-        Assert.Equal("Automatically generated", Assert.Single(provenance.Items, item => item.Label == "Source").Value);
-        Assert.Equal("Not marked as user-edited", Assert.Single(provenance.Items, item => item.Label == "User edited").Value);
-        Assert.Equal(new[] { "Source", "User edited", "AI model" }, provenance.Items.Select(item => item.Label));
-        Assert.Equal("stub · fast-test", provenance.Items[2].Value);
+        Assert.Equal("Interpretation source", provenance.Title);
+        Assert.Equal("AI-generated", Assert.Single(provenance.Items, item => item.Label == "Source").Value);
+        Assert.Equal(new[] { "Source", "AI model" }, provenance.Items.Select(item => item.Label));
+        Assert.Equal("stub · fast-test", provenance.Items[1].Value);
 
         var changed = report.StudyContext.Copy();
         changed.ExpectedOutcome = "A changed expectation";
@@ -556,7 +555,15 @@ public sealed class AnalysisInterpretationTests
         Assert.Contains(stale.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
             .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Out-of-date interpretation");
 
-        var legacy = report.ApprovedInterpretation.Copy();
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nEdited text with A < B and C > D.");
+        var edited = AnalysisReportBuilder.Build(report, _ => result,
+            new AnalysisReportOptions { ExtraTraceability = true });
+        var editedSection = edited.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation);
+        Assert.Empty(editedSection.Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Contains(editedSection.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Text.Contains("A < B and C > D.", StringComparison.Ordinal));
+        Assert.True(report.ApprovedInterpretation.UserEdited);
+
+        var legacy = generated.Interpretation.Copy();
         legacy.EvidenceFingerprintScheme = "";
         report.ApproveInterpretation(legacy);
         var unverifiable = AnalysisReportBuilder.Build(report, _ => result);
@@ -591,8 +598,8 @@ public sealed class AnalysisInterpretationTests
             var preview = AnalysisReportBuilder.BuildInterpretationPreview("## Overall interpretation\nDraft text.", record);
 
             var provenance = Assert.Single(preview.Sections.Single().Blocks.OfType<AnalysisReportKeyValueBlock>());
-            Assert.Equal(new[] { "Source", "User edited", "AI model" }, provenance.Items.Select(item => item.Label));
-            Assert.Equal(expected, provenance.Items[2].Value);
+            Assert.Equal(new[] { "Source", "AI model" }, provenance.Items.Select(item => item.Label));
+            Assert.Equal(expected, provenance.Items[1].Value);
             Assert.Equal(savedRecord, JsonSerializer.Serialize(record));
         }
         finally { AppSettings.TraceabilityModeEnabled = originalTraceability; }
@@ -627,14 +634,14 @@ public sealed class AnalysisInterpretationTests
             var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
             Assert.Equal(reportTraceability || globalTraceability,
                 section.Blocks.OfType<AnalysisReportKeyValueBlock>()
-                    .Any(block => block.Title == "Source and editing history"));
+                    .Any(block => block.Title == "Interpretation source"));
             Assert.Contains(section.Blocks.OfType<AnalysisReportHeadingBlock>(),
                 block => block.Text == "Overall interpretation");
 
             var preview = AnalysisReportBuilder.BuildInterpretationPreview(savedRecord.InterpretationMarkdown, savedRecord);
             Assert.Equal(globalTraceability,
                 preview.Sections.Single().Blocks.OfType<AnalysisReportKeyValueBlock>()
-                    .Any(block => block.Title == "Source and editing history"));
+                    .Any(block => block.Title == "Interpretation source"));
             Assert.Equal(JsonSerializer.Serialize(savedRecord), JsonSerializer.Serialize(report.ApprovedInterpretation));
         }
         finally { AppSettings.TraceabilityModeEnabled = originalTraceability; }
@@ -677,9 +684,9 @@ public sealed class AnalysisInterpretationTests
             new AnalysisReportOptions { ExtraTraceability = true });
         var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
         var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
-            item => item.Title == "Source and editing history");
-        Assert.Equal(new[] { "Source", "Saved" }, provenance.Items.Select(item => item.Label));
-        Assert.Equal("Written by the user", provenance.Items[0].Value);
+            item => item.Title == "Interpretation source");
+        Assert.Equal(new[] { "Source", "Last edited" }, provenance.Items.Select(item => item.Label));
+        Assert.Equal("User-provided text", provenance.Items[0].Value);
         Assert.Empty(section.Blocks.OfType<AnalysisReportNoticeBlock>());
     }
 
@@ -695,29 +702,32 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
-    public async Task EditingApprovedAiInterpretationReplacesItsOriginAndProvenanceWithUserText()
+    public async Task EditingApprovedAiInterpretationRetainsGenerationProvenanceAndUsesManualMarkdown()
     {
         var result = await LoadResult();
         var report = ReportFor(result);
         var generated = await new AnalysisInterpretationService(new StubProvider()).GenerateAsync(report, result);
         report.ApproveInterpretation(generated.Interpretation);
 
-        var edited = generated.Interpretation.InterpretationMarkdown.Replace("The stored result", "This stored result");
+        var edited = generated.Interpretation.InterpretationMarkdown.Replace("The stored result", "This stored result")
+            + "\n\nA < B and C > D.";
         Assert.NotEqual(generated.Interpretation.InterpretationMarkdown, edited);
         report.UpdateApprovedInterpretationText(edited);
 
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
-        Assert.Empty(report.ApprovedInterpretation.Provider);
-        Assert.Empty(report.ApprovedInterpretation.InputFingerprint);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
+        Assert.True(report.ApprovedInterpretation.UserEdited);
+        Assert.Equal(generated.Interpretation.Provider, report.ApprovedInterpretation.Provider);
+        Assert.Equal(generated.Interpretation.InputFingerprint, report.ApprovedInterpretation.InputFingerprint);
+        Assert.Contains("A < B and C > D.", report.ApprovedInterpretation.InterpretationMarkdown);
         Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, result).Status);
         var document = AnalysisReportBuilder.Build(report, _ => result,
             new AnalysisReportOptions { ExtraTraceability = true });
         var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
-            .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Source and editing history");
+            .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Interpretation source");
         Assert.Equal(
-            new[] { "Source", "Saved" },
+            new[] { "Source", "AI model" },
             provenance.Items.Select(item => item.Label));
-        Assert.Equal("Written by the user", provenance.Items[0].Value);
+        Assert.Equal("AI-generated; edited by user", provenance.Items[0].Value);
     }
 
     [Fact]

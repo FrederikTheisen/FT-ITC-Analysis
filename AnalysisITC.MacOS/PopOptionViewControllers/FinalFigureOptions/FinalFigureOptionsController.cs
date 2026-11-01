@@ -186,6 +186,8 @@ namespace AnalysisITC
                 SetState(fit?.AddGapToResidualPlot, FinalFigureGraphView.GapResidualGraph);
             if (changes.Contains(nameof(PreferencesState.AutoAxesIgnoresBadData)))
                 SetState(fit?.IncludeBadDataInAutoYScaling, !FinalFigureGraphView.AutoAxesIgnoresBadData);
+            if (changes.Contains(nameof(PreferencesState.TraceabilityModeEnabled)))
+                SyncExcludedInjectionVisibility(fit);
             if (changes.Contains(nameof(PreferencesState.FitLineSmoothness)))
                 fit?.SplineInterpolationControl?.SelectSegment((int)FinalFigureGraphView.FitLineSmoothness);
         }

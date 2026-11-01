@@ -192,7 +192,8 @@ namespace AnalysisITC
                     nameof(PreferencesState.ShowResidualGraph),
                     nameof(PreferencesState.ShowResidualGraphGap),
                     nameof(PreferencesState.AutoAxesIgnoresBadData),
-                    nameof(PreferencesState.FitLineSmoothness))) return;
+                    nameof(PreferencesState.FitLineSmoothness),
+                    nameof(PreferencesState.TraceabilityModeEnabled))) return;
 
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
                 FinalFigureOptionsController.SyncChangedDefaults(

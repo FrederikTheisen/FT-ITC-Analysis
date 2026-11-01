@@ -65,6 +65,72 @@ static class FinalFigureSmoothnessPreferencesTests
                 Check(controller.View != null, "Publish view did not load");
                 data = Experiment(); DataManager.Clear(DataClearMode.ResetSession); DataManager.AddData(data); DataManager.SelectIndex(0);
                 StateManager.SetProgramState(ProgramState.Publish); FinalFigureGraphView.Invalidate();
+                Run("Preferences traceability refreshes an open Final Figure", () =>
+                {
+                    var originalTraceability = AppSettings.TraceabilityModeEnabled;
+                    var originalUserName = AppSettings.UserName;
+                    var excluded = data.Injections[0];
+                    EventHandler invalidated = null;
+                    try
+                    {
+                        var initialState = PreferencesState.FromSettings();
+                        initialState.TraceabilityModeEnabled = false;
+                        initialState.UserName = "Figure QA";
+                        initialState.Apply();
+                        excluded.Include = false;
+                        Check(!AppSettings.TraceabilityModeEnabled, "Test did not establish ordinary mode");
+                        var visibility = Outlet<NSSwitch>("EmbeddedHideBadData");
+                        visibility.State = (int)NSCellStateValue.Off;
+                        Check(visibility.SendAction(visibility.Action, visibility.Target),
+                            "Could not dispatch the real excluded-injection control action");
+                        Check(visibility.State == (int)NSCellStateValue.Off,
+                            "Ordinary mode did not preserve the hide-excluded choice");
+                        var graphView = Outlet<FinalFigureGraphView>("FinalFigureGraph");
+                        var beforeGraph = typeof(FinalFigureGraphView).GetField("graph", Instance).GetValue(graphView);
+                        var beforePixels = Pixels((FinalFigure)beforeGraph);
+                        var invalidations = 0;
+                        invalidated = (sender, eventArgs) => invalidations++;
+                        FinalFigureGraphView.Invalidated += invalidated;
+                        using (var editor = new PreferencesEditor())
+                        {
+                            editor.SetUserName("Figure QA");
+                            editor.SetTraceability(true);
+                            editor.Apply();
+                        }
+                        NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+                        Check(AppSettings.TraceabilityModeEnabled, "Preferences control did not enable traceability");
+                        Check(FinalFigureGraphView.ShowBadData, "Traceability did not force excluded injections visible");
+                        Check(!visibility.Enabled, "Open Final Figure control did not disable hiding");
+                        Check(visibility.State == (int)NSCellStateValue.On,
+                            "Open Final Figure control did not show excluded injections as forced on");
+                        var tracePreview = (FinalFigure)typeof(FinalFigureGraphView)
+                            .GetField("graph", Instance).GetValue(graphView);
+                        Check(invalidations > 0, "Traceability preference did not invalidate the open preview");
+                        Check(!ReferenceEquals(beforeGraph, tracePreview), "Traceability preference did not rebuild the open preview");
+                        Check(Pixels(tracePreview) != beforePixels, "Traceability did not change the rendered open preview");
+                        using (var editor = new PreferencesEditor())
+                        {
+                            editor.SetTraceability(false);
+                            editor.Apply();
+                        }
+                        NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+                        Check(!AppSettings.TraceabilityModeEnabled, "Preferences control did not disable traceability");
+                        Check(!FinalFigureGraphView.ShowBadData, "Turning traceability off lost the ordinary visibility choice");
+                        Check(visibility.Enabled, "Open Final Figure control remained disabled after traceability was turned off");
+                        Check(visibility.State == (int)NSCellStateValue.Off,
+                            "Open Final Figure control did not restore the ordinary hide choice");
+                    }
+                    finally
+                    {
+                        if (invalidated != null) FinalFigureGraphView.Invalidated -= invalidated;
+                        var state = PreferencesState.FromSettings();
+                        state.TraceabilityModeEnabled = originalTraceability;
+                        state.UserName = originalUserName;
+                        state.Apply();
+                        excluded.Include = true;
+                        FinalFigureGraphView.Invalidate();
+                    }
+                });
                 foreach (var mode in new[] { LineSmoothness.Smooth, LineSmoothness.Spline, LineSmoothness.Linear })
                 {
                     var other = (LineSmoothness)(((int)mode + 1) % 3);
@@ -360,6 +426,7 @@ static class FinalFigureSmoothnessPreferencesTests
         readonly NSWindowController window;
         readonly object exportPane;
         readonly object generalPane;
+        readonly object traceabilityPane;
         readonly NSPopUpButton popup;
         readonly NSPopUpButton temperaturePopup;
         public PreferencesEditor()
@@ -372,6 +439,7 @@ static class FinalFigureSmoothnessPreferencesTests
             var panes = (Array)window.GetType().GetField("panes", Instance).GetValue(window);
             exportPane = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("FitLinePopup", Instance) != null);
             generalPane = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("TemperatureUnitPopup", Instance) != null);
+            traceabilityPane = panes.Cast<object>().Single(pane => pane.GetType().GetProperty("TraceabilityModeCheck", Instance) != null);
             popup = (NSPopUpButton)exportPane.GetType().GetProperty("FitLinePopup", Instance).GetValue(exportPane);
             temperaturePopup = (NSPopUpButton)generalPane.GetType().GetProperty("TemperatureUnitPopup", Instance).GetValue(generalPane);
         }
@@ -395,6 +463,10 @@ static class FinalFigureSmoothnessPreferencesTests
             }
         }
         public void SetDefaultTemperature(TemperatureUnit unit) => temperaturePopup.SelectItemWithTag((int)unit);
+        public void SetTraceability(bool enabled) => ((NSButton)traceabilityPane.GetType()
+            .GetProperty("TraceabilityModeCheck", Instance).GetValue(traceabilityPane)).State = enabled ? NSCellStateValue.On : NSCellStateValue.Off;
+        public void SetUserName(string name) => ((NSTextField)traceabilityPane.GetType()
+            .GetProperty("ReportAuthorField", Instance).GetValue(traceabilityPane)).StringValue = name;
         public void RestoreDefaults() => window.GetType().GetMethod("RestoreDefaults", Instance).Invoke(window, null);
         public void Dispose() { window.Dispose(); storyboard.Dispose(); resources.Dispose(); }
     }

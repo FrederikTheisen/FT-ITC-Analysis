@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using AnalysisITC.Platform.Avalonia;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Avalonia;
 
@@ -72,7 +73,9 @@ public partial class App : Application
         startupSequenceStarted = true;
 
         var continued = await startupCoordinator.InitializeAsync(
-            async () => !AppSettings.TraceabilityModeEnabled || await window.ConfirmTraceabilityStartupAsync(),
+            async () => !TraceabilityPresentation.ShouldConfirmAtStartup(
+                AppSettings.TraceabilityModeEnabled, AppSettings.ConfirmUserAtStartup, AppSettings.UserName)
+                || await window.ConfirmTraceabilityStartupAsync(),
             window.InitializeAutoSaveAndRecoveryAsync,
             window.OpenQueuedPathsAsync,
             window.SetStartupReady);

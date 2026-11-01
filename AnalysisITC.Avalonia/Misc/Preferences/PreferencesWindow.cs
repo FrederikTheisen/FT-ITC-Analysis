@@ -63,8 +63,9 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox designerInstrumentCombo;
     readonly TextBox referenceTemperatureBox = Box("");
     readonly TextBox userNameBox = Box("");
-    readonly CheckBox traceabilityModeCheck = Check("Enable Traceability Mode");
-    readonly CheckBox promptForIdentifiersCheck = Check("Prompt for experiment and sample IDs after import");
+    readonly CheckBox traceabilityModeCheck = Check(TraceabilityPresentation.ModeLabel);
+    readonly CheckBox confirmUserAtStartupCheck = Check(TraceabilityPresentation.ConfirmUserAtStartupLabel);
+    readonly CheckBox promptForIdentifiersCheck = Check(TraceabilityPresentation.ImportIdentifiersLabel);
     readonly TextBox minimumTemperatureSpanBox = Box("");
     readonly TextBox minimumIonSpanBox = Box("");
     readonly ComboBox numberPrecisionCombo;
@@ -177,6 +178,7 @@ internal sealed class PreferencesWindow : Window
     internal TextBlock MaximumIterationsValueLabel => maximumIterationsValueLabel;
     internal CheckBox AutoSaveEnabledCheck => autoSaveEnabledCheck;
     internal CheckBox TraceabilityModeCheck => traceabilityModeCheck;
+    internal CheckBox ConfirmUserAtStartupCheck => confirmUserAtStartupCheck;
     internal CheckBox PromptForIdentifiersCheck => promptForIdentifiersCheck;
     internal TextBox UserNameBox => userNameBox;
     internal TextBlock StatusText => statusText;
@@ -289,6 +291,10 @@ internal sealed class PreferencesWindow : Window
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         autoSaveEnabledCheck.IsCheckedChanged += (_, _) => UpdateAutoSaveControls();
         traceabilityModeCheck.IsCheckedChanged += (_, _) => UpdateTraceabilityControls();
+        ToolTip.SetTip(traceabilityModeCheck, TraceabilityPresentation.ModeToolTip);
+        ToolTip.SetTip(userNameBox, TraceabilityPresentation.UserNameToolTip);
+        ToolTip.SetTip(confirmUserAtStartupCheck, TraceabilityPresentation.ConfirmUserAtStartupToolTip);
+        ToolTip.SetTip(promptForIdentifiersCheck, TraceabilityPresentation.ImportIdentifiersToolTip);
         autoSaveIntervalSlider.ValueChanged += (_, _) => AutoSaveIntervalChanged();
         bootstrapIterationsSlider.ValueChanged += (_, _) => BootstrapIterationsChanged();
         optimizerToleranceSlider.ValueChanged += (_, _) => OptimizerToleranceChanged();
@@ -374,11 +380,13 @@ internal sealed class PreferencesWindow : Window
     Control BuildGeneralTab()
     {
         var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(Section("Operator and traceability", new Control[]
+        panel.Children.Add(Section(TraceabilityPresentation.SectionHeader, new Control[]
         {
             traceabilityModeCheck,
-            Row("Operator name", userNameBox),
-            Note("Used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled."),
+            Note(TraceabilityPresentation.ModeExplanation),
+            Row(TraceabilityPresentation.UserNameLabel, userNameBox),
+            Note(TraceabilityPresentation.UserNameDescription),
+            confirmUserAtStartupCheck,
             promptForIdentifiersCheck
         }));
         panel.Children.Add(Section("Units and formatting", new Control[]
@@ -547,6 +555,7 @@ internal sealed class PreferencesWindow : Window
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
         userNameBox.Text = state.UserName;
         traceabilityModeCheck.IsChecked = state.TraceabilityModeEnabled;
+        confirmUserAtStartupCheck.IsChecked = state.ConfirmUserAtStartup;
         promptForIdentifiersCheck.IsChecked = state.PromptForIdentifiersOnImport;
         minimumTemperatureSpanBox.Text = Format(state.MinimumTemperatureSpanForFitting);
         minimumIonSpanBox.Text = Format(state.MinimumIonSpanForFitting * 1000);
@@ -748,6 +757,7 @@ internal sealed class PreferencesWindow : Window
             referenceTemperatureBox, referenceTemperature, numericBaseline?.ReferenceTemperature);
         state.UserName = userNameBox.Text ?? "";
         state.TraceabilityModeEnabled = traceabilityModeCheck.IsChecked == true;
+        state.ConfirmUserAtStartup = confirmUserAtStartupCheck.IsChecked == true;
         state.PromptForIdentifiersOnImport = promptForIdentifiersCheck.IsChecked == true;
         state.EnergyUnitFamily = Value(energyUnitCombo, AppSettings.EnergyUnitFamily);
         state.DefaultTemperatureUnit = Value(defaultTemperatureUnitCombo, AppSettings.DefaultTemperatureUnit);
@@ -882,7 +892,9 @@ internal sealed class PreferencesWindow : Window
 
     void UpdateTraceabilityControls()
     {
-        promptForIdentifiersCheck.IsEnabled = traceabilityModeCheck.IsChecked == true;
+        var enabled = traceabilityModeCheck.IsChecked == true;
+        confirmUserAtStartupCheck.IsEnabled = enabled;
+        promptForIdentifiersCheck.IsEnabled = enabled;
     }
 
     void UpdateAutoSaveControls()

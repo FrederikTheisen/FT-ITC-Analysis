@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -247,7 +248,7 @@ public sealed class AnalysisReportEditSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task UserEditReplacesAiProvenanceAndSaveAsPersistsManualCurrentText()
+    public async Task UserEditRetainsAiProvenanceAndSaveAsPersistsEditedGeneratedText()
     {
         var result = Result(); var report = Report(result);
         report.ApproveInterpretation(new AnalysisInterpretationRecord
@@ -263,26 +264,27 @@ public sealed class AnalysisReportEditSessionTests : IDisposable
         Assert.Equal(AnalysisInterpretationFreshness.Stale, Freshness(report));
         var session = new AnalysisReportEditSession(report, report);
         session.UpdateInterpretationText("## Overall interpretation\nUser text", "current assessments");
-        var manual = session.Draft.ApprovedInterpretation;
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, manual.Origin);
+        var edited = session.Draft.ApprovedInterpretation;
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, edited.Origin);
+        Assert.True(edited.UserEdited);
         Assert.Equal(AnalysisInterpretationFreshness.Current, Freshness(session.Draft));
-        Assert.Empty(manual.InputFingerprint); Assert.Empty(manual.EffectiveInputFingerprint);
-        Assert.Empty(manual.EvidenceFingerprintScheme); Assert.Empty(manual.Provider);
-        Assert.Empty(manual.Model); Assert.Empty(manual.ServiceRequestId);
-        Assert.Equal(default, manual.GeneratedAtUtc);
-        Assert.Null(manual.ReportIdForFingerprint); Assert.Null(manual.ReportDateUtcForFingerprint);
-        Assert.Null(manual.ConfirmedAtUtc);
-        Assert.Equal(report.ResultIds, manual.ReviewedResultIds);
+        Assert.Equal("old evidence", edited.InputFingerprint); Assert.Equal("effective evidence", edited.EffectiveInputFingerprint);
+        Assert.Equal(AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme, edited.EvidenceFingerprintScheme);
+        Assert.Equal("provider", edited.Provider); Assert.Equal("model", edited.Model); Assert.Equal("request", edited.ServiceRequestId);
+        Assert.NotEqual(default, edited.GeneratedAtUtc);
+        Assert.Null(edited.ConfirmedAtUtc);
+        Assert.Equal(report.ResultIds, edited.ReviewedResultIds);
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         var copy = Save(session, true);
-        Assert.Null(copy.ApprovedInterpretation.ReportIdForFingerprint);
-        Assert.Null(copy.ApprovedInterpretation.ReportDateUtcForFingerprint);
+        Assert.Equal("source-report", copy.ApprovedInterpretation.ReportIdForFingerprint);
+        Assert.Equal("source-date", copy.ApprovedInterpretation.ReportDateUtcForFingerprint);
         using var stream = new MemoryStream();
         await FTXTCWriter.WriteStream(stream, DataManager.Data, DataManager.Results, reports: DataManager.Reports);
         stream.Position = 0; FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(stream); stream.Position = 0;
         var restored = (await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict)).Reports.Single(item => item.UniqueID == copy.UniqueID);
-        Assert.Equal(AnalysisInterpretationOrigin.Manual, restored.ApprovedInterpretation.Origin);
-        Assert.Equal(manual.InterpretationMarkdown, restored.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, restored.ApprovedInterpretation.Origin);
+        Assert.True(restored.ApprovedInterpretation.UserEdited);
+        Assert.Equal(edited.InterpretationMarkdown, restored.ApprovedInterpretation.InterpretationMarkdown);
         Assert.Equal(AnalysisInterpretationFreshness.Current, Freshness(restored));
         Assert.False(session.HasChanges);
     }
@@ -303,6 +305,88 @@ public sealed class AnalysisReportEditSessionTests : IDisposable
         Assert.True(session.HasChanges);
     }
 
+    [Fact]
+    public void RepeatedCompleteAndRevertedEditsKeepGeneratedOriginAndRefreshReviewMetadata()
+    {
+        var report = Report(Result());
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nOriginal generated text",
+            InputFingerprint = "input", EffectiveInputFingerprint = "effective", Provider = "provider", Model = "model",
+            TaskType = "summary", EffectivePreset = "preset", GeneratedAtUtc = DateTime.UtcNow.AddHours(-1),
+            AssessmentContextFingerprint = "original-context", ReviewedResultIds = new List<string>(),
+        });
+        report.ConfirmInterpretation();
+        var original = report.ApprovedInterpretation;
+        Assert.NotNull(original.ConfirmedAtUtc);
+
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nEdited", "edited-context");
+        var editedAt = report.ApprovedInterpretation.ApprovedAtUtc;
+        Assert.True(report.ApprovedInterpretation.UserEdited);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
+        Assert.Equal("edited-context", report.ApprovedInterpretation.AssessmentContextFingerprint);
+        Assert.Equal(report.ResultIds, report.ApprovedInterpretation.ReviewedResultIds);
+        Assert.Null(report.ApprovedInterpretation.ConfirmedAtUtc);
+
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nComplete user version", "complete-context");
+        report.UpdateApprovedInterpretationText(original.InterpretationMarkdown, "reverted-context");
+        var reverted = report.ApprovedInterpretation;
+        Assert.Equal(original.InterpretationMarkdown, reverted.InterpretationMarkdown);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, reverted.Origin);
+        Assert.True(reverted.UserEdited);
+        Assert.Equal("provider", reverted.Provider); Assert.Equal("model", reverted.Model);
+        Assert.Equal("input", reverted.InputFingerprint); Assert.Equal("effective", reverted.EffectiveInputFingerprint);
+        Assert.Equal("summary", reverted.TaskType); Assert.Equal("preset", reverted.EffectivePreset);
+        Assert.Equal(original.GeneratedAtUtc, reverted.GeneratedAtUtc);
+        Assert.Equal("reverted-context", reverted.AssessmentContextFingerprint);
+        Assert.True(reverted.ApprovedAtUtc >= editedAt);
+        Assert.Null(reverted.ConfirmedAtUtc);
+    }
+
+    [Fact]
+    public void IdenticalRepeatedEditOfGeneratedTextLeavesRecordUnchanged()
+    {
+        var report = Report(Result());
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nOriginal generated text",
+            InputFingerprint = "input", GeneratedAtUtc = DateTime.UtcNow.AddHours(-1),
+        });
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nEdited", "context");
+        var editedAt = report.ApprovedInterpretation.ApprovedAtUtc;
+        report.MarkClean();
+        System.Threading.Thread.Sleep(20);
+
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nEdited", "context");
+
+        Assert.Equal(editedAt, report.ApprovedInterpretation.ApprovedAtUtc);
+        Assert.False(report.IsModified);
+    }
+
+    [Fact]
+    public void PlainGeneratedTextCanBeEditedAndRevertedWithManualParsing()
+    {
+        var report = Report(Result());
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "Plain generated text",
+            InputFingerprint = "fingerprint", GeneratedAtUtc = DateTime.UtcNow.AddHours(-1),
+        });
+        var session = new AnalysisReportEditSession(report, report);
+        var originalText = session.Draft.ApprovedInterpretation.InterpretationMarkdown;
+        const string editedText = "Plain generated text with A < B and C > D";
+        Assert.True(session.HasInterpretationTextChanges(editedText));
+        session.UpdateInterpretationText(editedText, "edited-context");
+        Assert.Contains("A < B and C > D", session.Draft.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.True(session.Draft.ApprovedInterpretation.UserEdited);
+        Assert.True(session.HasInterpretationTextChanges(originalText));
+        session.UpdateInterpretationText(originalText, "reverted-context");
+        Assert.Contains("Plain generated text", session.Draft.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, session.Draft.ApprovedInterpretation.Origin);
+        Assert.True(session.Draft.ApprovedInterpretation.UserEdited);
+        Assert.Equal("reverted-context", session.Draft.ApprovedInterpretation.AssessmentContextFingerprint);
+    }
+
     [Theory]
     [InlineData("Plain generated text")]
     [InlineData("## Overall interpretation\nGenerated text")]
@@ -317,19 +401,24 @@ public sealed class AnalysisReportEditSessionTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false, "name")]
-    [InlineData(true, "name")]
-    [InlineData(false, "comments")]
-    [InlineData(true, "comments")]
-    [InlineData(false, "assessment")]
-    [InlineData(true, "assessment")]
-    [InlineData(false, "solution")]
-    [InlineData(true, "solution")]
-    public void EveryResultEditRaisesReviewAndConfirmDoesNotChangeAuthorship(bool ai, string change)
+    [InlineData(false, false, "name")]
+    [InlineData(true, false, "name")]
+    [InlineData(true, true, "name")]
+    [InlineData(false, false, "comments")]
+    [InlineData(true, false, "comments")]
+    [InlineData(true, true, "comments")]
+    [InlineData(false, false, "assessment")]
+    [InlineData(true, false, "assessment")]
+    [InlineData(true, true, "assessment")]
+    [InlineData(false, false, "solution")]
+    [InlineData(true, false, "solution")]
+    [InlineData(true, true, "solution")]
+    public void EveryResultEditRaisesReviewAndConfirmDoesNotChangeAuthorship(bool ai, bool edited, string change)
     {
         var result = Result(); var report = Report(result);
         if (ai) report.ApproveInterpretation(new AnalysisInterpretationRecord { InterpretationMarkdown = "## Overall interpretation\nRetained text", InputFingerprint = "retained fingerprint" });
         else report.SetManualInterpretation("Retained text");
+        if (edited) report.UpdateApprovedInterpretationText("## Overall interpretation\nUser-edited retained text");
         Assert.False(AnalysisReportEditingPresentation.NeedsInterpretationReview(report, Resolve));
         var oldDate = result.Date;
         var oldChange = result.LastContentChangedUtc;
@@ -349,8 +438,41 @@ public sealed class AnalysisReportEditSessionTests : IDisposable
         Assert.Equal(original.Origin, report.ApprovedInterpretation.Origin);
         Assert.Equal(original.ApprovedAtUtc, report.ApprovedInterpretation.ApprovedAtUtc);
         Assert.Equal(original.InputFingerprint, report.ApprovedInterpretation.InputFingerprint);
+        Assert.Equal(original.UserEdited, report.ApprovedInterpretation.UserEdited);
         result.Comments += " A further change";
         Assert.True(AnalysisReportEditingPresentation.NeedsInterpretationReview(report, Resolve));
+    }
+
+    [Fact]
+    public void ClearingGeneratedTextThenWritingAgainCreatesManualTextAndNewGenerationResetsEditFlag()
+    {
+        var report = Report(Result());
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nGenerated",
+            InputFingerprint = "first", Provider = "provider", Model = "model", UserEdited = true,
+            GeneratedAtUtc = DateTime.UtcNow.AddHours(-1),
+        });
+        Assert.False(report.ApprovedInterpretation.UserEdited); // A newly approved generation owns its text.
+        report.UpdateApprovedInterpretationText("## Overall interpretation\nEdited", "context");
+        Assert.True(report.ApprovedInterpretation.UserEdited);
+        report.UpdateApprovedInterpretationText("  \n ", "context");
+        Assert.Null(report.ApprovedInterpretation);
+        report.SetManualInterpretation("## Overall interpretation\nNew manual text");
+        Assert.Equal(AnalysisInterpretationOrigin.Manual, report.ApprovedInterpretation.Origin);
+        Assert.False(report.ApprovedInterpretation.UserEdited);
+        Assert.Empty(report.ApprovedInterpretation.Provider);
+        Assert.Empty(report.ApprovedInterpretation.InputFingerprint);
+
+        report.UpdateApprovedInterpretationText(" ", "");
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nSecond generation",
+            InputFingerprint = "second", UserEdited = true,
+        });
+        Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
+        Assert.False(report.ApprovedInterpretation.UserEdited);
+        Assert.Equal("second", report.ApprovedInterpretation.InputFingerprint);
     }
 
     [Theory]

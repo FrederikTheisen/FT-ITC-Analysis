@@ -23,9 +23,10 @@ Open **Preferences...**, edit the relevant tab, and choose **Apply**. Defaults i
 
 | Setting | Effect |
 | --- | --- |
-| **Enable Traceability Mode** | Requires an operator name. While enabled, FT-ITC asks you to confirm the operator once at each launch; see [Traceability Mode at startup](03-installation-files-projects.md#traceability-mode-at-startup). Off by default. |
-| **Operator name** | Name captured on newly created or successfully updated Analysis Results and when a report preview is generated. Existing results and a current preview keep their saved attribution. Required while Traceability Mode is enabled. |
-| **Prompt for experiment and sample IDs after import** | While Traceability Mode is enabled, asks for experiment, cell sample, and syringe sample IDs after data files are imported. All IDs are optional. The setting is kept, but has no effect, while the mode is off. |
+| **Enable Traceability Mode** | Requires a user name and adds attribution to reports. Optionally asks for experiment and sample IDs after loading data. Off by default. |
+| **User name** | Name attributed to new or updated Analysis Results and newly generated reports. Existing results keep their saved user name. Required while Traceability Mode is enabled. |
+| **Confirm user at startup** | When enabled, asks who is working on this computer at launch. On by default. See [Traceability Mode at startup](03-installation-files-projects.md#traceability-mode-at-startup). |
+| **Review experiment and sample IDs after import** | While Traceability Mode is enabled, asks for experiment, cell sample, and syringe sample IDs after raw data are imported. All IDs are optional. The setting is kept, but has no effect, while the mode is off. |
 | **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix according to the magnitude of the displayed central values; empty groups default to kJ or kcal. |
 | **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
 | **Temperature units** | Sets the Celsius or Kelvin default for Results and Analysis Result Exporter tables. Each keeps its own choice for the current application session. Changing this preference resets both choices immediately. |

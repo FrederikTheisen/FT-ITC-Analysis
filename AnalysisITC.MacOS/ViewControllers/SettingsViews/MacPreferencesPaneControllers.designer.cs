@@ -18,6 +18,10 @@ namespace AnalysisITC
         [Outlet] AppKit.NSPopUpButton InstrumentPopup { get; set; }
         [Outlet] AppKit.NSTextField ReferenceTemperatureField { get; set; }
         [Outlet] AppKit.NSTextField ReportAuthorField { get; set; }
+        [Outlet] AppKit.NSTextField TraceabilitySectionLabel { get; set; }
+        [Outlet] AppKit.NSTextField TraceabilityModeDescription { get; set; }
+        [Outlet] AppKit.NSTextField UserNameLabel { get; set; }
+        [Outlet] AppKit.NSTextField UserNameDescription { get; set; }
         [Outlet] AppKit.NSTextField MinimumTemperatureSpanField { get; set; }
         [Outlet] AppKit.NSTextField MinimumIonSpanField { get; set; }
         [Outlet] AppKit.NSButton IncludeBufferCheck { get; set; }
@@ -29,6 +33,7 @@ namespace AnalysisITC
         [Outlet] AppKit.NSTextField AutoSaveLimitField { get; set; }
         [Outlet] AppKit.NSButton RecoveryPromptCheck { get; set; }
         [Outlet] AppKit.NSButton TraceabilityModeCheck { get; set; }
+        [Outlet] AppKit.NSButton ConfirmUserAtStartupCheck { get; set; }
         [Outlet] AppKit.NSButton PromptForIdentifiersCheck { get; set; }
 
         [Action("autoSaveEnabledChanged:")]
@@ -53,6 +58,10 @@ namespace AnalysisITC
             InstrumentPopup = Release(InstrumentPopup);
             ReferenceTemperatureField = Release(ReferenceTemperatureField);
             ReportAuthorField = Release(ReportAuthorField);
+            TraceabilitySectionLabel = Release(TraceabilitySectionLabel);
+            TraceabilityModeDescription = Release(TraceabilityModeDescription);
+            UserNameLabel = Release(UserNameLabel);
+            UserNameDescription = Release(UserNameDescription);
             MinimumTemperatureSpanField = Release(MinimumTemperatureSpanField);
             MinimumIonSpanField = Release(MinimumIonSpanField);
             IncludeBufferCheck = Release(IncludeBufferCheck);
@@ -64,6 +73,7 @@ namespace AnalysisITC
             AutoSaveLimitField = Release(AutoSaveLimitField);
             RecoveryPromptCheck = Release(RecoveryPromptCheck);
             TraceabilityModeCheck = Release(TraceabilityModeCheck);
+            ConfirmUserAtStartupCheck = Release(ConfirmUserAtStartupCheck);
             PromptForIdentifiersCheck = Release(PromptForIdentifiersCheck);
         }
 

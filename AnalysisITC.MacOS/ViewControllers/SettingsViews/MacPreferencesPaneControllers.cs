@@ -77,9 +77,20 @@ namespace AnalysisITC
             Set(OnlineChecksCheck, state.PerformOnlineChecksOnLaunch);
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
             ReportAuthorField.StringValue = state.UserName ?? "";
-            ReportAuthorField.ToolTip = "Operator used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled.";
+            ReportAuthorField.ToolTip = TraceabilityPresentation.UserNameToolTip;
+            TraceabilitySectionLabel.StringValue = TraceabilityPresentation.SectionHeader;
+            TraceabilityModeDescription.StringValue = TraceabilityPresentation.ModeExplanation;
+            UserNameLabel.StringValue = TraceabilityPresentation.UserNameLabel;
+            UserNameDescription.StringValue = TraceabilityPresentation.UserNameDescription;
+            TraceabilityModeCheck.Title = TraceabilityPresentation.ModeLabel;
             Set(TraceabilityModeCheck, state.TraceabilityModeEnabled);
+            Set(ConfirmUserAtStartupCheck, state.ConfirmUserAtStartup);
             Set(PromptForIdentifiersCheck, state.PromptForIdentifiersOnImport);
+            ConfirmUserAtStartupCheck.Title = TraceabilityPresentation.ConfirmUserAtStartupLabel;
+            PromptForIdentifiersCheck.Title = TraceabilityPresentation.ImportIdentifiersLabel;
+            TraceabilityModeCheck.ToolTip = TraceabilityPresentation.ModeToolTip;
+            ConfirmUserAtStartupCheck.ToolTip = TraceabilityPresentation.ConfirmUserAtStartupToolTip;
+            PromptForIdentifiersCheck.ToolTip = TraceabilityPresentation.ImportIdentifiersToolTip;
             Set(AutoSaveEnabledCheck, state.AutoSaveEnabled);
             loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
             autoSaveIntervalChanged = false;
@@ -126,6 +137,7 @@ namespace AnalysisITC
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
             state.UserName = ReportAuthorField.StringValue ?? "";
             state.TraceabilityModeEnabled = IsOn(TraceabilityModeCheck);
+            state.ConfirmUserAtStartup = IsOn(ConfirmUserAtStartupCheck);
             state.PromptForIdentifiersOnImport = IsOn(PromptForIdentifiersCheck);
             state.AutoSaveEnabled = IsOn(AutoSaveEnabledCheck);
             state.AutoSaveIntervalMinutes = autoSaveIntervalChanged
@@ -144,6 +156,7 @@ namespace AnalysisITC
         void UpdateTraceabilityControls()
         {
             if (TraceabilityModeCheck == null) return;
+            ConfirmUserAtStartupCheck.Enabled = IsOn(TraceabilityModeCheck);
             PromptForIdentifiersCheck.Enabled = IsOn(TraceabilityModeCheck);
         }
 

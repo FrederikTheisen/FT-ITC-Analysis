@@ -35,13 +35,13 @@ Advanced analyses can sample the stored values and uncertainty summaries from pr
 
 Open a saved result's details to edit its name and comments and inspect its saved fit information. On native macOS, **Result Details** opens as a sheet with three tabs:
 
-- **Details** contains the name, read-only date, saved **Analysis operator**, comments, and a summary of the model, fit metrics, solver, uncertainty settings, and validity reasons.
+- **Details** contains the name, read-only date, saved **Analyzed by** user name, comments, and a summary of the model, fit metrics, solver, uncertainty settings, and validity reasons.
 - **Experiments** lists the result's member experiments, including their dates, temperatures, and solution status.
 - **Actions** provides **Copy result table**, **Load solutions to experiments**, and **Select result experiments**. Selection includes the experiments belonging to this result and excludes the others in the current project. Copying uses the preferred energy-unit family and temperatures in Celsius.
 
 **Apply** saves a nonblank name and the comments; **Cancel** discards those pending edits.
 
-The saved **Analysis operator** records the operator associated with the fit when the result was created or last successfully updated. Results without a saved name show **Not recorded**.
+The saved **Analyzed by** name records the user associated with the fit when the result was created or last successfully updated. Results without a saved name show **Not recorded**.
 
 ## Inspector tabs
 

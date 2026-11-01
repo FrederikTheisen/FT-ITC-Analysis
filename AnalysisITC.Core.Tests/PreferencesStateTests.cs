@@ -270,11 +270,13 @@ public sealed class PreferencesStateTests : IDisposable
     public void TraceabilityPreferencesDefaultStageValidateAndPersistWithoutBlockingLoad()
     {
         Assert.False(PreferencesState.Defaults().TraceabilityModeEnabled);
+        Assert.True(PreferencesState.Defaults().ConfirmUserAtStartup);
         Assert.True(PreferencesState.Defaults().PromptForIdentifiersOnImport);
 
         var staged = PreferencesState.FromSettings();
         staged.TraceabilityModeEnabled = true;
         staged.PromptForIdentifiersOnImport = false;
+        staged.ConfirmUserAtStartup = false;
         staged.UserName = "  Zoë 李  ";
         Assert.False(AppSettings.TraceabilityModeEnabled);
         Assert.True(AppSettings.PromptForIdentifiersOnImport);
@@ -282,9 +284,11 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.Equal("Zoë 李", AppSettings.UserName);
         Assert.True(AppSettings.TraceabilityModeEnabled);
         Assert.False(AppSettings.PromptForIdentifiersOnImport);
+        Assert.False(AppSettings.ConfirmUserAtStartup);
         Assert.Equal("Zoë 李", store.GetString("UserName"));
         Assert.True(store.GetBool("TraceabilityModeEnabled"));
         Assert.False(store.GetBool("PromptForIdentifiersOnImport", true));
+        Assert.False(store.GetBool("ConfirmUserAtStartup", true));
 
         AppSettings.UserName = "";
         AppSettings.TraceabilityModeEnabled = true;
@@ -293,12 +297,23 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.Load();
         Assert.True(AppSettings.TraceabilityModeEnabled);
         Assert.Equal("", AppSettings.UserName);
+        store.SetBool("ConfirmUserAtStartup", false);
+        store.SetBool("TraceabilityModeEnabled", true);
+        AppSettings.Load();
+        Assert.False(AppSettings.ConfirmUserAtStartup);
+        var populatedStore = PlatformServices.SettingsStore;
+        var emptyStore = new InMemorySettingsStore();
+        PlatformServices.RegisterSettingsStore(emptyStore);
+        AppSettings.ConfirmUserAtStartup = false;
+        AppSettings.Load();
+        Assert.True(AppSettings.ConfirmUserAtStartup);
+        PlatformServices.RegisterSettingsStore(populatedStore);
         Assert.False(PreferencesState.TryValidateTraceability(true, " \t\n ", out var error));
-        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.Equal("A user name is required when Traceability Mode is enabled.", error);
         Assert.False(PreferencesState.TryValidateTraceability(true, null, out error));
-        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.Equal("A user name is required when Traceability Mode is enabled.", error);
         Assert.False(PreferencesState.TryValidateTraceability(true, "", out error));
-        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.Equal("A user name is required when Traceability Mode is enabled.", error);
         Assert.True(PreferencesState.TryValidateTraceability(true, "Zoë 李", out _));
         Assert.False(PreferencesState.TryValidateTraceability(true, "\u2003", out _));
         Assert.True(PreferencesState.TryValidateTraceability(false, " ", out _));
@@ -311,6 +326,15 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.False(AppSettings.PromptForIdentifiersOnImport);
         Assert.Equal("", AppSettings.UserName);
     }
+
+    [Theory]
+    [InlineData(false, true, "Ada", false)]
+    [InlineData(true, false, "Ada", false)]
+    [InlineData(true, true, "Ada", true)]
+    [InlineData(true, false, "", true)]
+    [InlineData(false, true, "", false)]
+    public void StartupConfirmationFollowsTraceabilityPreferences(bool enabled, bool confirm, string userName, bool expected) =>
+        Assert.Equal(expected, TraceabilityPresentation.ShouldConfirmAtStartup(enabled, confirm, userName));
 
     [Fact]
     public void InvalidTraceabilityApplyDoesNotMutateSettingsOrStorage()
@@ -330,7 +354,7 @@ public sealed class PreferencesStateTests : IDisposable
         staged.UserName = "  \t ";
 
         var ex = Assert.Throws<InvalidOperationException>(() => staged.Apply());
-        Assert.Equal("An operator name is required when Traceability Mode is enabled.", ex.Message);
+        Assert.Equal("A user name is required when Traceability Mode is enabled.", ex.Message);
         Assert.Equal(initialTemperature, AppSettings.ReferenceTemperature);
         Assert.Equal(initialUserName, AppSettings.UserName);
         Assert.Equal(initialTraceability, AppSettings.TraceabilityModeEnabled);

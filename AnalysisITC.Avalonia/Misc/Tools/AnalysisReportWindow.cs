@@ -1567,9 +1567,10 @@ namespace AnalysisITC.Avalonia.Tools
             string summary;
             if (record == null) summary = "No interpretation";
             else if (record.Origin == AnalysisInterpretationOrigin.Manual) summary = "Manual";
+            else if (record.UserEdited) summary = AnalysisInterpretationPresentation.AiGeneratedEdited;
             else
             {
-                summary = record.UserEdited ? "Automatically generated, user edited" : "Automatically generated";
+                summary = AnalysisInterpretationPresentation.AiGenerated;
                 var freshness = AnalysisInterpretationService.EvaluateFreshness(report,
                     id => availableResults.FirstOrDefault(result => result.UniqueID == id)!,
                     id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!,

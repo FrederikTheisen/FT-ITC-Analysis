@@ -18,6 +18,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.UI.MacOS.Drawing;
@@ -42,6 +43,7 @@ static class AnalysisReportReferencesTests
             CheckExperimentHeaders();
             CheckConditionsSubtitles();
             CheckSourceMetadata();
+            CheckInterpretationSourceBlocks();
             CheckCultureInvariantReportPdfs();
             CheckReportContinuation();
             CheckTemperatureValidity();
@@ -319,6 +321,101 @@ static class AnalysisReportReferencesTests
                 "Native continuation overlaps footer");
             if (!string.IsNullOrWhiteSpace(output))
                 RenderContinuationPage(renderer, document, plan, page, Path.Combine(output, "macos-continuation-" + page.PageNumber + ".png"));
+        }
+    }
+
+    static void CheckInterpretationSourceBlocks()
+    {
+        var output = Environment.GetEnvironmentVariable("FTITC_REPORT_INTERPRETATION_QA_DIRECTORY");
+        var originalTraceability = AppSettings.TraceabilityModeEnabled;
+        try
+        {
+            foreach (var scenario in new[] { "manual", "ai", "edited-ai", "mode-off" })
+            {
+                var data = Source("Interpretation source QA");
+                var result = Result(data);
+                result.Name = string.Join(" ", Enumerable.Repeat("Long analysis result name", 8));
+                var report = new AnalysisReport
+                {
+                    Name = string.Join(" ", Enumerable.Repeat("Long report source attribution", 8)),
+                };
+                report.SetResultIds(new[] { result.UniqueID });
+                if (scenario == "manual")
+                {
+                    report.SetManualInterpretation("A user-provided report interpretation with a deliberately long explanation for wrapping and review.");
+                }
+                else
+                {
+                    var generated = new AnalysisInterpretationRecord
+                    {
+                        Origin = AnalysisInterpretationOrigin.AiGenerated,
+                        InterpretationMarkdown = "An AI-generated interpretation edited by the user, retained for review with its model information.",
+                        Provider = "OpenAI research service",
+                        Model = string.Join("-", Enumerable.Repeat("long-model-name", 5)),
+                        ReasoningEffort = "high",
+                        GeneratedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+                        ApprovedAtUtc = DateTime.UtcNow,
+                        ServiceRequestId = "native-source-block-qa",
+                        InputFingerprint = "fingerprint-qa",
+                    };
+                    report.ApproveInterpretation(generated);
+                    if (scenario == "edited-ai" || scenario == "mode-off")
+                        report.UpdateApprovedInterpretationText("An edited AI-generated interpretation with a new user-authored sentence and the preserved source model.");
+                }
+
+                AppSettings.TraceabilityModeEnabled = scenario != "mode-off";
+                var document = AnalysisReportBuilder.Build(report,
+                    id => id == result.UniqueID ? result : null,
+                    new AnalysisReportOptions { ExtraTraceability = scenario != "mode-off" });
+                var interpretation = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation);
+                var source = interpretation.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                    .SingleOrDefault(block => block.Title == AnalysisInterpretationPresentation.SectionTitle);
+                if (scenario == "mode-off")
+                {
+                    Check(source == null, "Standard report included the traceability-only interpretation source block");
+                }
+                else
+                {
+                    Check(source != null, "Traceability report omitted the interpretation source block");
+                    var rows = source.Items.ToDictionary(item => item.Label, item => item.Value);
+                    Check(rows[AnalysisInterpretationPresentation.SourceLabel] == (scenario == "manual"
+                        ? AnalysisInterpretationPresentation.UserProvidedText
+                        : scenario == "ai" ? AnalysisInterpretationPresentation.AiGenerated
+                            : AnalysisInterpretationPresentation.AiGeneratedEdited),
+                        "Interpretation source label did not match the saved origin/edit state");
+                    Check(!rows.ContainsKey("User edited"), "Interpretation source added a separate user-edited row");
+                    Check(scenario == "manual"
+                        ? rows.ContainsKey(AnalysisInterpretationPresentation.LastEditedLabel) && !rows.ContainsKey("AI model")
+                        : rows.ContainsKey("AI model") && !rows.ContainsKey(AnalysisInterpretationPresentation.LastEditedLabel),
+                        "Interpretation source rows did not match manual versus edited-AI provenance");
+                }
+                if (scenario == "edited-ai")
+                    Check(!interpretation.Blocks.OfType<AnalysisReportNoticeBlock>().Any(block =>
+                        block.Title.IndexOf("interpretation freshness", StringComparison.OrdinalIgnoreCase) >= 0),
+                        "Edited AI text was still treated as untouched AI for freshness warnings");
+
+                var rendererType = typeof(MainWindowController).Assembly.GetType(
+                    "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+                var renderer = Activator.CreateInstance(rendererType, true);
+                var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+                Check(plan.Pages.SelectMany(page => page.Fragments).All(fragment =>
+                    fragment.Bounds.Bottom <= plan.Pages[0].Height - plan.MarginBottom - 18 + .001),
+                    "Native source block layout overlaps a page footer");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output);
+                    var qaPages = source == null
+                        ? plan.Pages.Where(page => page.Fragments.Any(fragment => fragment.Section == interpretation)).Take(1)
+                        : plan.Pages.Where(page => page.Fragments.Any(fragment => ReferenceEquals(fragment.Block, source)));
+                    foreach (var page in qaPages)
+                        RenderContinuationPage(renderer, document, plan, page,
+                            Path.Combine(output, "macos-interpretation-source-" + scenario + "-" + page.PageNumber + ".png"));
+                }
+            }
+        }
+        finally
+        {
+            AppSettings.TraceabilityModeEnabled = originalTraceability;
         }
     }
 
@@ -671,8 +768,13 @@ static class AnalysisReportReferencesTests
                 Check(pdf.Length > 0, "Native signing block PDF is empty");
             var output = Environment.GetEnvironmentVariable("FTITC_SIGNOFF_QA_DIRECTORY");
             if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
                 rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
                     Path.Combine(output, "macos-" + resultCount + (traceability ? "-on.pdf" : "-off.pdf")) });
+                RenderContinuationPage(renderer, document, plan, plan.Pages[0],
+                    Path.Combine(output, "macos-signoff-" + resultCount + (traceability ? "-on.png" : "-off.png")));
+            }
         }
         }
         finally

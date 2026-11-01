@@ -7,6 +7,7 @@ using Avalonia.Media;
 
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Avalonia.Dialogs;
 
@@ -17,7 +18,7 @@ internal sealed class TraceabilityStartupWindow : Window
 
     TraceabilityStartupWindow()
     {
-        Title = "Traceability Mode";
+        Title = TraceabilityPresentation.ConfirmUserLabel;
         Width = 480;
         SizeToContent = SizeToContent.Height;
         MinWidth = 420;
@@ -27,7 +28,7 @@ internal sealed class TraceabilityStartupWindow : Window
         nameBox = new TextBox
         {
             Text = AppSettings.UserName,
-            PlaceholderText = "Operator name",
+            PlaceholderText = TraceabilityPresentation.UserNameLabel,
             MinWidth = 280
         };
         errorText = new TextBlock { TextWrapping = TextWrapping.Wrap, IsVisible = false };
@@ -53,7 +54,7 @@ internal sealed class TraceabilityStartupWindow : Window
             {
                 new TextBlock
                 {
-                    Text = "Confirm the operator name before opening data. This confirmation appears once each time FT-ITC starts.",
+                    Text = TraceabilityPresentation.StartupConfirmationDescription,
                     TextWrapping = TextWrapping.Wrap
                 },
                 nameBox,

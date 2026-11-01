@@ -237,7 +237,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Empty(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportSignOffBlock>());
         Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
             .SelectMany(block => block.Items), item => item.Label == "Report identifier" || item.Label == "Result identifiers"
-                || item.Label == "Report prepared by" || item.Label == "Generated at" || item.Label == "Analysis operator");
+                || item.Label == "Report prepared by" || item.Label == "Generated at" || item.Label == TraceabilityPresentation.AnalyzedByLabel);
 
         options.Author = "";
         options.ExtraTraceability = true;
@@ -347,12 +347,12 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.All(identifiers, entry => Assert.Equal(0, entry.item.IndentLevel));
         var analysis = full.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
-        Assert.DoesNotContain(analysis.Items, item => item.Label == "Analysis operator");
+        Assert.DoesNotContain(analysis.Items, item => item.Label == TraceabilityPresentation.AnalyzedByLabel);
         var traced = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
         { ExtraTraceability = true, CondenseRepeatedExperiments = false });
         var tracedAnalysis = traced.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
-        Assert.Contains(tracedAnalysis.Items, item => item.Label == "Analysis operator" && item.Value == "Operator A");
+        Assert.Contains(tracedAnalysis.Items, item => item.Label == TraceabilityPresentation.AnalyzedByLabel && item.Value == "Operator A");
 
         var repeated = CreateResult(1);
         var repeatedData = repeated.Solution.Solutions.Single().Data;

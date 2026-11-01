@@ -4,6 +4,7 @@ using AppKit;
 using CoreGraphics;
 using Foundation;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.UI.MacOS
 {
@@ -20,16 +21,16 @@ namespace AnalysisITC.UI.MacOS
         {
             var completion = new TaskCompletionSource<bool>();
 
-            var heading = NSTextField.CreateLabel("Confirm Operator");
+            var heading = NSTextField.CreateLabel(TraceabilityPresentation.ConfirmUserLabel);
             heading.Font = NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize + 2);
             heading.TranslatesAutoresizingMaskIntoConstraints = false;
             var description = NSTextField.CreateWrappingLabel(
-                "Traceability Mode is on. New Analysis Results and reports in this session are attributed to this operator. Change it later in General Preferences.");
+                TraceabilityPresentation.StartupConfirmationDescription);
             description.TextColor = NSColor.SecondaryLabel;
             description.PreferredMaxLayoutWidth = ContentWidth;
             description.TranslatesAutoresizingMaskIntoConstraints = false;
 
-            var label = NSTextField.CreateLabel("Operator name");
+            var label = NSTextField.CreateLabel(TraceabilityPresentation.UserNameLabel);
             label.TranslatesAutoresizingMaskIntoConstraints = false;
             var name = new NSTextField
             {
@@ -39,7 +40,7 @@ namespace AnalysisITC.UI.MacOS
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Font = NSFont.SystemFontOfSize(13),
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                AccessibilityLabel = "Operator name",
+                AccessibilityLabel = TraceabilityPresentation.UserNameLabel,
             };
             name.Cell.Scrollable = true;
             var nameRow = new NSStackView
@@ -87,7 +88,7 @@ namespace AnalysisITC.UI.MacOS
             var sheet = new NSPanel(new CGRect(0, 0, ContentWidth + 2 * Inset, 200),
                 NSWindowStyle.Titled, NSBackingStore.Buffered, false)
             {
-                Title = "Confirm Operator",
+                Title = TraceabilityPresentation.ConfirmUserLabel,
                 ReleasedWhenClosed = false,
             };
             sheet.ContentView = content;
@@ -99,7 +100,7 @@ namespace AnalysisITC.UI.MacOS
             {
                 var valid = PreferencesState.TryValidateTraceability(true, name.StringValue, out var _);
                 proceed.Enabled = valid;
-                proceed.ToolTip = valid ? null : "An operator name is required when Traceability Mode is enabled.";
+                proceed.ToolTip = valid ? null : TraceabilityPresentation.UserNameRequired;
             }
             name.Changed += (sender, e) => UpdateContinue();
             UpdateContinue();
