@@ -1709,12 +1709,11 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-199 - Concentration formatting temporarily changes global precision
 
 - Priority: Low.
-- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
+- Status: Resolved (2026-11-01).
 - Origin: Read-only code review 2026-10-20/21, E7; current-tree verification 2026-10-21.
 - Location: Core `Math/NumberStructs.cs`, `FloatWithError.AsF1FormattedConcentration`; model display-attribute caller.
-- Problem: When HasError is false, this formatter changes AppSettings.NumberPrecision, formats, then restores it without finally or isolation. Another formatter can observe the temporary precision; an exception can skip restoration. No concurrent formatting failure was reproduced.
-- Suggested direction: Pass local formatting precision through the shared formatter, avoiding a global preference mutation; retain the existing one-decimal display contract.
-- Verify: Independent formatting expectations with non-default global precision, concurrent callers and a formatting failure; verify the preference never changes.
+- Problem: When HasError was false, the formatter temporarily changed AppSettings.NumberPrecision. Overlapping formatting could observe the temporary setting, and an exception could leave it changed.
+- Resolution: Pass a local precision override into the shared formatter without assigning the global preference. Preserve existing one-decimal, uncertainty, unit, culture, and compact-number output. Regression tests reproduce the original mutation during formatting and concurrent calls, and the leak after an injected formatting exception; the corrected formatter leaves precision unchanged throughout.
 
 ## ITC-200 - An empty downloaded citation suppresses the bundled fallback
 

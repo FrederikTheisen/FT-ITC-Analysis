@@ -387,15 +387,9 @@ namespace AnalysisITC.Core.Numerics
         }
         public string AsF1FormattedConcentration(bool withunit)
         {
-            if (this.HasError) return AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit);
-            else
-            {
-                var _ = AppSettings.NumberPrecision;
-                AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
-                var s = AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit);
-                AppSettings.NumberPrecision = _;
-                return s;
-            }
+            var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Value);
+            var precision = HasError ? AppSettings.NumberPrecision : NumberPrecision.SingleDecimal;
+            return WithMod(unit.GetMod(), unit.GetName(), withunit, false, precision: precision);
         }
         public string AsFormattedConcentration(bool withunit, bool withci = false, UncertaintyDisplayStyle? style = null) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit, withci, style);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false, UncertaintyDisplayStyle? style = null) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci, style);
@@ -404,7 +398,7 @@ namespace AnalysisITC.Core.Numerics
 
         #endregion
 
-        string WithMod(double mod, string unit, bool withunit, bool withci, UncertaintyDisplayStyle? style = null)
+        string WithMod(double mod, string unit, bool withunit, bool withci, UncertaintyDisplayStyle? style = null, NumberPrecision? precision = null)
         {
             if (IsNaN(this)) return ToString("G5", style);
 
@@ -412,7 +406,7 @@ namespace AnalysisITC.Core.Numerics
             var displayStyle = ResolveDisplayStyle(value, style, withci);
             double logerror;
             string s;
-            switch (AppSettings.NumberPrecision)
+            switch (precision ?? AppSettings.NumberPrecision)
             {
                 case NumberPrecision.Standard when HasDisplayUncertainty(value, displayStyle):
                     logerror = Math.Log10(UncertaintyMagnitude(value, displayStyle) * 0.5); // Add digit for errors less than 2
