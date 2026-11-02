@@ -12,6 +12,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Controls;
@@ -25,6 +27,57 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AnalysisReportRenderingTests
 {
+    [AvaloniaFact]
+    public void ReportZoomControlsPreserveThePagePositionAtTheViewportCenter()
+    {
+        var document = AnalysisReportBuilder.BuildInterpretationPreview("## Report\n\n" +
+            string.Join("\n\n", Enumerable.Repeat("A distinct observation remains uncertain.", 400)));
+        var renderer = new SkiaAnalysisReportRenderer();
+        var plan = renderer.CreatePlan(document);
+        Assert.True(plan.Pages.Count > 4);
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        global::Avalonia.Application.Current!.Styles.Add(theme);
+        var window = new AnalysisReportWindow { Width = 1000, Height = 700 };
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        T Field<T>(string name) => (T)typeof(AnalysisReportWindow).GetField(name, flags)!.GetValue(window)!;
+        var scroll = Field<ScrollViewer>("previewScroll");
+        var zoom = Field<ComboBox>("previewZoomCombo");
+        try
+        {
+            window.Show();
+            typeof(AnalysisReportWindow).GetMethod("ShowPreview", flags)!.Invoke(window, new object[] { document, plan });
+            typeof(AnalysisReportWindow).GetMethod("ShowPreviewWorkspace", flags)!.Invoke(window, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.True(scroll.Viewport.Height > 0);
+
+            // Center on page 3, 300 points below its top. The 14-pixel gaps do not scale.
+            scroll.Offset = new global::Avalonia.Vector(0, 2 * (842 + 14) + 7 + 300 - scroll.Viewport.Height / 2);
+            Dispatcher.UIThread.RunJobs();
+            double PagePosition(double scale) =>
+                (scroll.Offset.Y + scroll.Viewport.Height / 2 - 2 * (842 * scale + 14) - 7) / scale;
+            Assert.Equal(300, PagePosition(1), tolerance: 1);
+
+            var increase = Field<Button>("previewZoomInButton");
+            increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(300, PagePosition(1.2), tolerance: 2);
+
+            zoom.SelectedIndex = 3; // 80%, via the same selection event as the percentage control.
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(300, PagePosition(0.8), tolerance: 2);
+
+            // Keep the midpoint of the fixed gap between pages 2 and 3 in view.
+            scroll.Offset = new global::Avalonia.Vector(0, 2 * (842 * 0.8 + 14) - scroll.Viewport.Height / 2);
+            Dispatcher.UIThread.RunJobs();
+            increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2 * (842 * 0.9 + 14), scroll.Offset.Y + scroll.Viewport.Height / 2, tolerance: 2);
+        }
+        finally { window.Close(); global::Avalonia.Application.Current!.Styles.Remove(theme); }
+    }
+
     [AvaloniaFact]
     public void MarkdownTablesRenderWithContinuationAndAllRows()
     {

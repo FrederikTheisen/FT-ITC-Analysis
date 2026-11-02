@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Shape = Avalonia.Controls.Shapes.Shape;
 using Avalonia.Controls.Templates;
 using Avalonia.Automation;
@@ -148,6 +149,8 @@ namespace AnalysisITC.Avalonia.Tools
         bool initialPreviewStarted;
         bool previewPinchActive;
         double previewPinchStartZoom = 1.0;
+        double appliedPreviewZoom = 1.0;
+        Point? previewZoomAnchor;
         DateTime lastPreviewWheelEventUtc;
         int lastPreviewWheelDirection;
         DateTime lastPreviewMagnifyEventUtc;
@@ -1381,7 +1384,13 @@ namespace AnalysisITC.Avalonia.Tools
                 || direction != lastPreviewWheelDirection;
             lastPreviewWheelEventUtc = now;
             lastPreviewWheelDirection = direction;
-            if (startsNewGesture) StepPreviewZoom(direction);
+            if (startsNewGesture)
+            {
+                var presenter = PreviewPresenter();
+                previewZoomAnchor = presenter == null ? null : e.GetPosition(presenter);
+                try { StepPreviewZoom(direction); }
+                finally { previewZoomAnchor = null; }
+            }
             e.Handled = true;
         }
 
@@ -1433,8 +1442,47 @@ namespace AnalysisITC.Avalonia.Tools
             previewZoomInButton.IsEnabled = previewZoomCombo.SelectedIndex >= 0
                 && previewZoomCombo.SelectedIndex < PreviewZoomLevels.Length - 1;
             var zoom = CurrentPreviewZoom();
+            var presenter = PreviewPresenter();
+            AnalysisReportPreviewPage? anchorPage = null;
+            Point anchorInPage = default;
+            Point anchorInViewport = default;
+            var originalOffset = previewScroll.Offset;
+            if (presenter != null && pageViews.Count > 0 && previewPages.IsVisible && zoom != appliedPreviewZoom)
+            {
+                UpdateLayout();
+                originalOffset = previewScroll.Offset;
+                anchorInViewport = previewZoomAnchor ?? new Point(presenter.Bounds.Width / 2, presenter.Bounds.Height / 2);
+                var nearestDistance = double.PositiveInfinity;
+                foreach (var page in pageViews)
+                {
+                    if (presenter.TranslatePoint(anchorInViewport, page) is not { } point) continue;
+                    var distance = Math.Max(0, Math.Max(-point.Y, point.Y - page.Bounds.Height));
+                    if (distance >= nearestDistance) continue;
+                    nearestDistance = distance;
+                    anchorPage = page;
+                    var pageY = Math.Clamp(point.Y, 0, page.Bounds.Height);
+                    anchorInPage = new Point(point.X, pageY);
+                }
+            }
+            var oldZoom = appliedPreviewZoom;
+            appliedPreviewZoom = zoom;
             foreach (var page in pageViews) page.SetZoom(zoom);
+            if (presenter != null && anchorPage != null)
+            {
+                UpdateLayout();
+                // A zoom change can move or virtualize the original page during layout.
+                // Every page has the same height, while the gaps between pages stay fixed.
+                var target = previewZoomAnchor ?? new Point(presenter.Bounds.Width / 2, presenter.Bounds.Height / 2);
+                var index = pageViews.IndexOf(anchorPage);
+                var y = originalOffset.Y + index * AnalysisReportPreviewPage.PageHeight * (zoom - oldZoom)
+                    + anchorInPage.Y * (zoom / oldZoom - 1) + anchorInViewport.Y - target.Y;
+                var pageLeft = Math.Max(0, (presenter.Bounds.Width - anchorPage.Width) / 2);
+                previewScroll.Offset = new Vector(pageLeft + anchorInPage.X * zoom / oldZoom - target.X, y);
+            }
         }
+
+        ScrollContentPresenter? PreviewPresenter() =>
+            previewScroll.GetVisualDescendants().OfType<ScrollContentPresenter>().FirstOrDefault();
 
         void StepPreviewZoom(int direction)
         {
@@ -2411,7 +2459,7 @@ namespace AnalysisITC.Avalonia.Tools
     sealed class AnalysisReportPreviewPage : Border, IDisposable
     {
         const double PageWidth = 595;
-        const double PageHeight = 842;
+        internal const double PageHeight = 842;
         readonly SkiaAnalysisReportRenderer renderer;
         readonly AnalysisReportDocument document;
         readonly AnalysisReportLayoutPlan plan;
