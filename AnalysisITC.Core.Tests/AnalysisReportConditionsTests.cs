@@ -109,6 +109,7 @@ public sealed class AnalysisReportConditionsTests : IDisposable
     [InlineData(-1, 10e-6, "10 µM | 25 °C")]
     [InlineData(100e-6, 2e-3, "100 µM ▸ 2 mM | 25 °C")]
     [InlineData(0, 10e-6, "0 µM ▸ 10 µM | 25 °C")]
+    [InlineData(1e-3, 1e-6, "1 mM ▸ 1 µM | 25 °C")]
     public void ConcentrationPairUsesSyringeThenCellAndOmitsMissingValues(double syringe, double cell, string expected)
     {
         var result = Result();

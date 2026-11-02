@@ -389,9 +389,9 @@ namespace AnalysisITC.Core.Numerics
         {
             var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Value);
             var precision = HasError ? AppSettings.NumberPrecision : NumberPrecision.SingleDecimal;
-            return WithMod(unit.GetMod(), unit.GetName(), withunit, false, precision: precision);
+            return WithMod(unit.GetMod(), unit.GetName(), withunit && FWEMath.IsFinite(Value), false, precision: precision);
         }
-        public string AsFormattedConcentration(bool withunit, bool withci = false, UncertaintyDisplayStyle? style = null) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit, withci, style);
+        public string AsFormattedConcentration(bool withunit, bool withci = false, UncertaintyDisplayStyle? style = null) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit && FWEMath.IsFinite(this.Value), withci, style);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false, UncertaintyDisplayStyle? style = null) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci, style);
 
         public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false, UncertaintyDisplayStyle? style = null) => WithMod(unit.GetMod(), suffix, withunit, withci, style);

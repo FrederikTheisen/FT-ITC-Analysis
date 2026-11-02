@@ -1437,7 +1437,7 @@ namespace AnalysisITC.Core.Viewer
             }
             else if (parent == ParameterType.Affinity1)
             {
-                var concentrationUnit = ResolveConcentrationUnit(source.Value);
+                var concentrationUnit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(source.Value);
                 scale = concentrationUnit.GetMod();
                 unit = concentrationUnit.GetName();
             }
@@ -1455,13 +1455,6 @@ namespace AnalysisITC.Core.Viewer
                 ConfidenceUpper = FiniteOrNull(source.Upper * scale),
                 Unit = unit,
             };
-        }
-
-        static ConcentrationUnit ResolveConcentrationUnit(double value)
-        {
-            return IsFinite(value) && value != 0
-                ? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value))
-                : ConcentrationUnit.µM;
         }
 
         static Tuple<string, string> Axis(ExperimentData experiment)

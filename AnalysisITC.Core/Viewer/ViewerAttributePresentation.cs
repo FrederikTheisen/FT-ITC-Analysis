@@ -96,8 +96,7 @@ namespace AnalysisITC.Core.Viewer
         static string Concentration(FloatWithError value, ConcentrationUnit? unit = null, bool describeUncertainty = true)
         {
             if (!Usable(value)) return Unavailable;
-            var displayUnit = unit ?? (value.Value == 0 ? ConcentrationUnit.µM
-                : ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value.Value)));
+            var displayUnit = unit ?? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
             return ScientificNumber(value * displayUnit.GetMod()) + " " + displayUnit.GetName()
                 + (describeUncertainty ? DescribeUncertainty(value) : "");
         }

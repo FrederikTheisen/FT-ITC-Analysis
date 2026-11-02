@@ -128,18 +128,23 @@ namespace AnalysisITC.Core.Units
         {
             return mag switch
             {
-                > 0 => ConcentrationUnit.M,
-                > -3 => ConcentrationUnit.mM,
-                > -6 => ConcentrationUnit.µM,
-                > -9 => ConcentrationUnit.nM,
-                > -12 => ConcentrationUnit.pM,
+                >= 0 => ConcentrationUnit.M,
+                >= -3 => ConcentrationUnit.mM,
+                >= -6 => ConcentrationUnit.µM,
+                >= -9 => ConcentrationUnit.nM,
                 _ => ConcentrationUnit.pM
             };
         }
 
+        /// <summary>
+        /// Unit whose displayed magnitude falls in [1, 1000), chosen from the absolute value.
+        /// Zero and non-finite values use the default concentration unit.
+        /// </summary>
         public static ConcentrationUnit GetMagnitudeUnitFromConcentration(double conc)
         {
-            var mag = Math.Log10(conc);
+            if (conc == 0 || !FWEMath.IsFinite(conc)) return AppSettings.DefaultConcentrationUnit;
+
+            var mag = Math.Log10(Math.Abs(conc));
 
             return FromMag(mag);
         }

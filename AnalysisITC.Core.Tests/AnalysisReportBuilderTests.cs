@@ -286,7 +286,7 @@ public sealed partial class AnalysisReportBuilderTests
         Assert.Contains("kJ/mol", items[1].Value, StringComparison.Ordinal);
         Assert.Contains("0.5", items[2].Value, StringComparison.Ordinal);
         Assert.Contains("kJ/mol·K⁻¹", items[2].Value, StringComparison.Ordinal);
-        Assert.Equal("1000 nM", items[3].Value);
+        Assert.Equal("1 µM", items[3].Value);
         Assert.All(items, item => Assert.DoesNotContain("±", item.Value, StringComparison.Ordinal));
     }
 
@@ -1119,14 +1119,14 @@ public sealed partial class AnalysisReportBuilderTests
         var affinity = table.Rows.Single(row => row.Cells[0] == "Affinity");
         var expected = result.Solution.Solutions[0].ReportParameters[ParameterType.Affinity1]
             .AsFormattedConcentration(
-                ConcentrationUnit.nM,
+                ConcentrationUnit.µM,
                 withunit: false,
                 style: UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval);
 
         Assert.Equal(expected, affinity.Cells[2]);
         Assert.DoesNotContain("\n", affinity.Cells[2]);
         Assert.Contains(" [", affinity.Cells[2]);
-        Assert.Equal("nM", affinity.Cells[3]);
+        Assert.Equal("µM", affinity.Cells[3]);
         Assert.Equal(1.5, table.VerticalCellPadding);
 
         var overview = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)

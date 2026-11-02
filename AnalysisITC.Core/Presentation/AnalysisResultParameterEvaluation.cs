@@ -513,7 +513,8 @@ namespace AnalysisITC.Core.Presentation
             bool profile = false)
         {
             var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
-            return ErrorTooltip(prefix, value * unit.GetMod(), unit.GetName(), summary, profile);
+            var unitName = IsFinite(value.Value) ? unit.GetName() : string.Empty;
+            return ErrorTooltip(prefix, value * unit.GetMod(), unitName, summary, profile);
         }
 
         static string ErrorTooltip(

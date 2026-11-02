@@ -2184,8 +2184,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 if (!IsFinite(value.Value) || value.Value < 0) return null;
                 var nominal = new FloatWithError(value.Value);
-                var displayUnit = unit ?? (value.Value == 0 ? ConcentrationUnit.µM
-                    : ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value));
+                var displayUnit = unit ?? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
                 return nominal.AsFormattedConcentration(displayUnit);
             }
             void AddConcentration(string label, FloatWithError value, ConcentrationUnit? unit = null)
@@ -3167,7 +3166,7 @@ namespace AnalysisITC.Core.Presentation
             if (parent == ParameterType.Affinity1 || parameter == ParameterType.ApparentAffinity)
             {
                 var concentrationUnit = affinityUnit
-                    ?? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value.Value));
+                    ?? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
                 formattedValue = value.AsFormattedConcentration(
                     concentrationUnit,
                     withunit: false,
