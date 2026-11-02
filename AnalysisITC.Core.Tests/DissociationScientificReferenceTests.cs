@@ -1,4 +1,7 @@
 using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -135,6 +138,34 @@ namespace AnalysisITC.Core.Tests
             1.7232216568897263e-05, 1.9342417227975116e-05,
             2.1448853034066671e-05, 2.3551530704124654e-05,
         };
+
+        [Fact]
+        public void CommittedMicroCalCsvMatchesFrozenConcentrationAndHeatReferences()
+        {
+            var lines = File.ReadLines(Path.Combine(AppContext.BaseDirectory, "Fixtures",
+                    "ScientificValidation", "Dissociation", "microcal-reference.csv"))
+                .Where(line => !string.IsNullOrWhiteSpace(line)
+                    && !line.StartsWith("#", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.Equal(InjectionVolumes.Length + 1, lines.Length);
+            Assert.Equal("injection,volume_L,post_titrant_M,heat_J,molar_heat_J_per_mol", lines[0]);
+
+            static double Number(string value) =>
+                double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+            for (var i = 0; i < InjectionVolumes.Length; i++)
+            {
+                var values = lines[i + 1].Split(',');
+                Assert.Equal(5, values.Length);
+                Assert.Equal(i, int.Parse(values[0], CultureInfo.InvariantCulture));
+                AssertRelative(InjectionVolumes[i], Number(values[1]), 2e-14);
+                AssertRelative(MicroCalPostConcentrations[i], Number(values[2]), 2e-14);
+                AssertRelative(MicroCalHeatsJoules[i], Number(values[3]), 2e-12);
+                AssertRelative(MicroCalHeatsJoules[i] / (SyringeConcentration * InjectionVolumes[i]),
+                    Number(values[4]), 2e-12);
+            }
+        }
 
         [Fact]
         public void IndependentMonomerDimerReferenceConservesMassAndHasPhysicalLimits()
