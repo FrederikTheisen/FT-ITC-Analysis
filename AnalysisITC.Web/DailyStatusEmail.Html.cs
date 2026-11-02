@@ -5,8 +5,8 @@ namespace AnalysisITC.Web;
 
 public sealed partial class DailyStatusEmail
 {
-    static readonly string[] ReportSections = ["Service", "Health (web service)", "Local readiness (web service)", "External access (Cloudflare to MIST)", "Server storage", "Registration pipeline",
-        "Registration account overview", "Previous-day usage", "User activity", "Interpretation diagnostic"];
+    static readonly string[] ReportSections = ["Service", "Health (web service)", "Local readiness (web service)", ProviderApiAccessCheck.GroupName, "External access (Cloudflare to MIST)", "Server storage", "App downloads", "Registration pipeline",
+        "Registration account overview", "Previous-day usage", "User activity", "Interpretation diagnostic", "OpenAI credit estimate"];
 
     internal static string RenderHtml(string report) => RenderHtml(new DailyStatusReport(report,
         report.Split('\n').Any(line => line.Trim() == "Overall status: ATTENTION")));

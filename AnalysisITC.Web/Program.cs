@@ -20,11 +20,17 @@ const string RegistrationSubmissionRateLimitPolicy = "registration-submission";
 const string RegistrationActivationRateLimitPolicy = "registration-activation";
 
 // The scheduled report is independent of the web host and provider registration.
-if (args.Length > 0 && args[0] == "status-email")
+if (args.Length > 0 && args[0] is "status-email" or "download-counts")
 {
     var commandConfiguration = StatusEmailConfigurationLoader.Build();
     var commandOptions = new InterpretationOptions();
     commandConfiguration.GetSection(InterpretationOptions.SectionName).Bind(commandOptions);
+    if (args[0] == "download-counts")
+    {
+        Environment.ExitCode = await DownloadStatisticsCommands.RunAsync(args.Skip(1).ToArray(),
+            commandOptions.DownloadStatistics, Console.Out, Console.Error);
+        return;
+    }
     var values = Options.Create(commandOptions);
     var commandAvailability = new RegistrationAvailability(values);
     var commandOperators = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance);
@@ -97,6 +103,8 @@ builder.Services.AddSingleton<StorageCapacityService>();
 builder.Services.AddSingleton<OperatorTombstoneRegistry>();
 builder.Services.AddHttpClient("turnstile", client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("resend-registration", client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient(ProviderApiAccessCheck.ClientName, client => client.Timeout = TimeSpan.FromSeconds(8))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 builder.Services.AddSingleton<TurnstileVerifier>();
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("FT-ITC.PublicRegistration");
 var registrationConfiguration = builder.Configuration.GetSection(InterpretationOptions.SectionName)
@@ -265,15 +273,20 @@ app.UseAntiforgery();
 
 // These diagnostics are deliberately loopback-only. Caddy adds forwarded headers to public
 // requests, so requiring their absence keeps the endpoint inaccessible through the public site.
-app.MapGet("/api/internal/health", (HttpContext context, HealthCheckService health) =>
+app.MapGet("/api/internal/health", async (HttpContext context, HealthCheckService health,
+    IOptions<InterpretationOptions> configured, IHttpClientFactory clients) =>
 {
     if (!IsInternalHealthRequest(context)) return Results.NotFound();
     var report = health.RunNonBillable();
+    using var client = clients.CreateClient(ProviderApiAccessCheck.ClientName);
+    var providerAccess = await ProviderApiAccessCheck.RunAsync(configured.Value, client, context.RequestAborted);
+    var groups = report.Groups.Append(providerAccess).ToArray();
     return Results.Ok(new
     {
         checkedAtUtc = report.CheckedAtUtc,
-        overall = report.Overall,
-        groups = report.Groups.Select(group => new
+        overall = groups.SelectMany(group => group.Checks).Any(check => check.State is HealthCheckState.Warning or HealthCheckState.Fail)
+            ? "attention" : "healthy",
+        groups = groups.Select(group => new
         {
             name = group.Name,
             checks = group.Checks.Select(check => new { id = check.Id, name = check.Name, state = check.State.ToString().ToLowerInvariant(), reason = check.Reason })

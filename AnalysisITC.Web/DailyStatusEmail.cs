@@ -37,6 +37,8 @@ public sealed partial class DailyStatusEmail
     readonly RegistrationSummaryService? registrationSummary;
     readonly StorageCapacityService? storageCapacity;
     readonly DailyInterpretationProbe? interpretationDiagnostic;
+    readonly DownloadStatisticsService? downloadStatistics;
+    readonly string? openAiCreditBalancePath;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         IOptions<InterpretationOptions> options, OperatorCodeRegistry operators,
@@ -45,14 +47,17 @@ public sealed partial class DailyStatusEmail
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
             CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, operators,
             registrationDiagnostic, registrationSummary, storageCapacity, ServiceHealthCheck.ReadAsync,
-            new DailyInterpretationProbe(options.Value, availability, usage)) { }
+            new DailyInterpretationProbe(options.Value, availability, usage),
+            new DownloadStatisticsService(options.Value.DownloadStatistics),
+            options.Value.OpenAiCreditBalanceConfigurationPath) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         string configurationPath, Func<Task<DailyStatusCheck>> serviceCheck, Func<string, Task<DailyStatusCheck>> endpointCheck,
         Func<string, string, Task>? sender, Func<DateTimeOffset> now,
         OperatorCodeRegistry? operators = null, RegistrationPipelineDiagnostic? registrationDiagnostic = null,
         RegistrationSummaryService? registrationSummary = null, StorageCapacityService? storageCapacity = null,
-        Func<Task<HealthReport>>? healthCheck = null, DailyInterpretationProbe? interpretationDiagnostic = null)
+        Func<Task<HealthReport>>? healthCheck = null, DailyInterpretationProbe? interpretationDiagnostic = null,
+        DownloadStatisticsService? downloadStatistics = null, string? openAiCreditBalancePath = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
         this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now;
@@ -60,6 +65,8 @@ public sealed partial class DailyStatusEmail
         this.operators = operators; this.registrationDiagnostic = registrationDiagnostic; this.registrationSummary = registrationSummary;
         this.storageCapacity = storageCapacity;
         this.interpretationDiagnostic = interpretationDiagnostic;
+        this.downloadStatistics = downloadStatistics;
+        this.openAiCreditBalancePath = openAiCreditBalancePath;
     }
 
     internal static (DateTime StartUtc, DateTime EndUtc) Bounds(DateOnly date)
@@ -71,7 +78,7 @@ public sealed partial class DailyStatusEmail
 
     public async Task<string> CreateReportAsync(DateOnly date) => (await CreateStatusReportAsync(date)).Text;
 
-    internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date, bool liveChecks = false)
+    internal async Task<DailyStatusReport> CreateStatusReportAsync(DateOnly date, bool liveChecks = false, bool collectDownloads = false)
     {
         var hasAttention = false;
         IReadOnlyList<DailyUserActivity>? users = null;
@@ -113,6 +120,7 @@ public sealed partial class DailyStatusEmail
             lines.Add($"  {label}: {endpoint.Detail}");
         }
 
+        HealthCheckGroup? providerAccess = null;
         try
         {
             // Always supplied by the live web process in production. Never fall back
@@ -121,13 +129,28 @@ public sealed partial class DailyStatusEmail
             hasAttention |= report.HasAttention;
             lines.Add(""); lines.Add("Local readiness (web service)");
             lines.Add("  Configuration, storage and assets; public access is checked separately.");
-            foreach (var group in report.Groups)
+            providerAccess = report.Groups.SingleOrDefault(group => group.Name == ProviderApiAccessCheck.GroupName);
+            foreach (var group in report.Groups.Where(group => group.Name != ProviderApiAccessCheck.GroupName))
             {
                 var details = group.Checks.Where(check => check.State != HealthCheckState.Pass).ToArray();
                 lines.Add($"  {group.Name}: {(details.Length == 0 ? "PASS — local checks passed" : string.Join("; ", details.Select(check => $"{check.State.ToString().ToUpperInvariant()} — {check.Name}: {check.Reason}")))}");
             }
         }
         catch { hasAttention = true; lines.Add("\nLocal readiness (web service)\n  FAIL — service health checks unavailable"); }
+        lines.Add("  Viewer project opening: NOT TESTED — endpoint and local readiness checks only.");
+
+        lines.Add(""); lines.Add(ProviderApiAccessCheck.GroupName);
+        if (providerAccess is null)
+        {
+            hasAttention = true;
+            lines.Add("  FAIL — provider API access checks unavailable");
+        }
+        else
+        {
+            lines.Add("  Checked: " + Format(now()));
+            foreach (var check in providerAccess.Checks)
+                lines.Add($"  {check.Name}: {check.State.ToString().ToUpperInvariant()} — {check.Reason}");
+        }
 
         lines.Add(""); lines.Add("External access (Cloudflare to MIST)");
         lines.Add("  Checks started: " + Format(now()));
@@ -135,11 +158,16 @@ public sealed partial class DailyStatusEmail
         lines.Add("  These checks test endpoint reachability, not interpretation generation or project uploads.");
         foreach (var (label, endpoint) in await CheckEndpointsAsync(
             ("Registration endpoint", "https://ft-itc.org/api/registration/status"),
-            ("Viewer endpoint", "https://ft-itc.org/api/viewer/token")))
+            ("Viewer endpoint", "https://ft-itc.org/api/viewer/token"),
+            ("Interpretation endpoint", "https://ft-itc.org/api/interpretation/status")))
         {
-            hasAttention |= endpoint.HasAttention;
-            lines.Add($"  {label}: {(endpoint.HasAttention ? "FAIL" : "PASS")} — {endpoint.Detail}");
+            var attention = endpoint.HasAttention || endpoint.InterpretationUnavailable && !intentionallyUnavailable;
+            hasAttention |= attention;
+            lines.Add($"  {label}: {(attention ? "FAIL" : "PASS")} — {endpoint.Detail}");
         }
+
+        // Save aggregate counters before the longer interpretation diagnostic or SMTP delivery.
+        hasAttention |= await AddDownloadStatisticsAsync(lines, collectDownloads);
 
         DailyInterpretationProbeResult? probe = null;
         if (interpretationDiagnostic is not null)
@@ -151,6 +179,8 @@ public sealed partial class DailyStatusEmail
             }
             hasAttention |= probe.State is HealthCheckState.Fail or HealthCheckState.Warning;
         }
+
+        hasAttention |= AddOpenAiCreditBalance(lines);
 
         lines.Add("");
         lines.Add("Server storage");
@@ -183,6 +213,7 @@ public sealed partial class DailyStatusEmail
 
         lines.Add("");
         lines.Add("Registration pipeline");
+        lines.Add("  Test scope: Local simulation; registration submission, Turnstile verification and email delivery are not tested.");
         if (registrationDiagnostic is null)
         {
             hasAttention = true; lines.Add("  Registration pipeline: check unavailable");
@@ -295,7 +326,14 @@ public sealed partial class DailyStatusEmail
             lines.Add(""); lines.Add("Interpretation diagnostic");
             lines.Add($"  Daily public submission result: {probe.State.ToString().ToUpperInvariant()} — {probe.Reason}");
             lines.Add("  Checked: " + Format(probe.CheckedAtUtc));
+            lines.Add("  Submission endpoint: " + (probe.SubmissionEndpoint ?? "not recorded by the older diagnostic"));
+            if (probe.State == HealthCheckState.Pass && probe.SubmissionEndpoint != DailyInterpretationProbe.Endpoint)
+            {
+                hasAttention = true;
+                lines.Add("  Outside package path: NOT VERIFIED — the saved generation test has no website-route evidence; no extra generation was sent.");
+            }
             lines.Add("  This result applies only to the checked time. Saved runs are reused for that day.");
+            lines.Add("  Knowledge-base retrieval: NOT TESTED — this diagnostic checks generation and accounting only.");
             lines.Add("  Latest test cost: " + (probe.KnownCost is decimal cost
                 ? "$" + cost.ToString("0.0000000", CultureInfo.InvariantCulture)
                     + (probe.UnresolvedCosts + probe.WaivedCosts > 0 ? " known subtotal; total unknown" : " estimated")
@@ -344,7 +382,8 @@ public sealed partial class DailyStatusEmail
         var currentDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(reporter.now(), reporter.zone).DateTime);
         var date = currentDate.AddDays(-1);
         if (dateIndex >= 0) DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
-        var report = await reporter.CreateStatusReportAsync(date, args[0] == "check" || args.Contains("--live-checks", StringComparer.Ordinal));
+        var report = await reporter.CreateStatusReportAsync(date,
+            args[0] == "check" || args.Contains("--live-checks", StringComparer.Ordinal), args[0] is "send" or "check");
         if (args[0] is "preview" or "check") { output.Write(args.Contains("--html", StringComparer.Ordinal) ? RenderHtml(report) : report.Text); return args[0] == "check" && report.HasAttention ? 1 : 0; }
         try
         {

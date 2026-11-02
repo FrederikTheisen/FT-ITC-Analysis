@@ -2,7 +2,7 @@
 # import ftitc_website_forwarding 127.0.0.1:5000
 (ftitc_website_forwarding) {
 	@website_proxy {
-		path /api/registration /api/registration/activate /api/registration/status /api/viewer/token
+		path /api/registration /api/registration/activate /api/registration/status /api/viewer/token /api/interpretation/status /api/interpretation/generate
 		# Header placeholders join repeated values with commas; these checks reject duplicates.
 		expression <<CEL
         {env.FTITC_WEBSITE_PROXY_SECRET}.matches('^[a-f0-9]{64}$')

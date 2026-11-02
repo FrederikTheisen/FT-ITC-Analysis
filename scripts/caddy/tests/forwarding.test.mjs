@@ -10,7 +10,7 @@ import { after, before, test } from 'node:test';
 
 const caddy = process.env.CADDY_BIN;
 assert.ok(caddy, 'Set CADDY_BIN to a local Caddy 2.11.7 executable.');
-const secret = 'a'.repeat(64); // Local fixture only.
+const secret = '0123456789abcdef'.repeat(4); // Local fixture only; distinct from synthetic package fingerprints.
 const visitor = '198.51.100.7';
 const snippet = fileURLToPath(new URL('../website-forwarding.caddy', import.meta.url));
 const roots = [];
@@ -102,12 +102,12 @@ after(async () => {
   for (const directory of roots) rmSync(directory, { recursive: true, force: true });
 });
 
-for (const route of ['/api/registration', '/api/registration/activate', '/api/registration/status', '/api/viewer/token']) {
+for (const route of ['/api/registration', '/api/registration/activate', '/api/registration/status', '/api/viewer/token', '/api/interpretation/status', '/api/interpretation/generate']) {
   test(`authenticates only the visitor assertion on ${route}`, async () => {
     const response = await send(`${route}?preserved=1`, {
       ...assertion(), Cookie: 'csrf=roundtrip', 'X-CSRF-TOKEN': 'fixture', Authorization: 'Bearer application-code',
       'X-Forwarded-For': '203.0.113.99', 'X-Forwarded-Proto': 'https', 'CF-Connecting-IP': '203.0.113.99'
-    }, main, route === '/api/registration' || route.endsWith('/activate') ? 'POST' : 'GET');
+    }, main, route === '/api/registration' || route.endsWith('/activate') || route.endsWith('/generate') ? 'POST' : 'GET');
     assert.equal(response.status, 200);
     const result = await response.json();
     assert.equal(result.headers['x-forwarded-for'], visitor);
@@ -165,7 +165,7 @@ for (const headers of [
     assert.equal(await sendRepeated(headers), 403);
   });
 }
-for (const path of ['/api/internal/health', '/api/interpretation/generate', '/api/registration/extra', '/api/registration/', '/API/REGISTRATION/EXTRA']) {
+for (const path of ['/api/internal/health', '/api/interpretation/extra', '/api/interpretation/generate/extra', '/api/interpretation/generate/', '/api/registration/extra', '/api/registration/', '/API/REGISTRATION/EXTRA']) {
   test(`does not grant authenticated forwarding to ${path}`, async () => {
     assert.equal((await send(path, assertion())).status, 403);
   });
@@ -191,15 +191,28 @@ test('real Worker and Caddy carry native visitor identity end to end without exp
     return realFetch(main.url + parsed.pathname + parsed.search, { ...options, ...(options.body ? { duplex: 'half' } : {}) });
   };
   try {
-    for (const [address, expected] of [['198.51.100.7', '198.51.100.7'], ['203.0.113.8', '203.0.113.8'], ['2001:db8::7', '2001:0db8:0000:0000:0000:0000:0000:0007']]) {
-      const response = await worker.fetch(new Request('https://ft-itc.org/api/registration/status', {
-        headers: { 'CF-Connecting-IP': address, 'X-FTITC-Visitor-IP': '203.0.113.99', 'Proxy-Authorization': 'forged' }
-      }), { FTITC_WEBSITE_PROXY_SECRET: secret });
-      assert.equal(response.status, 200);
-      const result = await response.json();
-      assert.equal(result.headers['x-forwarded-for'], expected);
-      checkStripped(result.headers);
-      assert.equal(JSON.stringify(result).includes(secret), false);
+    const payload = readFileSync(new URL('../../../AnalysisITC.Web/Diagnostics/daily-interpretation-probe.json', import.meta.url), 'utf8');
+    assert.ok(Buffer.byteLength(payload) <= 4096);
+    for (const route of ['/api/registration/status', '/api/interpretation/status', '/api/interpretation/generate']) {
+      for (const [address, expected] of [['198.51.100.7', '198.51.100.7'], ['203.0.113.8', '203.0.113.8'], ['2001:db8::7', '2001:0db8:0000:0000:0000:0000:0000:0007']]) {
+        const submission = route.endsWith('/generate');
+        const response = await worker.fetch(new Request('https://ft-itc.org' + route, {
+          method: submission ? 'POST' : 'GET',
+          headers: { 'CF-Connecting-IP': address, 'X-FTITC-Visitor-IP': '203.0.113.99', 'Proxy-Authorization': 'forged',
+            Authorization: 'Bearer diagnostic-fixture', 'Content-Type': 'application/json', 'X-FTITC-Daily-Probe': '1' },
+          ...(submission ? { body: payload } : {})
+        }), { FTITC_WEBSITE_PROXY_SECRET: secret });
+        assert.equal(response.status, 200);
+        const result = await response.json();
+        assert.equal(result.headers['x-forwarded-for'], expected);
+        assert.equal(result.headers.authorization, 'Bearer diagnostic-fixture');
+        assert.equal(result.headers['x-ftitc-daily-probe'], '1');
+        assert.equal(result.method, submission ? 'POST' : 'GET');
+        assert.equal(result.url, route);
+        assert.equal(result.body, submission ? payload : '');
+        checkStripped(result.headers);
+        assert.equal(JSON.stringify(result).includes(secret), false);
+      }
     }
   } finally { globalThis.fetch = previous; }
 });

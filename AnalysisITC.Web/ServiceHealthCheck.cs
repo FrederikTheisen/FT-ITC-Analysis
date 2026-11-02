@@ -27,8 +27,11 @@ internal static class ServiceHealthCheck
         response.EnsureSuccessStatusCode();
         var report = JsonSerializer.Deserialize<HealthReport>(await response.Content.ReadAsStringAsync(), JsonOptions);
         if (report is null || report.CheckedAtUtc == default || report.Groups is null
-            || new[] { "Interpretation", "Registration", "Viewer", "Storage" }
+            || new[] { "Interpretation", "Registration", "Viewer", "Storage", ProviderApiAccessCheck.GroupName }
                 .Any(name => !report.Groups.Any(group => group?.Name == name))
+            || new[] { "provider.openai", "provider.mistral" }.Any(id => !report.Groups
+                .Where(group => group?.Name == ProviderApiAccessCheck.GroupName && group.Checks is not null)
+                .SelectMany(group => group.Checks).Any(check => check?.Id == id))
             || report.Groups.Any(group => group is null || group.Checks is null || group.Checks.Count == 0
                 || group.Checks.Any(check => check is null || !Enum.IsDefined(check.State)
                     || string.IsNullOrWhiteSpace(check.Id) || string.IsNullOrWhiteSpace(check.Name) || check.Reason is null)))

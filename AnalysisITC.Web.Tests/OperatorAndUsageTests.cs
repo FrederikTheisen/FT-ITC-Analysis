@@ -50,6 +50,8 @@ public sealed class OperatorAndUsageTests : IDisposable
             Interpretation__DailyProbe__Enabled=true
             Interpretation__DailyProbe__OperatorCodeId=diagnostic-account
             Interpretation__DailyProbe__CredentialPath='/etc/ftitc-web/daily-interpretation-probe.json'
+            Interpretation__DownloadStatistics__Enabled=true
+            Interpretation__DownloadStatistics__DatabasePath='/var/lib/ftitc-web/download-statistics.db'
             Interpretation__OpenAI__ApiKey=must-not-be-loaded
             """);
 
@@ -61,6 +63,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal("true", values["Interpretation:DailyProbe:Enabled"]);
         Assert.Equal("diagnostic-account", values["Interpretation:DailyProbe:OperatorCodeId"]);
         Assert.Equal("/etc/ftitc-web/daily-interpretation-probe.json", values["Interpretation:DailyProbe:CredentialPath"]);
+        Assert.Equal("true", values["Interpretation:DownloadStatistics:Enabled"]);
+        Assert.Equal("/var/lib/ftitc-web/download-statistics.db", values["Interpretation:DownloadStatistics:DatabasePath"]);
         Assert.DoesNotContain(values.Keys, key => key.Contains("OpenAI", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(values.Values, value => value?.Contains("must-not-be-loaded", StringComparison.Ordinal) == true);
     }

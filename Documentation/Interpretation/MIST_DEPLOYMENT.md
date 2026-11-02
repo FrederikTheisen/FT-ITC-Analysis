@@ -177,8 +177,9 @@ The email separates local readiness from external access. Local HTTP checks cove
 interpretation status, registration status and viewer-token issuance. The direct
 public-URL check originates on MIST and is labelled accordingly. External checks
 use the existing website Worker at `https://ft-itc.org/api/registration/status`
-and `/api/viewer/token`: Cloudflare opens an outside connection into MIST, testing
-the public ingress separately from loopback access. No Worker change is required.
+and `/api/viewer/token`, plus `/api/interpretation/status`: Cloudflare opens an
+outside connection into MIST, testing the public ingress separately from loopback
+access. The interpretation routes require matching Worker and Caddy updates below.
 These are reachability checks, not registration submissions, project uploads or
 interpretation generation. A valid registration response can report registrations
 unavailable while still proving reachability. Each check uses a unique query and
@@ -190,6 +191,23 @@ to the scheduled service timeout. Skipped local checks remain labelled skipped.
 This is a daily check from Cloudflare's network, not continuous monitoring or proof
 of reachability from every client network. If MIST cannot run or send email at all,
 this self-report cannot notify an outage; that requires a separately hosted monitor.
+
+**Provider API access** reports OpenAI and Mistral separately using authenticated
+`GET /v1/models` requests from the web process. The checks retain each configured
+provider origin and path prefix, including Mistral's EU endpoint. They do not send
+scientific data or generate an interpretation. Provider keys remain in the web
+process; the standalone email process reads the results through loopback health.
+Each request has a six-second deadline including its response body, with a bounded
+JSON response, no redirects and no retries. Both providers run concurrently.
+Missing credentials, HTTP errors, malformed or cached responses, and timeouts need
+attention. Providers explicitly not enabled in application configuration are skipped.
+API keys must permit model-list reads; the results describe this access check rather
+than asserting every generation model or tool works. An older web runtime without
+both provider results is treated as an unavailable check. Update both Web and the
+standalone email runtime together. A provider pass never overrides a failed outside
+access check or a failing local check.
+The model-list responses do not provide remaining prepaid-credit balances; a
+successful access check is not evidence that funds remain for generation.
 
 The README viewer badge also probes the website's `/api/viewer/token` proxy route.
 Shields uses `HEAD`, which the viewer endpoint explicitly supports alongside `GET`.
@@ -208,10 +226,12 @@ identifiers are included.
 
 The scheduled service also runs `send --live-checks`. When `Interpretation:DailyProbe`
 is enabled, this submits one small invented-evidence interpretation through
-`https://app.ft-itc.org/api/interpretation/generate`. It exercises normal authentication,
+`https://ft-itc.org/api/interpretation/generate`. The website Worker forwards this
+package into MIST, so the existing single daily generation also tests the outside
+submission path. It exercises normal authentication,
 validation, Instant preset selection, quota/admission, prompt construction, provider
-generation, response handling and durable accounting. Retrieval is disabled for this
-diagnostic account only; ordinary requests retain their configured retrieval and output
+generation, response handling and durable accounting. This diagnostic does not test
+knowledge-base retrieval; ordinary requests retain their configured retrieval and output
 limits. The probe uses at most 4 KiB of request JSON, 256 generated tokens (including
 reasoning), and the lowest allowlisted reasoning effort available among `none`,
 `minimal` and `low`. It retains the Instant model and configured scientific guidance.
@@ -233,6 +253,23 @@ dispatch. A deliberate interpretation pause or retirement skips the probe. No fa
 automatically retries a generation. The `--date` option changes the reported usage
 period, not the day claimed by a live diagnostic.
 
+The saved result records its submission endpoint. A saved success from an older
+runtime without the website-route evidence remains a historical generation success,
+but cannot establish that outside package processing was tested. The report needs
+attention in that case and does not repeat the generation that day. Fresh outside
+interpretation-status checks still run for every report; an older daily success
+cannot hide an interpretation-specific access failure.
+
+Before enabling this outside submission route, deploy the extended
+`scripts/caddy/website-forwarding.caddy` allowlist, then the website `_worker.js`
+allowlist, then the updated Web and standalone status-email runtimes. Both proxies
+must carry `/api/interpretation/status` and `/api/interpretation/generate` with the
+existing authenticated visitor-forwarding contract. Internal health stays private;
+ordinary interpretation authentication, validation, rate limits, quota admission,
+provider dispatch and accounting are not bypassed. No extra provider generation is
+introduced. If forwarding fails, the test fails; it never retries directly against
+`app.ft-itc.org`. These proxy changes need explicit deployment and live verification.
+
 `status-email preview` and ordinary `send` read the saved result without submitting.
 `status-email check` runs the daily diagnostic and prints the report without sending
 email. This command is billable when no result has been saved for today, and exits
@@ -244,6 +281,12 @@ user-activity list exclude them. A separate Interpretation diagnostic section re
 the current check and its cost, plus diagnostic activity in the reported usage period.
 The result is explicitly limited to its checked time; a saved successful generation
 does not override a failing fresh local or external access check.
+The success message reports that the test interpretation was generated and accounting
+verified. Older saved successes use the same display wording without changing their
+stored timestamps, accounting or outcome. The email explicitly labels knowledge-base
+retrieval and viewer project opening as untested, and registration as a local simulation
+that does not submit a signup, verify Turnstile or test real email delivery. These are
+coverage limits, not statements that normal service features have been switched off.
 Full accounting and administrative usage exports retain these executions and costs,
 including unresolved charges; no financial evidence is deleted or zeroed. Include the
 protected credential and daily state directory in deployment/recovery backups.
@@ -276,6 +319,111 @@ The timer runs daily at 08:00 Europe/Copenhagen and catches up after downtime. V
 `systemctl list-timers ftitc-status-email.timer` and the first scheduled delivery using
 `journalctl -u ftitc-status-email.service`. Keep the timer disabled until SMTP credentials
 and mailbox reception are verified.
+
+### OpenAI credit estimate
+
+The daily email estimates remaining OpenAI credits from an administrator-supplied
+USD balance minus MIST's recorded OpenAI attempt costs since that balance's
+timestamp. It includes retries, in-flight receipts and daily diagnostic calls,
+uses reconciled costs, and excludes Mistral. The estimate runs through the current
+check time even when the usage report covers the previous day; it does not reset
+at month boundaries. No OpenAI API key or Admin key is needed for this calculation.
+
+Before enabling the updated standalone status-email runtime, install a baseline
+at `/etc/ftitc-web/openai-credit-balance.json` as root mode `0600`:
+
+```json
+{"balanceUsd":25.00,"checkedAtUtc":"2026-11-02T12:00:00Z","warnBelowUsd":5.00}
+```
+
+The values above are examples: use the actual dashboard balance and its check
+time with an explicit UTC offset. The baseline is operational configuration,
+not part of the public application settings. A prepared local baseline can be
+installed with `sudo install -o root -g root -m 0600 openai-credit-balance.json /etc/ftitc-web/openai-credit-balance.json`.
+To change its location, set `Interpretation__OpenAiCreditBalanceConfigurationPath`
+in `interpretation.env`; the standalone loader accepts this path without loading
+provider credentials. Preview the email after installation.
+
+An estimate below the configured threshold, any unresolved or waived unknown
+attempt cost, and a missing/invalid baseline or unreadable/disabled ledger make
+the email `[ATTENTION]`. Unknown costs never become zero-cost deductions, and
+negative estimates remain visible. Reading or sending reports never changes the
+baseline or accumulates deductions, so repeated runs cannot double-count usage.
+
+This is an estimate of MIST-recorded spend, not a provider-confirmed account
+balance. It misses other applications/API keys in the same OpenAI organization,
+storage charges outside the attempt ledger, credit expiration, grants, refunds,
+top-ups and provider billing delays or pricing differences. Recheck the dashboard
+periodically and atomically replace the baseline with its latest balance/time
+after any adjustment or ledger replacement; do not add a top-up to the old
+baseline without also accounting for the elapsed usage. Mistral retains its
+provider-managed credit warning and has no local balance estimate.
+
+Local implementation prepared 2026-11-02; not deployed. This changes the
+standalone status-email runtime and its baseline configuration; it does not
+require a change to provider access or interpretation quotas.
+
+### App download history
+
+The daily `status-email send` job also records the first successful download
+snapshot of each Copenhagen calendar day. It queries GitHub's public release
+and asset metadata for all published releases, including prereleases, and saves
+the installer counters in `/var/lib/ftitc-web/download-statistics.db`. Drafts,
+source archives, checksums and signatures are excluded. Each observation keeps
+the version tag, GitHub release and asset IDs, filename, platform, package type,
+architecture where the filename states it, timestamp and cumulative count.
+These are GitHub download counts, not unique users, installations or app usage.
+No visitor addresses or installation identifiers are collected.
+
+The existing persistent 08:00 timer catches up after server downtime. Collection
+runs in the standalone status-email process, so it does not require a working
+web host or successful SMTP delivery. It needs outbound HTTPS access to
+`api.github.com` and write access to the statistics database and its directory;
+no GitHub token is needed. All release and asset pages must succeed before a
+snapshot is committed. A failed attempt preserves history and can be retried
+that day. Successful snapshots are immutable, so repeated sends or restarts do
+not add duplicate observations.
+
+The email's **App downloads** section has one row per platform and a Total row,
+combining versions, architectures and package types, for example
+`macOS: 43 (+2)`. Totals cover currently listed installers. The change compares
+the same installer assets with the immediately preceding snapshot; both snapshot
+times are shown, independently of the report's previous-day usage period. A gap
+of several calendar days is labelled with its length and an unavailable daily
+breakdown. The first snapshot shows `baseline`. Added, replaced or removed
+installers make the affected platform and overall changes unavailable; other
+platforms can still show their known increases. Counter decreases also make
+affected changes unavailable and require attention. Per-file version details,
+including deleted assets and replacements, remain in CSV history. A failed
+collection, unreadable history or snapshot older than 36 hours also makes the
+report need attention. `preview` reads saved counts without contacting GitHub or
+creating a statistics database.
+
+To collect without sending an email, or export the complete history as CSV:
+
+```bash
+sudo dotnet /opt/ftitc-status-email/AnalysisITC.Web.dll download-counts collect
+sudo dotnet /opt/ftitc-status-email/AnalysisITC.Web.dll download-counts export > downloads.csv
+```
+
+Both commands accept `--database PATH`. CSV contains one row per installer
+observation, cumulative counts, the previous observation time, an increase when
+known, and `baseline`, `observed` or `counter_decreased` interval status. Export
+reads saved data without contacting GitHub. `status-email check` also attempts
+collection, independently of its existing interpretation diagnostic.
+
+Configuration in the standalone runtime's `appsettings.json` is under
+`Interpretation:DownloadStatistics` (`Enabled`, default `true`, and
+`DatabasePath`). The corresponding `Interpretation__DownloadStatistics__Enabled`
+and `Interpretation__DownloadStatistics__DatabasePath` settings in
+`/etc/ftitc-web/interpretation.env` override those values through the standalone
+command's credential-filtered loader. Disabling collection leaves existing
+history available for export. Include the statistics database in consistent
+SQLite backups and deployment recovery inventories. Deploy the updated
+status-email runtime and `ftitc-status-email.service` to enable this feature.
+The service timeout is 240 seconds to allow the bounded GitHub collection
+alongside the existing diagnostics and mail retries. No website, installer or
+desktop release changes are required.
 
 Trusted administrators can open the interactive console from any directory:
 

@@ -28,6 +28,7 @@ public sealed class DailyInterpretationProbeTests
         var preview = await fixture.NewProbe().RunAsync(false, now.AddMinutes(2));
 
         Assert.Equal(HealthCheckState.Pass, result.State);
+        Assert.Equal("test interpretation generated and accounting verified", result.Reason);
         Assert.Equal(result, repeated);
         Assert.Equal(result, preview);
         Assert.Equal(1, fixture.ProviderCalls);
@@ -46,6 +47,87 @@ public sealed class DailyInterpretationProbeTests
         if (!OperatingSystem.IsWindows())
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite,
                 File.GetUnixFileMode(Assert.Single(Directory.GetFiles(fixture.Options.DailyProbe.StateDirectory))));
+    }
+
+    [Fact]
+    public async Task DailyPackagePassesThroughTheWebsiteBeforeNormalRelayGenerationAndAccounting()
+    {
+        using var fixture = new ProbeFixture();
+        var outsideRequests = 0;
+        using var edge = new HttpClient(new CallbackHandler(async (request, cancellationToken) =>
+        {
+            outsideRequests++;
+            Assert.Equal("https://ft-itc.org/api/interpretation/generate", request.RequestUri!.AbsoluteUri);
+            Assert.Equal(HttpMethod.Post, request.Method);
+            var bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+            Assert.InRange(bytes.Length, 1, 4096);
+            using var forwarded = new HttpRequestMessage(request.Method, "https://app.ft-itc.org/api/interpretation/generate")
+            { Content = new ByteArrayContent(bytes) };
+            foreach (var header in request.Headers) forwarded.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            foreach (var header in request.Content.Headers) forwarded.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            forwarded.Headers.Add("X-Forwarded-For", "198.51.100.7");
+            return await fixture.Client.SendAsync(forwarded, cancellationToken);
+        }));
+        var now = DateTimeOffset.UtcNow;
+        var probe = fixture.NewProbe(edge);
+
+        var result = await probe.RunAsync(true, now);
+        var repeated = await probe.RunAsync(true, now.AddMinutes(1));
+
+        Assert.Equal(HealthCheckState.Pass, result.State);
+        Assert.Equal(result, repeated);
+        Assert.Equal(1, outsideRequests);
+        Assert.Equal(1, fixture.ProviderCalls);
+        Assert.Equal(1L, fixture.Scalar("SELECT count(*) FROM execution_usage WHERE effective_preset='daily-diagnostic' AND outcome='success'"));
+        Assert.True(result.KnownCost > 0);
+    }
+
+    [Fact]
+    public async Task OutsideSubmissionFailureDoesNotFallBackToLocalGenerationOrResubmit()
+    {
+        using var fixture = new ProbeFixture();
+        var calls = 0;
+        using var edge = new HttpClient(new CallbackHandler((request, _) =>
+        {
+            calls++;
+            Assert.Equal("ft-itc.org", request.RequestUri!.Host);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        }));
+        var now = DateTimeOffset.UtcNow;
+        var probe = fixture.NewProbe(edge);
+
+        var result = await probe.RunAsync(true, now);
+        var repeated = await probe.RunAsync(true, now.AddMinutes(1));
+
+        Assert.Equal(HealthCheckState.Fail, result.State);
+        Assert.Equal(result, repeated);
+        Assert.Equal(1, calls);
+        Assert.Equal(0, fixture.ProviderCalls);
+        Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM execution_usage"));
+    }
+
+    [Fact]
+    public async Task SavedSuccessUsesClearWordingWithoutChangingEvidenceOrRepeatingGeneration()
+    {
+        using var fixture = new ProbeFixture();
+        var now = DateTimeOffset.UtcNow;
+        var original = await fixture.Probe.RunAsync(true, now);
+        var legacy = original with { Reason = "public response and accounting checked; retrieval disabled" };
+        var path = Assert.Single(Directory.GetFiles(fixture.Options.DailyProbe.StateDirectory));
+        File.WriteAllText(path, JsonSerializer.Serialize(legacy));
+        var saved = File.ReadAllText(path);
+
+        var repeated = await fixture.NewProbe().RunAsync(true, now.AddMinutes(1));
+
+        Assert.Equal(original with { Reason = "test interpretation generated and accounting verified" }, repeated);
+        var report = await fixture.Reporter().CreateStatusReportAsync(DailyInterpretationProbe.Day(now));
+        Assert.Contains("test interpretation generated and accounting verified", report.Text);
+        Assert.DoesNotContain("retrieval disabled", report.Text);
+        Assert.Contains("Knowledge-base retrieval: NOT TESTED", report.Text);
+        Assert.Contains("Viewer project opening: NOT TESTED", report.Text);
+        Assert.Contains("registration submission, Turnstile verification and email delivery are not tested", report.Text);
+        Assert.Equal(saved, File.ReadAllText(path));
+        Assert.Equal(1, fixture.ProviderCalls);
     }
 
     [Fact]

@@ -13,7 +13,9 @@ public sealed class InterpretationOptions
     public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/interpretation-service.json";
     public string AdminDisplayTimeZone { get; set; } = "Europe/Copenhagen";
     public string StatusEmailConfigurationPath { get; set; } = "/etc/ftitc-web/status-email.json";
+    public string OpenAiCreditBalanceConfigurationPath { get; set; } = "/etc/ftitc-web/openai-credit-balance.json";
     public DailyInterpretationProbeOptions DailyProbe { get; set; } = new();
+    public DownloadStatisticsOptions DownloadStatistics { get; set; } = new();
     public RegistrationOptions Registration { get; set; } = new();
     public string TombstonePath { get; set; } = "/etc/ftitc-web/operator-tombstones.json";
     public string PublicAccessRegistryPath { get; set; } = "/var/lib/ftitc-web/public-access.json";

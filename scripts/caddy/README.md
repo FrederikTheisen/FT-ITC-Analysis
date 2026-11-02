@@ -1,18 +1,19 @@
 # Authenticated website forwarding — ITC-214
 
-This configuration was deployed with user approval on 2026-10-21. Nothing in this
-directory deploys itself. Future production changes still require deployment approval.
+The original four-route configuration was deployed with user approval on 2026-10-21.
+The interpretation-route extension below is prepared locally and has not been deployed.
+Nothing in this directory deploys itself. Production changes require deployment approval.
 
 ## Contract
 
 The website Worker sends `Proxy-Authorization: Bearer <secret>` and
-`X-FTITC-Visitor-IP` on its four existing API routes. The same
+`X-FTITC-Visitor-IP` on its explicitly allowlisted API routes. The same
 `FTITC_WEBSITE_PROXY_SECRET` binding must hold 64 lowercase hexadecimal characters
 (32 random bytes) in the Worker and Caddy environments. It is separate from
 application bearer codes, Cloudflare API tokens and Turnstile credentials.
 
-Caddy accepts the assertion only on registration, activation, registration status
-and viewer-token routes. IPv4 uses strict dotted decimal; the Worker expands IPv6
+Caddy accepts the assertion only on registration, activation, registration status,
+viewer-token, interpretation-status and interpretation-generation routes. IPv4 uses strict dotted decimal; the Worker expands IPv6
 to eight lowercase four-digit groups, including mapped IPv4. Caddy independently
 validates that format. Duplicate fields and comma lists are rejected. Assertions
 with the wrong secret, invalid address or wrong route return 403. Requests without
@@ -75,6 +76,24 @@ public internal health stays 404. **Live IPv6 forwarding remains unverified.**
 Caddy's protected rollback directory is `/root/itc214-20261021T142324Z`.
 The prior Worker version is `9b90daf1-589c-49c6-8821-370f670e997f`; restore it first
 if rollback is needed. Planning/ISSUES.md, ITC-214, records sanitized evidence.
+
+## Interpretation route extension — prepared 2026-11-01
+
+The new daily interpretation test sends its existing synthetic package through
+`https://ft-itc.org/api/interpretation/generate`, so Cloudflare makes the outside
+connection into MIST before the normal application processing and OpenAI generation.
+`/api/interpretation/status` also receives a fresh outside check on every report.
+Both routes need the extended Worker and Caddy allowlists. No account privilege,
+application authentication, quota policy or provider credential is changed.
+
+After approval, install and validate the extended Caddy snippet first, update the
+website Worker second, then update the Web and standalone status-email runtimes.
+Reuse the existing protected proxy-secret binding; no rotation is needed for this
+route addition. Verify the normal application bearer, synthetic request body and
+diagnostic header arrive intact, visitor assertions are stripped, internal health
+remains inaccessible publicly, and exactly one accounted daily generation completes.
+Do not substitute a direct-to-MIST retry if the outside route fails. This extension
+has local test coverage only until the proxy updates and live verification complete.
 
 ## Deployment order — after approval only
 

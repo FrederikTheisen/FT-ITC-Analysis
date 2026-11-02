@@ -11,7 +11,8 @@ namespace AnalysisITC.Web;
 
 internal sealed record DailyInterpretationProbeResult(DateOnly Day, DateTimeOffset CheckedAtUtc,
     HealthCheckState State, string Reason, string? ServerExecutionId = null,
-    int? ProviderAttempts = null, decimal? KnownCost = null, int UnresolvedCosts = 0, int WaivedCosts = 0);
+    int? ProviderAttempts = null, decimal? KnownCost = null, int UnresolvedCosts = 0, int WaivedCosts = 0,
+    string? SubmissionEndpoint = null);
 
 /// <summary>One real, invented-evidence submission per Copenhagen day. Never stores generated text or credentials.</summary>
 internal sealed class DailyInterpretationProbe
@@ -20,7 +21,8 @@ internal sealed class DailyInterpretationProbe
     internal const int MaximumOutputTokens = 256;
     internal const int MaximumRequestBytes = 4096;
     internal const string RequestHeader = "X-FTITC-Daily-Probe";
-    internal const string Endpoint = "https://app.ft-itc.org/api/interpretation/generate";
+    internal const string Endpoint = "https://ft-itc.org/api/interpretation/generate";
+    const string SuccessReason = "test interpretation generated and accounting verified";
     static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Copenhagen");
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     readonly DailyInterpretationProbeOptions options;
@@ -41,7 +43,8 @@ internal sealed class DailyInterpretationProbe
     internal async Task<DailyInterpretationProbeResult> RunAsync(bool submit, DateTimeOffset now)
     {
         var day = Day(now);
-        DailyInterpretationProbeResult Result(HealthCheckState state, string reason) => new(day, now, state, reason);
+        DailyInterpretationProbeResult Result(HealthCheckState state, string reason) =>
+            new(day, now, state, reason, SubmissionEndpoint: Endpoint);
         if (!options.Enabled) return Result(HealthCheckState.Skipped, "diagnostic is not enabled");
         var path = Path.Combine(options.StateDirectory, day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".json");
         if (File.Exists(path)) return Read(path, day, now);
@@ -109,7 +112,7 @@ internal sealed class DailyInterpretationProbe
                 {
                     State = valid && accounting.State == HealthCheckState.Pass && outcome.ProviderAttempts == 1 && outcome.KnownCost is not null
                         && outcome.UnresolvedCosts == 0 && outcome.WaivedCosts == 0 ? HealthCheckState.Pass : HealthCheckState.Fail,
-                    Reason = valid ? "public response and accounting checked; retrieval disabled"
+                    Reason = valid ? SuccessReason
                         : "public response did not match the diagnostic contract",
                 };
                 if (valid && outcome.State == HealthCheckState.Fail)
@@ -130,7 +133,8 @@ internal sealed class DailyInterpretationProbe
 
     DailyInterpretationProbeResult ReadAccounting(string? execution, DateOnly day, DateTimeOffset now)
     {
-        var result = new DailyInterpretationProbeResult(day, now, HealthCheckState.Fail, "accounting is unavailable", execution);
+        var result = new DailyInterpretationProbeResult(day, now, HealthCheckState.Fail, "accounting is unavailable", execution,
+            SubmissionEndpoint: Endpoint);
         if (string.IsNullOrWhiteSpace(execution)) return result;
         using var db = usage.OpenForCommand();
         using var query = db.CreateCommand();
@@ -160,7 +164,9 @@ internal sealed class DailyInterpretationProbe
         try
         {
             var result = JsonSerializer.Deserialize<DailyInterpretationProbeResult>(File.ReadAllText(path), Json);
-            if (result is not null && result.Day == day && Enum.IsDefined(result.State)) return result;
+            if (result is not null && result.Day == day && Enum.IsDefined(result.State))
+                return result.State == HealthCheckState.Pass && result.Reason == "public response and accounting checked; retrieval disabled"
+                    ? result with { Reason = SuccessReason } : result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
         return new(day, now, HealthCheckState.Fail, "saved diagnostic result is unavailable; submission will not be repeated today");

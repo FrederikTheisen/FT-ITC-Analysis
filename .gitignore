@@ -439,3 +439,8 @@ CLAUDE.md
 /scripts/*
 !/scripts/caddy/
 !/scripts/ftxtc-recovery/
+!/scripts/ftitc-status-email.service
+!/scripts/ftitc-status-email.timer
+!/scripts/ftitc-web.service
+!/scripts/ftitc-admintool
+!/scripts/99-ftitc-admin-motd

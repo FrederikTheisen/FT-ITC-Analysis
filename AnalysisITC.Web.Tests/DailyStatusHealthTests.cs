@@ -197,6 +197,7 @@ public sealed class DailyStatusHealthTests : IDisposable
     [InlineData("missing-state", 200)]
     [InlineData("unknown-state", 200)]
     [InlineData("empty-checks", 200)]
+    [InlineData("missing-provider-checks", 200)]
     public async Task UnusableServiceReportFlagsEmailWithoutFallingBackToRootChecks(string body, int status)
     {
         body = body switch
@@ -204,6 +205,7 @@ public sealed class DailyStatusHealthTests : IDisposable
             "missing-state" => HealthJson("pass").Replace("\"state\":\"pass\",", ""),
             "unknown-state" => HealthJson("futureUnknownState"),
             "empty-checks" => "{\"checkedAtUtc\":\"2026-10-15T12:00:00Z\",\"overall\":\"healthy\",\"groups\":[]}",
+            "missing-provider-checks" => HealthJson("pass", includeProviders: false),
             _ => body
         };
         using var http = Response(body, (HttpStatusCode)status);
@@ -230,7 +232,11 @@ public sealed class DailyStatusHealthTests : IDisposable
     {
         using var factory = new InterpretationTestFactory();
         using var loopbackFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
-            services.AddSingleton<IStartupFilter, LoopbackStartupFilter>()));
+        {
+            services.AddSingleton<IStartupFilter, LoopbackStartupFilter>();
+            services.AddHttpClient(ProviderApiAccessCheck.ClientName).ConfigurePrimaryHttpMessageHandler(() =>
+                new CheckingHandler(_ => new(HttpStatusCode.OK) { Content = new StringContent("{\"object\":\"list\",\"data\":[]}") }));
+        }));
         using var http = loopbackFactory.CreateClient();
 
         var report = await ServiceHealthCheck.ReadAsync(http);
@@ -241,6 +247,8 @@ public sealed class DailyStatusHealthTests : IDisposable
         Assert.Contains(registries, check => check.Id == "interpretation.operator-codes" && check.State == HealthCheckState.Pass);
         Assert.Contains(registries, check => check.Id == "interpretation.registered-operators" && check.State == HealthCheckState.Pass);
         Assert.Contains(report.Groups, group => group.Name == "Registration");
+        Assert.Contains(report.Groups, group => group.Name == ProviderApiAccessCheck.GroupName
+            && group.Checks.Any(check => check.Id == "provider.openai") && group.Checks.Any(check => check.Id == "provider.mistral"));
 
         var presetPath = factory.Services.GetRequiredService<IOptions<InterpretationOptions>>().Value.OperatorAccess.PresetRegistryPath;
         await File.WriteAllTextAsync(presetPath, "not-json");
@@ -252,6 +260,31 @@ public sealed class DailyStatusHealthTests : IDisposable
         forwarded.Headers.Add("X-Forwarded-For", "203.0.113.1");
         using var response = await http.SendAsync(forwarded);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("provider.openai")]
+    [InlineData("provider.mistral")]
+    public async Task ProviderAccessFailureRequiresAttentionAndIdentifiesTheProvider(string failedId)
+    {
+        using var body = JsonDocument.Parse(HealthJson("pass"));
+        var groups = body.RootElement.GetProperty("groups").EnumerateArray().Select(group => new HealthCheckGroup(
+            group.GetProperty("name").GetString()!, group.GetProperty("checks").EnumerateArray().Select(check =>
+            {
+                var id = check.GetProperty("id").GetString()!;
+                return new HealthCheckResult(id, check.GetProperty("name").GetString()!,
+                    id == failedId ? HealthCheckState.Fail : HealthCheckState.Pass, "authenticated API check");
+            }).ToArray())).ToArray();
+        string? subject = null, html = null;
+        var reporter = Reporter(() => Task.FromResult(new HealthReport(DateTimeOffset.UtcNow, "healthy", groups)),
+            (value, text) => { subject = value; html = text; });
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, new StringWriter(), new StringWriter()));
+
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+        Assert.Contains("Provider API access", html);
+        Assert.Contains(failedId == "provider.openai" ? "OpenAI:" : "Mistral:", DailyStatusEmailLayoutTests.VisibleText(html!));
+        Assert.Contains("FAIL", html);
     }
 
     [Theory]
@@ -282,6 +315,7 @@ public sealed class DailyStatusHealthTests : IDisposable
     [Theory]
     [InlineData("/api/registration/status")]
     [InlineData("/api/viewer/token")]
+    [InlineData("/api/interpretation/status")]
     public async Task OutsideAccessFailureFlagsEmailEvenWhenLocalChecksAndSavedInterpretationPass(string failedPath)
     {
         using var http = Response(HealthJson("pass"));
@@ -290,7 +324,8 @@ public sealed class DailyStatusHealthTests : IDisposable
         var options = Options.Create(configured);
         Directory.CreateDirectory(configured.DailyProbe.StateDirectory);
         File.WriteAllText(Path.Combine(configured.DailyProbe.StateDirectory, "2026-10-15.json"), JsonSerializer.Serialize(
-            new DailyInterpretationProbeResult(new(2026, 10, 15), stamp, HealthCheckState.Pass, "successful saved test")));
+            new DailyInterpretationProbeResult(new(2026, 10, 15), stamp, HealthCheckState.Pass, "successful saved test",
+                SubmissionEndpoint: "https://ft-itc.org/api/interpretation/generate")));
         var probe = new DailyInterpretationProbe(configured, new InterpretationServiceAvailability(options),
             new InterpretationUsageStore(options, NullLogger<InterpretationUsageStore>.Instance));
         string? subject = null, html = null;
@@ -313,6 +348,46 @@ public sealed class DailyStatusHealthTests : IDisposable
         Assert.Contains("Daily public submission result", html);
         Assert.Contains("successful saved test", html);
         Assert.Equal(HealthCheckState.Pass, (await probe.RunAsync(false, stamp.AddHours(1))).State);
+    }
+
+    [Fact]
+    public async Task SavedInsideSuccessCannotEstablishOutsidePackageProcessing()
+    {
+        using var http = Response(HealthJson("pass"));
+        var stamp = new DateTimeOffset(2026, 10, 15, 5, 0, 0, TimeSpan.Zero);
+        var configured = new InterpretationOptions { DailyProbe = new() { Enabled = true, StateDirectory = Path.Combine(directory, "older-probe") } };
+        var options = Options.Create(configured);
+        Directory.CreateDirectory(configured.DailyProbe.StateDirectory);
+        var path = Path.Combine(configured.DailyProbe.StateDirectory, "2026-10-15.json");
+        var saved = JsonSerializer.Serialize(new DailyInterpretationProbeResult(new(2026, 10, 15), stamp,
+            HealthCheckState.Pass, "successful earlier generation"));
+        File.WriteAllText(path, saved);
+        var probe = new DailyInterpretationProbe(configured, new InterpretationServiceAvailability(options),
+            new InterpretationUsageStore(options, NullLogger<InterpretationUsageStore>.Instance));
+        var reporter = Reporter(() => ServiceHealthCheck.ReadAsync(http), (_, _) => { }, diagnostic: probe);
+
+        var report = await reporter.CreateStatusReportAsync(new(2026, 10, 14));
+
+        Assert.True(report.HasAttention);
+        Assert.Contains("Outside package path: NOT VERIFIED", report.Text);
+        Assert.Contains("Daily public submission result: PASS", report.Text);
+        Assert.Equal(saved, File.ReadAllText(path));
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task OutsideInterpretationUnavailabilityRequiresAttentionUnlessIntentionallyPaused(bool paused, bool attention)
+    {
+        using var http = Response(HealthJson("pass"));
+        var reporter = Reporter(() => ServiceHealthCheck.ReadAsync(http), (_, _) => { }, paused: paused,
+            endpoints: url => Task.FromResult(new DailyStatusCheck("HTTP 200; endpoint response", false,
+                InterpretationUnavailable: url == "https://ft-itc.org/api/interpretation/status")));
+
+        var report = await reporter.CreateStatusReportAsync(new(2026, 10, 14));
+
+        Assert.Equal(attention, report.HasAttention);
+        Assert.Contains("Interpretation endpoint: " + (attention ? "FAIL" : "PASS"), report.Text);
     }
 
     [Fact]
@@ -508,12 +583,19 @@ public sealed class DailyStatusHealthTests : IDisposable
             interpretationDiagnostic: diagnostic);
     }
 
-    static string HealthJson(string state) => JsonSerializer.Serialize(new
+    static string HealthJson(string state, bool includeProviders = true) => JsonSerializer.Serialize(new
     {
         checkedAtUtc = DateTimeOffset.UtcNow, overall = "healthy",
-        groups = new[] { "Interpretation", "Registration", "Viewer", "Storage" }.Select(name => new
+        groups = new[] { "Interpretation", "Registration", "Viewer", "Storage", ProviderApiAccessCheck.GroupName }
+            .Where(name => includeProviders || name != ProviderApiAccessCheck.GroupName).Select(name => new
         {
-            name, checks = new[] { new { id = name + ".check", name = "Storage operation", state, reason = "arbitrary diagnostic wording" } }
+            name, checks = name == ProviderApiAccessCheck.GroupName
+                ? new[]
+                {
+                    new { id = "provider.openai", name = "OpenAI", state, reason = "arbitrary diagnostic wording" },
+                    new { id = "provider.mistral", name = "Mistral", state, reason = "arbitrary diagnostic wording" },
+                }
+                : new[] { new { id = name + ".check", name = "Storage operation", state, reason = "arbitrary diagnostic wording" } }
         })
     });
 
