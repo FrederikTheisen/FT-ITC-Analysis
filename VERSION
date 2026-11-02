@@ -1,3 +1,18 @@
+#VERSION 1.5.1 Maintenance release
+Fix: restored report-only autosaves and saved empty projects during recovery
+Fix: native Final Figure preferences now update model and parameter visibility in previews and exports
+Fix: corrected automatic concentration units at exact unit boundaries and for zero values
+Fix: concentration formatting no longer changes global number precision
+Fix: desktop inspectors now show consistent RMSD heat units
+Fix: fixed Avalonia associated-figure export window ownership
+Fix: report preview keeps its position when zooming
+Fix: rounded profile-likelihood durations carry correctly into minutes and hours
+Fix: Avalonia workflow navigation no longer takes keyboard focus from the workspace
+Change: clarified advanced-analysis availability and binding-assessment tooltips
+Change: refined Traceability Mode startup prompts and preserved AI attribution when interpretation text is edited
+Change: improved processing controls, baseline zoom layout and preference explanations on both desktop apps
+Change: standardized native macOS menu capitalization and refined analysis controls
+
 #VERSION 1.5.0 Paper publication release
 Feature: added Sequential Binding Sites model (two to four sites)
 Feature: added Null model binding assessment with Null prediction overlay and Modify Assessment override

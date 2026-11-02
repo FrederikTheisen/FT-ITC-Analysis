@@ -356,14 +356,18 @@ static class ProjectInformationTests
                 && session.Draft.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated,
                 "Loading AI text treated it as a user edit");
             SetText(editor, original + " added word"); editor.DidChangeText();
-            Check(session.HasChanges && session.Draft.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual
-                && session.Draft.ApprovedInterpretation.InputFingerprint == "", "A live edit retained AI provenance");
+            Check(session.HasChanges && session.Draft.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated
+                && session.Draft.ApprovedInterpretation.UserEdited
+                && session.Draft.ApprovedInterpretation.InputFingerprint == "original fingerprint"
+                && session.Draft.ApprovedInterpretation.Provider == "provider", "A live edit lost its AI source or edit attribution");
             SetText(editor, original); editor.DidChangeText();
             Check(session.HasChanges && !DocumentDirtyTracker.IsDirty && saved.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated,
                 "Reverting text cleared dirty state or changed the saved report");
             result.Name = "Renamed result";
             Check(!((NSButton)Field(controller, "confirmInterpretationButton")).Hidden, "A result rename did not request interpretation review");
             SetText(editor, original + " "); editor.DidChangeText();
+            Check(!((NSButton)Field(controller, "confirmInterpretationButton")).Hidden, "A whitespace-only edit confirmed changed results");
+            SetText(editor, original + " reviewed"); editor.DidChangeText();
             Check(((NSButton)Field(controller, "confirmInterpretationButton")).Hidden, "Editing did not confirm the current results");
             var registry = typeof(MainWindowController).GetField("activeReportControllers", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
             registry.GetType().GetMethod("Add").Invoke(registry, new object[] { controller });
@@ -379,9 +383,12 @@ static class ProjectInformationTests
                 close = (Task<bool>)typeof(MainWindowController).GetMethod("CloseAnalysisReportsAsync", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
                 Check(Wait(close, "Save did not finish dismissing the report sheet") && (bool)ReportType.GetProperty("IsClosed", Instance).GetValue(controller, null),
                     "Saving before close did not finish dismissing the real report sheet");
-                Check(saved.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual
-                    && saved.ApprovedInterpretation.InterpretationMarkdown == AnalysisInterpretationResponseParser.ParseManual(original),
-                    "Closing saved earlier editor text or AI provenance");
+                Check(saved.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.AiGenerated
+                    && saved.ApprovedInterpretation.UserEdited
+                    && saved.ApprovedInterpretation.InputFingerprint == "original fingerprint"
+                    && saved.ApprovedInterpretation.Provider == "provider"
+                    && saved.ApprovedInterpretation.InterpretationMarkdown == AnalysisInterpretationResponseParser.ParseManual(original + " reviewed"),
+                    "Closing saved earlier editor text or lost its AI source or edit attribution");
             }
             finally { registry.GetType().GetMethod("Remove").Invoke(registry, new object[] { controller }); }
         }

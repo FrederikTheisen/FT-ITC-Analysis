@@ -65,6 +65,38 @@ static class FinalFigureSmoothnessPreferencesTests
                 Check(controller.View != null, "Publish view did not load");
                 data = Experiment(); DataManager.Clear(DataClearMode.ResetSession); DataManager.AddData(data); DataManager.SelectIndex(0);
                 StateManager.SetProgramState(ProgramState.Publish); FinalFigureGraphView.Invalidate();
+                foreach (var modelInfo in new[] { true, false })
+                    Run("Preferences Apply enables only " + (modelInfo ? "model information" : "a parameter category"), () =>
+                    {
+                        var state = PreferencesState.FromSettings();
+                        state.FinalFigureShowModelInfoAsDefault = false;
+                        state.FinalFigureShowParameterBoxAsDefault = modelInfo;
+                        state.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
+                        state.Apply();
+                        state = PreferencesState.FromSettings();
+                        state.FinalFigureShowParameterBoxAsDefault = !modelInfo;
+                        state.Apply();
+                        Check(!FinalFigureGraphView.DrawFitParameters, "Initial figure box was not empty");
+                        var before = Pixels(FinalFigureGraphView.SetupForExport(data));
+                        using (var editor = new PreferencesEditor())
+                        {
+                            editor.EnableFigureOption(modelInfo ? "ModelInfoCheck" : "ThermodynamicCheck");
+                            editor.ApplyFromButton();
+                        }
+                        NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+                        controller.ViewWillAppear();
+                        controller.ViewDidAppear();
+                        var graphView = Outlet<FinalFigureGraphView>("FinalFigureGraph");
+                        var preview = (FinalFigure)typeof(FinalFigureGraphView).GetField("graph", Instance).GetValue(graphView);
+                        var exported = FinalFigureGraphView.SetupForExport(data);
+                        foreach (var figure in new[] { preview, exported })
+                        {
+                            var fit = (DataFittingGraph)typeof(FinalFigure).GetField("IntegrationGraph", Instance).GetValue(figure);
+                            Check(fit.ShowParameterBox, "Preferences left selected figure content hidden");
+                        }
+                        Check(Capture().ShowFitParameters, "Supporting Figure captured hidden selected content");
+                        Check(before != Pixels(exported), "Preferences did not change rendered figure content");
+                    });
                 Run("Preferences traceability refreshes an open Final Figure", () =>
                 {
                     var originalTraceability = AppSettings.TraceabilityModeEnabled;
@@ -446,6 +478,24 @@ static class FinalFigureSmoothnessPreferencesTests
         public LineSmoothness Selected => (LineSmoothness)(int)popup.SelectedItem.Tag;
         public void Select(LineSmoothness mode) => popup.SelectItemWithTag((int)mode);
         public void Apply() => window.GetType().GetMethod("ApplyPreferences", Instance).Invoke(window, null);
+        public void EnableFigureOption(string name)
+        {
+            var control = (NSButton)exportPane.GetType().GetProperty(name, Instance).GetValue(exportPane);
+            Check(control.State == NSCellStateValue.Off, "Figure option was already enabled");
+            control.PerformClick(control);
+            Check(control.State == NSCellStateValue.On, "Figure option did not enable");
+        }
+        public void ApplyFromButton()
+        {
+            ((NSTabViewController)window.Window.ContentViewController).SelectedTabViewItemIndex = 3;
+            window.ShowWindow(null);
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+            var button = Descendants(((NSViewController)exportPane).View).OfType<NSButton>()
+                .Single(control => control.Action != null && control.Action.Name == "applyPreferences:");
+            button.PerformClick(button);
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+            Check(!window.Window.IsVisible, "Preferences Apply did not close the window");
+        }
         public void Cancel() => window.GetType().GetMethod("CancelPreferences", Instance).Invoke(window, null);
         public void RejectWidth() => ((NSTextField)exportPane.GetType().GetProperty("FigureWidthField", Instance).GetValue(exportPane)).StringValue = "invalid width";
         public string FigureWidthText => ((NSTextField)exportPane.GetType().GetProperty("FigureWidthField", Instance).GetValue(exportPane)).StringValue;

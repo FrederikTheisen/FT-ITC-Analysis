@@ -40,6 +40,8 @@ Opening one complete `.ftxtc` project into an empty document sets its save desti
 
 Save after processing or fitting finishes; save commands are unavailable while busy, and autosave waits. If the project remains marked as changed after saving, save again to include the newer edits.
 
+After an interrupted session, recovery can restore experiments, fits, results, and saved reports. Review the recovered contents, then use **Save As...** to save a named `.ftxtc` project.
+
 Drag a non-button area of a Data or Analysis Result row to reorder the list. Projects retain that order.
 
 # Removing results and processing
@@ -418,9 +420,9 @@ Open **File > Project Information…** to find saved reports. **Open**, **Rename
 
 Use **File > Save** to write the project to disk. Project save commands, including Cmd-S or Ctrl-S, do not save the report draft. Preview and PDF export use the draft without saving it. Leaving an edited draft offers Save, Discard, or Cancel.
 
-Editing interpretation text makes it user-written and current, replacing any previous AI source details and freshness status. Text edits remain unsaved until Save Report or Save Report As, including edits undone to the original wording.
+Editing generated interpretation text marks it **AI-generated; edited by user** and retains its AI source and model. Edited text is treated as current. Text edits remain unsaved until Save Report or Save Report As, including edits undone to the original wording.
 
-Changes to included results, including values, uncertainties, assessments, names, or comments, ask you to review the interpretation. This applies to both user-written and generated text. Choose **Confirm**, or edit the text, then save the report. A later result change asks for review again. Confirm preserves the text and its source; it does not clear a generated interpretation's separate AI fingerprint freshness status or printed warning.
+Changes to included results, including values, uncertainties, assessments, names, or comments, ask you to review the interpretation. This applies to both user-written and generated text. Choose **Confirm**, or edit the text, then save the report. A later result change asks for review again. Confirm preserves the text and its source; it does not clear untouched generated text's separate AI fingerprint freshness status or printed warning.
 
 # Interpreting report values
 

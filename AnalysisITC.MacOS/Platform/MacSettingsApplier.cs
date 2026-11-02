@@ -40,10 +40,13 @@ namespace AnalysisITC.UI.MacOS
             if (changes.Contains(nameof(PreferencesState.FinalFigureShowModelInfoAsDefault)))
                 FinalFigureGraphView.DrawModelInfo = AppSettings.FinalFigureShowModelInfoAsDefault;
             if (changes.Contains(nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault)))
-            {
                 FinalFigureGraphView.DrawFitParameterValues = AppSettings.FinalFigureShowParameterBoxAsDefault;
+
+            if (changes.ContainsAny(
+                nameof(PreferencesState.FinalFigureShowModelInfoAsDefault),
+                nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault),
+                nameof(PreferencesState.FinalFigureParameterDisplay)))
                 FinalFigureGraphView.UpdateParameterBoxVisibility();
-            }
             if (changes.Contains(nameof(PreferencesState.UncertaintyDisplayStyle)))
                 FinalFigureGraphView.TextUncertaintyStyle = AppSettings.UncertaintyDisplayStyle;
             if (changes.Contains(nameof(PreferencesState.ShowResidualGraph)))
@@ -68,6 +71,7 @@ namespace AnalysisITC.UI.MacOS
                 nameof(PreferencesState.FinalFigureShowDetailsAsDefault),
                 nameof(PreferencesState.FinalFigureShowModelInfoAsDefault),
                 nameof(PreferencesState.FinalFigureShowParameterBoxAsDefault),
+                nameof(PreferencesState.FinalFigureParameterDisplay),
                 nameof(PreferencesState.UncertaintyDisplayStyle),
                 nameof(PreferencesState.ShowResidualGraph),
                 nameof(PreferencesState.ShowResidualGraphGap),

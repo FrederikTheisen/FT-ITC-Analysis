@@ -91,7 +91,7 @@ An `.ftxtc` project preserves the data and metadata needed to continue analysis,
 
 Autosave behavior is configured in **Preferences...**. An autosave due during fitting or processing waits and runs when the operation finishes. When recovery data is available after an interrupted session, the application offers a recovery path. Open the recovered document, inspect the data list and recent changes, then save it as a named `.ftxtc` project.
 
-Recovery can restore unaffected experiments, fits, and results. If an experiment cannot be recovered, its fit and dependent results are omitted rather than reconstructed from a different set of members. Review the recovery warning and log, then use **Save As...**; the original file is not repaired in place.
+Recovery can restore unaffected experiments, fits, results, and saved reports. If an experiment cannot be recovered, its fit and dependent results are omitted rather than reconstructed from a different set of members. Review the recovery warning and log, then use **Save As...**; the original file is not repaired in place.
 
 > **Caution:** Recovery cannot guarantee that every optional result or saved analysis survived. Confirm experiment counts, processing, fits, and result validity before continuing.
 

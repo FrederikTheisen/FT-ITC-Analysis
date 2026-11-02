@@ -58,6 +58,19 @@
   </screenshots>
 
   <releases>
+    <release version="1.5.1" date="2026-11-02">
+      <url type="details">https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/tag/v1.5.1</url>
+      <description>
+        <p>This maintenance release corrects formatting and improves desktop workflows.</p>
+        <ul>
+          <li>Restored report-only autosaves and saved empty projects during recovery</li>
+          <li>Corrected automatic concentration units and consistent RMSD heat units</li>
+          <li>Fixed associated-figure export and report preview zoom behavior</li>
+          <li>Refined Traceability Mode prompts, attribution and analysis tooltips</li>
+          <li>Improved processing controls and preference explanations</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.5.0" date="2026-10-31">
       <url type="details">https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/tag/v1.5.0</url>
       <description>

@@ -272,7 +272,10 @@ namespace AnalysisITC.Core.DataReaders
                 }
                 using (DocumentDirtyTracker.RestoreDocument())
                 {
-                    if (!AddData(recovered, isRawImport: false)) return false;
+                    var addedContainers = AddData(recovered, isRawImport: false);
+                    // An intact empty native snapshot can preserve deletion of the final report.
+                    var emptyNativeSnapshot = isFtxtc && recovered.Length == 0 && recoveryIssues.Count == 0;
+                    if (!addedContainers && recoveredReports.Count == 0 && !emptyNativeSnapshot) return false;
                     DataManager.AddReports(recoveredReports);
                     DataManager.ApplyOptions();
                     FTITCFormat.CurrentAccessedAppDocumentPath = "";

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -235,8 +236,10 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
-        [Fact]
-        public async Task ReportOnlyProjectAndItsLastReportDeletionAreRecoverable()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ReportOnlyProjectAndItsLastReportDeletionAreRecoverable(bool deleteLastReport)
         {
             var directory = NewTemporaryDirectory();
             AutoSaveManager manager = null;
@@ -259,19 +262,71 @@ namespace AnalysisITC.Core.Tests
                     Assert.Empty(loaded.Containers);
                     Assert.Equal("Saved text", Assert.Single(loaded.Reports).Name);
                 }
-                Assert.True(DataManager.RemoveReport(report));
-                Assert.True(DocumentDirtyTracker.IsDirty);
-                Assert.True(await manager.TickNowAsync());
-                using (var saved = File.OpenRead(path))
+                if (deleteLastReport)
                 {
-                    var loaded = await FTXTCReader.ReadWithRecovery(saved, FtxtcReadPolicy.Strict);
-                    Assert.Empty(loaded.Containers);
-                    Assert.Empty(loaded.Reports);
+                    Assert.True(DataManager.RemoveReport(report));
+                    Assert.True(DocumentDirtyTracker.IsDirty);
+                    Assert.True(await manager.TickNowAsync());
+                }
+                manager.StopWithoutResolving();
+                ResetDocument();
+
+                Assert.True(await DataReader.ReadRecoveryFileAsync(path));
+                Assert.Empty(DataManager.SourceItems);
+                Assert.True(DocumentDirtyTracker.IsDirty);
+                Assert.Empty(FTITCFormat.CurrentAccessedAppDocumentPath);
+                if (deleteLastReport) Assert.Empty(DataManager.Reports);
+                else
+                {
+                    var restored = Assert.Single(DataManager.Reports);
+                    Assert.Equal(report.UniqueID, restored.UniqueID);
+                    Assert.Equal("Saved text", restored.Name);
+                    Assert.Equal(report.ApprovedInterpretation.InterpretationMarkdown, restored.ApprovedInterpretation.InterpretationMarkdown);
+                    Assert.Equal(report.LastEditedUtc, restored.LastEditedUtc);
                 }
             }
             finally
             {
                 manager?.StopWithoutResolving();
+                AppSettings.AutoSaveEnabled = originalEnabled;
+                ResetDocument();
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ReportOnlyRecoveryRejectsUnreadableOrMissingReportContent(bool unreadableArchive)
+        {
+            var directory = NewTemporaryDirectory();
+            var originalEnabled = AppSettings.AutoSaveEnabled;
+            using var manager = NewManager(directory);
+            try
+            {
+                ResetDocument();
+                AppSettings.AutoSaveEnabled = true;
+                manager.Start();
+                DataManager.AddReport(new AnalysisReport { Name = "Saved report" });
+                Assert.True(await manager.TickNowAsync());
+                var path = manager.CurrentAutoSavePath;
+                manager.StopWithoutResolving();
+                ResetDocument();
+                if (unreadableArchive) File.WriteAllText(path, "Not a native project archive");
+                else
+                {
+                    using var archive = new ZipArchive(File.Open(path, FileMode.Open, FileAccess.ReadWrite), ZipArchiveMode.Update);
+                    archive.GetEntry("reports/000000/report.json").Delete();
+                }
+
+                Assert.False(await DataReader.ReadRecoveryFileAsync(path));
+                Assert.Empty(DataManager.SourceItems);
+                Assert.Empty(DataManager.Reports);
+                Assert.False(DocumentDirtyTracker.IsDirty);
+            }
+            finally
+            {
+                manager.StopWithoutResolving();
                 AppSettings.AutoSaveEnabled = originalEnabled;
                 ResetDocument();
                 Directory.Delete(directory, recursive: true);

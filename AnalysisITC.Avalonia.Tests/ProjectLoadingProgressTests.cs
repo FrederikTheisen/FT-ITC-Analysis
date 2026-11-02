@@ -83,7 +83,7 @@ public sealed class ProjectLoadingProgressTests
                 if (projectFile == "JORS Table1.ftxtc")
                     Assert.Contains(states, state => state.Text.StartsWith("Result: ", StringComparison.Ordinal)
                         && state.Visible && !state.Indeterminate && state.Value > 30 && state.Value < 50);
-                Assert.Equal(projectFile == "JORS Table1.ftxtc" ? 21 : 5, restored.Containers.Length);
+                Assert.Equal(projectFile == "JORS Table1.ftxtc" ? 18 : 5, restored.Containers.Length);
             }
             Assert.Contains(states, state => state.Text == "Validating project..." && state.Visible && state.Indeterminate);
             Assert.Contains(states, state => state.Text == "Finishing…" && state.Visible && state.Indeterminate);

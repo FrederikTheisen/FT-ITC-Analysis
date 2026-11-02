@@ -2,7 +2,6 @@ global using Avalonia.Headless.XUnit;
 
 using Avalonia;
 using Avalonia.Headless;
-using System;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(AnalysisITC.Avalonia.Tests.TestAppBuilder))]
@@ -19,14 +18,9 @@ public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
     {
-        var builder = AppBuilder.Configure<HeadlessTestApplication>();
-        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_PROJECT_INFORMATION_QA_DIRECTORY"))
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_HELP_QA_DIRECTORY"))
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_CR050_QA_DIRECTORY"))
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_SALT_QA_DIRECTORY"))
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FTITC_BASELINE_QA_DIRECTORY")))
-            return builder.UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
-        return builder.UseHeadless(new AvaloniaHeadlessPlatformOptions());
+        // Layout and pointer tests need the same text shaping and hit testing as the app.
+        return AppBuilder.Configure<HeadlessTestApplication>()
+            .UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }
 
     sealed class HeadlessTestApplication : Application { }
