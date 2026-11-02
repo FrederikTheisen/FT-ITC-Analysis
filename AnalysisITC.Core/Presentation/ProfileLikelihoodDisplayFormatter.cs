@@ -35,11 +35,11 @@ public static class ProfileLikelihoodDisplayFormatter
     public static string Duration(TimeSpan elapsed, IFormatProvider provider = null)
     {
         provider ??= CultureInfo.CurrentCulture;
-        var milliseconds = Math.Max(0, elapsed.TotalMilliseconds);
+        var milliseconds = Math.Round(Math.Max(0, elapsed.TotalMilliseconds), 0, MidpointRounding.AwayFromZero);
         if (milliseconds < 1000)
-            return $"{milliseconds:0} ms";
+            return $"{milliseconds.ToString("0", provider)} ms";
 
-        var seconds = Math.Max(0, elapsed.TotalSeconds);
+        var seconds = Math.Round(Math.Max(0, elapsed.TotalSeconds), 1, MidpointRounding.AwayFromZero);
         if (seconds < 60)
             return $"{seconds.ToString("0.0", provider)} s";
 

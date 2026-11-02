@@ -1627,12 +1627,10 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 ## ITC-191 - Profile duration formatting does not carry rounded units
 
 - Priority: Low.
-- Status: Open (2026-10-21). Confirmed by source review only; no runtime reproduction or tests run. Tracker registration only; no implementation authorized.
-- Origin: Read-only code review 2026-10-20/21, D9; current-tree verification 2026-10-21.
+- Status: Resolved (2026-11-02).
 - Location: Core `Presentation/ProfileLikelihoodDisplayFormatter.cs`, `Duration`; compare `FittingStatusPresentation.Duration`.
 - Problem: Unit selection precedes rounding: 999.6 ms formats as 1000 ms and 119.97 s as 1 min 60.0 s. The general fitting-duration formatter rounds before splitting. This is presentation only.
-- Suggested direction: Use a consistent rounding/carry convention for profile and fitting durations.
-- Verify: Formatting boundaries near 1000 ms, 60 seconds and 120 seconds, including localized decimal separators.
+- Resolution: Round to the displayed precision before selecting units or splitting minutes, using the fitting formatter's away-from-zero midpoint convention. Profile durations retain whole milliseconds and tenths of a second; 999.6 ms becomes `1.0 s`, 59.97 s becomes `1 min 0.0 s`, and 119.97 s becomes `2 min 0.0 s`. Regression tests reproduce the old outputs and cover both sides of the unit boundaries, exact midpoints, and explicit/current cultures with decimal commas. Both desktop inspectors use the shared Core formatter; no desktop UI runtime check was performed.
 
 ## ITC-192 - Report labels use different member index spaces
 
