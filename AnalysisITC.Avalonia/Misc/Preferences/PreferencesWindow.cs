@@ -97,7 +97,7 @@ internal sealed class PreferencesWindow : Window
     Control interpretationGuidanceRow = null!;
 
     readonly ComboBox dilutionMethodCombo;
-    readonly TextBlock dilutionMethodDescription = Note();
+    readonly TextBlock dilutionMethodDescription = Explanation();
     readonly ComboBox bufferSubtractionMethodCombo;
     readonly CheckBox discardIntegrationRegionCheck = Check("Discard integration regions for baseline");
     readonly CheckBox reprocessIntegratedHeatsCheck = Check("Recalculate concentrations on integrated-heat import");
@@ -383,9 +383,9 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section(TraceabilityPresentation.SectionHeader, new Control[]
         {
             traceabilityModeCheck,
-            Note(TraceabilityPresentation.ModeExplanation),
+            Explanation(TraceabilityPresentation.ModeExplanation),
             Row(TraceabilityPresentation.UserNameLabel, userNameBox),
-            Note(TraceabilityPresentation.UserNameDescription),
+            Explanation(TraceabilityPresentation.UserNameDescription),
             confirmUserAtStartupCheck,
             promptForIdentifiersCheck
         }));
@@ -466,8 +466,6 @@ internal sealed class PreferencesWindow : Window
         var method = dilutionMethodCombo.SelectedItem is PreferenceOption<DilutionMethod> option
             ? option.Value : (DilutionMethod?)null;
         dilutionMethodDescription.Text = InjectionBookkeeping.Description(method);
-        dilutionMethodDescription.Width = double.NaN;
-        dilutionMethodDescription.HorizontalAlignment = HorizontalAlignment.Stretch;
     }
 
     Control BuildFittingTab()
@@ -1543,6 +1541,15 @@ internal sealed class PreferencesWindow : Window
             Text = text
         };
         AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        return note;
+    }
+
+    static TextBlock Explanation(string? text = null)
+    {
+        var note = Note(text);
+        note.Width = double.NaN;
+        note.HorizontalAlignment = HorizontalAlignment.Stretch;
+        note.TextAlignment = TextAlignment.Left;
         return note;
     }
 
