@@ -417,6 +417,49 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ApparentAffinityUncertaintyExcludesEnteredCompetitorUncertainty()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6.0, 0.1);
+            var solution = CreateSolution(model);
+            solution.Parameters[ParameterType.Affinity1] = new FloatWithError(8.0, 0.05);
+
+            // Independent quadratic equilibrium for 10 µM sites and competitor with
+            // Kc = 10^6 M^-1: free competitor 2.7015621187164244 µM, factor 1 + Kc·free.
+            const double factor = 3.7015621187164244;
+            const double lowerLogK = 8.0 - 1.96 * 0.05;
+            const double upperLogK = 8.0 + 1.96 * 0.05;
+
+            // Only the fitted affinity contributes: relative SD ln(10) × 0.05. The entered
+            // competitor SD would add about 17% relative uncertainty through the factor.
+            AssertRelative(factor * 1e-8, solution.Kdapp.Value, 2e-14);
+            AssertRelative(Math.Log(10) * 0.05, solution.Kdapp.SD / solution.Kdapp.Value, 1e-12);
+            AssertRelative(Math.Log(10) * 0.05, solution.Kapp.SD / solution.Kapp.Value, 1e-12);
+            AssertRelative(factor * Math.Pow(10, -upperLogK), solution.Kdapp.Lower, 1e-12);
+            AssertRelative(factor * Math.Pow(10, -lowerLogK), solution.Kdapp.Upper, 1e-12);
+        }
+
+        [Fact]
+        public void ApparentEnthalpyUncertaintyExcludesEnteredCompetitorUncertainty()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6, 0.1);
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue = new FloatWithError(-20000, 2000);
+            var solution = CreateSolution(model);
+            solution.Parameters[ParameterType.Enthalpy1] = new FloatWithError(-10000, 500);
+
+            // Occupancy 0.7298437881283575657 from the independent quadratic above; the
+            // competitor correction is then a fixed shift of 20000 × occupancy J/mol.
+            const double shift = 20000 * 0.7298437881283575657;
+            var dHapp = solution.dHapp.FloatWithError;
+
+            AssertRelative(-10000 + shift, dHapp.Value, 2e-14);
+            AssertRelative(500, dHapp.SD, 1e-12);
+            AssertRelative(-10000 - 1.96 * 500 + shift, dHapp.Lower, 1e-12);
+            AssertRelative(-10000 + 1.96 * 500 + shift, dHapp.Upper, 1e-12);
+        }
+
+        [Fact]
         public void ApparentEnthalpyZeroCompetitorIgnoresCompetitorProperties()
         {
             var model = CreateModel(competitorConcentration: 0);

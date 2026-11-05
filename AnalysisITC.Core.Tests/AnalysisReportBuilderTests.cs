@@ -2732,8 +2732,10 @@ public sealed partial class AnalysisReportBuilderTests
             var results = new[] { CreateResult(1), CreateResult(2) };
             foreach (var member in results.SelectMany(result => result.Solution.Solutions))
             {
-                // N = 1 and Kd = 1 µM: 10 ± 1 µM gives c = 10 ± 1,
-                // with the existing symmetric interval [8.04, 11.96].
+                // Kd = 1 µM and 10 µM cell: N = 1 ± 0.1 gives c = 10 ± 1,
+                // with the symmetric interval [8.04, 11.96]. The entered
+                // concentration SDs are not propagated into c (ITC-226).
+                member.Parameters[ParameterType.Nvalue1] = new FloatWithError(1, 0.1);
                 member.Data.CellConcentration = new FloatWithError(10e-6, 1e-6);
                 member.Data.SyringeConcentration = new FloatWithError(100e-6, 10e-6);
             }

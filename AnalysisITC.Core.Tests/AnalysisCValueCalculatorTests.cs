@@ -29,6 +29,24 @@ public sealed class AnalysisCValueCalculatorTests
     }
 
     [Fact]
+    public void EnteredCellConcentrationUncertaintyIsNotPropagated()
+    {
+        var solution = Solution(AnalysisModel.OneSetOfSites);
+        solution.Parameters[ParameterType.Nvalue1] = new FloatWithError(2, .2);
+        solution.Parameters[ParameterType.Affinity1] = new FloatWithError(6, .05);
+        solution.Data.CellConcentration = new FloatWithError(10e-6, 1e-6);
+
+        var estimate = Assert.Single(AnalysisCValueCalculator.Calculate(solution)).Estimate.Value;
+
+        // c = N·[cell]·Ka = 20. Fitted N absorbs a concentration error, so only the fitted
+        // N (10%) and affinity (ln 10 × 0.05) relative SDs combine; the entered 10%
+        // concentration SD does not.
+        var expectedRelativeSd = Math.Sqrt(0.1 * 0.1 + Math.Pow(Math.Log(10) * 0.05, 2));
+        Assert.Equal(20, estimate.Value, 10);
+        Assert.Equal(20 * expectedRelativeSd, estimate.SD, 10);
+    }
+
+    [Fact]
     public void SyringeCorrectionUsesFixedSiteCountRatherThanActiveFraction()
     {
         var solution = Solution(AnalysisModel.OneSetOfSites);

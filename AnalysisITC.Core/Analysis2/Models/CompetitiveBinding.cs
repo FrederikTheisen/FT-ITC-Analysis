@@ -557,7 +557,9 @@ namespace AnalysisITC.Core.Analysis.Models
             public Energy TdS => EntropyContributionFor(Site);
             public Energy Entropy => EntropyFor(Site);
 
-            FloatWithError CompetitionFactor
+            // Entered competitor uncertainty is not propagated here: the fitted affinity
+            // compensates for the competitor values. Bootstrap sampling carries it instead.
+            double CompetitionFactor
             {
                 get
                 {
@@ -566,7 +568,7 @@ namespace AnalysisITC.Core.Analysis.Models
                         throw new ArgumentOutOfRangeException(
                             nameof(totalCompetitor), "Total competitor concentration must be finite and nonnegative.");
                     if (totalCompetitor == 0)
-                        return new FloatWithError(1);
+                        return 1;
 
                     var stoich = UseSyringeCorrectionMode
                         ? opt[AttributeKey.NumberOfSites1].DoubleValue
@@ -579,7 +581,7 @@ namespace AnalysisITC.Core.Analysis.Models
                             out var freeCompetitor))
                         throw new ArithmeticException("Initial competitive equilibrium could not be resolved.");
 
-                    return LigandK * freeCompetitor + 1.0;
+                    return LigandK.Value * freeCompetitor + 1.0;
                 }
             }
 
@@ -597,7 +599,7 @@ namespace AnalysisITC.Core.Analysis.Models
                     // free-competitor equilibrium, including finite depletion.
                     var occupiedFraction = 1.0 - 1.0 / factor;
                     return (Enthalpy.FloatWithError
-                        - opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * occupiedFraction).Energy;
+                        - opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value * occupiedFraction).Energy;
                 }
             }
 

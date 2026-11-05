@@ -100,7 +100,8 @@ namespace AnalysisITC.Core.Analysis
             basis = firstSegment == null
                 ? "initial-cell-concentration"
                 : "initial-tandem-segment";
-            return firstSegment == null ? solution.Data.CellConcentration
+            // The entered concentration SD is not propagated: fitted N absorbs a concentration error.
+            return firstSegment == null ? new FloatWithError(solution.Data.CellConcentration.Value)
                 : new FloatWithError(firstSegment.SegmentInitialActiveCellConc);
         }
 
