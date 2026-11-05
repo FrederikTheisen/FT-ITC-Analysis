@@ -504,7 +504,7 @@ If the reference is missing after saving a target separately, its stored include
 
 Corrected heat is target minus reference heat. Assuming independent errors, its SD is the square root of the sum of their squared SDs.
 
-Matched subtraction uses the reference injection SD, or combines SDs when nearby injections are averaged. Linear and Exp. decay subtraction use uncertainty in the fitted reference curve at that injection, not the full scatter of single reference heats. Too few reference points can leave scatter unestimated; a zero reference SD does not mean the correction is exact.
+Matched subtraction uses the reference injection SD, or combines SDs when nearby injections are averaged. Linear and Exp. decay subtraction use uncertainty in the fitted reference curve at that injection, not the full scatter of single reference heats. Beyond the included reference range, fitted-curve uncertainty can exceed the residual scatter. Too few reference points can leave scatter unestimated; a zero reference SD does not mean the correction is exact.
 
 ## Tandem experiments
 Tandem experiments can be collected by refilling the syringe while leaving the current cell content, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.

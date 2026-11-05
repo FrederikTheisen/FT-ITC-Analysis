@@ -131,6 +131,51 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(0.029049853803, MicrocaloriesSd(last), 2e-5);
         }
 
+        [Theory]
+        [InlineData(BufferSubtractionMethod.Linear, -0.386690949495, 0.060289219298)]
+        [InlineData(BufferSubtractionMethod.ExponentialDecay, -1.258636121977, 0.393009158977)]
+        public void ExcludedFirstInjectionRetainsFittedCurveUncertainty(
+            BufferSubtractionMethod method, double expectedHeat, double expectedSd)
+        {
+            var reference = Read("hepes-blank.DH");
+            var target = Read("hepes-01.DH");
+            Assert.False(reference.Injections[0].Include);
+            var model = BufferSubtractionCalculator.BuildModel(reference,
+                new BufferSubtractionSettings(reference.UniqueID, method));
+
+            Assert.True(model.TryEvaluate(1, out var first));
+            // Independent NumPy linear regression / SciPy curve_fit on injections 2–56.
+            // Exponential tolerances allow the different optimizers' fitted parameters.
+            Assert.Equal(expectedHeat, Microcalories(first), 5e-5);
+            Assert.Equal(expectedSd, MicrocaloriesSd(first), 5e-5);
+
+            target.Injections[0].UpdateCorrectedPeakArea(model);
+            Assert.Equal(Microcalories(target.Injections[0].RawPeakArea) - expectedHeat,
+                Microcalories(target.Injections[0].PeakArea), 5e-5);
+            var targetSd = MicrocaloriesSd(target.Injections[0].RawPeakArea);
+            Assert.Equal(Math.Sqrt(targetSd * targetSd + expectedSd * expectedSd),
+                MicrocaloriesSd(target.Injections[0].PeakArea), 5e-5);
+        }
+
+        [Fact]
+        public void LinearExtrapolationUncertaintyCanExceedReferenceScatter()
+        {
+            var snapshot = new BufferSubtractionReferenceSnapshot("Short reference", new[]
+            {
+                new BufferSubtractionReferencePoint(2, new FloatWithError(1e-6)),
+                new BufferSubtractionReferencePoint(3, new FloatWithError(3e-6)),
+                new BufferSubtractionReferencePoint(4, new FloatWithError(3e-6)),
+            });
+            var model = BufferSubtractionCalculator.BuildModel(snapshot,
+                new BufferSubtractionSettings(null, BufferSubtractionMethod.Linear, snapshot));
+
+            Assert.True(model.TryEvaluate(1, out var first));
+            // In µJ: fitted line = x − 2/3; residual variance = 2/3.
+            // At x=1, fitted-mean variance = (2/3)·(1/3 + (1−3)²/2) = 14/9.
+            Assert.Equal(1e-6 / 3, first.Value, 15);
+            Assert.Equal(1e-6 * Math.Sqrt(14.0 / 9), first.SD, 15);
+        }
+
         static ExperimentData Read(string fileName) =>
             IntegratedHeatReader.ReadFile(Path.Combine(
                 AppContext.BaseDirectory,

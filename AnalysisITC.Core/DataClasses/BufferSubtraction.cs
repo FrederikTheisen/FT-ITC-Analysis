@@ -436,7 +436,7 @@ namespace AnalysisITC.Core.Data
         static Func<double, double> BuildFittedHeatSd(List<BufferSubtractionReferencePoint> points, Func<double, double[]> gradient, double residualSd)
         {
             // SD of the fitted buffer heat, not of single buffer heats: s·√(gᵀ(JᵀJ)⁻¹g).
-            // At reference injections gᵀ(JᵀJ)⁻¹g ≤ 1, so the cap at s only acts on degenerate fits (singular JᵀJ gives NaN) or extrapolation.
+            // Extrapolated fitted-heat uncertainty can legitimately exceed the residual SD.
             var jacobian = Matrix<double>.Build.DenseOfRowArrays(points.Select(p => gradient(p.InjectionNumber)));
             var inverse = jacobian.TransposeThisAndMultiply(jacobian).Inverse();
 
@@ -445,7 +445,7 @@ namespace AnalysisITC.Core.Data
                 var g = Vector<double>.Build.DenseOfArray(gradient(injectionNumber));
                 var sd = residualSd * Math.Sqrt(g * inverse * g);
 
-                return FWEMath.IsFinite(sd) && sd < residualSd ? sd : residualSd;
+                return FWEMath.IsFinite(sd) ? sd : residualSd;
             };
         }
 
