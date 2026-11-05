@@ -323,7 +323,7 @@ Included best-fit residuals are sampled with replacement and added to best-fit p
 
 To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-observation count and *p* fitted-parameter count. Shared global fits use pooled counts; independent members use their own. In either case, *n* must exceed *p*.
 
-The reported SD is the root-mean-square deviation of retained refit values from the original best fit. The 95% limits are their 2.5th and 97.5th percentiles. Derived quantities can use transformation or propagation rather than direct percentiles; see **Derived analyses**.
+The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. Derived quantities can use transformation or propagation rather than direct percentiles; see **Derived analyses**.
 
 # Leave-one-out refitting
 

@@ -462,7 +462,7 @@ For a stored bootstrap result, **Update Result** offers the stored request or an
 
 Residual bootstrap samples from the included injections' primary-fit residuals and adds each draw to a best-fit prediction. An unweighted fit centers and samples raw residuals, assuming roughly equal residual spread across injections. A weighted fit divides by each injection's peak-area SD before centering and sampling, then multiplies each draw by the target injection's SD.
 
-Fitted residuals underestimate noise because fitting absorbs some variation. The centered residuals are therefore multiplied by $\sqrt{n/(n-p)}$, where $n$ is the number of included injections and $p$ the number of free fitted parameters; locked parameters are not counted. This matches the residual variance estimate $\mathrm{RSS}/(n-p)$, where RSS is the residual sum of squares. Without the correction, small-dataset intervals would be too narrow. Shared global fits use pooled counts; independent experiments use their own. In either case, $n$ must exceed $p$.
+Fitted residuals underestimate noise because fitting absorbs some variation. The centered residuals are therefore multiplied by $\sqrt{n/(n-p)}$, where $n$ is the number of included injections and $p$ the number of free fitted parameters; locked parameters are not counted. This factor converts the mean squared residual, $\mathrm{RSS}/n$, into the residual variance estimate $\mathrm{RSS}/(n-p)$, where RSS is the residual sum of squares. Centering removes any nonzero residual mean, so the resampled variance can be lower than $\mathrm{RSS}/(n-p)$. Without the correction, small-dataset intervals would be too narrow. Shared global fits use pooled counts; independent experiments use their own. In either case, $n$ must exceed $p$.
 
 The primary best-fit parameter remains the reported value. For a parameter with best-fit value $\hat{\theta}$ and values $\theta_{b}$ from $B$ retained refits, the application summarizes the bootstrap distribution as follows:
 
@@ -473,10 +473,10 @@ The primary best-fit parameter remains the reported value. For a parameter with 
 > $$
 >
 > $$
-> 95\%\ \mathrm{CI} = \left[P_{2.5}(\{\theta_b\}), P_{97.5}(\{\theta_b\})\right]
+> 95\%\ \mathrm{CI} = \left[\theta_{(k+1)}, \theta_{(B-k)}\right], \quad k = \left\lfloor \frac{B-1}{40} \right\rfloor
 > $$
 >
-> SD is the root-mean-square deviation of the retained refits from the primary best fit. The confidence limits are the 2.5th and 97.5th percentiles of the retained refit distribution itself, so they need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
+> SD is the root-mean-square deviation of the retained refits from the primary best fit. $\theta_{(j)}$ is the $j$-th smallest retained refit value. Each confidence limit is therefore the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. They need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
 
 The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
 
