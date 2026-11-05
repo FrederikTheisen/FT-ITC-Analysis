@@ -1625,6 +1625,71 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("1", 10)]
+    [InlineData("0", 10)]
+    [InlineData("-5", 10)]
+    [InlineData("9", 10)]
+    [InlineData("10", 10)]
+    [InlineData("321", 321)]
+    public async Task BootstrapCountsBelowTenRunAsTen(string entered, int expected)
+    {
+        await WaitForFitToFinish();
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousFittingOptions = CaptureFittingOptions();
+        DataManager.Clear(DataClearMode.ResetSession);
+
+        var experiment = CreateFitExperiment("bootstrap-count.itc", 2000);
+        DataManager.AddData(experiment);
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        int? requested = null;
+        EventHandler<TerminationFlag> onAnalysisStarted = (sender, _) =>
+        {
+            if (sender is Solver solver) requested = solver.BootstrapIterations;
+            workspace.StopFit();
+        };
+
+        try
+        {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            SolverInterface.AnalysisStarted += onAnalysisStarted;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            workspace.ErrorMethodComboForTesting.SelectedIndex = 1;
+            workspace.BootstrapIterationsBoxForTesting.Text = entered;
+            Assert.True(workspace.CanRunFit);
+
+            workspace.RunFit();
+            await WaitForFitToFinish();
+
+            Assert.Equal(expected, requested);
+            Assert.Equal(expected, FittingOptionsController.BootstrapIterations);
+            Assert.Equal(expected.ToString(CultureInfo.CurrentCulture),
+                workspace.BootstrapIterationsBoxForTesting.Text);
+        }
+        finally
+        {
+            SolverInterface.AnalysisStarted -= onAnalysisStarted;
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            RestoreFittingOptions(previousFittingOptions);
+        }
+    }
+
+    [AvaloniaFact]
+    public void BootstrapCountBoxUsesSharedTooltip()
+    {
+        var workspace = new AnalysisWorkspaceControl();
+
+        Assert.Equal(UncertaintyEstimationPresentation.BootstrapIterationsTooltip,
+            ToolTip.GetTip(workspace.BootstrapIterationsBoxForTesting));
+    }
+
     [AvaloniaFact]
     public void RestoreAnalysisDefaultsUsesPreferencesWithoutSavingThem()
     {

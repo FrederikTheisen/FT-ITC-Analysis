@@ -106,6 +106,7 @@ namespace AnalysisITC
             ErrorMethodControl.Activated += OnErrorMethodActivated;
 
             ShowParameterBoxButton.ToolTip = AnalysisParameterSummaryPresentation.ParameterBoxToolTip;
+            ErrorIterationsControl.ToolTip = UncertaintyEstimationPresentation.BootstrapIterationsTooltip;
 
             ParameterStackView.Alignment = NSLayoutAttribute.Width;
             ConstraintStackView.Alignment = NSLayoutAttribute.Width;

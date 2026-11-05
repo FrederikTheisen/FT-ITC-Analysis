@@ -29,6 +29,9 @@ namespace AnalysisITC.Avalonia.Analysis
 {
     public sealed class AnalysisWorkspaceControl : UserControl
     {
+        // Matches the lower bound of the native analysis inspector's bootstrap slider.
+        const int MinimumBootstrapIterations = 10;
+
         readonly IntegratedHeatsGraphControl graph = new IntegratedHeatsGraphControl();
         readonly CoreAnalysisWorkspace workspace = new CoreAnalysisWorkspace();
 
@@ -302,6 +305,7 @@ namespace AnalysisITC.Avalonia.Analysis
         void WireEvents()
         {
             ToolTip.SetTip(modeSelector, "Fit one experiment at a time, or fit multiple included experiments together with shared parameters.");
+            ToolTip.SetTip(bootstrapIterationsBox, UncertaintyEstimationPresentation.BootstrapIterationsTooltip);
             modeSelector.SelectionChanged += (_, _) => ChangeMode();
             modelCombo.SelectionChanged += (_, _) => ChangeModel();
             runFitButton.Click += (_, _) => RunFit();
@@ -848,6 +852,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 FittingOptionsController.Algorithm = solver.SolverAlgorithm;
                 FittingOptionsController.ErrorEstimationMethod = solver.ErrorEstimationMethod;
                 FittingOptionsController.BootstrapIterations = solver.BootstrapIterations;
+                bootstrapIterationsBox.Text = solver.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
                 FittingOptionsController.UseErrorWeightedFitting = requestedWeightedFitting;
 
                 activeSolver = solver;
@@ -1077,9 +1082,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         int BootstrapIterations()
         {
-            return int.TryParse(bootstrapIterationsBox.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value)
-                ? Math.Max(0, value)
+            var requested = int.TryParse(bootstrapIterationsBox.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value)
+                ? value
                 : FittingOptionsController.BootstrapIterations;
+            return Math.Max(MinimumBootstrapIterations, requested);
         }
 
         void ApplyGraphOptions(bool refit = false)

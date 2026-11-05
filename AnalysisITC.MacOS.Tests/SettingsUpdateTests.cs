@@ -129,6 +129,9 @@ static class SettingsUpdateTests
                 Check(Outlet<NSButton>(analysis, "UnlockParametersForErrorEstimationControl").State == NSCellStateValue.Off,
                     "Restore defaults did not clear parameter unlocking");
                 Console.WriteLine("PASS: native display updates and explicit Analysis restore defaults");
+                Check(Outlet<NSSlider>(analysis, "ErrorIterationsControl").ToolTip
+                    == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.BootstrapIterationsTooltip,
+                    "The bootstrap count slider does not use the shared tooltip");
                 CheckBootstrapCounts(analysis, countFailures);
             }
             Check(countFailures.Count == 0, countFailures.Count + " bootstrap-count regression(s) failed:\n" + string.Join("\n", countFailures));
