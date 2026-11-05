@@ -30,7 +30,7 @@ This feature supersedes the narrow CR-029 implementation proposal. Treat competi
 
 Implement retained-refit propagation in existing Core properties. Reuse the existing distribution summarizer, thermodynamic slots, linked evaluator, profile endpoint mapper and consumer routes. Do not add an independent N error term, another Monte Carlo pass, a covariance-matrix engine, a quantity registry, a dependency graph, a derived-result cache, new controls, or a new persistence representation.
 
-For profiles, support transformations that genuinely depend on one fitted coordinate. General derived profiling is a separate extension, described below so its real cost can be reviewed. Existing linked profile approximations need an explicit policy decision; changing them is not a prerequisite for correcting retained-refit propagation.
+For profiles, support transformations that genuinely depend on one fitted coordinate. Quantities with several free owning coordinates keep the existing marginal-width quadrature, including the linked profile approximation (decided 5 November 2026). General derived profiling is a separate extension, described below so its real cost can be reviewed.
 
 ### 1. Quantity and evidence inventory
 
@@ -72,7 +72,7 @@ Its job is narrowly defined:
 2. Return false for a profile, method None or an unrecognized saved method. For bootstrap/leave-one-out with no retained rows, also return false and preserve the existing stored-coordinate/input-error fallback. That fallback is not claimed to contain joint evidence. Do not fall back from a profile to bootstrap samples.
 3. Evaluate one scalar for each member refit already retained by the owning solver/storage path. Do not independently sample, unlock, refit, pair marginal distributions, or change membership.
 4. Summarize the final scalar list with existing `SummarizeBootstrapDistribution(values, primaryValue)`. Do not pass `List<FloatWithError>` to its different, sampling-based constructor.
-5. Return true with a complete `FloatWithError`, including its interval, when a nonempty refit set has been handled. The one/invalid-row policies below also return true, preventing accidental fallthrough to marginal quadrature. Callers must not rebuild it from value and SD.
+5. Return true with a complete `FloatWithError`, including its interval, when a nonempty refit set has been handled. A single retained refit and the invalid-row policy below also return true, preventing accidental fallthrough to marginal quadrature. Callers must not rebuild it from value and SD.
 
 The helper does not catch arbitrary exceptions. Expected numeric domain failures should be represented by the scalar calculation's existing finite/try checks. Unexpected programming failures keep the application's existing error handling.
 
@@ -80,11 +80,12 @@ The evidence gate and scalar projection should remain easy to read in the same c
 
 #### Existing distribution convention stays intact
 
-`Math/NumberStructs.cs:97-119` uses the original best-fit centre `y0`, not the mean of the refits. For at least two values, the field named SD is `sqrt(Σ(yi-y0)^2/n)`. Bounds use the existing outward empirical percentile indices (`:175-188`). This implementation preserves that convention; it must not quietly substitute sample SD, recenter on the bootstrap mean, change percentiles, or apply jackknife scaling to leave-one-out values.
+`FloatWithError.FromDistributionInPlace` (`Math/NumberStructs.cs`) uses the original best-fit centre `y0`, not the mean of the refits. For at least two values, the field named SD is `sqrt(Σ(yi-y0)^2/n)`. Bounds use the existing outward empirical percentile indices (`GetConfidenceInterval`). This implementation preserves that convention; it must not quietly substitute sample SD, recenter on the bootstrap mean, change percentiles, or apply jackknife scaling to leave-one-out values.
 
-Two explicit edge policies are proposed for review:
+A single retained value needs no separate rule: since [ITC-217](ISSUES.md#itc-217---a-single-retained-refit-gives-an-interval-without-an-sd) the summarizer returns the original centre with zero SD and collapsed bounds, for fitted and derived quantities alike. With no rows, preserve the existing fallback as specified above; changing historical no-evidence propagation is outside the initial refit correction.
 
-- With exactly one retained value for a newly summarized derived quantity, return the original centre with zero error and collapsed bounds. The generic constructor currently gives one refit zero SD but bounds at that refit, which can differ from the primary centre. Keep the generic constructor unchanged; this would be a deliberate local feature policy. With no rows, preserve the existing fallback as specified above; changing historical no-evidence propagation is outside the initial refit correction.
+One explicit edge policy is proposed for review:
+
 - If any retained scalar is outside the quantity's domain or nonfinite, retain the primary centre with zero derived error for the whole quantity. Do not quietly discard that refit, use a subset, change the solver's success count, or substitute marginal quadrature. Do not add availability flags or warnings. Invalid primary centres keep their existing invalid/unavailable handling; never replace a primary centre with zero.
 
 These policies are not already established by solver success: `ValidateBootstrapSolution` checks model type and parameter-key shape, not the finiteness of every derived quantity. A small explicit branch is necessary; a second refit-admission framework is not.
@@ -157,19 +158,23 @@ The following mappings require one remaining **owning** coordinate, not just one
 | c-value | Fixed N and concentration: affinity transform; fixed affinity and concentration: N transform; check the competitive formula separately | Ordinary N and affinity both free, or a linked quantity with multiple active owners |
 | Corrected guide N/H | No new interval implementation: centres are the current consumed output | No new guide uncertainty display is proposed |
 
-External concentrations and competitor options are held at their saved primary values for these profile transformations. Their entered SDs are not likelihood constraints, and they are not sampled by profiling. These are conditional intervals. Do not independently draw those inputs or add their error afterwards. Including external-input uncertainty in profiles would require a separate statistical model and is outside this minimal design.
+Profile and leave-one-out runs keep external concentrations and model options at their saved values, so their intervals are conditional on the entered inputs. Entered input SDs are never added to derived values afterwards. [ITC-226](ISSUES.md#itc-226---entered-input-sds-were-added-to-apparent-values-and-c-values) removed the last such propagation. Including external-input uncertainty in profiles would require a separate statistical model and is outside this minimal design.
+
+Competitive apparent quantities (decided 5 November 2026): profile mode has no refits, so N's contribution must enter explicitly. Evaluate the competition factor at both ends of N's complete profile interval; more sites bind more competitor, so the factor decreases monotonically with N. Keep competitor inputs and cell concentration at their saved values. Combine that factor interval with the affinity interval (apparent Ka/Kd) or the ΔH interval (apparent ΔH) through the existing `FloatWithError` arithmetic. An incomplete N interval gives the apparent values zero error under the failed-input rule below. Syringe-correction mode uses the fixed site count, so the factor has no N dependence there.
 
 Keep `CanUseIntervals` and `HasCompleteInterval` checks. A completely failed owning run cannot supply numeric intervals; incomplete/censored coordinates do not become complete by taking a bound as an endpoint. Preserve the existing behavior for usable completed coordinates in partial/cancelled runs. This feature does not change CR-010 safeguards, the profile threshold/calibration, solver settings, or ITC-114 recovery.
 
-#### Explicit decision about unsupported cases
+#### Decision for quantities with several free coordinates (5 November 2026)
 
-For ordinary unlinked entropy/ΔS, competitive apparent affinity/enthalpy, total H and c-values, the proposed profile policy is the best-fit centre with zero error whenever the quantity has multiple free owning coordinates and no joint interval. This would deliberately replace their current marginally propagated errors in those cases; it is not implied merely by the instruction that zero means no error. The corresponding one-coordinate cases retain mapped intervals. Do not manufacture samples from independent marginal intervals or present quadrature as an exact derived profile.
+For ordinary unlinked entropy/ΔS, competitive apparent affinity/enthalpy, total H and c-values with several free owning coordinates and no joint interval, profile results keep the existing quadrature of marginal interval widths. This treats the owning coordinates as independent. It is an approximation, not an exact derived interval: it overstates the uncertainty when the coordinate estimates are positively correlated and understates it when they are negatively correlated. It is least reliable for weakly determined fits, where correlations are strongest. Zero error (uncertainty not determined, so not displayed) was considered and rejected: it would hide entropy uncertainty in nearly every profile result even though a usable approximation exists. The corresponding one-coordinate cases retain mapped intervals. Do not manufacture samples from independent marginal intervals or present quadrature as an exact derived profile.
 
-There is an existing complication: `LinkedThermodynamicEvaluation` and `SummaryDependence.EvaluateWithoutReplicates` currently combine signed marginal profile widths in quadrature. Existing linked tests explicitly expect that approximation. The first retained-refit implementation should preserve it and state this limitation. It must not be relabelled as exact joint profiling.
+`LinkedThermodynamicEvaluation` and `SummaryDependence.EvaluateWithoutReplicates` already combine signed marginal profile widths in quadrature, and existing linked tests expect it. The same decision applies: retain that approximation and do not relabel it as exact joint profiling. Do not change generic `FloatWithError` arithmetic or summary evaluation. The CR-024 summary-Kd transformation remains unchanged.
 
-Replacing that existing linked approximation with zero error is an additional scientific-policy decision for ITC-117 review. If chosen, alter the relevant linked/member entry points explicitly and update independent expectations; do not change generic `FloatWithError` arithmetic or all summary evaluation to impose it. The CR-024 summary-Kd transformation remains unchanged in either case.
+Failed inputs (decided 5 November 2026): zero error marks an uncertainty that was not determined, and such values display without uncertainty. In profile mode, if any free owning coordinate that a derived quantity depends on has no complete interval, the derived quantity also gets zero error. Quadrature must not treat an undetermined input as exactly known: today, a complete affinity interval with an incomplete ΔH interval gives −TΔS the ΔG interval alone (`EntropyContributionFor` subtracts the two `FloatWithError` values without checking completeness). Locked coordinates are genuinely fixed and keep contributing zero width; tell them apart from the captured lock and constraint state, not from `SD == 0`. Exact cancellations listed above are unaffected by coordinates they do not depend on.
 
-Thus initial support is deliberately incomplete: joint bootstrap/leave-one-out evaluation and exact single-coordinate profile mappings are proposed; exact profiles for several free coordinates are not. Review must settle the existing linked-approximation policy before claiming a uniform all-model profile policy.
+When implemented, the manual's profile-likelihood section should state in one sentence that uncertainty for a quantity depending on several fitted values combines their intervals as if independent.
+
+Thus initial support is deliberately incomplete: joint bootstrap/leave-one-out evaluation and exact single-coordinate profile mappings are proposed; exact profiles for several free coordinates are not, and those quantities keep the stated independence approximation.
 
 #### Why general derived profiling is not included
 
@@ -222,6 +227,8 @@ Use public quantity/report behavior and saved evidence, not assertions about hel
 | c-values | At fixed concentration, choose paired N/Kd with a constant ratio; derived c has zero spread. Cover first tandem segment and fixed-site correction mode separately. |
 | Profile transforms | Complete `a` interval `[6,8]`, centre 7 maps Kd to `[10^-8,10^-6] M`, centre `10^-7 M`. Check decreasing endpoint order and equivalent SD separately. |
 | Profile entropy | With H fixed, transform a complete affinity interval into E/ΔS; with affinity fixed, transform H. With both free, marginal intervals must not masquerade as an exact derived interval. |
+| Profile apparent Kd with free N | CR-029 inputs, intrinsic affinity fixed, complete N interval [0.9, 1.1] around 1.0: apparent Kd interval [33.1662479036, 41.6227766017] nM around 37.0156211872 nM. |
+| Profile with failed input | Complete log-affinity interval and incomplete ΔH interval: −TΔS and ΔS have zero error. With ΔH locked instead, −TΔS takes the ΔG interval unchanged. |
 | Exact profile cancellations | Zero competitor makes apparent affinity equal intrinsic affinity; zero competitor enthalpy makes apparent H equal intrinsic H. An unused failed coordinate must not invalidate an exact cancellation. |
 
 For entropy fixtures, set fitted log-affinity from the independently specified G using `a=-G/(RT ln(10))`; do not obtain expected entropy by calling the production property. Values above were checked with a standalone arithmetic calculation on 23 October, not a Core solver or regression run.
@@ -229,10 +236,10 @@ For entropy fixtures, set fitted log-affinity from the independently specified G
 Additional behavioral checks:
 
 - Exercise every active step: single-site families, both independent site slots and Sequential counts 2–4. Offset remains a fitted-only control.
-- Check zero/one refit and invalid-derived-refit policies explicitly, including zero competitor, very small positive values and finite primary centres.
+- Check the zero-refit fallback, the inherited one-refit result (no fallthrough to quadrature) and the invalid-derived-refit policy explicitly, including zero competitor, very small positive values and finite primary centres.
 - Cover local fits, independently fitted collections, shared coordinates, linked temperatures and global leave-one-out missing members. Preserve member centres, original locks and retained counts.
 - Use a saved case where member `ErrorMethod.None` but parent clone metadata records bootstrap/leave-one-out. Profiles must never read stale retained samples, including failed profiles.
-- Verify all supported monotonic transformations against independently calculated endpoints. For unsupported profiles, test the agreed zero/retained-approximation decision, not whatever fallback the implementation happens to return.
+- Verify all supported monotonic transformations against independently calculated endpoints. For several-coordinate profiles, test the retained quadrature against independently calculated marginal widths, not whatever fallback the implementation happens to return.
 - Change current fitting/display preferences after save; stored evidence and uncertainty must not be resampled or refit. Test Update Result through its existing owning operation and saved settings.
 - Verify report, per-fit export, clipboard, both desktop presentations and web viewer consume identical complete estimates for the same context. Keep model bands and collection summary conventions unchanged except for their explicitly changed per-fit inputs.
 - Repeated reads should be deterministic. Inspect a large retained set through existing report/table creation to detect obvious repeated work; add no cache until actual cost warrants one.
@@ -244,14 +251,14 @@ Implementation validation must run the full `AnalysisITC.Core.Tests` suite plus 
 1. **Ordinary thermodynamics:** add the narrow refit helper/scalar evaluation, fix entropy and nonlinear affinity transforms, and demonstrate preserved centres with independent tests. No UI, solver, schema or generic numeric-operator changes.
 2. **Competition:** reuse the existing equilibrium solver on each complete refit tuple; fix Kapp/Kdapp/dHapp properties. Cover the N-only failure and compensating covariance. No new output rows or sampling controls.
 3. **Other consumed derived values:** apply the same rule to total H and c-values, trace newly run advanced-analysis inputs, and leave centre-only graph guides alone.
-4. **Exact profile mappings:** extend the current mapper for explicitly listed single-owner cases. Decide the existing linked approximation separately. Do not add new optimization calls.
+4. **Exact profile mappings:** extend the current mapper for explicitly listed single-owner cases. Retain the existing linked approximation. Do not add new optimization calls.
 5. **Consumer/round-trip verification:** fix only demonstrated bypasses. Update concise scientific manual/help text and the relevant report-map entries after behavior is agreed and implemented; incidental internals do not belong in the manual.
 
 Each slice should be reviewable without an architectural migration. Production changes should initially fit existing files. A new production type or persistent field must identify the concrete unsupported requirement that makes it necessary.
 
 | Tempting addition | Why it is excluded |
 |---|---|
-| Independent N error in quadrature | Loses covariance and can double-count the influence already represented in refits. |
+| Independent N error in quadrature for refit-based methods | Loses covariance and double-counts the influence already represented in refits. Profile mode adds N through the competition factor instead (profile section). |
 | New marginal Monte Carlo draws | Destroys the joint relationships already available and adds stochastic work. |
 | Generic covariance/dependency framework | The model formulas and retained tuples already specify the needed dependence. |
 | New derived estimate/status/cache objects | Existing `FloatWithError`, method evidence and presentation routes are sufficient for this proposal. |
@@ -268,7 +275,6 @@ The scientific basis for retaining correlations is the covariance term in the [N
 The deliverable choice is settled: detailed design first, minimal extra profile machinery, and unsupported cases made explicit. These calculation choices remain proposals for review:
 
 - Adopt direct retained-refit evaluation for the consumed quantities listed above, including nonlinear Ka/Kd SDs, while preserving their original centres and the existing collection-summary convention.
-- Adopt the proposed single-refit/invalid-derived-refit handling, while retaining existing no-refit fallbacks, or choose another explicit policy; do not let an incidental constructor fallback decide it.
-- Use zero error for newly unsupported multi-coordinate profile quantities; decide whether the existing linked marginal-width approximation stays for now or is explicitly replaced. Full exact derived profiling is deferred.
-
+- Adopt the proposed invalid-derived-refit handling, while retaining existing no-refit fallbacks, or choose another explicit policy.
+- Decided 5 November 2026: multi-coordinate profile quantities, linked or not, keep the existing quadrature approximation rather than zero error. Full exact derived profiling is deferred.
 No solver, parameter, serialization, presentation or scientific behavior has been changed by this design. CR-029 remains unresolved until implementation and consumer validation are complete.
