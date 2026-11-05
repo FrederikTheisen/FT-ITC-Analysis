@@ -41,6 +41,13 @@ namespace AnalysisITC.Core.Analysis
             10_000,
         });
 
+        /// <summary>
+        /// Fewest retained residual-bootstrap refits for a complete uncertainty
+        /// estimate and for the bootstrap correlation diagnostic. Smaller retained
+        /// sets are still summarized but are reported as incomplete.
+        /// </summary>
+        public const int MinimumRetainedBootstrapRefits = 50;
+
         public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
         public static bool UnlockBootstrapParameters { get; set; } = false;

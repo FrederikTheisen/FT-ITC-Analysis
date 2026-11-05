@@ -1879,7 +1879,9 @@ namespace AnalysisITC.Core.Presentation
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem> { RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD) };
             if (convergence != null)
-                items.Add(Item("Uncertainty", UncertaintyText(solution.ErrorEstimationMethod, convergence)));
+                items.Add(Item("Uncertainty", UncertaintyText(solution.ErrorEstimationMethod, convergence,
+                    UncertaintyEstimationPresentation.BelowRetainedMinimum(solution),
+                    perExperiment: solution.Model?.ShouldFitIndividually == true && solution.Solutions.Count > 1)));
 
             var criteria = result.IsIndependentAssessmentCollection ? null : result.InformationCriteria;
             if (criteria != null)
@@ -1897,12 +1899,16 @@ namespace AnalysisITC.Core.Presentation
                 + molarRmsd.Value.ToFormattedString(EnergyUnit.KiloJoule, withunit: true, permole: true))
             : Item("RMSD", FormatFinite(rmsd, "G5") + " µJ");
 
-        static string UncertaintyText(ErrorEstimationMethod method, SolverConvergence convergence)
+        static string UncertaintyText(ErrorEstimationMethod method, SolverConvergence convergence, bool? belowRetainedMinimum = null,
+            bool perExperiment = false)
         {
             if (method == ErrorEstimationMethod.None) return method.Description();
             var parts = new List<string> { method.Description() };
             if (convergence == null) return parts[0];
-            parts.Add(LowerFirst(convergence.ErrorEstimationOutcome.GetEnumDescription()));
+            // Independent collections aggregate member counts, so callers judge the minimum per member.
+            var belowMinimum = belowRetainedMinimum
+                ?? UncertaintyEstimationPresentation.BelowRetainedMinimum(convergence, method);
+            parts.Add(belowMinimum ? "incomplete" : LowerFirst(convergence.ErrorEstimationOutcome.GetEnumDescription()));
             if (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding)
                 return string.Join("; ", parts);
             if (convergence.ErrorEstimationAttemptedRefits.HasValue
@@ -1915,6 +1921,9 @@ namespace AnalysisITC.Core.Presentation
                 if (convergence.ErrorEstimationFailedRefits is int failed && failed > 0)
                     refits += " (" + failed.ToString(CultureInfo.CurrentCulture) + " failed)";
                 parts.Add(refits);
+                if (belowMinimum)
+                    parts.Add("at least " + FittingOptionsController.MinimumRetainedBootstrapRefits
+                        .ToString(CultureInfo.CurrentCulture) + " needed" + (perExperiment ? " per experiment" : ""));
             }
             else if (!string.IsNullOrWhiteSpace(convergence.ErrorEstimationSummary))
                 parts.Add(convergence.ErrorEstimationSummary.Trim());

@@ -294,7 +294,7 @@ Same structure in both modes. Rows, in order:
 | Ligand enthalpy | Indented under Model; energy/mol unit; report uncertainty style. |
 | Constraint | <parameter>: <description>, one row per constraint. |
 | RMSD / Molar RMSD | µJ / kJ/mol. |
-| Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
+| Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". A residual bootstrap that lost no refits but kept fewer than the shared minimum (`FittingOptionsController.MinimumRetainedBootstrapRefits`, 50) reads "incomplete" and ends with "at least 50 needed" ("… per experiment" on the aggregate row of an independent collection); results saved before this rule keep their recorded outcome (ITC-185). Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
 | AIC / AICc | Omitted for independent collections. |
 | Solver | Algorithm; termination; iterations (time); weighting. Omitted without convergence info. |
 

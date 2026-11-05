@@ -221,7 +221,7 @@ namespace AnalysisITC.Core.Analysis
     /// </summary>
     public sealed class BootstrapCorrelationAnalyzer
     {
-        public const int DefaultMinimumCompleteReplicates = 30;
+        public const int DefaultMinimumCompleteReplicates = FittingOptionsController.MinimumRetainedBootstrapRefits;
         public int MinimumCompleteReplicates { get; private set; }
 
         public BootstrapCorrelationAnalyzer(int minimumCompleteReplicates = DefaultMinimumCompleteReplicates)

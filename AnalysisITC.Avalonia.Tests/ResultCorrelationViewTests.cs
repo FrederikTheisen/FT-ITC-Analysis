@@ -283,7 +283,7 @@ public sealed class ResultCorrelationViewTests
         {
             DataManager.Clear(DataClearMode.ResetSession);
             AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
-            var members = new[] { CreateBootstrapMember("many-refits", 100), CreateBootstrapMember("few-refits", 30) };
+            var members = new[] { CreateBootstrapMember("many-refits", 100), CreateBootstrapMember("few-refits", 50) };
             var model = new GlobalModel(members.Select(member => member.Model).ToList())
             {
                 ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
@@ -302,12 +302,12 @@ public sealed class ResultCorrelationViewTests
                 foreach (var index in new[] { 0, 1, 0 })
                 {
                     DataManager.SelectResultSolution(members[index]);
-                    Assert.Equal(index == 0 ? 100 : 30, workspace.CorrelationGraphForTesting.UsedCount);
+                    Assert.Equal(index == 0 ? 100 : 50, workspace.CorrelationGraphForTesting.UsedCount);
                     Assert.Equal("Single experiment", workspace.CorrelationGraphForTesting.Scope);
                     var warnings = panel.GetLogicalDescendants().OfType<TextBlock>()
                         .Where(block => block.Text?.Contains("makes Monte Carlo precision coarse") == true).ToList();
                     if (index == 0) Assert.Empty(warnings);
-                    else Assert.Contains("Only 30 complete refits", Assert.Single(warnings).Text);
+                    else Assert.Contains("Only 50 complete refits", Assert.Single(warnings).Text);
                 }
             }
             finally

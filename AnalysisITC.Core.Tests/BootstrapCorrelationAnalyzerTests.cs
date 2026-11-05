@@ -16,12 +16,12 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void UsesFittedCoordinatesIncludesUnlockedOriginallyLockedAndDropsFixedParameters()
         {
-            var solution = CreateSingleSolution(35);
+            var solution = CreateSingleSolution(55);
 
             var result = new BootstrapCorrelationAnalyzer().Analyze(solution);
 
             Assert.True(result.IsAvailable);
-            Assert.Equal(35, result.CompleteReplicateCount);
+            Assert.Equal(55, result.CompleteReplicateCount);
             Assert.Equal(new[] { ParameterType.Nvalue1, ParameterType.Enthalpy1, ParameterType.Affinity1 },
                 result.Parameters.Select(parameter => parameter.ParameterType));
             Assert.Contains(result.Parameters, parameter => parameter.ParameterType == ParameterType.Enthalpy1
@@ -33,23 +33,23 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void RequiresThirtyCompleteReplicates()
+        public void RequiresFiftyCompleteReplicates()
         {
-            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(29));
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(49));
 
             Assert.False(result.IsAvailable);
             Assert.Equal(BootstrapCorrelationAvailabilityStatus.TooFewCompleteReplicates, result.Availability.Status);
-            Assert.Equal(29, result.Availability.CompleteReplicateCount);
+            Assert.Equal(49, result.Availability.CompleteReplicateCount);
             Assert.False(result.Reliability.HasCoarseMonteCarloPrecision);
         }
 
         [Fact]
-        public void ExactlyThirtyReplicatesProducesNegativeCorrelationAndUnitDiagonal()
+        public void ExactlyFiftyReplicatesProducesNegativeCorrelationAndUnitDiagonal()
         {
-            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(30, positiveAffinitySlope: false));
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(50, positiveAffinitySlope: false));
 
             Assert.True(result.IsAvailable);
-            Assert.Equal(30, result.CompleteReplicateCount);
+            Assert.Equal(50, result.CompleteReplicateCount);
             Assert.Equal(1.0, result.CorrelationMatrix[0, 0], 12);
             Assert.Equal(-1.0, result.CorrelationMatrix[0, 2], 12);
             Assert.Equal(1.0, result.CorrelationMatrix[2, 2], 12);
@@ -86,7 +86,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(30, true)]
+        [InlineData(50, true)]
         [InlineData(99, true)]
         [InlineData(100, false)]
         public void CoarseMonteCarloWarningEndsAtOneHundredCompleteRefits(int count, bool expected)
@@ -124,7 +124,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void DropsReplicatesWithAnyNonFiniteCoordinateListwise()
         {
-            var solution = CreateSingleSolution(31);
+            var solution = CreateSingleSolution(51);
             var rows = solution.BootstrapSolutions.ToList();
             rows[0].Model.Parameters.Table[ParameterType.Affinity1].Update(double.NaN);
             SetSingleBootstrapRows(solution, rows);
@@ -132,15 +132,15 @@ namespace AnalysisITC.Core.Tests
             var result = new BootstrapCorrelationAnalyzer().Analyze(solution);
 
             Assert.True(result.IsAvailable);
-            Assert.Equal(30, result.CompleteReplicateCount);
-            Assert.Equal(31, result.Reliability.UsableRefitCount);
+            Assert.Equal(50, result.CompleteReplicateCount);
+            Assert.Equal(51, result.Reliability.UsableRefitCount);
             Assert.Equal(1, result.Reliability.CoordinateIncompleteRefitCount);
         }
 
         [Fact]
         public void SharedFormatterDistinguishesPrecisionFromParameterUncertainty()
         {
-            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(30));
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(50));
             var details = BootstrapCorrelationDiagnosticFormatter.CellDetails(
                 "N", "log10 Ka", result.CellDiagnostics[0, 2]);
             var warnings = BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(result);
@@ -154,7 +154,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void SingleMemberAnalysisResultUsesItsLocalFittedCoordinates()
         {
-            var member = CreateSingleSolution(30);
+            var member = CreateSingleSolution(50);
             var globalModel = new GlobalModel(new List<Model> { member.Model })
             {
                 ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
@@ -175,10 +175,10 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(100, 30, true, false)]
+        [InlineData(100, 50, true, false)]
         [InlineData(99, 100, true, true)]
-        [InlineData(30, 0, true, true)]
-        [InlineData(29, 100, false, false)]
+        [InlineData(50, 0, true, true)]
+        [InlineData(49, 100, false, false)]
         public void IndependentMemberUsesItsOwnCompleteRefitsAndReliability(
             int selectedCount, int otherCount, bool available, bool coarsePrecision)
         {
@@ -229,7 +229,7 @@ namespace AnalysisITC.Core.Tests
             var selected = CreateSingleSolution(101);
             selected.BootstrapSolutions[0].Model.Parameters.Table[ParameterType.Affinity1].Update(double.NaN);
             selected.BootstrapSolutions[1].Model.Parameters.Table[ParameterType.Affinity1].Update(double.NaN);
-            var collection = CreateIndependentCollection(selected, CreateSingleSolution(30));
+            var collection = CreateIndependentCollection(selected, CreateSingleSolution(50));
 
             var result = new BootstrapCorrelationAnalyzer().Analyze(collection, 0);
 
@@ -245,7 +245,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IndependentMemberSelectionCachesSeparateEnsembles()
         {
-            var collection = CreateIndependentCollection(CreateSingleSolution(100), CreateSingleSolution(30));
+            var collection = CreateIndependentCollection(CreateSingleSolution(100), CreateSingleSolution(50));
             var presentation = new AnalysisResult(collection).PresentationData;
 
             var first = presentation.GetCorrelation(collection.Solutions[0]);
@@ -254,7 +254,7 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(100, first.CompleteReplicateCount);
             Assert.False(first.Reliability.HasCoarseMonteCarloPrecision);
-            Assert.Equal(30, second.CompleteReplicateCount);
+            Assert.Equal(50, second.CompleteReplicateCount);
             Assert.True(second.Reliability.HasCoarseMonteCarloPrecision);
             Assert.False(unselected.IsAvailable);
             Assert.False(unselected.Reliability.HasCoarseMonteCarloPrecision);
@@ -272,7 +272,7 @@ namespace AnalysisITC.Core.Tests
             var member = CreateSingleSolution(100);
             member.ErrorMethod = method;
             member.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
-            var collection = CreateIndependentCollection(member, CreateSingleSolution(30));
+            var collection = CreateIndependentCollection(member, CreateSingleSolution(50));
 
             var result = new BootstrapCorrelationAnalyzer().Analyze(collection, 0);
 
@@ -285,7 +285,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void TwoSetsPreservesSlotsAndCrossSiteCorrelation()
         {
-            var solution = CreateTwoSetSolution(30);
+            var solution = CreateTwoSetSolution(50);
             var result = new BootstrapCorrelationAnalyzer().Analyze(solution);
 
             Assert.True(result.IsAvailable);
@@ -300,7 +300,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void FourStepSequentialUsesAllStepCoordinatesAndOmitsStoichiometry()
         {
-            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSequentialSolution(4, 30));
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSequentialSolution(4, 50));
 
             Assert.True(result.IsAvailable);
             Assert.DoesNotContain(result.Parameters, parameter =>
@@ -362,7 +362,7 @@ namespace AnalysisITC.Core.Tests
                     global.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 1);
                 },
                 bootstrapCount: 100);
-            primary.Solutions[0].RestoreBootstrapSolutions(CreateSingleSolution(30).BootstrapSolutions);
+            primary.Solutions[0].RestoreBootstrapSolutions(CreateSingleSolution(50).BootstrapSolutions);
 
             var result = new BootstrapCorrelationAnalyzer().Analyze(primary, 0);
 
@@ -388,7 +388,7 @@ namespace AnalysisITC.Core.Tests
                     global.Parameters.AddorUpdateGlobalParameter(ParameterType.HeatCapacity1, -100);
                     global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
                 },
-                bootstrapCount: 30,
+                bootstrapCount: 50,
                 bootstrapBuilder: (model, index) =>
                 {
                     var dG = -15000 + index * 5;
@@ -532,7 +532,7 @@ namespace AnalysisITC.Core.Tests
             double[] temperatures,
             Action<Model, int> primaryBuilder,
             Action<GlobalModel> globalBuilder,
-            int bootstrapCount = 30,
+            int bootstrapCount = 50,
             Action<Model, int> bootstrapBuilder = null)
         {
             var models = temperatures.Select((temperature, index) =>

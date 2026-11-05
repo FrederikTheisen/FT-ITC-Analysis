@@ -20,7 +20,7 @@ namespace AnalysisITC.Core.Tests;
 [Collection(SolverEventCollectionDefinition.Name)]
 public sealed partial class NoBindingUncertaintySkipTests : IDisposable
 {
-    const int Iterations = 4;
+    const int Iterations = 50;
 
     readonly bool previousSkip = AnalysisITC.Core.Application.AppSettings.SkipUncertaintyEstimationForNoBinding;
     readonly int previousParallelism = AnalysisITC.Core.Application.AppSettings.MaxDegreeOfParallelism;

@@ -102,6 +102,10 @@ namespace AnalysisITC.Core.Presentation
                     case "unavailable": return name + " unavailable";
                     case "incomplete" when method != ErrorEstimationMethod.ProfileLikelihood:
                         var members = solution.Solutions;
+                        var belowMinimum = members.Count(member => BelowRetainedMinimum(member?.Convergence, method));
+                        if (belowMinimum > 0 && members.All(member => member?.Convergence?.ErrorEstimationFailedRefits is null or 0))
+                            return name + " incomplete: " + belowMinimum + " experiment" + (belowMinimum == 1 ? "" : "s")
+                                + " kept fewer than " + FittingOptionsController.MinimumRetainedBootstrapRefits + " refits";
                         var requests = members.Select(member => ExpectedRefits(member, method)).ToList();
                         return IncompleteRefits(name, members.Sum(member => member?.BootstrapSolutions.Count ?? 0),
                             requests.All(request => request.HasValue) ? requests.Sum(request => request.Value) : (int?)null);
@@ -125,11 +129,30 @@ namespace AnalysisITC.Core.Presentation
                 var summary = ProfileLikelihoodEstimator.Summarize(solution);
                 return name + " incomplete: " + summary.EndpointsFound + " of " + summary.TotalSides + " interval endpoints found";
             }
+            if (!(expected > succeeded) && BelowRetainedMinimum(convergence, method))
+                return name + " incomplete: " + succeeded + " refits kept; at least "
+                    + FittingOptionsController.MinimumRetainedBootstrapRefits + " needed";
             return IncompleteRefits(name, succeeded, expected);
         }
 
         static string IncompleteRefits(string name, int succeeded, int? total) =>
             name + " incomplete: " + succeeded + (total.HasValue ? " of " + total.Value : "") + " refits";
+
+        /// <summary>
+        /// A run recorded as incomplete only because it lost no refits but kept fewer
+        /// than the shared minimum. Older saved runs recorded as complete are unaffected.
+        /// </summary>
+        internal static bool BelowRetainedMinimum(SolverConvergence convergence, ErrorEstimationMethod method) =>
+            convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.PartialFailure
+            && SolverConvergence.IsBelowRetainedRefitMinimum(method,
+                convergence.ErrorEstimationFailedRefits, convergence.ErrorEstimationSucceededRefits);
+
+        internal static bool BelowRetainedMinimum(GlobalSolution solution) =>
+            solution != null && (Independent(solution)
+                ? solution.Solutions.Any(member => BelowRetainedMinimum(member?.Convergence, solution.ErrorEstimationMethod))
+                : BelowRetainedMinimum(solution.Convergence, solution.ErrorEstimationMethod));
+
+        public const string RetainedMinimumTooltip = "Too few kept refits for a stable 95% interval";
 
         static int? ExpectedRefits(SolutionInterface member, ErrorEstimationMethod method) =>
             method == ErrorEstimationMethod.LeaveOneOut
@@ -154,6 +177,7 @@ namespace AnalysisITC.Core.Presentation
 
         public const string MethodTooltip = "Method selected to estimate fitted parameter uncertainty";
         public const string UpdateIterationsTooltip = "Requested refits for this complete rerun";
+        public const string BootstrapIterationsTooltip = "Requested residual-bootstrap refits; minimum 10";
         const string MixedTooltip = "Some experiments skipped estimation because no binding was detected. Eligible experiments retain their own uncertainty; complete combined uncertainty is unavailable.";
 
         public static string Method(GlobalSolution solution) => solution?.ErrorEstimationMethod.Description() ?? "";
@@ -209,7 +233,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 new UncertaintyPresentationRow("Status", status, status == "Mixed" ? MixedTooltip
                     : outcome == ErrorEstimationOutcome.PartialFailure && method == ErrorEstimationMethod.BootstrapResiduals
-                        ? "Some expected bootstrap refits are missing."
+                        ? BelowRetainedMinimum(solution) ? RetainedMinimumTooltip : "Some expected bootstrap refits are missing."
                         : "Availability of saved fitted parameter uncertainty")
             };
             var profile = method == ErrorEstimationMethod.ProfileLikelihood ? ProfileLikelihoodEstimator.Summarize(solution) : null;

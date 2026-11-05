@@ -1393,7 +1393,7 @@ public sealed partial class AnalysisReportBuilderTests
     [Fact]
     public void CorrelationDiscoveryUsesOneReportControlAndPreservesExplicitMemberRequests()
     {
-        var result = CreateResult(2, includeSkewedBootstrap: true);
+        var result = CreateResult(2, includeSkewedBootstrap: true, skewedBootstrapCount: 50);
         var direct = new BootstrapCorrelationAnalyzer().Analyze(result, 1);
         Assert.True(direct.IsAvailable, direct.Availability.Reason);
         var available = AnalysisReportBuilder.GetAvailableAdvancedSections(result);
@@ -3333,7 +3333,8 @@ public sealed partial class AnalysisReportBuilderTests
         bool weighted = false,
         double temperatureStep = 0,
         bool includeSkewedBootstrap = false,
-        bool includeSalt = false)
+        bool includeSalt = false,
+        int skewedBootstrapCount = 30)
     {
         var models = new List<Model>();
         var members = new List<SolutionInterface>();
@@ -3359,7 +3360,7 @@ public sealed partial class AnalysisReportBuilderTests
             if (includeSkewedBootstrap)
             {
                 var bootstraps = new List<SolutionInterface>();
-                foreach (var affinity in Enumerable.Range(0, 30).Select(value => 2.0 + value * 0.05))
+                foreach (var affinity in Enumerable.Range(0, skewedBootstrapCount).Select(value => 2.0 + value * 0.05))
                 {
                     var bootstrapModel = CreateModel(data, affinity, -10_000 - affinity * 1_000);
                     var bootstrap = SolutionInterface.FromModel(bootstrapModel, Convergence());

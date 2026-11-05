@@ -788,14 +788,28 @@ namespace AnalysisITC.Core.Analysis
                 return;
             }
 
-            ErrorEstimationOutcome = failures == 0
+            var tooFewRetained = IsBelowRetainedRefitMinimum(method, failures, succeeded);
+            ErrorEstimationOutcome = failures == 0 && !tooFewRetained
                 ? ErrorEstimationOutcome.Completed
                 : succeeded > 0
                     ? ErrorEstimationOutcome.PartialFailure
                     : ErrorEstimationOutcome.CompleteFailure;
 
-            ErrorEstimationSummary = $"{method}: succeeded={succeeded}, failed={failures}, total={total}{limitSummary}";
+            var minimumSummary = tooFewRetained
+                ? $"; below the minimum of {FittingOptionsController.MinimumRetainedBootstrapRefits} retained refits"
+                : string.Empty;
+            ErrorEstimationSummary = $"{method}: succeeded={succeeded}, failed={failures}, total={total}{limitSummary}{minimumSummary}";
         }
+
+        /// <summary>
+        /// True when a residual bootstrap lost no refits but retained fewer than the
+        /// shared minimum. Runs with failed refits are reported by their failure counts.
+        /// </summary>
+        public static bool IsBelowRetainedRefitMinimum(ErrorEstimationMethod method, int? failures, int? succeeded)
+            => method == ErrorEstimationMethod.BootstrapResiduals
+                && failures == 0
+                && succeeded > 0
+                && succeeded < FittingOptionsController.MinimumRetainedBootstrapRefits;
 
         public SolverConvergence Copy()
         {
