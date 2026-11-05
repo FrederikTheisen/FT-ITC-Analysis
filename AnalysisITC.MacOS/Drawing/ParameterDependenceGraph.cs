@@ -218,8 +218,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var x in xpoints)
             {
                 var y = fit.Evaluate(x, 0);
-                var max = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1]; //e[1];
-                var min = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0];  //e[0];
+                var max = y.Upper;
+                var min = y.Lower;
 
                 line.Add(new CGPoint(GetRelativePosition(x, y)));
                 top.Add(new CGPoint(GetRelativePosition(x, max)));
@@ -289,8 +289,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 if (FloatWithError.IsNaN(y)) continue;
 
-                var max = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1]; //e[1];
-                var min = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0];  //e[0];
+                var max = y.Upper;
+                var min = y.Lower;
 
                 line.Add(new CGPoint(GetRelativePosition(x, y)));
                 top.Add(new CGPoint(GetRelativePosition(x, max)));

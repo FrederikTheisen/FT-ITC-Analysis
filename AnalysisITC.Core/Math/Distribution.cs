@@ -20,7 +20,6 @@ namespace AnalysisITC.Core.Numerics
         {
             return Selected switch
             {
-                DistributionType.Constant => Constant(mean, stdDev, rand),
                 DistributionType.Normal => Normal(mean, stdDev, rand),
                 _ => mean,
             };
@@ -35,7 +34,6 @@ namespace AnalysisITC.Core.Numerics
             }
             else return Selected switch
             {
-                DistributionType.Constant => Constant(mean, stdDev, rand),
                 DistributionType.Normal => Normal(mean, stdDev, rand),
                 _ => mean,
             };
@@ -130,17 +128,6 @@ namespace AnalysisITC.Core.Numerics
             return fwe.Value + (z < 0 ? -magnitude : magnitude);
         }
 
-        public static double Constant(FloatWithError number, Random rand = null) => Constant(number.Value, number.SD, rand);
-        public static double Constant(double mean, double stdDev, Random rand = null)
-        {
-            rand ??= rng;
-            double u = rand.NextDouble(); //uniform[0,1) random double
-            double randStdCons = 2 * (0.5 - u); //uniform(-1,1] random double
-            double randCons = mean + stdDev * randStdCons; //random constant within mean +/- SD
-
-            return randCons;
-        }
-
         public static double None(FloatWithError number) => None(number.Value, number.SD);
         public static double None(double mean, double stdDev)
         {
@@ -149,7 +136,6 @@ namespace AnalysisITC.Core.Numerics
 
         public enum DistributionType
         {
-            Constant,
             Normal,
             None
         }

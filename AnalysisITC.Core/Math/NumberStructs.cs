@@ -215,31 +215,16 @@ namespace AnalysisITC.Core.Numerics
 
         private double GetConfidenceIntervalAsymmetryScore()
         {
-            double a = Value - Lower;
-            double b = Upper - Value;
+            double span = Upper - Lower;
 
-            if (a <= 0 || b <= 0) return double.NaN;
+            if (!FWEMath.IsFinite(Value) || !FWEMath.IsFinite(span) || span <= 0) return double.NaN;
 
-            return Math.Abs(b - a) / (a + b);
+            // |(U - x) - (x - L)| / (U - L); at least 1 when x is at or outside a limit.
+            return Math.Abs(Upper + Lower - 2 * Value) / span;
         }
 
-        public enum ConfidenceLevel
-        {
-            Conf95,
-            SD,
-            Conf50
-        }
-
-        public double[] WithConfidence(ConfidenceLevel conf = ConfidenceLevel.Conf95)
-        {
-            switch (conf)
-            {
-                default:
-                case ConfidenceLevel.Conf95: return DistributionConfidence95;
-                case ConfidenceLevel.SD: return new double[] { Value - LowerWidth * 0.5, Value + UpperWidth * 0.5 };
-                case ConfidenceLevel.Conf50: return new double[] { Value - LowerWidth * 0.25, Value + UpperWidth * 0.25 };
-            }
-        }
+        /// <summary>The stored 95% confidence interval, lower limit first.</summary>
+        public double[] WithConfidence() => DistributionConfidence95;
 
         public double Sample(Random rand = null)
         {

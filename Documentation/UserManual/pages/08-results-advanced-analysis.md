@@ -177,7 +177,7 @@ The choice is made separately for each reported quantity. Let $L$ and $U$ be its
 > \text{asymmetry} = \frac{\lvert w_{\mathrm{upper}} - w_{\mathrm{lower}} \rvert}{w_{\mathrm{upper}} + w_{\mathrm{lower}}}
 > $$
 >
-> Automatic shows the 95% confidence interval when both widths are positive and the asymmetry is at least 0.18; otherwise it shows SD. An asymmetry of 0.18 corresponds to one side being 1.18/0.82 ≈ 1.44 times the other. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
+> Automatic shows the 95% confidence interval when the asymmetry is at least 0.18; otherwise it shows SD. An asymmetry of 0.18 corresponds to one side being 1.18/0.82 ≈ 1.44 times the other. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
 
 For example, $K_{\mathrm{d}}$ = 50 nM with a 95% interval of 40–70 nM has widths 10 and 20 nM. The asymmetry is 10/30 = 0.33, so Automatic shows the interval. With an interval of 42–59 nM, the widths are 8 and 9 nM, the asymmetry is 1/17 = 0.06, and Automatic shows SD.
 

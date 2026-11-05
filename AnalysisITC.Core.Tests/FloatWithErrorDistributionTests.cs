@@ -132,6 +132,21 @@ namespace AnalysisITC.Core.Tests
             Assert.DoesNotContain("±", result.AsNumber(UncertaintyDisplayStyle.Automatic));
         }
 
+        [Theory]
+        [InlineData(10.0, "10.0 [10.0, 16.0]")] // best fit at the lower limit
+        [InlineData(16.0, "16.0 [10.0, 16.0]")] // best fit at the upper limit
+        [InlineData(9.0, "9.0 [10.0, 16.0]")]   // best fit below the interval
+        [InlineData(17.0, "17.0 [10.0, 16.0]")] // best fit above the interval
+        [InlineData(13.0, "13.0 ± 2.0")]        // centred interval
+        [InlineData(13.5, "13.5 ± 2.0")]        // sides 3.5 and 2.5: asymmetry 1/6, below 0.18
+        [InlineData(14.0, "14.0 [10.0, 16.0]")] // sides 4 and 2: asymmetry 1/3
+        public void AutomaticShowsIntervalWhenBestFitIsAtOrOutsideALimit(double value, string expected)
+        {
+            var number = new FloatWithError(value, 2.0, 10.0, 16.0);
+
+            Assert.Equal(expected, number.ToString("F1", UncertaintyDisplayStyle.Automatic, System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         [Fact]
         public void StronglyAsymmetricCiUsesStoredBoundsAsEqualTailLimits()
         {
@@ -214,8 +229,9 @@ namespace AnalysisITC.Core.Tests
             var nonEnclosing = new FloatWithError(10.0, 2.0, 12.0, 16.0);
             var nonFinite = new FloatWithError(10.0, 2.0, double.NaN, 16.0);
 
-            Assert.False(invalid.IsAsymmetric);
-            Assert.False(nonEnclosing.IsAsymmetric);
+            // Display treats a best fit at or outside a limit as asymmetric; sampling still falls back.
+            Assert.True(invalid.IsAsymmetric);
+            Assert.True(nonEnclosing.IsAsymmetric);
             Assert.False(nonFinite.IsAsymmetric);
 
             const int seed = 1729;
