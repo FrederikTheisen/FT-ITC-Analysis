@@ -490,6 +490,10 @@ public sealed partial class DailyStatusEmail
             // query plus revalidation headers prevents a cached status from passing.
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 url + (uri.Query.Length == 0 ? "?" : "&") + "mist-status-check=" + Guid.NewGuid().ToString("N"));
+            // Production antiforgery cookies require HTTPS. For the direct
+            // loopback probe, supply the same scheme as the trusted local proxy.
+            if (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback && uri.AbsolutePath == "/api/viewer/token")
+                request.Headers.Add("X-Forwarded-Proto", "https");
             request.Headers.CacheControl = new() { NoCache = true, NoStore = true };
             using var response = await http.SendAsync(request);
             if (!response.IsSuccessStatusCode) return new($"HTTP {(int)response.StatusCode}; endpoint check failed", true);

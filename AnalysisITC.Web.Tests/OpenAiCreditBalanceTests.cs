@@ -43,8 +43,7 @@ public sealed class OpenAiCreditBalanceTests : IDisposable
         var second = Read();
 
         Assert.False(first.Attention);
-        Assert.Contains("Estimated remaining: 25.60 USD (estimate, not a provider balance)", first.Text);
-        Assert.Contains("Recorded usage since baseline: 1.5300000 USD", first.Text);
+        Assert.Equal("\nOpenAI credit estimate\n  Estimated remaining: 25.60 USD\n  Last balance update: 2026-10-30 13:00:00 +01:00 — 27.13 USD", first.Text);
         Assert.Equal(first, second); // Reading/previewing never deducts the same cost again.
     }
 
@@ -134,7 +133,7 @@ public sealed class OpenAiCreditBalanceTests : IDisposable
         Seed("openai", BaselineTime.AddDays(2), .25m);
 
         Assert.Contains("Estimated remaining: 39.75 USD", Read().Text);
-        Assert.Contains("Baseline: 40.00 USD", Read().Text);
+        Assert.Contains("Last balance update: 2026-10-31 13:00:00 +01:00 — 40.00 USD", Read().Text);
     }
 
     [Theory]
@@ -191,7 +190,8 @@ public sealed class OpenAiCreditBalanceTests : IDisposable
         Assert.Contains("OpenAI credit estimate", html);
         Assert.Contains("4.13 USD", html);
         Assert.Contains("WARNING", html);
-        Assert.Contains("not a provider balance", html);
+        Assert.Contains("Last balance update", html);
+        Assert.Contains("27.13 USD", html);
     }
 
     [Fact]

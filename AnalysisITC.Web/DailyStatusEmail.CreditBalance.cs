@@ -11,8 +11,6 @@ public sealed partial class DailyStatusEmail
     {
         if (openAiCreditBalancePath is null) return false;
         lines.Add(""); lines.Add("OpenAI credit estimate");
-        lines.Add("  Scope: MIST-recorded OpenAI usage only, including retries and daily diagnostics.");
-        lines.Add("  Other account usage, storage charges, credit expiry and balance adjustments are not tracked; recheck the dashboard periodically and reset the baseline after a top-up.");
         try
         {
             var baseline = JsonSerializer.Deserialize<OpenAiCreditBaseline>(File.ReadAllText(openAiCreditBalancePath),
@@ -23,19 +21,18 @@ public sealed partial class DailyStatusEmail
                 || baseline.CheckedAtUtc == default || baseline.CheckedAtUtc > checkedAt)
                 throw new InvalidDataException();
 
-            lines.Add($"  Baseline: {Usd(baseline.BalanceUsd)} USD, supplied {Format(baseline.CheckedAtUtc)}");
-            lines.Add("  Estimated through: " + Format(checkedAt));
-            lines.Add("  Warning below: " + Usd(baseline.WarnBelowUsd) + " USD");
+            var lastUpdate = $"  Last balance update: {Format(baseline.CheckedAtUtc)} — {Usd(baseline.BalanceUsd)} USD";
             var costs = usage.ReadOpenAiCreditCosts(baseline.CheckedAtUtc, checkedAt);
-            lines.Add("  Recorded usage since baseline: " + costs.KnownCost.ToString("0.0000000", CultureInfo.InvariantCulture) + " USD");
             if (costs.UnknownCosts > 0)
             {
                 lines.Add($"  Estimated remaining: unavailable — {costs.UnknownCosts} attempt(s) have unknown costs, including any waived costs");
+                lines.Add(lastUpdate);
                 lines.Add("  Balance warning: ATTENTION — accounting is incomplete");
                 return true;
             }
             var remaining = baseline.BalanceUsd - costs.KnownCost;
-            lines.Add("  Estimated remaining: " + Usd(remaining) + " USD (estimate, not a provider balance)");
+            lines.Add("  Estimated remaining: " + Usd(remaining) + " USD");
+            lines.Add(lastUpdate);
             if (remaining < baseline.WarnBelowUsd)
             {
                 lines.Add("  Balance warning: WARNING — estimated credits below " + Usd(baseline.WarnBelowUsd) + " USD; check OpenAI billing");

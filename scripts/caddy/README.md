@@ -1,7 +1,7 @@
 # Authenticated website forwarding — ITC-214
 
 The original four-route configuration was deployed with user approval on 2026-10-21.
-The interpretation-route extension below is prepared locally and has not been deployed.
+The interpretation-route extension below was deployed with user approval on 2026-11-04.
 Nothing in this directory deploys itself. Production changes require deployment approval.
 
 ## Contract
@@ -77,7 +77,7 @@ Caddy's protected rollback directory is `/root/itc214-20261021T142324Z`.
 The prior Worker version is `9b90daf1-589c-49c6-8821-370f670e997f`; restore it first
 if rollback is needed. Planning/ISSUES.md, ITC-214, records sanitized evidence.
 
-## Interpretation route extension — prepared 2026-11-01
+## Interpretation route extension — deployed 2026-11-04
 
 The new daily interpretation test sends its existing synthetic package through
 `https://ft-itc.org/api/interpretation/generate`, so Cloudflare makes the outside
@@ -86,14 +86,23 @@ connection into MIST before the normal application processing and OpenAI generat
 Both routes need the extended Worker and Caddy allowlists. No account privilege,
 application authentication, quota policy or provider credential is changed.
 
-After approval, install and validate the extended Caddy snippet first, update the
+For subsequent rollouts, install and validate the extended Caddy snippet first, update the
 website Worker second, then update the Web and standalone status-email runtimes.
 Reuse the existing protected proxy-secret binding; no rotation is needed for this
 route addition. Verify the normal application bearer, synthetic request body and
 diagnostic header arrive intact, visitor assertions are stripped, internal health
 remains inaccessible publicly, and exactly one accounted daily generation completes.
 Do not substitute a direct-to-MIST retry if the outside route fails. This extension
-has local test coverage only until the proxy updates and live verification complete.
+was validated locally and through MIST's authenticated loopback Caddy route.
+
+On 2026-11-04 the live website Worker version
+`fac383ae-1b2d-4872-9c48-94e11eadeeac` already contained the committed proxy source
+(confirmed through its source map). The rollout updated the Caddy allowlist and
+the MIST Web/status-email runtimes, retaining the existing shared secret.
+Caddy's rollback copy is `/root/ftitc-caddy-20261104-104425`. The authenticated
+interpretation-status route returned HTTP 200 through local Caddy. VPN client
+checks passed, but the Cloudflare-to-MIST checks still timed out. That outside
+access path remains unavailable despite the successful local route test.
 
 ## Deployment order — after approval only
 

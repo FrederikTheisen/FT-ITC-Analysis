@@ -33,6 +33,68 @@ restoring an old database or an executable that overwrites charges is not a safe
 rollback. Keep generation paused until the chosen executable can read and preserve
 the complete current ledger, then repeat health checks.
 
+## Deployment record — 2026-11-04
+
+MIST Web and the standalone status-email runtime were updated to version 1.5.1
+from committed source `054332ae5a58a106b5e438f1a36d3d623b224cdb`. The isolated
+Release Web suite passed 719 tests. The old/candidate ledger rehearsal retained
+all 280 historical execution balances, admitted two invented old-writer records
+on copies, and verified their classification and counting with the candidate.
+Both deployed runtime hashes match the rehearsed candidate. Existing server
+configuration, provider credentials, presets and persistent stores were retained.
+
+The guarded activation completed. Its state, consistent backups, compatibility
+report and protected report previews are under
+`/var/lib/ftitc-deploy/20261104-104425-v1.5.1/`; runtime rollback directories are
+`/opt/ftitc-web-backup-20261104-104425-v1.5.1` and
+`/opt/ftitc-status-email-backup-20261104-104425-v1.5.1`. The release-specific runner
+requires local registry/storage/viewer readiness and records external provider
+alerts separately, rather than rolling back monitoring because a provider probe
+fails. A provider alert still makes the status email need attention.
+
+Viewer HTML, token issuance, registration status and interpretation status returned
+HTTP 200 from the VPN client. Public access to internal health remained HTTP 404.
+An invented OpenAI Instant interpretation and a Mistral Summary each returned a
+valid 7.0 response through the VPN-facing API. The interpretation returned a
+retrieved source; the Summary returned none. Temporary, quota-limited test accounts
+were revoked after the checks; their accounting evidence is retained.
+
+The live report correctly returns `ATTENTION`: all three Cloudflare-to-MIST
+reachability checks fail while VPN access works, and OpenAI's separate model-list
+access check returns HTTP 403 even though its interpretation generation succeeds.
+Mistral's model-list check passes. These are distinct observations; successful
+generation over VPN does not establish public Internet accessibility. The existing
+morning daily diagnostic state was preserved and is explicitly historical, without
+website-route evidence. No extra daily diagnostic was submitted.
+
+The supplied OpenAI credit baseline is installed as protected operational
+configuration, and installer download-history collection has its first snapshot.
+The daily status-email timer is active at 08:00 Europe/Copenhagen with the updated
+four-minute service timeout. Report/HTML preview generation was exercised; no
+manual status email was sent during this rollout.
+
+The same day's viewer-monitor correction was deployed to both runtimes from
+the same source baseline plus the focused loopback-probe change. All 726 Web
+tests passed, including reproduction with production secure cookies. The guarded
+rehearsal and deployment preserved all 283 execution balances then present.
+State and rollback evidence are under
+`/var/lib/ftitc-deploy/20261104-124749-viewer-check/`, with corresponding
+`/opt/ftitc-web-backup-20261104-124749-viewer-check` and
+`/opt/ftitc-status-email-backup-20261104-124749-viewer-check` directories.
+The refreshed non-billable report confirms local viewer token issuance returns
+HTTP 200. The daily timer was restored; no email or additional generation was sent.
+The OpenAI model-list rejection was separately diagnosed as missing
+`api.model.read` permission; the successful interpretation test does not require
+that model-list permission. Provider permissions were not changed.
+
+The credit-summary wording was subsequently shortened to estimated remaining
+credits and the last supplied balance/time. The 31 credit and email-layout tests
+passed, and both runtimes were updated under
+`/var/lib/ftitc-deploy/20261104-125258-credit-summary/`. The rehearsal and rollout
+preserved all 283 execution balances. The refreshed preview confirms two normal
+credit rows; low-balance and accounting warnings remain conditional. The daily
+timer is active, and no email or generation was sent for this wording update.
+
 ## Accounting migration and availability
 
 ### Scoped release activation and recovery
@@ -174,8 +236,11 @@ storage failures still require attention. Update both Web and standalone
 status-email binaries together when changing these checks. A preview exercises
 the same non-billable health and alert decisions as a send, without sending email.
 The email separates local readiness from external access. Local HTTP checks cover
-interpretation status, registration status and viewer-token issuance. The direct
-public-URL check originates on MIST and is labelled accordingly. External checks
+interpretation status, registration status and viewer-token issuance. The
+loopback viewer probe supplies `X-Forwarded-Proto: https`, as Caddy does, so token
+issuance exercises production's secure-cookie policy. This header is restricted
+to HTTP loopback viewer probes; public probes use real HTTPS connections.
+The direct public-URL check originates on MIST and is labelled accordingly. External checks
 use the existing website Worker at `https://ft-itc.org/api/registration/status`
 and `/api/viewer/token`, plus `/api/interpretation/status`: Cloudflare opens an
 outside connection into MIST, testing the public ingress separately from loopback
@@ -359,9 +424,9 @@ after any adjustment or ledger replacement; do not add a top-up to the old
 baseline without also accounting for the elapsed usage. Mistral retains its
 provider-managed credit warning and has no local balance estimate.
 
-Local implementation prepared 2026-11-02; not deployed. This changes the
-standalone status-email runtime and its baseline configuration; it does not
-require a change to provider access or interpretation quotas.
+Deployed 2026-11-04 with MIST Web 1.5.1 and the matching standalone status-email
+runtime. The baseline remains protected operational configuration; this estimate
+does not change provider access or interpretation quotas.
 
 ### App download history
 

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using AnalysisITC.Web;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -507,6 +508,47 @@ public sealed class DailyStatusHealthTests : IDisposable
 
         Assert.True(result.HasAttention);
         Assert.DoesNotContain("private", result.Detail);
+    }
+
+    [Fact]
+    public async Task LocalViewerProbeWorksWithProductionSecureCookies()
+    {
+        using var baseline = new InterpretationTestFactory();
+        using var factory = baseline.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.Configure<AntiforgeryOptions>(options => options.Cookie.SecurePolicy = CookieSecurePolicy.Always);
+            services.AddSingleton<IStartupFilter, LoopbackStartupFilter>();
+        }));
+        using var http = factory.CreateClient();
+        const string endpoint = "http://127.0.0.1:5000/api/viewer/token";
+
+        // A bare HTTP request reproduces the production failure; the probe must
+        // exercise token issuance with the scheme supplied by the trusted proxy.
+        using var bare = await http.GetAsync(endpoint);
+        Assert.Equal(HttpStatusCode.InternalServerError, bare.StatusCode);
+
+        var result = await DailyStatusEmail.CheckEndpointAsync(http, endpoint);
+        Assert.False(result.HasAttention, result.Detail);
+        Assert.Contains("HTTP 200; viewer token endpoint reachable", result.Detail);
+    }
+
+    [Theory]
+    [InlineData("http://127.0.0.1:5000/api/viewer/token", true)]
+    [InlineData("http://[::1]:5000/api/viewer/token", true)]
+    [InlineData("http://localhost:5000/api/viewer/token", true)]
+    [InlineData("http://example.invalid/api/viewer/token", false)]
+    [InlineData("https://ft-itc.org/api/viewer/token", false)]
+    [InlineData("http://127.0.0.1:5000/api/registration/status", false)]
+    public async Task HttpsForwardingIsLimitedToTheLocalViewerProbe(string endpoint, bool forwarded)
+    {
+        using var http = new HttpClient(new CheckingHandler(request =>
+        {
+            Assert.Equal(forwarded, request.Headers.Contains("X-Forwarded-Proto"));
+            if (forwarded) Assert.Equal("https", Assert.Single(request.Headers.GetValues("X-Forwarded-Proto")));
+            return new(HttpStatusCode.OK) { Content = new StringContent("{\"requestToken\":\"test-token\",\"available\":true}") };
+        }));
+
+        Assert.False((await DailyStatusEmail.CheckEndpointAsync(http, endpoint)).HasAttention);
     }
 
     [Fact]
