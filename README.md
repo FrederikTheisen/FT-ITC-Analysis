@@ -1,8 +1,3 @@
-> **Online service interruption 28 October 2026. Ongoing.** Hosted services are
-> currently unreachable due to maintanence of the University of Copenhagen hosted web services.
-> This affects the web viewer and automatic interpretation. Desktop processing,
-> fitting, saving, figures, and report and data export remain available locally.
-
 # FT-ITC Analysis
 
 [![Latest release](https://img.shields.io/github/v/release/FrederikTheisen/FT-ITC-Analysis?display_name=tag&sort=semver&label=release)](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest)
