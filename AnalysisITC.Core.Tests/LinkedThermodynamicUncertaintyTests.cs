@@ -168,6 +168,12 @@ public class LinkedThermodynamicUncertaintyTests
                 var primary = solution.Solutions.Single(m => m.Data.FileName == member.Data.FileName);
                 member.Data.SetID(primary.Data.UniqueID);
                 member.BootstrapReplicateIndex = omitted;
+                if (affinity == VariableConstraint.None)
+                {
+                    var enthalpy = member.Parameters[Slot.Enthalpy].Value + 1000 * (omitted + 1);
+                    member.Parameters[Slot.Enthalpy] = new FloatWithError(enthalpy);
+                    member.Model.Parameters.Table[Slot.Enthalpy].Update(enthalpy);
+                }
             }
             replicates.Add(replicate);
         }
@@ -187,6 +193,21 @@ public class LinkedThermodynamicUncertaintyTests
         Assert.Equal(expected.Value, actual.Value, 8);
         Assert.Equal(expected.Lower, actual.Lower, 8);
         Assert.Equal(expected.Upper, actual.Upper, 8);
+        if (affinity == VariableConstraint.None)
+        {
+            var expectedSpreads = new[] { Math.Sqrt(6500000), Math.Sqrt(5000000), Math.Sqrt(2500000) };
+            foreach (var (member, index) in restored.Solutions.Select((member, index) => (member, index)))
+            {
+                Assert.Equal(2, member.BootstrapSolutions.Count);
+                var before = solution.Solutions[index].ReportParameters[Slot.EntropyContribution];
+                var after = member.ReportParameters[Slot.EntropyContribution];
+                Assert.Equal(expectedSpreads[index], after.SD, 8);
+                Assert.Equal(before.Value, after.Value, 8);
+                Assert.Equal(before.SD, after.SD, 8);
+                Assert.Equal(before.Lower, after.Lower, 8);
+                Assert.Equal(before.Upper, after.Upper, 8);
+            }
+        }
     }
 
     [Theory]

@@ -323,7 +323,7 @@ Included best-fit residuals are sampled with replacement and added to best-fit p
 
 To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-observation count and *p* fitted-parameter count. Shared global fits use pooled counts; independent members use their own. In either case, *n* must exceed *p*.
 
-The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. Derived quantities can use transformation or propagation rather than direct percentiles; see **Derived analyses**.
+The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. See **Uncertainty in derived values** for how this applies to values calculated from fitted parameters.
 
 # Leave-one-out refitting
 
@@ -401,7 +401,7 @@ The TAPSO pKa temperature correction is a local approximation for 20–30 °C; d
 
 # Uncertainty in derived values
 
-Displayed limits for \dg, \tds, and other derived quantities can use transformation or propagation rather than percentiles of fully recalculated refits. Profiles do not directly search intervals for quantities depending on several fitted parameters. Central values remain the fit to the original data.
+For bootstrap and leave-one-out, individual-fit uncertainty for K{d}, entropy, competitive apparent values, total enthalpy, and c-values comes from calculating each quantity for each retained refit. This accounts for fitted inputs that move together. Profile likelihood uses approximate propagation for quantities that depend on several fitted parameters. Central values remain the fit to the original data.
 
 For linked temperature relationships, profile intervals propagate reference Gibbs energy and enthalpy coordinates approximately, omitting their correlations. Bootstrap and leave-one-out evaluate complete refitted relationships. Spolar–Record Monte Carlo samples its linked inputs independently, so its uncertainty also omits their correlations.
 

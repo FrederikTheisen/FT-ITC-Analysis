@@ -27,6 +27,9 @@ namespace AnalysisITC.Core.Analysis.Models
             FWEMath.Pow(10.0, Parameters[slot.Affinity]);
 
         private protected FloatWithError DissociationConstantFor(ThermodynamicParameterSlot slot) =>
+            RefitThermodynamicEstimate(slot.Affinity) ?? FittedDissociationConstantFor(slot);
+
+        FloatWithError FittedDissociationConstantFor(ThermodynamicParameterSlot slot) =>
             ProfileMappedParameter(slot.Affinity, value => 1.0 / Math.Pow(10.0, value), 1.0 / AssociationConstantFor(slot));
 
         private protected Energy EnthalpyFor(ThermodynamicParameterSlot slot) =>
@@ -37,11 +40,40 @@ namespace AnalysisITC.Core.Analysis.Models
                 -Energy.R.FloatWithError.Value * TempKelvin * FWEMath.Log(AssociationConstantFor(slot))));
 
         private protected Energy EntropyContributionFor(ThermodynamicParameterSlot slot) =>
-            new Energy(LinkedThermodynamicParameter(slot.EntropyContribution,
-                (GibbsFreeEnergyFor(slot) - EnthalpyFor(slot)).FloatWithError));
+            new Energy(RefitThermodynamicEstimate(slot.EntropyContribution) ?? FittedEntropyContributionFor(slot));
+
+        FloatWithError? RefitThermodynamicEstimate(ParameterType parameter) =>
+            RefitEstimates?.Thermodynamics.TryGetValue(parameter, out var estimate) == true ? estimate : null;
+
+        FloatWithError FittedEntropyContributionFor(ThermodynamicParameterSlot slot) =>
+            LinkedThermodynamicParameter(slot.EntropyContribution,
+                (GibbsFreeEnergyFor(slot) - EnthalpyFor(slot)).FloatWithError);
 
         private protected Energy EntropyFor(ThermodynamicParameterSlot slot) =>
             -1.0 * EntropyContributionFor(slot) / TempKelvin;
+
+        private protected override DerivedRefitEstimates BuildDerivedRefitEstimates()
+        {
+            var estimates = new DerivedRefitEstimates
+            {
+                TotalEnthalpy = SummarizeDerivedRefits(FittedTotalEnthalpy,
+                    BootstrapSolutions.Select(refit => (FloatWithError?)((ThermodynamicSolution)refit).FittedTotalEnthalpy)),
+                CValues = AnalysisCValueCalculator.CalculateRefitEstimates(this),
+            };
+            foreach (var slot in ActiveSlots)
+            {
+                if (ParentSolution?.Model.Parameters.GetConstraintForParameter(slot.Affinity)
+                    == VariableConstraint.ThermodynamicallyLinked) continue;
+
+                estimates.Thermodynamics[slot.Affinity] = SummarizeDerivedRefits(FittedDissociationConstantFor(slot),
+                    BootstrapSolutions.Cast<ThermodynamicSolution>()
+                        .Select(refit => (FloatWithError?)refit.FittedDissociationConstantFor(slot)));
+                estimates.Thermodynamics[slot.EntropyContribution] = SummarizeDerivedRefits(FittedEntropyContributionFor(slot),
+                    BootstrapSolutions.Cast<ThermodynamicSolution>()
+                        .Select(refit => (FloatWithError?)refit.FittedEntropyContributionFor(slot)));
+            }
+            return estimates;
+        }
 
         /// <summary>
         /// Every fitted parameter keeps its best-fit value; the bootstrap

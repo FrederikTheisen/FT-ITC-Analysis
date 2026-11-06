@@ -585,9 +585,13 @@ namespace AnalysisITC.Core.Analysis.Models
                 }
             }
 
-            public FloatWithError Kapp => K / CompetitionFactor;
-            public FloatWithError Kdapp => 1.0 / Kapp;
-            public Energy dHapp
+            FloatWithError FittedApparentKa => K / CompetitionFactor;
+            internal FloatWithError FittedApparentKd => 1.0 / FittedApparentKa;
+            public FloatWithError Kapp => RefitEstimates?.Apparent.Ka ?? FittedApparentKa;
+            public FloatWithError Kdapp => RefitEstimates?.Apparent.Kd ?? FittedApparentKd;
+            public Energy dHapp => (RefitEstimates?.Apparent.Enthalpy ?? FittedApparentEnthalpy.FloatWithError).Energy;
+
+            Energy FittedApparentEnthalpy
             {
                 get
                 {
@@ -601,6 +605,27 @@ namespace AnalysisITC.Core.Analysis.Models
                     return (Enthalpy.FloatWithError
                         - opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value * occupiedFraction).Energy;
                 }
+            }
+
+            private protected override DerivedRefitEstimates BuildDerivedRefitEstimates()
+            {
+                var estimates = base.BuildDerivedRefitEstimates();
+                estimates.Apparent = (
+                    SummarizeApparent(refit => refit.FittedApparentKa),
+                    SummarizeApparent(refit => refit.FittedApparentKd),
+                    SummarizeApparent(refit => refit.FittedApparentEnthalpy.FloatWithError));
+                return estimates;
+            }
+
+            FloatWithError? SummarizeApparent(Func<ModelSolution, FloatWithError> evaluate) =>
+                SummarizeDerivedRefits(TryApparentValue(() => evaluate(this)), BootstrapSolutions.Cast<ModelSolution>()
+                    .Select(refit => TryApparentValue(() => evaluate(refit))));
+
+            internal static FloatWithError? TryApparentValue(Func<FloatWithError> evaluate)
+            {
+                try { return evaluate(); }
+                catch (ArithmeticException) { return null; }
+                catch (ArgumentOutOfRangeException) { return null; }
             }
 
             public ModelSolution(Model model) : base(model)

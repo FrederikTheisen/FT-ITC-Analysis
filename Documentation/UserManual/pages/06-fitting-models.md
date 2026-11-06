@@ -505,11 +505,11 @@ Bootstrap concentration variations use a positive lognormal multiplier with mean
 
 ### Displayed parameter uncertainty
 
-Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as $\log_{10}(K_{\mathrm{a}})$ but normally displayed as $K_{\mathrm{d}}$; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
+Uncertainty is shown in the same units and parameter form as the reported value. Affinity, for example, is fitted as $\log_{10}(K_{\mathrm{a}})$ and normally displayed as $K_{\mathrm{d}}$. That conversion can make the interval asymmetric around the best-fit value.
 
 Standard and Strict precision round halfway values away from zero, so mirrored positive and negative estimates and interval limits round symmetrically.
 
-Quantities calculated from more than one reported parameter, such as $-T\Delta S$, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
+For residual bootstrap and leave-one-out, individual-fit uncertainty for $K_{\mathrm{d}}$, entropy, competitive apparent values, total enthalpy, and c-values comes from calculating the quantity separately for each retained refit. This accounts for fitted inputs that move together, such as Gibbs energy and enthalpy when calculating $-T\Delta S$. Profile likelihood transforms single-parameter intervals and uses approximate propagation for quantities that depend on several fitted parameters. **Automatic** chooses SD or an interval separately for each displayed quantity.
 
 ### Unlock parameters during error estimation
 

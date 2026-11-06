@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +15,79 @@ namespace AnalysisITC.Core.Tests
 {
     public sealed class CompetitiveBindingModelTests
     {
+        [Fact]
+        public void ApparentValuesUseEachRefitsStoichiometry()
+        {
+            var primary = ApparentFit(1, 10);
+            primary.SetBootstrapSolutions(new List<SolutionInterface> { ApparentFit(0.9, 10), ApparentFit(1.1, 10) });
+
+            // The 10 µM competitor mass balance at 9, 10 and 11 µM total sites
+            // gives the following apparent Kd values in nM.
+            const double centerKd = 37.0156211872;
+            const double highKd = 41.6227766017;
+            const double lowKd = 33.1662479036;
+            Assert.Equal(centerKd, primary.Kdapp.Value * 1e9, 8);
+            Assert.Equal(4.24520645494, primary.Kdapp.SD * 1e9, 8);
+            Assert.Equal(lowKd, primary.Kdapp.Lower * 1e9, 8);
+            Assert.Equal(highKd, primary.Kdapp.Upper * 1e9, 8);
+
+            double Rms(double a, double center, double b) => Math.Sqrt((Math.Pow(a - center, 2) + Math.Pow(b - center, 2)) / 2);
+            Assert.Equal(1 / centerKd, primary.Kapp.Value / 1e9, 10);
+            Assert.Equal(Rms(1 / highKd, 1 / centerKd, 1 / lowKd), primary.Kapp.SD / 1e9, 10);
+
+            double ApparentHeat(double kd) => -30000 + 12000 * (1 - 10 / kd);
+            Assert.Equal(ApparentHeat(centerKd), primary.dHapp.FloatWithError.Value, 6);
+            Assert.Equal(Rms(ApparentHeat(highKd), ApparentHeat(centerKd), ApparentHeat(lowKd)),
+                primary.dHapp.FloatWithError.SD, 6);
+        }
+
+        [Fact]
+        public void CompensatingAffinityAndStoichiometryCancelApparentKdSpread()
+        {
+            var primary = ApparentFit(1, 10);
+            primary.SetBootstrapSolutions(new List<SolutionInterface>
+            {
+                ApparentFit(0.9, 8.893116752251174), ApparentFit(1.1, 11.160629714523045),
+            });
+
+            Assert.Equal(37.0156211872, primary.Kdapp.Value * 1e9, 8);
+            Assert.Equal(0, primary.Kdapp.SD * 1e9, 9);
+        }
+
+        [Fact]
+        public void UnresolvedApparentRefitKeepsIntrinsicUncertaintyAndThePool()
+        {
+            var primary = ApparentFit(1, 10);
+            var unusable = ApparentFit(1.1, 12);
+            unusable.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(400);
+            Assert.Throws<ArithmeticException>(() => unusable.Kdapp);
+
+            primary.SetBootstrapSolutions(new List<SolutionInterface> { ApparentFit(0.9, 8), unusable });
+
+            Assert.Equal(2, primary.BootstrapSolutions.Count);
+            Assert.Equal(2, primary.Kd.SD * 1e9, 10);
+            Assert.Equal(37.0156211872, primary.Kdapp.Value * 1e9, 8);
+            Assert.Equal(0, primary.Kdapp.SD);
+            Assert.Equal(primary.Kdapp.Value, primary.Kdapp.Lower);
+            Assert.Equal(primary.Kdapp.Value, primary.Kdapp.Upper);
+            Assert.Equal(0, primary.Kapp.SD);
+            Assert.Equal(0, primary.dHapp.FloatWithError.SD);
+            Assert.Equal(0, Assert.Single(AnalysisCValueCalculator.Calculate(primary)).Estimate.Value.SD);
+        }
+
+        static CompetitiveBinding.ModelSolution ApparentFit(double n, double kdNanomolar)
+        {
+            var solution = (CompetitiveBinding.ModelSolution)InjectionProcessingMethodTests.FittedModel("competitive").Solution;
+            solution.Data.CellConcentration = new FloatWithError(10e-6);
+            solution.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue = new FloatWithError(10e-6);
+            solution.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6);
+            solution.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue = new FloatWithError(-12000);
+            solution.Parameters[ParameterType.Nvalue1] = new FloatWithError(n);
+            solution.Parameters[ParameterType.Affinity1] = new FloatWithError(9 - Math.Log10(kdNanomolar));
+            solution.Parameters[ParameterType.Enthalpy1] = new FloatWithError(-30000);
+            return solution;
+        }
+
         [Fact]
         public void CompetitorSummaryUsesTargetTemperatureWhenSourceHasTemperatureDependence()
         {

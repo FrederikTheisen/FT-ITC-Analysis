@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Viewer;
 
 using Xunit;
 
@@ -13,6 +18,87 @@ namespace AnalysisITC.Core.Tests;
 
 public sealed class AnalysisCValueCalculatorTests
 {
+    [Fact]
+    public void PairedStoichiometryAndAffinityCanCancelCValueSpread()
+    {
+        var primary = Solution(AnalysisModel.OneSetOfSites);
+        var first = Solution(AnalysisModel.OneSetOfSites);
+        first.Parameters[ParameterType.Nvalue1] = new FloatWithError(0.5);
+        first.Parameters[ParameterType.Affinity1] = new FloatWithError(Math.Log10(2e6));
+        var second = Solution(AnalysisModel.OneSetOfSites);
+        second.Parameters[ParameterType.Nvalue1] = new FloatWithError(2);
+        second.Parameters[ParameterType.Affinity1] = new FloatWithError(Math.Log10(0.5e6));
+
+        primary.SetBootstrapSolutions(new List<SolutionInterface> { first, second });
+
+        var estimate = Assert.Single(AnalysisCValueCalculator.Calculate(primary)).Estimate.Value;
+        Assert.Equal(10, estimate.Value, 10);
+        Assert.Equal(0, estimate.SD, 10);
+    }
+
+    [Fact]
+    public void RefitCValueUsesEachInitialTandemSegmentAndTheFixedSiteCount()
+    {
+        SolutionInterface Fit(double firstConcentration, double activeFraction)
+        {
+            var fit = Solution(AnalysisModel.OneSetOfSites);
+            fit.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue = true;
+            fit.ModelOptions[AttributeKey.NumberOfSites1].DoubleValue = 2;
+            fit.Parameters[ParameterType.Nvalue1] = new FloatWithError(activeFraction);
+            fit.Data.AddSegment(new TandemExperimentSegment(2, 40e-6, 0));
+            fit.Data.AddSegment(new TandemExperimentSegment(0, firstConcentration, 0));
+            return fit;
+        }
+
+        var primary = Fit(10e-6, 0.75);
+        primary.SetBootstrapSolutions(new List<SolutionInterface> { Fit(8e-6, 0.5), Fit(12e-6, 1) });
+
+        var c = Assert.Single(AnalysisCValueCalculator.Calculate(primary));
+        Assert.Equal("initial-tandem-segment", c.ConcentrationBasis);
+        Assert.Equal(20, c.Estimate.Value.Value, 10);
+        Assert.Equal(4, c.Estimate.Value.SD, 10);
+        Assert.Equal(16, c.Estimate.Value.Lower, 10);
+        Assert.Equal(24, c.Estimate.Value.Upper, 10);
+    }
+
+    [Fact]
+    public async Task StandaloneRoundTripRestoresRefitCValueAndViewerKd()
+    {
+        SolutionInterface Fit(double concentration, double logKa)
+        {
+            var fit = Solution(AnalysisModel.OneSetOfSites);
+            fit.Data.CellConcentration = new FloatWithError(concentration);
+            fit.Parameters[ParameterType.Affinity1] = new FloatWithError(logKa);
+            fit.Model.Parameters.Table[ParameterType.Affinity1].Update(logKa);
+            return fit;
+        }
+
+        var primary = Fit(10e-6, 6);
+        primary.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+        primary.SetBootstrapSolutions(new List<SolutionInterface> { Fit(8e-6, Math.Log10(0.5e6)), Fit(12e-6, Math.Log10(2e6)) });
+        using var stream = new MemoryStream();
+        await FTXTCWriter.WriteStream(stream, new[] { primary.Data }, Array.Empty<AnalysisResult>());
+
+        stream.Position = 0;
+        var restored = Assert.Single((await FTXTCReader.ReadStream(stream)).OfType<ExperimentData>()).Solution;
+        foreach (var fit in new[] { primary, restored })
+        {
+            var c = Assert.Single(AnalysisCValueCalculator.Calculate(fit)).Estimate.Value;
+            Assert.Equal(10, c.Value, 10);
+            Assert.Equal(Math.Sqrt(116), c.SD, 10);
+            Assert.Equal(4, c.Lower, 10);
+            Assert.Equal(24, c.Upper, 10);
+        }
+
+        stream.Position = 0;
+        var viewer = await new ViewerDocumentReader().ReadAsync(stream, "refit-c.ftxtc", ViewerFileFormat.Ftxtc);
+        var kd = Assert.Single(Assert.Single(Assert.Single(viewer.Experiments).Fits).Parameters,
+            item => item.Key == ParameterType.Affinity1.ToString());
+        Assert.Equal(Math.Sqrt(0.625), kd.Sd / kd.Value, 10);
+        Assert.Equal(0.5, kd.ConfidenceLower.Value / kd.Value, 10);
+        Assert.Equal(2, kd.ConfidenceUpper.Value / kd.Value, 10);
+    }
+
     [Fact]
     public void OneSiteUsesFittedStoichiometryAndPropagatesStoredErrors()
     {

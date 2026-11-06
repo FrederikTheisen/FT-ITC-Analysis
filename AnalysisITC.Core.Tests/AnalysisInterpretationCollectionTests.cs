@@ -177,12 +177,9 @@ public sealed class AnalysisInterpretationCollectionTests
         }
 
         var firstFingerprint = AnalysisInterpretationPromptBuilder.Build(firstPackage).InputFingerprint;
-        result.Solution.Solutions[0].Data.CellConcentration =
-            2 * result.Solution.Solutions[0].Data.CellConcentration;
-        var secondPackage = AnalysisInterpretationPackageBuilder.Build(report, result);
-        Assert.NotEqual(cValue.Value, Assert.Single(secondPackage.Result.Experiments[0].CValues).Value);
+        cValue.Value *= 2;
         Assert.NotEqual(firstFingerprint,
-            AnalysisInterpretationPromptBuilder.Build(secondPackage).InputFingerprint);
+            AnalysisInterpretationPromptBuilder.Build(firstPackage).InputFingerprint);
     }
 
     [Fact]

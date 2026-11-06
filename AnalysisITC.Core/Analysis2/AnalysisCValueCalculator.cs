@@ -41,7 +41,23 @@ namespace AnalysisITC.Core.Analysis
         const string SequentialKind = "sequential-step";
         const string CompetitiveKind = "competitive-apparent";
 
-        public static IReadOnlyList<AnalysisCValue> Calculate(SolutionInterface solution)
+        public static IReadOnlyList<AnalysisCValue> Calculate(SolutionInterface solution) =>
+            solution?.RefitCValues ?? CalculateFromFit(solution);
+
+        internal static IReadOnlyList<AnalysisCValue> CalculateRefitEstimates(SolutionInterface solution)
+        {
+            var primary = CalculateFromFit(solution);
+            if (!primary.Any(item => item.IsAvailable)) return primary;
+
+            var refits = solution.BootstrapSolutions.Select(CalculateFromFit).ToArray();
+            return primary.Select(item => new AnalysisCValue(
+                item.QuantityId, item.Label, item.Kind, item.Index, item.ConcentrationBasis,
+                solution.SummarizeDerivedRefits(item.Estimate, refits.Select(values =>
+                    values.FirstOrDefault(value => value.QuantityId == item.QuantityId)?.Estimate))))
+                .ToArray();
+        }
+
+        static IReadOnlyList<AnalysisCValue> CalculateFromFit(SolutionInterface solution)
         {
             if (solution?.Data == null) return Array.Empty<AnalysisCValue>();
 
@@ -82,7 +98,7 @@ namespace AnalysisITC.Core.Analysis
                     {
                         Create("apparent-c", "Apparent c-value", CompetitiveKind, null, concentrationBasis,
                             concentration, Stoichiometry(solution, competitive.N, AttributeKey.NumberOfSites1),
-                            ApparentKd(competitive))
+                            CompetitiveBinding.ModelSolution.TryApparentValue(() => competitive.FittedApparentKd))
                     };
 
                 default:
@@ -116,13 +132,6 @@ namespace AnalysisITC.Core.Analysis
             return solution.ModelOptions.TryGetValue(fixedSiteKey, out var fixedSites)
                 ? new FloatWithError(fixedSites.DoubleValue)
                 : (FloatWithError?)null;
-        }
-
-        static FloatWithError? ApparentKd(CompetitiveBinding.ModelSolution solution)
-        {
-            try { return solution.Kdapp; }
-            catch (ArithmeticException) { return null; }
-            catch (ArgumentOutOfRangeException) { return null; }
         }
 
         static AnalysisCValue Create(

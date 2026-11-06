@@ -2776,13 +2776,21 @@ public sealed partial class AnalysisReportBuilderTests
     {
         var result = CreateResult(1, includeSkewedBootstrap: true);
         var member = result.Solution.Solutions.Single();
-        var expected = member.Parameters[ParameterType.Nvalue1].Value
-            * member.Data.CellConcentration.Value
-            / member.ReportParameters[ParameterType.Affinity1].Value;
+        var nTimesConcentration = member.Parameters[ParameterType.Nvalue1].Value * member.Data.CellConcentration.Value;
+        var expected = new FloatWithError(nTimesConcentration * 1e6, 0,
+            nTimesConcentration * 100, nTimesConcentration * Math.Pow(10, 3.45));
+        const UncertaintyDisplayStyle style = UncertaintyDisplayStyle.ConfidenceInterval;
 
-        var actual = Assert.Single(AnalysisCValueCalculator.Calculate(member));
+        var actual = Assert.Single(AnalysisCValueCalculator.Calculate(member)).Estimate.Value;
+        Assert.Equal(expected.Value, actual.Value, 12);
+        Assert.Equal(expected.Lower, actual.Lower, 12);
+        Assert.Equal(expected.Upper, actual.Upper, 12);
 
-        Assert.Equal(expected, actual.Estimate.Value.Value, 12);
+        var report = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { UncertaintyDisplayStyle = style });
+        var details = report.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details");
+        Assert.Equal(InReportCulture(() => expected.ToString(style: style)),
+            details.Items.Single(item => item.Label == "Wiseman c-value").Value);
     }
 
     static AnalysisReportSection ResultOverview(AnalysisReportDocument document) =>

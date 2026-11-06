@@ -436,7 +436,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E04b** | **[Warn] Fit warnings**: one line per warning (parameter at boundary; bootstrap/leave-one-out boundary; limit-terminated refits) | members whose fit warnings count toward result health (not no-binding); before E05 |
 | **E05** | **Fitted and derived parameters** (table) | omitted for no-binding |
 | | · Columns: Parameter · Type (Fitted / Fixed / Derived) · Value · Unit | |
-| | · One row per reported parameter, incl. Offset; fixed values without uncertainty; "—" non-finite | |
+| | · One row per reported parameter, incl. Offset; fixed values without uncertainty; "—" non-finite | Individual Kd, −TΔS, and competitive apparent affinity use the retained refits for bootstrap and leave-one-out. Linked thermodynamic quantities use the linked evaluator. |
 | **E06** | **Parameter correlation** (this experiment) | selected + >1 experiment + bootstrap; omitted for no-binding |
 | | · Matrix, Pearson r | |
 | | · "Residual bootstrap (Pearson); n complete replicates." | |
@@ -444,7 +444,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E07** | **[Info] Reading parameter correlations** | expanded + E06 |
 | **E08** | **Fit details** | |
 | | · RMSD / Molar RMSD | omitted for no-binding |
-| | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; uses the report uncertainty style; omitted for no-binding |
+| | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; uses the report uncertainty style; omitted for no-binding. Bootstrap and leave-one-out use the c-value calculated for each retained refit. |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
 | | · Uncertainty: same form as A10, including "not estimated (no binding detected)" and preserved profile/cancellation outcomes | omitted for global or constrained fits |
 | | · Binding assessment + "(manual)" if overridden | independent collection, assessed |

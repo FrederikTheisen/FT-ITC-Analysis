@@ -574,6 +574,18 @@ namespace AnalysisITC.Core.Analysis.Models
         public FitInformationCriteria InformationCriteria { get; private set; }
         public NullModelComparison NullComparison { get; internal set; }
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
+        DerivedRefitEstimates derivedRefitEstimates;
+        bool HasProfileRun => ProfileLikelihoodRun != null || ParentSolution?.ProfileLikelihoodRun != null;
+        private protected DerivedRefitEstimates RefitEstimates => HasProfileRun ? null : derivedRefitEstimates;
+        internal IReadOnlyList<AnalysisCValue> RefitCValues => RefitEstimates?.CValues;
+
+        private protected sealed class DerivedRefitEstimates
+        {
+            internal Dictionary<ParameterType, FloatWithError?> Thermodynamics { get; } = new();
+            internal FloatWithError? TotalEnthalpy { get; set; }
+            internal (FloatWithError? Ka, FloatWithError? Kd, FloatWithError? Enthalpy) Apparent { get; set; }
+            internal IReadOnlyList<AnalysisCValue> CValues { get; set; }
+        }
 		public bool ParameterBoundaryHit { get; private set; }
 		public bool BootstrapParameterBoundaryHit => BootstrapSolutions?.Any(solution => solution?.ParameterBoundaryHit == true) == true;
 		internal int? BootstrapReplicateIndex { get; set; }
@@ -589,7 +601,9 @@ namespace AnalysisITC.Core.Analysis.Models
 		public double Loss => UnweightedRmsd;
         public double? Objective => Convergence?.Objective;
         public Energy? MolarRMSD => Convergence?.MolarRMSD;
-        public FloatWithError TotalEnthalpy
+        public FloatWithError TotalEnthalpy => RefitEstimates?.TotalEnthalpy ?? FittedTotalEnthalpy;
+
+        private protected FloatWithError FittedTotalEnthalpy
         {
             get
             {
@@ -892,12 +906,35 @@ namespace AnalysisITC.Core.Analysis.Models
 			BootstrapSolutions = ValidateBootstrapSolution(list);
 
             if (BootstrapSolutions.Count > 0) ComputeErrorsFromBootstrapSolutions();
+            else derivedRefitEstimates = null;
             ParentSolution?.TouchPresentation();
 		}
 
         internal FloatWithError SummarizeBootstrapDistribution(IEnumerable<double> distribution, double primaryValue)
         {
             return new FloatWithError(distribution, primaryValue);
+        }
+
+        internal void RefreshDerivedRefitEstimates() => derivedRefitEstimates =
+            BootstrapSolutions?.Count > 0 && !HasProfileRun ? BuildDerivedRefitEstimates() : null;
+
+        private protected virtual DerivedRefitEstimates BuildDerivedRefitEstimates() => null;
+
+        internal FloatWithError? SummarizeDerivedRefits(FloatWithError? primary, IEnumerable<FloatWithError?> refits)
+        {
+            if (!primary.HasValue || !SummaryUncertainty.HasValue(primary.Value)) return null;
+
+            var center = primary.Value.Value;
+            var values = new List<double>(BootstrapSolutions.Count);
+            foreach (var refit in refits)
+            {
+                if (!refit.HasValue || !SummaryUncertainty.HasValue(refit.Value))
+                    return new FloatWithError(center);
+                values.Add(refit.Value.Value);
+            }
+
+            var estimate = SummarizeBootstrapDistribution(values, center);
+            return FWEMath.IsFinite(estimate.SD) ? estimate : new FloatWithError(center);
         }
 
         /// <summary>
@@ -908,6 +945,7 @@ namespace AnalysisITC.Core.Analysis.Models
         internal void RestoreBootstrapSolutions(List<SolutionInterface> list)
         {
             BootstrapSolutions = list ?? new List<SolutionInterface>();
+            derivedRefitEstimates = null;
             ParentSolution?.TouchPresentation();
         }
 
@@ -941,6 +979,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public virtual void ComputeErrorsFromBootstrapSolutions()
         {
+            RefreshDerivedRefitEstimates();
             Data.UpdateSolution(null);
         }
 

@@ -221,6 +221,11 @@ namespace AnalysisITC.Core.DataReaders
                 }
                 stage = "result restoration";
                 var results = await RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken, interactive, itemHandled);
+                foreach (var solution in solutions.Values.Where(solution => solution.ParentSolution == null))
+                {
+                    budget.Check(cancellationToken);
+                    solution.RefreshDerivedRefitEstimates();
+                }
                 stage = "report restoration";
                 var reports = await RestoreReports(project, entries, policy, issues, budget, cancellationToken, interactive, itemHandled);
                 if (interactive) StatusBarManager.StartInderminateProgress();
@@ -925,6 +930,7 @@ namespace AnalysisITC.Core.DataReaders
                     }
                     global.ProfileLikelihoodRun = RestoreProfile(state.Profile);
                     global.ApplyProfileTemperatureCoordinates(global.ProfileLikelihoodRun);
+                    foreach (var member in members) member.RefreshDerivedRefitEstimates();
                     global.SetID(state.GlobalSolutionId); global.RestoreValidity(state.IsValid); model.Solution = global;
                     var restored = new AnalysisResult(global, captureValiditySnapshot: false);
                     restored.SetID(state.Id); restored.SetFileName(state.FileName); restored.Name = state.Name; restored.SetDate(state.Date);

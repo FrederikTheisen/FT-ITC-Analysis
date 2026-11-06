@@ -2894,9 +2894,14 @@ namespace AnalysisITC.Core.Tests
             }
 
             var members = sourceResult.Solution.Solutions;
-            if (!includeBootstrapReplicates)
-                foreach (var member in members)
+            foreach (var member in members)
+            {
+                // This fixture builds a new result using the temperatures assigned above.
+                if (includeBootstrapReplicates)
+                    member.RefreshDerivedRefitEstimates();
+                else
                     member.SetBootstrapSolutions(new List<SolutionInterface>());
+            }
             var globalModel = new GlobalModel(members.Select(solution => solution.Model).ToList())
             {
                 Parameters = sourceResult.Model.Parameters,

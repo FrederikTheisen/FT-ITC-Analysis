@@ -19,6 +19,90 @@ namespace AnalysisITC.Core.Tests;
 public sealed class ThermodynamicSummaryConsistencyTests
 {
     [Theory]
+    [InlineData(1000, 700)]
+    [InlineData(-1000, 1300)]
+    [InlineData(300, 0)]
+    public void IndividualEntropyUsesPairedGibbsAndEnthalpyRefits(double enthalpyShift, double spread)
+    {
+        OneSetOfSites.ModelSolution Fit(double gibbs, double enthalpy)
+        {
+            var fit = (OneSetOfSites.ModelSolution)InjectionProcessingMethodTests.FittedModel().Solution;
+            fit.Parameters[ParameterType.Affinity1] = new FloatWithError(
+                -gibbs / (8.31446261815324 * fit.TempKelvin * Math.Log(10)));
+            fit.Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpy);
+            return fit;
+        }
+
+        var primary = Fit(-25000, -30000);
+        primary.SetBootstrapSolutions(new List<SolutionInterface>
+        {
+            Fit(-24700, -30000 + enthalpyShift), Fit(-25300, -30000 - enthalpyShift),
+        });
+
+        var estimate = primary.TdS.FloatWithError;
+        Assert.Equal(5000, estimate.Value, 8);
+        Assert.Equal(spread, estimate.SD, 8);
+        Assert.Equal(5000 - spread, estimate.Lower, 8);
+        Assert.Equal(5000 + spread, estimate.Upper, 8);
+        Assert.Equal(-5000 / primary.TempKelvin, primary.Entropy.FloatWithError.Value, 10);
+        Assert.Equal(spread / primary.TempKelvin, primary.Entropy.FloatWithError.SD, 10);
+    }
+
+    [Fact]
+    public void IndividualKdUsesNonlinearRefitSpreadAndClearsItWithThePool()
+    {
+        OneSetOfSites.ModelSolution Fit(double logKa)
+        {
+            var fit = (OneSetOfSites.ModelSolution)InjectionProcessingMethodTests.FittedModel().Solution;
+            fit.Parameters[ParameterType.Affinity1] = new FloatWithError(logKa);
+            return fit;
+        }
+
+        var primary = Fit(0);
+        var refits = new List<SolutionInterface> { Fit(-Math.Log10(2)), Fit(Math.Log10(2)) };
+        primary.SetBootstrapSolutions(refits);
+
+        Assert.Equal(1, primary.Kd.Value, 12);
+        Assert.Equal(Math.Sqrt(0.625), primary.Kd.SD, 12);
+        Assert.Equal(0.5, primary.Kd.Lower, 12);
+        Assert.Equal(2, primary.Kd.Upper, 12);
+
+        primary.SetBootstrapSolutions(new List<SolutionInterface>());
+        Assert.Equal(Math.Log(2), primary.Kd.SD, 12);
+
+        primary.ProfileLikelihoodRun = LinkedThermodynamicUncertaintyTests.Run(
+            LinkedThermodynamicUncertaintyTests.Coordinate(ParameterType.Enthalpy1, -30000, 500, 500,
+                primary.Data.UniqueID));
+        primary.SetBootstrapSolutions(refits);
+        Assert.Equal(Math.Log(2), primary.Kd.SD, 12);
+    }
+
+    [Theory]
+    [InlineData(-1000, 0)]
+    [InlineData(1000, 2000)]
+    public void TotalEnthalpyUsesPairedStepRefits(double secondShift, double spread)
+    {
+        SolutionInterface Fit(double first, double second)
+        {
+            var fit = InjectionProcessingMethodTests.FittedModel("two-site").Solution;
+            fit.Parameters[ParameterType.Enthalpy1] = new FloatWithError(first);
+            fit.Parameters[ParameterType.Enthalpy2] = new FloatWithError(second);
+            return fit;
+        }
+
+        var primary = Fit(-20000, -30000);
+        primary.SetBootstrapSolutions(new List<SolutionInterface>
+        {
+            Fit(-19000, -30000 + secondShift), Fit(-21000, -30000 - secondShift),
+        });
+
+        Assert.Equal(-50000, primary.TotalEnthalpy.Value);
+        Assert.Equal(spread, primary.TotalEnthalpy.SD);
+        Assert.Equal(-50000 - spread, primary.TotalEnthalpy.Lower);
+        Assert.Equal(-50000 + spread, primary.TotalEnthalpy.Upper);
+    }
+
+    [Theory]
     [InlineData("bootstrap", 1)]
     [InlineData("bootstrap", 2)]
     [InlineData("profile", 1)]

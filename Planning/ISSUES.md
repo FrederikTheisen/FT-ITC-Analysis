@@ -609,17 +609,20 @@ A controller-owned integer draft retains the exact loaded count, supplies the la
 
 ## ITC-117 - Derived-parameter uncertainty across all models
 
-- Priority: Medium; feature proposal.
-- Status: Detailed design proposed (2026-10-23); no implementation approval. The user requested code-level design to identify bloat, with minimal added profile machinery and unsupported cases explicit.
-- Plan: [Derived-parameter uncertainty across all models](ITC-117_DERIVED_PARAMETER_UNCERTAINTY_PLAN.md).
-- Origin: CR-029 exposes omitted N dependence in competitive apparent-Kd uncertainty. The user requested a broader feature covering all derived parameters for all models, including how profile-likelihood errors should be used.
-- Scope: Inventory derived quantities, fitted/input dependencies, uncertainty methods, local/global constraints, temperatures, summaries, and desktop/web/report/export consumers. Include competitive apparent affinity and enthalpy within the common design. Trace downstream advanced-analysis dependencies without automatically approving their redesign.
-- Additional finding (2026-10-20, binding-model review finding 4): For ordinary, unlinked solutions, `ThermodynamicSolution.EntropyContributionFor` calculates −TΔS from ΔG − ΔH using `FloatWithError.operator-`, which combines marginal SDs and interval widths in quadrature without covariance. ΔG and ΔH come from the same fit/refits, so this independence assumption can overstate or understate entropy uncertainty. For example, SDs of 0.3 and 1.0 kJ/mol with correlation +0.8 give an SD of about 0.78 kJ/mol for the difference, versus about 1.04 kJ/mol from quadrature; ΔS inherits the discrepancy after division by temperature. Best-fit central values are unaffected.
-- Consumer and evidence qualification: `UISolutionParameters` and `ReportParameters` expose this fallback; desktop result presentation (`AnalysisResultPresentationMember`) and report parameter tables consume it. Thermodynamically linked solutions use the separate `LinkedThermodynamicParameter` evaluation path. The `DependenciesToReport` route can preserve joint variation when evaluated across retained refits, but the dependency declaration alone does not make every consumer covariance-aware. Source review only; no builds, tests or runtime reproduction were performed for this finding, and no complete consumer inventory is claimed.
-- Suggested direction for entropy: Within this feature's common method policy, calculate −TΔS and ΔS from each joint retained refit and summarize those derived values while preserving the original best-fit center. Reuse the linked evaluator where applicable, decide profile-likelihood treatment explicitly, and route affected UI/report/export consumers through the agreed shared evaluation. Do not change generic `FloatWithError` subtraction to assume an unknown correlation. This is a design direction, not implementation approval or a separate issue.
-- Agreed constraints: Preserve original best-fit centers. Zero error means the error does not exist; do not invent additional error tracking. Preserve the current CR-024/SUMMARY_SEM summary convention unless a change is explicitly reviewed. Keep CR-010's failed-profile safeguards and ITC-114 primary-fit recovery separate.
-- Open decisions: Per-quantity joint-refit propagation; direct transformations versus profiling multi-coordinate derived quantities; external-input uncertainty; profile interval/SD interpretation; incomplete evidence and numerical boundaries; shared evaluation interfaces and persistence needs.
-- Design deliverable (2026-10-23): The plan now contains the quantity/evidence/consumer inventory, proposed helper and per-file changes, linked/global ownership, exact single-coordinate profile cases and unsupported cases, persistence limits, independent numerical expectations, and explicit bloat exclusions. No tests or builds were run for the design. Remaining decisions include invalid retained-refit handling (single-refit handling is covered by ITC-217) and whether to retain the existing linked profile approximation. CR-029 remains unresolved pending implementation and validation of this feature.
+- Priority: Medium; feature.
+- Status: Implemented for residual bootstrap and leave-one-out (2026-11-06).
+- Plan: [Derived-parameter uncertainty from retained refits](ITC-117_DERIVED_PARAMETER_UNCERTAINTY_PLAN.md).
+- Problem: Derived values (Kd, −TΔS, ΔS, competitive apparent values, total ΔH, c-values) get their uncertainty from `FloatWithError` arithmetic that treats the fitted values as independent.
+  - CR-029: competitive apparent Kd omits N's uncertainty.
+  - Binding-model review finding 4 (2026-10-20): −TΔS = ΔG − ΔH loses the ΔG/ΔH correlation. For example, SDs of 0.3 and 1.0 kJ/mol with correlation +0.8 give about 0.78 kJ/mol, versus 1.04 from quadrature.
+- Agreed design: for residual bootstrap and leave-one-out, evaluate each derived value's existing getter on every retained refit and summarize around the best fit with the existing summarizer. The full estimates are computed and stored when error estimation finishes and when refits are restored on load; there is no file-format change. Kd uses the pool; ΔG is unchanged (linear in log K). An unusable refit value omits that quantity's uncertainty.
+- Scope boundary: profile likelihood keeps today's arithmetic; its own defects are [ITC-228](#itc-228---failed-input-profiles-still-give-derived-values-an-interval) and [ITC-229](#itc-229---profile-mode-apparent-values-omit-n-and-linked-affinity-uncertainty). Handled elsewhere: ITC-217 (single refit) and ITC-226 (entered input SDs).
+- Constraints:
+  - Preserve best-fit centres.
+  - Zero error means the error doesn't exist or can't be calculated, and it isn't displayed.
+  - Preserve the CR-024/SUMMARY_SEM summary convention.
+  - Keep CR-010's failed-profile safeguards and ITC-114 separate.
+- CR-029 remains unresolved until this feature (refit methods) and ITC-229 (profile) are implemented.
 
 ## ITC-118 - Bootstrap unlocking of locked shared parameters needs a solver policy
 
@@ -1363,3 +1366,27 @@ Clamp Avalonia's requested bootstrap count to at least 10, matching the native s
 ## ITC-226 - Entered input SDs were added to apparent values and c-values [Resolved] <a name="itc-226---entered-input-sds-were-added-to-apparent-values-and-c-values"></a>
 
 Read entered competitor affinity/enthalpy and non-tandem cell concentration as point inputs when deriving apparent Ka/Kd, apparent ΔH and Wiseman c. Adding input SD at fixed fitted coordinates ignores fit compensation and can double-count residual-bootstrap sampling. Profile and leave-one-out uncertainty is conditional on inputs. Keep original-data centers; per-refit apparent-value propagation belongs to [ITC-117](#itc-117---derived-parameter-uncertainty-across-all-models).
+
+## ITC-228 - Failed input profiles still give derived values an interval
+
+- Priority: Not set.
+- Status: Open (2026-11-06). Split from the ITC-117 design review. Found by source review only; not reproduced at runtime. No handling selected or implemented.
+- Location: Core `Analysis2/Models/ThermodynamicSolution.cs` (`EntropyContributionFor` and the other derived getters that combine `FloatWithError` values), `Analysis2/Solver2.cs` `ProfileLikelihood`, which writes only complete intervals into `Parameters`, so incomplete coordinates keep zero error.
+- Problem: In profile mode, a fitted value whose interval is incomplete keeps zero error, meaning not determined. Derived values combine their inputs in quadrature, which treats that zero like a locked, exactly known value. Example: with a complete log K interval and an incomplete ΔH interval, −TΔS and ΔS show ΔG's interval alone, which looks like a valid result. The same applies to apparent values when N's interval is incomplete, to c-values and to total ΔH.
+- Direction discussed (2026-11-05): give the derived value zero error when any free input it depends on has an incomplete interval. Tell locked inputs apart through the saved lock and constraint state, not `SD == 0`. Still open: check per quantity (only that quantity's inputs) or per fit (any incomplete free coordinate).
+- Boundary: Profile likelihood only. Keep CR-010's safeguards. No new display state.
+- Verify: Complete log K and incomplete ΔH interval: −TΔS and ΔS have zero error. With ΔH locked instead, −TΔS takes ΔG's interval unchanged.
+
+## ITC-229 - Profile-mode apparent values omit N and linked affinity uncertainty
+
+- Priority: Not set.
+- Status: Open (2026-11-06). Split from the ITC-117 design review as the profile-likelihood counterpart of CR-029. Found by source review only. No handling selected or implemented.
+- Location: Core `Analysis2/Models/CompetitiveBinding.cs` (`CompetitionFactor`, `Kapp`, `Kdapp`, `dHapp`), `Analysis2/AnalysisCValueCalculator.cs` (competitive c-value uses `Kdapp`), `Analysis2/Solver2.cs` linked global profile writing.
+- Problem:
+  1. The competition factor reads N's plain value, so in profile mode apparent Kd, Ka and ΔH and the competitive c-value omit N's uncertainty. ITC-117 covers refit methods through per-refit evaluation; profile mode has no refits. In the CR-029 example, N = 0.9 to 1.1 moves apparent Kd from 41.6 to 33.2 nM around 37.0 nM.
+  2. In thermodynamically linked global profile fits, member affinities are skipped and keep zero width. Kd and ΔG use the linked evaluator, but the apparent values read the member Ka directly, so they also miss the affinity uncertainty.
+- Direction discussed (2026-11-05):
+  - For 1, evaluate the competition factor at both ends of N's complete profile interval (the factor decreases monotonically with N), keep the competitor inputs at their saved values, and combine with the affinity (or ΔH) interval through the existing arithmetic. An incomplete N interval falls under ITC-228.
+  - For 2, take the affinity from the linked evaluator, as Kd does.
+- Boundary: Profile likelihood only. Syringe-correction mode uses the fixed site count, so the factor has no N dependence there. No new saved data.
+- Verify: CR-029 inputs with the affinity fixed and a complete N interval [0.9, 1.1] around 1.0 give an apparent Kd interval [33.1662479036, 41.6227766017] nM around 37.0156211872 nM.
