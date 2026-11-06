@@ -750,6 +750,7 @@ namespace AnalysisITC
             ConfigureDiscreteSlider(BootstrapIterationsSlider, BootstrapIterationValues.Length);
             ConfigureDiscreteSlider(OptimizerToleranceSlider, OptimizerToleranceValues.Length);
             ConfigureDiscreteSlider(MaximumIterationsSlider, MaximumIterationValues.Length);
+            PoolBootstrapResidualsCheck.ToolTip = UncertaintyEstimationPresentation.PoolResidualsTooltip;
         }
 
         internal override void LoadState(PreferencesState state)
@@ -770,6 +771,7 @@ namespace AnalysisITC
             UpdateOptimizerToleranceLabel();
             UpdateMaximumIterationsLabel();
             Set(ConcentrationBootstrapCheck, state.IncludeConcentrationErrorsInBootstrap);
+            Set(PoolBootstrapResidualsCheck, state.DefaultPoolBootstrapResiduals);
             Set(WeightedFittingCheck, state.UseInjectionErrorWeightedFitting);
             Set(CreateSingleResultCheck, state.CreateSingleAnalysisResult);
             Set(CreateGlobalResultCheck, state.CreateGlobalAnalysisResult);
@@ -791,6 +793,7 @@ namespace AnalysisITC
                 ? MaximumIterationValues[SliderIndex(MaximumIterationsSlider, MaximumIterationValues.Length)]
                 : loadedMaximumIterations;
             state.IncludeConcentrationErrorsInBootstrap = IsOn(ConcentrationBootstrapCheck);
+            state.DefaultPoolBootstrapResiduals = IsOn(PoolBootstrapResidualsCheck);
             state.UseInjectionErrorWeightedFitting = IsOn(WeightedFittingCheck);
             state.CreateSingleAnalysisResult = IsOn(CreateSingleResultCheck);
             state.CreateGlobalAnalysisResult = IsOn(CreateGlobalResultCheck);

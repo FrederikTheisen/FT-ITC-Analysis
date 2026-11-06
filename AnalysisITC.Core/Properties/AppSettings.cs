@@ -204,6 +204,7 @@ namespace AnalysisITC.Core.Application
         public static double MinimumTemperatureSpanForFitting { get; set; }
         public static double MinimumIonSpanForFitting { get; set; }
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; }
+        public static bool DefaultPoolBootstrapResiduals { get; set; }
 
         public static double OptimizerTolerance { get; set; }
         public static int MaximumOptimizerIterations { get; set; }
@@ -293,6 +294,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
             Storage.SetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
             Storage.SetBool("IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
+            Storage.SetBool("DefaultPoolBootstrapResiduals", DefaultPoolBootstrapResiduals);
             Storage.SetDouble("OptimizerTolerance", OptimizerTolerance);
             Storage.SetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
             Storage.SetInt("ColorScheme", (int)ColorScheme);
@@ -397,6 +399,7 @@ namespace AnalysisITC.Core.Application
             DefaultBootstrapIterations = Storage.GetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
             MinimumTemperatureSpanForFitting = Storage.GetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
             IncludeConcentrationErrorsInBootstrap = Storage.GetBool("IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
+            DefaultPoolBootstrapResiduals = Storage.GetBool("DefaultPoolBootstrapResiduals", false);
             OptimizerTolerance = Storage.GetDouble("OptimizerTolerance", OptimizerTolerance);
             MaximumOptimizerIterations = Storage.GetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
             ColorScheme = (ColorSchemes)Storage.GetInt("ColorScheme", (int)ColorScheme);

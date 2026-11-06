@@ -766,6 +766,44 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task PooledBootstrapSettingsRoundTripAndUpdateKeepsTheChoice()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>(),
+                candidate => !candidate.Solution.Model.ShouldFitIndividually);
+            var options = result.Solution.ModelCloneOptions;
+            Assert.False(options.PoolBootstrapResiduals);
+            Assert.Null(options.BootstrapScaleSource);
+
+            options.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            options.PoolBootstrapResiduals = true;
+            options.BootstrapScaleSource = PooledBootstrapScale.ExperimentResidualSd;
+            result.Solution.UseWeightedFitting = false;
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, result.Solution.Solutions.Select(member => member.Data), new[] { result });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+
+            Assert.True(restored.Solution.ModelCloneOptions.PoolBootstrapResiduals);
+            Assert.Equal(PooledBootstrapScale.ExperimentResidualSd, restored.Solution.ModelCloneOptions.BootstrapScaleSource);
+            Assert.Equal("Pooled residuals scaled by experiment residual SDs",
+                UncertaintyEstimationPresentation.PooledSamplingText(restored.Solution));
+            DataManager.Clear(DataClearMode.ResetSession);
+            try
+            {
+                foreach (var member in restored.Solution.Solutions) DataManager.AddData(member.Data);
+                var updater = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
+                Assert.True(updater.Model.ModelCloneOptions.PoolBootstrapResiduals);
+                Assert.Null(updater.Model.ModelCloneOptions.BootstrapScaleSource);
+            }
+            finally
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        }
+
+        [Fact]
         public void LegacyConvergenceSummaryRecoversCountsOnlyFromRecognizedKeyedValues()
         {
             var recognized = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot

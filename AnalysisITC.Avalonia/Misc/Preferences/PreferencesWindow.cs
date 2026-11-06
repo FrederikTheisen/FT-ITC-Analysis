@@ -111,6 +111,7 @@ internal sealed class PreferencesWindow : Window
     readonly Slider bootstrapIterationsSlider = DiscreteSlider(BootstrapIterationValues.Length);
     readonly TextBlock bootstrapIterationsValueLabel = ValueLabel();
     readonly CheckBox concentrationBootstrapCheck = Check("Include concentration uncertainty in bootstrap");
+    readonly CheckBox poolBootstrapResidualsCheck = Check("Pool residuals across experiments");
     readonly Slider optimizerToleranceSlider = DiscreteSlider(OptimizerToleranceValues.Length);
     readonly TextBlock optimizerToleranceValueLabel = ValueLabel();
     readonly Slider maximumIterationsSlider = DiscreteSlider(MaximumIterationValues.Length);
@@ -171,6 +172,7 @@ internal sealed class PreferencesWindow : Window
     internal Slider AutoSaveIntervalSlider => autoSaveIntervalSlider;
     internal TextBlock AutoSaveIntervalValueLabel => autoSaveIntervalValueLabel;
     internal Slider BootstrapIterationsSlider => bootstrapIterationsSlider;
+    internal CheckBox PoolBootstrapResidualsCheck => poolBootstrapResidualsCheck;
     internal TextBlock BootstrapIterationsValueLabel => bootstrapIterationsValueLabel;
     internal Slider OptimizerToleranceSlider => optimizerToleranceSlider;
     internal TextBlock OptimizerToleranceValueLabel => optimizerToleranceValueLabel;
@@ -481,9 +483,11 @@ internal sealed class PreferencesWindow : Window
             Row("Parameter limits", parameterLimitCombo),
             weightedFittingCheck
         }));
-        panel.Children.Add(Section("Concentration uncertainty", new Control[]
+        ToolTip.SetTip(poolBootstrapResidualsCheck, UncertaintyEstimationPresentation.PoolResidualsTooltip);
+        panel.Children.Add(Section("Residual bootstrap", new Control[]
         {
-            concentrationBootstrapCheck
+            concentrationBootstrapCheck,
+            poolBootstrapResidualsCheck
         }));
         panel.Children.Add(Section("Result creation", new Control[]
         {
@@ -633,6 +637,7 @@ internal sealed class PreferencesWindow : Window
         UpdateOptimizerToleranceLabel();
         UpdateMaximumIterationsLabel();
         concentrationBootstrapCheck.IsChecked = state.IncludeConcentrationErrorsInBootstrap;
+        poolBootstrapResidualsCheck.IsChecked = state.DefaultPoolBootstrapResiduals;
         SetCombo(parameterLimitCombo, state.ParameterLimitSetting);
         weightedFittingCheck.IsChecked = state.UseInjectionErrorWeightedFitting;
         createSingleResultCheck.IsChecked = state.CreateSingleAnalysisResult;
@@ -811,6 +816,7 @@ internal sealed class PreferencesWindow : Window
             ? BootstrapIterationValues[SliderIndex(bootstrapIterationsSlider, BootstrapIterationValues.Length)]
             : loadedBootstrapIterations;
         state.IncludeConcentrationErrorsInBootstrap = concentrationBootstrapCheck.IsChecked == true;
+        state.DefaultPoolBootstrapResiduals = poolBootstrapResidualsCheck.IsChecked == true;
         state.OptimizerTolerance = optimizerToleranceChanged
             ? OptimizerToleranceValues[SliderIndex(optimizerToleranceSlider, OptimizerToleranceValues.Length)]
             : loadedOptimizerTolerance;

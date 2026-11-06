@@ -1790,7 +1790,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-1">
                                                             <rect key="frame" x="-2" y="167" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Concentration uncertainty" id="fitting-section-1-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Residual bootstrap" id="fitting-section-1-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1799,6 +1799,13 @@ DQ
                                                         <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationBootstrapCheck">
                                                             <rect key="frame" x="0.0" y="146" width="602" height="18"/>
                                                             <buttonCell key="cell" type="check" title="Include concentration uncertainty in bootstrap analysis" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="fitting-ConcentrationBootstrapCheck-cell">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                        </button>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-PoolBootstrapResidualsCheck">
+                                                            <rect key="frame" x="0.0" y="124" width="602" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Pool residuals across experiments" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="fitting-PoolBootstrapResidualsCheck-cell">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
@@ -2032,6 +2039,7 @@ DQ
                         <outlet property="AutoOpenResultCheck" destination="fitting-AutoOpenResultCheck" id="fitting-AutoOpenResultCheck-outlet"/>
                         <outlet property="BootstrapIterationsSlider" destination="fitting-BootstrapIterationsSlider" id="fitting-BootstrapIterationsSlider-outlet"/>
                         <outlet property="BootstrapIterationsValueLabel" destination="fitting-BootstrapIterationsValueLabel" id="fitting-BootstrapIterationsValueLabel-outlet"/>
+                        <outlet property="PoolBootstrapResidualsCheck" destination="fitting-PoolBootstrapResidualsCheck" id="fitting-PoolBootstrapResidualsCheck-outlet"/>
                         <outlet property="ConcentrationBootstrapCheck" destination="fitting-ConcentrationBootstrapCheck" id="fitting-ConcentrationBootstrapCheck-outlet"/>
                         <outlet property="CreateGlobalResultCheck" destination="fitting-CreateGlobalResultCheck" id="fitting-CreateGlobalResultCheck-outlet"/>
                         <outlet property="CreateSingleResultCheck" destination="fitting-CreateSingleResultCheck" id="fitting-CreateSingleResultCheck-outlet"/>

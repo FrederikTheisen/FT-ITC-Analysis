@@ -548,6 +548,21 @@ public sealed class PreferencesTests
     }
 
     [AvaloniaFact]
+    public void FittingPreferencesLoadAndSaveTheResidualPoolingDefault()
+    {
+        var window = new PreferencesWindow();
+        var state = PreferencesState.Defaults();
+        window.LoadState(state);
+        Assert.False(window.PoolBootstrapResidualsCheck.IsChecked);
+
+        window.PoolBootstrapResidualsCheck.IsChecked = true;
+        Assert.True(window.TryBuildState(out var edited));
+        Assert.True(edited.DefaultPoolBootstrapResiduals);
+        window.LoadState(edited);
+        Assert.True(window.PoolBootstrapResidualsCheck.IsChecked);
+    }
+
+    [AvaloniaFact]
     public void ExactSupportedStopsRemainUnchangedWhenUntouched()
     {
         var window = new PreferencesWindow();

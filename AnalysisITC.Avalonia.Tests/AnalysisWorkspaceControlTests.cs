@@ -1475,6 +1475,60 @@ public sealed class AnalysisWorkspaceControlTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void PooledBootstrapRequiresJointFitAndDoesNotRequireWeighting(bool weighted)
+    {
+        var previous = CaptureFittingOptions();
+        var previousPooling = FittingOptionsController.PoolBootstrapResiduals;
+        try
+        {
+            FittingOptionsController.PoolBootstrapResiduals = false;
+            FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            FittingOptionsController.UseErrorWeightedFitting = weighted;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+                var first = CreateReadyExperiment("pool-first.itc", 20);
+                DataManager.AddData(new[] { first, CreateReadyExperiment("pool-second.itc", 30) });
+                var workspace = new AnalysisWorkspaceControl { Experiment = first };
+                var window = new Window { Content = workspace };
+                window.Show();
+                try
+                {
+                    Assert.False(workspace.PoolResidualsCheck.IsChecked);
+                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                    workspace.ModeSelectorForTesting.SelectedIndex = 1;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+
+                    var affinity = Assert.Single(workspace.ParameterPanelForTesting.GetVisualDescendants()
+                        .OfType<ComboBox>(), combo => combo.Items.OfType<ComboBoxItem>()
+                        .Any(item => Equals(item.Content, "Shared Kd")));
+                    affinity.SelectedItem = affinity.Items.OfType<ComboBoxItem>()
+                        .Single(item => Equals(item.Tag, VariableConstraint.SameForAll));
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.True(workspace.PoolResidualsCheck.IsEnabled);
+                    workspace.PoolResidualsCheck.IsChecked = true;
+                    Assert.True(FittingOptionsController.PoolBootstrapResiduals);
+                    workspace.ErrorMethodComboForTesting.SelectedIndex = 2;
+                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                }
+                finally
+                {
+                    window.Close();
+                    DataManager.Clear(DataClearMode.ResetSession);
+                }
+            });
+        }
+        finally
+        {
+            RestoreFittingOptions(previous);
+            FittingOptionsController.PoolBootstrapResiduals = previousPooling;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void UnlockParametersControlInitializesFromFittingOptions(bool enabled)
     {
         var previous = FittingOptionsController.UnlockBootstrapParameters;

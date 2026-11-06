@@ -1879,9 +1879,15 @@ namespace AnalysisITC.Core.Presentation
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem> { RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD) };
             if (convergence != null)
-                items.Add(Item("Uncertainty", UncertaintyText(solution.ErrorEstimationMethod, convergence,
+            {
+                var uncertainty = UncertaintyText(solution.ErrorEstimationMethod, convergence,
                     UncertaintyEstimationPresentation.BelowRetainedMinimum(solution),
-                    perExperiment: solution.Model?.ShouldFitIndividually == true && solution.Solutions.Count > 1)));
+                    perExperiment: solution.Model?.ShouldFitIndividually == true && solution.Solutions.Count > 1);
+                if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.SkippedNoBinding
+                    && UncertaintyEstimationPresentation.PooledSamplingText(solution) is string sampling)
+                    uncertainty += "; " + sampling;
+                items.Add(Item("Uncertainty", uncertainty));
+            }
 
             var criteria = result.IsIndependentAssessmentCollection ? null : result.InformationCriteria;
             if (criteria != null)

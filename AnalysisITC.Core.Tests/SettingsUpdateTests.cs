@@ -93,6 +93,27 @@ public sealed class SettingsUpdateTests : IDisposable
     }
 
     [Fact]
+    public void PoolingPreferencePersistsAndBecomesActiveOnLoadOrFitDefaultsReset()
+    {
+        Assert.False(PreferencesState.Defaults().DefaultPoolBootstrapResiduals);
+        FittingOptionsController.PoolBootstrapResiduals = false;
+        var preferences = PreferencesState.FromSettings();
+        preferences.DefaultPoolBootstrapResiduals = true;
+        preferences.Apply();
+
+        Assert.True(store.GetBool("DefaultPoolBootstrapResiduals"));
+        Assert.False(FittingOptionsController.PoolBootstrapResiduals);
+        FittingOptionsController.ResetToPreferenceDefaults();
+        Assert.True(FittingOptionsController.PoolBootstrapResiduals);
+
+        FittingOptionsController.PoolBootstrapResiduals = false;
+        AppSettings.Reset();
+        AppSettings.Load();
+        Assert.True(PreferencesState.FromSettings().DefaultPoolBootstrapResiduals);
+        Assert.True(FittingOptionsController.PoolBootstrapResiduals);
+    }
+
+    [Fact]
     public void LoadingAndExplicitResetUseSavedDefaultsRatherThanTheLiveOptions()
     {
         var staged = PreferencesState.FromSettings();
@@ -344,12 +365,12 @@ public sealed class SettingsUpdateTests : IDisposable
     };
 
     readonly record struct LiveOptions(SolverAlgorithm Algorithm, ErrorEstimationMethod Method, int Iterations,
-        bool Concentration, bool Weighted, bool Unlock)
+        bool Concentration, bool Weighted, bool Unlock, bool PoolResiduals = false)
     {
         public static LiveOptions Capture() => new(FittingOptionsController.Algorithm,
             FittingOptionsController.ErrorEstimationMethod, FittingOptionsController.BootstrapIterations,
             FittingOptionsController.IncludeConcentrationVariance, FittingOptionsController.UseErrorWeightedFitting,
-            FittingOptionsController.UnlockBootstrapParameters);
+            FittingOptionsController.UnlockBootstrapParameters, FittingOptionsController.PoolBootstrapResiduals);
         public void Restore()
         {
             FittingOptionsController.Algorithm = Algorithm;
@@ -358,6 +379,7 @@ public sealed class SettingsUpdateTests : IDisposable
             FittingOptionsController.IncludeConcentrationVariance = Concentration;
             FittingOptionsController.UseErrorWeightedFitting = Weighted;
             FittingOptionsController.UnlockBootstrapParameters = Unlock;
+            FittingOptionsController.PoolBootstrapResiduals = PoolResiduals;
         }
     }
 

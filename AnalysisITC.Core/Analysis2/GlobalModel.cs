@@ -26,6 +26,8 @@ namespace AnalysisITC.Core.Analysis
 		public ModelCloneOptions ModelCloneOptions { get; set; }
 
         public int NumberOfParameters => Parameters.TotalFittingParameters;
+        public bool HasCompleteInjectionHeatSds =>
+            AnalysisBuilder.CanUseErrorWeightedFitting(Models.Select(model => model.Data));
 		public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting;
 		public AnalysisModel ModelType => Models.First().ModelType;
 		public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions => Models.First()?.ModelOptions ?? null;
@@ -251,7 +253,7 @@ namespace AnalysisITC.Core.Analysis
             return GenerateSyntheticModel(random, ModelCloneOptions);
         }
 
-        internal GlobalModel GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        internal GlobalModel GenerateSyntheticModel(Random random, ModelCloneOptions options, PooledBootstrapResiduals pool = null)
         {
             options ??= ModelCloneOptions ?? ModelCloneOptions.DefaultGlobalOptions;
             GlobalModel model = new GlobalModel();
@@ -263,9 +265,13 @@ namespace AnalysisITC.Core.Analysis
 				var memberOptions = options.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
                     ? new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood, IsGlobalClone = false }
                     : options.IsGlobalClone ? mdl.ModelCloneOptions ?? ModelCloneOptions.DefaultOptions : options;
-                model.AddModel(options.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
-                    ? mdl.GenerateSyntheticModel(random, memberOptions)
-                    : mdl.GenerateSyntheticModel(random));
+                if (pool != null)
+                    model.AddModel(mdl.GenerateSyntheticModel(random,
+                        (mdl.ModelCloneOptions ?? ModelCloneOptions.DefaultOptions).WithPooledResiduals(pool)));
+                else
+                    model.AddModel(options.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                        ? mdl.GenerateSyntheticModel(random, memberOptions)
+                        : mdl.GenerateSyntheticModel(random));
 			}
 
             CopyUncertaintyFitTopologyTo(model, options);

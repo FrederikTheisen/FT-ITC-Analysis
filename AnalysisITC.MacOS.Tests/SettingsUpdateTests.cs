@@ -63,6 +63,7 @@ static class SettingsUpdateTests
             DataManager.AddData(data);
             DataManager.SelectIndex(0);
             MacSettingsApplier.Register();
+            CheckPooledResidualsPreference();
             FittingOptionsController.BootstrapIterations = 500;
             FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
             FittingOptionsController.Algorithm = SolverAlgorithm.LevenbergMarquardt;
@@ -133,6 +134,7 @@ static class SettingsUpdateTests
                     == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.BootstrapIterationsTooltip,
                     "The bootstrap count slider does not use the shared tooltip");
                 CheckBootstrapCounts(analysis, countFailures);
+                CheckPooledResidualsControl(analysis, data);
             }
             Check(countFailures.Count == 0, countFailures.Count + " bootstrap-count regression(s) failed:\n" + string.Join("\n", countFailures));
             return 0;
@@ -148,6 +150,61 @@ static class SettingsUpdateTests
             SynchronizationContext.SetSynchronizationContext(context);
             Directory.Delete(directory, true);
         }
+    }
+
+    static void CheckPooledResidualsPreference()
+    {
+        using (var pane = CreateController<MacFittingPreferencesViewController>())
+        {
+            var type = typeof(MacFittingPreferencesViewController);
+            var state = PreferencesState.Defaults();
+            type.GetMethod("LoadState", Instance).Invoke(pane, new object[] { state });
+            var checkbox = Outlet<NSButton>(pane, "PoolBootstrapResidualsCheck");
+            Check(checkbox.State == NSCellStateValue.Off, "The built-in pooling preference should be off");
+            checkbox.State = NSCellStateValue.On;
+            Check((bool)type.GetMethod("TryUpdateState", Instance).Invoke(pane, new object[] { state, null }),
+                "The fitting pane did not accept the edited preferences");
+            Check(state.DefaultPoolBootstrapResiduals, "The fitting pane did not save the pooling choice");
+            checkbox.State = NSCellStateValue.Off;
+            type.GetMethod("LoadState", Instance).Invoke(pane, new object[] { state });
+            Check(checkbox.State == NSCellStateValue.On, "The fitting pane did not load the pooling choice");
+        }
+        Console.WriteLine("PASS: native Fitting preferences load and save the pooling default");
+    }
+
+    static void CheckPooledResidualsControl(DataAnalysisViewController controller, ExperimentData first)
+    {
+        var checkbox = Outlet<NSButton>(controller, "PoolResidualsControl");
+        var errors = Outlet<NSPopUpButton>(controller, "ErrorMethodControl");
+        var weighted = Outlet<NSButton>(controller, "UseWeightedControl");
+        var refresh = typeof(DataAnalysisViewController).GetMethod("RefreshPooledResidualsAvailability", Instance);
+        var preview = typeof(DataAnalysisViewController).GetField("inspectorPreviewContext", Instance);
+        preview.SetValue(controller, null);
+        errors.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
+        refresh.Invoke(controller, null);
+        Check(!checkbox.Enabled && checkbox.State == NSCellStateValue.Off, "Pooling should default off and require a joint fit");
+        Check(checkbox.ToolTip == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.PoolResidualsTooltip,
+            "Pooling does not use the shared tooltip");
+
+        var second = Experiment();
+        controller.Workspace.SetGlobalMode(true);
+        Check(controller.Workspace.TryRebuild(new[] { first, second }), "Could not prepare independent experiments");
+        Check(!controller.Workspace.Context.WillFitGlobally, "Expected an independent fit configuration");
+        preview.SetValue(controller, null);
+        refresh.Invoke(controller, null);
+        Check(!checkbox.Enabled, "Pooling was enabled for independent fits");
+        controller.Workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll, rebuild: false);
+        Check(controller.Workspace.TryRebuild(new[] { first, second }), "Could not prepare the joint fit");
+        Check(controller.Workspace.Context.WillFitGlobally, "Expected a joint fit configuration");
+        // The harness sets constraints through Workspace, bypassing the inspector draft.
+        preview.SetValue(controller, null);
+        weighted.State = NSCellStateValue.Off;
+        refresh.Invoke(controller, null);
+        Check(checkbox.Enabled, "Pooling should be available for unweighted joint fits");
+        errors.SelectItem((int)ErrorEstimationMethod.LeaveOneOut);
+        refresh.Invoke(controller, null);
+        Check(!checkbox.Enabled, "Pooling was enabled for leave-one-out");
+        Console.WriteLine("PASS: native pooled bootstrap option availability");
     }
 
     static void CheckBootstrapCounts(DataAnalysisViewController controller, List<string> failures)

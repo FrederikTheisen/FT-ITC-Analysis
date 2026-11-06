@@ -462,6 +462,10 @@ namespace AnalysisITC.Core.Export
         public double AutoConcentrationVariance { get; set; }
         public int DiscardedDataPoint { get; set; }
         public bool UnlockParameters { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool PoolBootstrapResiduals { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string BootstrapScaleSource { get; set; }
     }
 
     internal sealed class FtxtcConvergenceState
@@ -2047,6 +2051,14 @@ namespace AnalysisITC.Core.Export
                 EnableAutoConcentrationVariance = options.EnableAutoConcentrationVariance,
                 AutoConcentrationVariance = options.AutoConcentrationVariance, DiscardedDataPoint = options.DiscardedDataPoint,
                 UnlockParameters = options.UnlockBootstrapParameters,
+                PoolBootstrapResiduals = options.PoolBootstrapResiduals,
+                BootstrapScaleSource = options.BootstrapScaleSource switch
+                {
+                    PooledBootstrapScale.InjectionHeatSd => "injection-heat-sd",
+                    PooledBootstrapScale.ExperimentResidualSd => "experiment-residual-sd",
+                    PooledBootstrapScale.ZeroResiduals => "zero-residuals",
+                    _ => null,
+                },
             };
         }
 

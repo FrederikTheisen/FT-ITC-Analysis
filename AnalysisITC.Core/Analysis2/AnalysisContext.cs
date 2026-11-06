@@ -227,9 +227,11 @@ namespace AnalysisITC.Core.Analysis
 
                 GlobalModelParameters.SetIndividualFromGlobal();
 
-                GlobalModel.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting
+                GlobalModel.ModelCloneOptions = WillFitGlobally
                     ? ModelCloneOptions.DefaultGlobalOptions
                     : ModelCloneOptions.DefaultOptions;
+                GlobalModel.ModelCloneOptions.PoolBootstrapResiduals =
+                    WillFitGlobally && FittingOptionsController.PoolBootstrapResiduals;
             }
         }
 

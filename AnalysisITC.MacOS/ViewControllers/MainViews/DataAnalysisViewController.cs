@@ -104,6 +104,8 @@ namespace AnalysisITC
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
             ErrorMethodControl.Activated += OnErrorMethodActivated;
+            PoolResidualsControl.Activated += (_, _) => FittingOptionsController.PoolBootstrapResiduals =
+                PoolResidualsControl.State == NSCellStateValue.On;
 
             ShowParameterBoxButton.ToolTip = AnalysisParameterSummaryPresentation.ParameterBoxToolTip;
             ErrorIterationsControl.ToolTip = UncertaintyEstimationPresentation.BootstrapIterationsTooltip;
@@ -338,6 +340,9 @@ namespace AnalysisITC
                 ? NSCellStateValue.On
                 : NSCellStateValue.Off;
 
+            PoolResidualsControl.State = FittingOptionsController.PoolBootstrapResiduals
+                ? NSCellStateValue.On : NSCellStateValue.Off;
+            PoolResidualsControl.ToolTip = UncertaintyEstimationPresentation.PoolResidualsTooltip;
             UnlockParametersForErrorEstimationControl.State =
                 FittingOptionsController.UnlockBootstrapParameters
                     ? NSCellStateValue.On
@@ -357,6 +362,15 @@ namespace AnalysisITC
             ErrorIterationLabel.Enabled = isBootstrap;
             IncludeConcErrorControl.Enabled = isBootstrap;
             UnlockParametersForErrorEstimationControl.Enabled = isBootstrap;
+            RefreshPooledResidualsAvailability();
+        }
+
+        void RefreshPooledResidualsAvailability()
+        {
+            if (PoolResidualsControl == null || ErrorMethodControl == null) return;
+            PoolResidualsControl.Enabled = !isFitting && Workspace.IsReady
+                && (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem == ErrorEstimationMethod.BootstrapResiduals
+                && (inspectorPreviewContext ?? Workspace.Context)?.WillFitGlobally == true;
         }
 
         void SubscribeFitSummaryExperiment(ExperimentData experiment)
@@ -421,6 +435,7 @@ namespace AnalysisITC
 
         void RefreshAnalysisSummaryOnMainThread()
         {
+            RefreshPooledResidualsAvailability();
             if (DataAnalysisSummaryLabel == null) return;
             RefreshNullHypothesisTestPresentation();
 
@@ -1011,6 +1026,7 @@ namespace AnalysisITC
             FittingOptionsController.UseErrorWeightedFitting = UseWeightedControl.State == NSCellStateValue.On;
             FittingOptionsController.UnlockBootstrapParameters =
                 UnlockParametersForErrorEstimationControl.State == NSCellStateValue.On;
+            FittingOptionsController.PoolBootstrapResiduals = PoolResidualsControl.State == NSCellStateValue.On;
 
             if (inspectorDraft == null) return true;
 
@@ -1212,6 +1228,7 @@ namespace AnalysisITC
 
         void RefreshGlobalModeControls()
         {
+            RefreshPooledResidualsAvailability();
             AnalysisModeControl.SetEnabled(!isFitting, 0);
             AnalysisModeControl.SetEnabled(!isFitting, 1);
             PublishAnalysisMode();

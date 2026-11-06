@@ -74,13 +74,14 @@ For baseline, integration, and locking choices, see [Processing](05-processing-t
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
 | **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out and profile likelihood keep concentrations fixed. |
+| **Pool residuals across experiments** | Sets the default for pooling standardized residuals in joint global bootstrap fits. Off by default. |
 | **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. |
 | **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. |
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
 Concentration uncertainty and parameter unlocking apply only to residual bootstrap. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
-Saving a project or applying Preferences preserves the Analysis inspector's solver, uncertainty method, bootstrap count, weighting, and concentration-uncertainty choices. Defaults for these choices are loaded at application startup or when you choose **Restore defaults** in Analysis.
+Saving a project or applying Preferences preserves the Analysis inspector's solver, uncertainty method, bootstrap count, weighting, concentration uncertainty, and residual pooling choices. Defaults for these choices are loaded at application startup or when you choose **Restore defaults** in Analysis.
 
 ## Export
 

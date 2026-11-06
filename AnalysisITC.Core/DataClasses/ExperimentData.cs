@@ -689,25 +689,14 @@ namespace AnalysisITC.Core.Data
                     && left.Heat.Value.Equals(right.Heat.Value) && left.Heat.SD.Equals(right.Heat.SD)).All(equal => equal);
         }
 
-        List<InjectionData> GetBootstrappedResiduals(ExperimentData clone, Random random)
+        double[] GetLocalBootstrapResiduals(List<InjectionData> included, bool weighted)
         {
             if (Solution == null)
                 throw new InvalidOperationException("Residual bootstrap requires a primary fitted solution.");
 
-            var syntheticdata = new List<InjectionData>();
-
-            var included = Injections.Where(inj => inj.Include).ToList();
-            if (included.Count == 0)
-                throw new InvalidOperationException("Residual bootstrap requires at least one included injection.");
-
-            // A member solution in a global fit carries its fitting mode on the
-            // parent GlobalSolution. Prefer that mode when available.
-            var weighted = Solution.ParentSolution?.UseWeightedFitting
-                ?? Solution.UseWeightedFitting;
-
             // Fitted residuals understate the measurement error because the fit
             // absorbs p degrees of freedom. The resampled residuals are scaled by
-            // sqrt(n / (n - p)) so their variance matches RSS / (n - p). A fit
+            // sqrt(n / (n - p)) as an approximate correction. A fit
             // with shared parameters uses its pooled observation and fitted-
             // parameter counts; individually fitted members use their own.
             var global = Solution.ParentSolution?.Model;
@@ -738,8 +727,18 @@ namespace AnalysisITC.Core.Data
             }
 
             var centre = residuals.Average();
-            var centredResiduals = residuals.Select(value => (value - centre) * residualScale).ToList();
+            return residuals.Select(value => (value - centre) * residualScale).ToArray();
+        }
 
+        List<InjectionData> GetBootstrappedResiduals(ExperimentData clone, Random random, PooledBootstrapResiduals pool)
+        {
+            var included = Injections.Where(inj => inj.Include).ToList();
+            if (included.Count == 0)
+                throw new InvalidOperationException("Residual bootstrap requires at least one included injection.");
+
+            var weighted = Solution?.ParentSolution?.UseWeightedFitting ?? Solution?.UseWeightedFitting ?? false;
+            var localResiduals = pool == null ? GetLocalBootstrapResiduals(included, weighted) : null;
+            var syntheticdata = new List<InjectionData>(Injections.Count);
             foreach (var inj in Injections)
             {
                 // Start from a complete copy so timing and integration metadata are
@@ -750,12 +749,11 @@ namespace AnalysisITC.Core.Data
 
                 if (inj.Include)
                 {
-                    var fittedArea = Model.Evaluate(inj.ID, withoffset: true);
-                    var sigma = weighted
-                        ? AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included)
-                        : 1.0;
-                    var sampledResidual = centredResiduals[random.Next(centredResiduals.Count)];
-                    var syntheticArea = fittedArea + sigma * sampledResidual;
+                    var syntheticArea = pool != null
+                        ? pool.SampleHeat(inj, random)
+                        : Model.Evaluate(inj.ID, withoffset: true) + (weighted
+                            ? AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included)
+                            : 1.0) * localResiduals[random.Next(localResiduals.Length)];
 
                     // Retain the target injection's declared SD. In weighted mode,
                     // it gives the refit the original per-injection weight; in
@@ -846,7 +844,7 @@ namespace AnalysisITC.Core.Data
 
             switch (options.ErrorEstimationMethod)
             {
-                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone, random); break;
+                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone, random, options.PooledResiduals); break;
                 case ErrorEstimationMethod.None:
                     syninj = CopyInjectionsForSyntheticClone(clone, options);
                     break;

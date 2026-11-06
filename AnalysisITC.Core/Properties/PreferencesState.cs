@@ -108,6 +108,7 @@ namespace AnalysisITC.Core.Application
         public double MinimumTemperatureSpanForFitting { get; set; } = 3;
         public double MinimumIonSpanForFitting { get; set; } = 0.03;
         public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
+        public bool DefaultPoolBootstrapResiduals { get; set; }
         public double OptimizerTolerance { get; set; } = 0.5;
         public int MaximumOptimizerIterations { get; set; } = 20_000;
         public ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
@@ -209,6 +210,7 @@ namespace AnalysisITC.Core.Application
                 MinimumTemperatureSpanForFitting = AppSettings.MinimumTemperatureSpanForFitting,
                 MinimumIonSpanForFitting = AppSettings.MinimumIonSpanForFitting,
                 IncludeConcentrationErrorsInBootstrap = AppSettings.IncludeConcentrationErrorsInBootstrap,
+                DefaultPoolBootstrapResiduals = AppSettings.DefaultPoolBootstrapResiduals,
                 OptimizerTolerance = AppSettings.OptimizerTolerance,
                 MaximumOptimizerIterations = AppSettings.MaximumOptimizerIterations,
                 ParameterLimitSetting = AppSettings.ParameterLimitSetting,
@@ -353,6 +355,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.MinimumTemperatureSpanForFitting = MinimumTemperatureSpanForFitting;
             AppSettings.MinimumIonSpanForFitting = MinimumIonSpanForFitting;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcentrationErrorsInBootstrap;
+            AppSettings.DefaultPoolBootstrapResiduals = DefaultPoolBootstrapResiduals;
             AppSettings.OptimizerTolerance = OptimizerTolerance;
             AppSettings.MaximumOptimizerIterations = MaximumOptimizerIterations;
             AppSettings.ParameterLimitSetting = ParameterLimitSetting;

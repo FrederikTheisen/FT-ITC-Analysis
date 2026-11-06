@@ -48,6 +48,8 @@ namespace AnalysisITC.Avalonia.Analysis
             "Concentration uncertainty",
             false,
             "Include cell and syringe concentration uncertainty during residual-bootstrap error estimation.");
+        readonly CheckBox poolResidualsCheck = Check("Pool residuals across experiments", false,
+            UncertaintyEstimationPresentation.PoolResidualsTooltip);
         readonly CheckBox unlockParametersCheck = Check("Unlock parameters", false, "Unlock locked parameters during the error estimation pass.");
         readonly ComboBox parameterLimitsCombo = Combo(new[] { "Standard", "Expanded", "No limits" }, 190);
         readonly CheckBox createResultCheck = Check("Create analysis result", true, "Save the fit as an analysis result when fitting completes.");
@@ -97,6 +99,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool IsGlobalMode => modeSelector.SelectedIndex == 1;
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
+        internal CheckBox PoolResidualsCheck => poolResidualsCheck;
         internal CheckBox ConcentrationUncertaintyCheck => concentrationUncertaintyCheck;
         internal CheckBox WeightedFitCheckForTesting => weightedFitCheck;
         internal ComboBox ErrorMethodComboForTesting => errorMethodCombo;
@@ -256,7 +259,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 Labeled("Limits", parameterLimitsCombo),
                 weightedFitCheck,
                 concentrationUncertaintyCheck,
-                unlockParametersCheck
+                unlockParametersCheck,
+                poolResidualsCheck
             }));
             panel.Children.Add(Section("Result", new Control[]
             {
@@ -315,6 +319,12 @@ namespace AnalysisITC.Avalonia.Analysis
             errorMethodCombo.SelectionChanged += (_, _) => ChangeErrorMethod();
             concentrationUncertaintyCheck.IsCheckedChanged += (_, _) => ChangeConcentrationUncertainty();
             unlockParametersCheck.IsCheckedChanged += (_, _) => ChangeUnlockParameters();
+            poolResidualsCheck.IsCheckedChanged += (_, _) =>
+            {
+                if (isUpdatingControls) return;
+                ClearPreservedFitCompletionStatus();
+                FittingOptionsController.PoolBootstrapResiduals = poolResidualsCheck.IsChecked == true;
+            };
             createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
             autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
             fitLineInterpolationCombo.SelectionChanged += (_, _) => ChangeFitLineInterpolation();
@@ -448,6 +458,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
                 concentrationUncertaintyCheck.IsChecked = FittingOptionsController.IncludeConcentrationVariance;
                 unlockParametersCheck.IsChecked = FittingOptionsController.UnlockBootstrapParameters;
+                poolResidualsCheck.IsChecked = FittingOptionsController.PoolBootstrapResiduals;
                 bootstrapIterationsBox.Text =
                     FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
             }
@@ -838,6 +849,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     UpdateFitButtonState();
                     return;
                 }
+                FittingOptionsController.PoolBootstrapResiduals = poolResidualsCheck.IsChecked == true;
                 var solver = workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
@@ -1283,13 +1295,8 @@ namespace AnalysisITC.Avalonia.Analysis
             modelCombo.IsEnabled = !isFitting;
             algorithmCombo.IsEnabled = !isFitting;
             errorMethodCombo.IsEnabled = !isFitting;
-            bootstrapIterationsBox.IsEnabled = !isFitting
-                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
+            UpdateErrorEstimationControlState();
             weightedFitCheck.IsEnabled = !isFitting && CanUseErrorWeightedFitting();
-            concentrationUncertaintyCheck.IsEnabled = !isFitting
-                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
-            unlockParametersCheck.IsEnabled = !isFitting
-                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
             parameterLimitsCombo.IsEnabled = !isFitting;
             createResultCheck.IsEnabled = !isFitting && CanCreateAnalysisResult();
             autoOpenResultCheck.IsEnabled = !isFitting;
@@ -1420,6 +1427,7 @@ namespace AnalysisITC.Avalonia.Analysis
             bootstrapIterationsBox.IsEnabled = canConfigureBootstrap;
             concentrationUncertaintyCheck.IsEnabled = canConfigureBootstrap;
             unlockParametersCheck.IsEnabled = canConfigureBootstrap;
+            poolResidualsCheck.IsEnabled = canConfigureBootstrap && workspace.Context?.WillFitGlobally == true;
         }
 
         void ChangeConcentrationUncertainty()

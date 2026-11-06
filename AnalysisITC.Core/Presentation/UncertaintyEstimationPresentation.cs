@@ -223,6 +223,23 @@ namespace AnalysisITC.Core.Presentation
             return ProfileLikelihoodDisplayFormatter.Status(outcome);
         }
 
+        public const string PoolResidualsTooltip = "Draw standardized noise from all fitted experiments";
+
+        internal static string PooledSamplingText(GlobalSolution solution)
+        {
+            if (solution?.ErrorEstimationMethod != ErrorEstimationMethod.BootstrapResiduals
+                || solution.Model.ShouldFitIndividually
+                || solution.ModelCloneOptions?.PoolBootstrapResiduals != true)
+                return null;
+            return solution.ModelCloneOptions.BootstrapScaleSource switch
+            {
+                PooledBootstrapScale.InjectionHeatSd => "Pooled residuals scaled by injection heat SDs",
+                PooledBootstrapScale.ExperimentResidualSd => "Pooled residuals scaled by experiment residual SDs",
+                PooledBootstrapScale.ZeroResiduals => "Pooled residuals with zero residual noise",
+                _ => "Pooled residuals selected",
+            };
+        }
+
         public static UncertaintyPresentationSection Section(GlobalSolution solution)
         {
             if (solution == null || solution.ErrorEstimationMethod == ErrorEstimationMethod.None) return null;
@@ -240,7 +257,16 @@ namespace AnalysisITC.Core.Presentation
             if (outcome != ErrorEstimationOutcome.SkippedNoBinding)
             {
                 if (method == ErrorEstimationMethod.BootstrapResiduals)
+                {
                     rows.Add(new UncertaintyPresentationRow("Bootstraps", BootstrapIterations(solution), BootstrapTooltip(solution)));
+                    var pooledSampling = PooledSamplingText(solution);
+                    rows.Add(new UncertaintyPresentationRow("Residual sampling", pooledSampling ?? "Within each experiment",
+                        "Saved bootstrap noise model"));
+                    if (pooledSampling != null && solution.ModelCloneOptions.BootstrapScaleSource == null
+                        && outcome == ErrorEstimationOutcome.CompleteFailure)
+                        rows.Add(new UncertaintyPresentationRow("Reason", solution.Convergence.ErrorEstimationSummary,
+                            "Reason pooled residual uncertainty is unavailable"));
+                }
                 if (profile != null)
                     rows.Add(new UncertaintyPresentationRow("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile), "Found limits of the model-estimated confidence intervals"));
                 rows.Add(new UncertaintyPresentationRow("Calculation time", solution.Convergence == null ? "Unknown"

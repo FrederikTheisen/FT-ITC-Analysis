@@ -160,6 +160,7 @@ static class AnalysisParameterDraftTests
         SetOutlet(controllerType, controller, "IncludeConcErrorControl", Create<NSButton>());
         SetOutlet(controllerType, controller, "UseWeightedControl", Create<NSButton>());
         SetOutlet(controllerType, controller, "UnlockParametersForErrorEstimationControl", Create<NSButton>());
+        SetOutlet(controllerType, controller, "PoolResidualsControl", Create<NSButton>());
         SetOutlet(controllerType, controller, "FitSimplexButton", Create<NSButton>());
         SetOutlet(controllerType, controller, "GraphView", Create<AnalysisGraphView>());
         var modelMenu = Popup("Offset");

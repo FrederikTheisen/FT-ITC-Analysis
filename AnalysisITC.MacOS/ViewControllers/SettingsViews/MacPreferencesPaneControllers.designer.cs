@@ -159,6 +159,7 @@ namespace AnalysisITC
         [Outlet] AppKit.NSSlider MaximumIterationsSlider { get; set; }
         [Outlet] AppKit.NSTextField MaximumIterationsValueLabel { get; set; }
         [Outlet] AppKit.NSButton ConcentrationBootstrapCheck { get; set; }
+        [Outlet] AppKit.NSButton PoolBootstrapResidualsCheck { get; set; }
         [Outlet] AppKit.NSButton WeightedFittingCheck { get; set; }
         [Outlet] AppKit.NSButton CreateSingleResultCheck { get; set; }
         [Outlet] AppKit.NSButton CreateGlobalResultCheck { get; set; }
@@ -185,6 +186,7 @@ namespace AnalysisITC
             MaximumIterationsSlider = Release(MaximumIterationsSlider);
             MaximumIterationsValueLabel = Release(MaximumIterationsValueLabel);
             ConcentrationBootstrapCheck = Release(ConcentrationBootstrapCheck);
+            PoolBootstrapResidualsCheck = Release(PoolBootstrapResidualsCheck);
             WeightedFittingCheck = Release(WeightedFittingCheck);
             CreateSingleResultCheck = Release(CreateSingleResultCheck);
             CreateGlobalResultCheck = Release(CreateGlobalResultCheck);

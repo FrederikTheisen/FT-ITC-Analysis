@@ -51,6 +51,7 @@ namespace AnalysisITC.Core.Analysis
         public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
         public static bool UnlockBootstrapParameters { get; set; } = false;
+        public static bool PoolBootstrapResiduals { get; set; }
         public static bool IncludeConcentrationVariance { get; set; } = false;
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
         public static bool UseErrorWeightedFitting { get; set; } = false;
@@ -68,6 +69,7 @@ namespace AnalysisITC.Core.Analysis
             Algorithm = AppSettings.DefaultSolverAlgorithm;
             UseErrorWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
             UnlockBootstrapParameters = false;
+            PoolBootstrapResiduals = AppSettings.DefaultPoolBootstrapResiduals;
         }
     }
 
@@ -1852,6 +1854,25 @@ namespace AnalysisITC.Core.Analysis
         {
             base.BoostrapResiduals();
 
+            var options = Model.ModelCloneOptions;
+            PooledBootstrapResiduals pool = null;
+            if (!Model.ShouldFitIndividually && options?.PoolBootstrapResiduals == true)
+            {
+                options.BootstrapScaleSource = null;
+                try
+                {
+                    pool = PooledBootstrapResiduals.Prepare(Model);
+                    options.BootstrapScaleSource = pool.ScaleSource;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Solution.SetBootstrapSolutions(new List<GlobalSolution>());
+                    Solution.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.CompleteFailure);
+                    Solution.Convergence.AppendErrorEstimationSummary("Pooled residual bootstrap unavailable. " + ex.Message);
+                    return;
+                }
+            }
+
             var solutionsByReplicate = new GlobalSolution[BootstrapIterations];
             var randomStreams = BootstrapRandomStreams.Create(BootstrapIterations);
             int counter = 0;
@@ -1870,7 +1891,7 @@ namespace AnalysisITC.Core.Analysis
                 {
                     try
                     {
-                        var globalmodel = Model.GenerateSyntheticModel(randomStreams[i]);
+                        var globalmodel = Model.GenerateSyntheticModel(randomStreams[i], options, pool);
                         var solver = new GlobalSolver
                         {
                             Model = globalmodel,

@@ -13,6 +13,18 @@ namespace AnalysisITC.Core.Analysis
         public int DiscardedDataPoint { get; set; } = 0;
         public bool UnlockBootstrapParameters { get; set; } = false;
 
+        public bool PoolBootstrapResiduals { get; set; }
+        public PooledBootstrapScale? BootstrapScaleSource { get; internal set; }
+
+        internal PooledBootstrapResiduals PooledResiduals { get; private set; }
+
+        internal ModelCloneOptions WithPooledResiduals(PooledBootstrapResiduals pool)
+        {
+            var options = (ModelCloneOptions)MemberwiseClone();
+            options.PooledResiduals = pool;
+            return options;
+        }
+
         internal bool EffectiveIncludeConcentrationErrors =>
             ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
             && IncludeConcentrationErrorsInBootstrap;
@@ -39,6 +51,9 @@ namespace AnalysisITC.Core.Analysis
         internal void ConfigureForRun(ErrorEstimationMethod method)
         {
             ErrorEstimationMethod = method;
+            BootstrapScaleSource = null;
+            if (method != ErrorEstimationMethod.BootstrapResiduals)
+                PoolBootstrapResiduals = false;
             // Retain historical automatic-concentration metadata on loaded results,
             // but do not carry it into a new fit or uncertainty calculation.
             EnableAutoConcentrationVariance = false;

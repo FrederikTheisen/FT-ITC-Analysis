@@ -414,6 +414,7 @@ namespace AnalysisITC.Core.Analysis
                 AutoConcentrationVariance = source.AutoConcentrationVariance,
                 DiscardedDataPoint = source.DiscardedDataPoint,
                 UnlockBootstrapParameters = source.UnlockBootstrapParameters,
+                PoolBootstrapResiduals = source.PoolBootstrapResiduals,
             };
         }
 

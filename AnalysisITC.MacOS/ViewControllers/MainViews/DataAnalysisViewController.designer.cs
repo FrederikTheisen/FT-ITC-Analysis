@@ -90,6 +90,9 @@ namespace AnalysisITC
         AppKit.NSButton UnlockParametersForErrorEstimationControl { get; set; }
 
         [Outlet]
+        AppKit.NSButton PoolResidualsControl { get; set; }
+
+        [Outlet]
         AppKit.NSButton UseWeightedControl { get; set; }
 
         [Action("AnalysisInspectorTabChanged:")]
@@ -167,6 +170,8 @@ namespace AnalysisITC
             SolverAlgorithmControl = null;
             UnlockParametersForErrorEstimationControl?.Dispose();
             UnlockParametersForErrorEstimationControl = null;
+            PoolResidualsControl?.Dispose();
+            PoolResidualsControl = null;
             UseWeightedControl?.Dispose();
             UseWeightedControl = null;
         }
