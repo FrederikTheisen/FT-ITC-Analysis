@@ -341,7 +341,7 @@ After **Update Result**, check whether the completion message says the previous 
 
 # Concentration uncertainty
 
-Enable concentration uncertainty to vary cell and syringe concentrations in residual-bootstrap refits using their entered SDs. Concentrations with no SD stay fixed. Leave-one-out and profile likelihood keep all concentrations fixed.
+Enable concentration uncertainty to vary cell and syringe concentrations in residual-bootstrap refits using their entered SDs. Concentrations with no SD stay fixed. Leave-one-out and profile likelihood keep all concentrations fixed. Entered concentration and model-option SDs affect reported uncertainty only through this sampling.
 
 The fractional SD, CV, determines a positive lognormal multiplier with mean 1 and SD CV. Its log-space parameters are:
 
