@@ -323,7 +323,7 @@ Included best-fit residuals are sampled with replacement and added to best-fit p
 
 To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-observation count and *p* fitted-parameter count. Shared global fits use pooled counts; independent members use their own. In either case, *n* must exceed *p*.
 
-The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. See **Uncertainty in derived values** for how this applies to values calculated from fitted parameters.
+The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. With fewer than 50 retained refits, the status reads incomplete even if no refit failed; the SD and 95% interval are still shown but rest on few refits. See **Uncertainty in derived values** for how this applies to values calculated from fitted parameters.
 
 # Leave-one-out refitting
 
@@ -353,7 +353,7 @@ $$
 ## Parameter correlations
 Open **Correlation** to inspect how fitted coordinates vary together across complete residual-bootstrap refits. For independent experiments, select the member to inspect. Point to a cell for Pearson's *r* and its approximate 95% Monte Carlo precision interval; check the panel's refit counts and warnings before interpreting it.
 
-The view requires at least 30 complete refits and two varying coordinates. Fixed parameters are omitted unless **Unlock parameters** let them vary during bootstrap. Affinity coordinates are log₁₀K{a}, rather than displayed K{d}; a shared Gibbs-energy coordinate is labeled separately.
+The view requires at least 50 complete refits and two varying coordinates. Fixed parameters are omitted unless **Unlock parameters** let them vary during bootstrap. Affinity coordinates are log₁₀K{a}, rather than displayed K{d}; a shared Gibbs-energy coordinate is labeled separately.
 
 Red indicates negative correlation, blue positive, and white zero. Stronger colors indicate larger squared magnitude, while cell values show *r* itself. An interval spanning zero means the sign is unresolved at the current simulation precision.
 

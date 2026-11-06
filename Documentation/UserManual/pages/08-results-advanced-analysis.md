@@ -201,7 +201,7 @@ Summary $K_{\mathrm{d}}$ is calculated from summarized Gibbs energy. Its SD is p
 
 This view shows whether two fitted parameters tend to move together when the data are resampled. A strong relationship can mean that the data have difficulty separating their effects, but the display alone cannot establish why.
 
-**Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 30 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
+**Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 50 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
 
 Matrix values range from −1 to +1. Point to a cell for Pearson's $r$ and its Monte Carlo precision interval. An interval spanning zero leaves the sign unresolved at the current simulation precision. Check the panel's refit counts and warnings for coarse precision, failed or incomplete refits, and rank limits.
 
