@@ -42,8 +42,13 @@ namespace AnalysisITC.Core.Analysis.Models
         private protected Energy EntropyContributionFor(ThermodynamicParameterSlot slot) =>
             new Energy(RefitThermodynamicEstimate(slot.EntropyContribution) ?? FittedEntropyContributionFor(slot));
 
-        FloatWithError? RefitThermodynamicEstimate(ParameterType parameter) =>
-            RefitEstimates?.Thermodynamics.TryGetValue(parameter, out var estimate) == true ? estimate : null;
+        FloatWithError? RefitThermodynamicEstimate(ParameterType parameter)
+        {
+            var estimates = RefitEstimates;
+            return estimates != null && estimates.Thermodynamics.TryGetValue(parameter, out var estimate)
+                ? estimate
+                : null;
+        }
 
         FloatWithError FittedEntropyContributionFor(ThermodynamicParameterSlot slot) =>
             LinkedThermodynamicParameter(slot.EntropyContribution,
