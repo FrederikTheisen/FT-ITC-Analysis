@@ -42,6 +42,7 @@ public sealed class AnalysisReportRenderingTests
         T Field<T>(string name) => (T)typeof(AnalysisReportWindow).GetField(name, flags)!.GetValue(window)!;
         var scroll = Field<ScrollViewer>("previewScroll");
         var zoom = Field<ComboBox>("previewZoomCombo");
+        var increase = Field<Button>("previewZoomInButton");
         try
         {
             window.Show();
@@ -49,6 +50,11 @@ public sealed class AnalysisReportRenderingTests
             typeof(AnalysisReportWindow).GetMethod("ShowPreviewWorkspace", flags)!.Invoke(window, null);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
+            Assert.Equal(26, zoom.Bounds.Height);
+            Assert.Equal(26, increase.Bounds.Height);
+            Assert.Equal(26, Field<Button>("previewZoomOutButton").Bounds.Height);
+            Assert.Equal(42, Field<Button>("savedReportsButton").Bounds.Height);
+            Assert.Equal(42, Field<Button>("selectResultsButton").Bounds.Height);
             Assert.True(scroll.Viewport.Height > 0);
 
             // Center on page 3, 300 points below its top. The 14-pixel gaps do not scale.
@@ -58,7 +64,6 @@ public sealed class AnalysisReportRenderingTests
                 (scroll.Offset.Y + scroll.Viewport.Height / 2 - 2 * (842 * scale + 14) - 7) / scale;
             Assert.Equal(300, PagePosition(1), tolerance: 1);
 
-            var increase = Field<Button>("previewZoomInButton");
             increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();

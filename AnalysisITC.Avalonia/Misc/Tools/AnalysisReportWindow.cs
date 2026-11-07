@@ -360,8 +360,8 @@ namespace AnalysisITC.Avalonia.Tools
             previewScroll.Content = previewPages;
             previewScroll.Background = Brushes.Transparent;
             previewScroll.GestureRecognizers.Add(new PinchGestureRecognizer());
-            previewZoomCombo.Height = 32;
-            previewZoomCombo.MinHeight = 32;
+            previewZoomCombo.Height = 26;
+            previewZoomCombo.MinHeight = 26;
             foreach (var button in new[] { previewZoomOutButton, previewZoomInButton })
             {
                 button.Bind(TemplatedControl.BorderBrushProperty,
@@ -581,8 +581,8 @@ namespace AnalysisITC.Avalonia.Tools
             var button = new Button
             {
                 Width = 32,
-                Height = 32,
-                MinHeight = 32,
+                Height = 26,
+                MinHeight = 26,
                 Padding = new Thickness(0),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
