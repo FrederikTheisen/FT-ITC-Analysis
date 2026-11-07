@@ -355,6 +355,53 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         finally { CultureInfo.CurrentCulture = originalCulture; }
     }
 
+    [Fact]
+    public void ResultAnalysisUsesSelectedIndependentEvidenceAndEffectiveAssessment()
+    {
+        var result = IndependentResult(out var members, includePooledComparison: false);
+        members[0].Data.Name = "First";
+        members[1].Data.Name = "Second";
+        result.RestoreMemberComparison(members[0].Guid, Comparison(members[0].Data.UniqueID, 12, 100, 4.184));
+        result.RestoreMemberComparison(members[1].Guid, Comparison(members[1].Data.UniqueID, 20, 200, 8.368));
+        result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
+        Assert.True(NullModelComparisonPresentation.ResultAnalysis(result, null, EnergyUnitFamily.Joules).SelectionRequired);
+        Assert.True(NullModelComparisonPresentation.ResultAnalysis(result, "unrelated", EnergyUnitFamily.Joules).SelectionRequired);
+        var first = NullModelComparisonPresentation.ResultAnalysis(result, members[0].Data.UniqueID, EnergyUnitFamily.Calories);
+        var second = NullModelComparisonPresentation.ResultAnalysis(result, members[1].Data.UniqueID, EnergyUnitFamily.Calories);
+        Assert.Equal("First", first.ExperimentName);
+        Assert.Equal("Second", second.ExperimentName);
+        Assert.Equal(new[] { "RMSD", "AICc" }, first.BindingRows.Select(row => row.Label));
+        Assert.Equal(new[] { "RMSD", "AICc" }, first.NullRows.Select(row => row.Label));
+        Assert.Equal("1 µcal", first.NullRows[0].Value);
+        Assert.Equal("2 µcal", second.NullRows[0].Value);
+        Assert.Equal("100", first.BindingRows[1].Value);
+        Assert.Equal("200", second.BindingRows[1].Value);
+        Assert.Equal("+12", first.DeltaRow.Value);
+        Assert.Contains("Null AICc − binding AICc", first.DeltaRow.Tooltip);
+        Assert.Equal("No binding detected (Manual)", first.ConclusionRow.Value);
+    }
+
+    [Fact]
+    public void ResultAnalysisRetainsNullRmsdWhenAiccIsUnavailableAndHandlesMissingComparison()
+    {
+        var result = FractionalResult();
+        var comparison = result.NullComparison;
+        comparison.DeltaAicc = null;
+        comparison.NullInformationCriteria = FitInformationCriteria.Restore(20, 1, 2,
+            GaussianLikelihoodMode.EstimatedCommonVariance, 0, null, null, false, false,
+            "AIC unavailable", "Too few observations", 0, 4.184, 0, 0);
+        var view = NullModelComparisonPresentation.ResultAnalysis(result, "ignored", EnergyUnitFamily.Joules);
+        Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture) + " µJ", view.NullRows[0].Value);
+        Assert.Equal("Unavailable", view.NullRows[1].Value);
+        Assert.Equal("Too few observations", view.NullRows[1].Tooltip);
+        Assert.Equal("Unavailable", view.DeltaRow.Value);
+        result.RestoreNullComparison(null);
+        view = NullModelComparisonPresentation.ResultAnalysis(result, null, EnergyUnitFamily.Joules);
+        Assert.Equal("Unavailable", view.NullRows[0].Value);
+        Assert.Equal("Unavailable", view.NullRows[1].Value);
+        Assert.Equal("Unavailable", view.DeltaRow.Value);
+    }
+
     static AnalysisResult FractionalResult()
     {
         var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);

@@ -28,7 +28,33 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class BindingAssessmentPresentationTests
 {
     [AvaloniaFact]
-    public void SummaryHeaderMenuSupportsAutomaticAndManualChoices()
+    public void SummaryAndDetailsOmitSavedDiagnosticAndKeepRmsdRowsAdjacent()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateResult();
+            result.Solution.Convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                ReducedChiSquareQ = 5, ReducedChiSquareObservationCount = 3,
+                ReducedChiSquareParameterCount = 1, MolarRmsdJoulesPerMole = 1
+            });
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var details = new AnalysisITC.Avalonia.Details.AnalysisResultDetailsWindow(result);
+            foreach (var text in new[] { TextFrom(workspace.SummaryPanelForTesting), TextFrom(details) })
+            {
+                Assert.DoesNotContain(ReducedChiSquarePresentation.Label, text);
+                Assert.DoesNotContain(ReducedChiSquarePresentation.NullLabel, text);
+                Assert.True(IndexOf(text, "RMSD") < IndexOf(text, "Molar RMSD"));
+            }
+            var summary = TextFrom(workspace.SummaryPanelForTesting);
+            Assert.Equal(IndexOf(summary, "RMSD") + 2, IndexOf(summary, "Molar RMSD"));
+            details.Close();
+            workspace.Result = null;
+        });
+    }
+
+    [AvaloniaFact]
+    public void SummaryAssessmentMenuFollowsConclusionAndSupportsAutomaticAndManualChoices()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -44,17 +70,18 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Contains("No binding detected", text);
             Assert.DoesNotContain("Change…", text);
             Assert.DoesNotContain("These are chosen cutoffs", text);
+            Assert.True(IndexOf(text, "Validity") < IndexOf(text, "Solver"));
+            Assert.True(IndexOf(text, "Solver") < IndexOf(text, "Result"));
             Assert.True(IndexOf(text, "Result") < IndexOf(text, "Null hypothesis test"));
             Assert.True(IndexOf(text, "Null hypothesis test") < IndexOf(text, "Information criteria"));
-            Assert.Equal(4, NullAssessmentSection(workspace).Children.OfType<Control>().Count());
-
-            var headerMenuButton = CurrentAssessmentMenuButton(workspace);
-            Assert.Equal("Modify Assessment", AutomationProperties.GetName(headerMenuButton));
-            Assert.Equal("Modify Assessment", ToolTip.GetTip(headerMenuButton)?.ToString());
-            var headerGrid = Assert.IsType<Grid>(headerMenuButton.Parent);
-            Assert.Contains(headerGrid.Children.OfType<TextBlock>(), block => block.Text == "Null hypothesis test");
-            Assert.Contains(headerGrid.Children, child => ReferenceEquals(child, headerMenuButton));
-            Assert.Empty(NullAssessmentSection(workspace).GetLogicalDescendants().OfType<ComboBox>());
+            var section = NullAssessmentSection(workspace);
+            var menuButton = CurrentAssessmentMenuButton(workspace);
+            Assert.Equal("Modify Assessment", AutomationProperties.GetName(menuButton));
+            Assert.Equal("Set or restore the binding conclusion", ToolTip.GetTip(menuButton)?.ToString());
+            Assert.Equal("Null hypothesis test", Assert.IsType<TextBlock>(section.Children[0]).Text);
+            Assert.Same(ConclusionValue(workspace).Parent?.Parent, section.Children[^2]);
+            Assert.Same(menuButton, section.Children[^1]);
+            Assert.Empty(section.GetLogicalDescendants().OfType<ComboBox>());
             var menu = CurrentAssessmentMenu(workspace);
             Assert.Equal(new[] { "Use Automatic Assessment", "Mark Binding Detected", "Mark No Binding Detected" },
                 menu.Items.OfType<MenuItem>().Select(item => item.Header?.ToString()).ToArray());
@@ -244,8 +271,10 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [AvaloniaFact]
-    public void HeaderMenuFitsAtNarrowInspectorWidth()
+    [AvaloniaTheory]
+    [InlineData(320)]
+    [InlineData(460)]
+    public void AssessmentMenuFillsInspectorWidth(int inspectorWidth)
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -257,22 +286,15 @@ public sealed class BindingAssessmentPresentationTests
             {
                 Dispatcher.UIThread.RunJobs();
                 var section = NullAssessmentBorder(workspace);
-                section.Measure(new Size(320, double.PositiveInfinity));
-                section.Arrange(new Rect(0, 0, 320, section.DesiredSize.Height));
+                section.Measure(new Size(inspectorWidth, double.PositiveInfinity));
+                section.Arrange(new Rect(0, 0, inspectorWidth, section.DesiredSize.Height));
                 Dispatcher.UIThread.RunJobs();
                 var menuButton = CurrentAssessmentMenuButton(workspace);
-            Assert.Equal("Modify Assessment", menuButton.Content);
+                Assert.Equal("Modify Assessment", menuButton.Content);
                 Assert.True(menuButton.Bounds.Width > 0 && menuButton.Bounds.Height > 0,
                     "The standard dropdown control should remain laid out in a narrow inspector.");
-                var header = Assert.IsType<Grid>(menuButton.Parent);
-                Assert.True(menuButton.Bounds.Right <= header.Bounds.Width + 1,
-                    "The header action should remain within the section title row.");
-                var headerTitle = Assert.Single(header.Children.OfType<TextBlock>());
-                Assert.Equal(global::Avalonia.Media.TextTrimming.None, headerTitle.TextTrimming);
-                Assert.True(headerTitle.Bounds.Width > 0);
-                headerTitle.Measure(new Size(headerTitle.Bounds.Width, double.PositiveInfinity));
-                Assert.True(headerTitle.Bounds.Height + 1 >= headerTitle.DesiredSize.Height,
-                    "The wrapped section title should have enough height to remain fully visible beside the assessment action.");
+                Assert.Equal(0, menuButton.Bounds.X, precision: 0);
+                Assert.Equal(inspectorWidth, menuButton.Bounds.Width, precision: 0);
                 menuButton.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Assert.True(menuButton.Bounds.Width + 1 >= menuButton.DesiredSize.Width,
                     "The action label should not be clipped in the narrow inspector.");
@@ -396,12 +418,28 @@ public sealed class BindingAssessmentPresentationTests
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
             try
             {
+                if (independent)
+                {
+                    DataManager.ClearResultSolutionSelection();
+                    var noSelection = (Control)typeof(AnalysisResultWorkspaceControl)
+                        .GetMethod("BuildAnalysisNullComparisonSection", BindingFlags.Instance | BindingFlags.NonPublic)!
+                        .Invoke(workspace, new object[] { result })!;
+                    var noSelectionText = TextFrom(noSelection);
+                    Assert.Contains(NullModelComparisonPresentation.SelectExperimentHint, noSelectionText);
+                    Assert.DoesNotContain("Binding", noSelectionText);
+                    var otherResult = CreateIndependentResult(out var otherMembers);
+                    Assert.Equal(result.Solution.Solutions[0].Data.UniqueID, otherMembers[0].Data.UniqueID);
+                    DataManager.SelectResultSolution(otherMembers[0]);
+                    var foreignSelection = (Control)typeof(AnalysisResultWorkspaceControl)
+                        .GetMethod("BuildAnalysisNullComparisonSection", BindingFlags.Instance | BindingFlags.NonPublic)!
+                        .Invoke(workspace, new object[] { result })!;
+                    Assert.Contains(NullModelComparisonPresentation.SelectExperimentHint, TextFrom(foreignSelection));
+                }
                 foreach (var family in new[] { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories })
                 {
                     AppSettings.EnergyUnitFamily = family;
                     workspace.Refresh(); // The application invokes this after a preference change.
                     var unit = family == EnergyUnitFamily.Joules ? "µJ" : "µcal";
-                    var value = family == EnergyUnitFamily.Joules ? 4.184.ToString("G4", CultureInfo.CurrentCulture) : "1";
                     var primary = workspace.SummaryPanelForTesting.GetLogicalDescendants().OfType<TextBlock>()
                         .Single(block => block.Text == "RMSD");
                     Assert.Equal(RmsdPresentation.LabelTooltip, ToolTip.GetTip(primary));
@@ -413,14 +451,20 @@ public sealed class BindingAssessmentPresentationTests
                         var section = (Control)typeof(AnalysisResultWorkspaceControl)
                             .GetMethod("BuildAnalysisNullComparisonSection", BindingFlags.Instance | BindingFlags.NonPublic)!
                             .Invoke(workspace, new object[] { result })!;
-                        var label = section.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Text == "RMSD / ΔAICc");
-                        Assert.Equal(RmsdPresentation.LabelTooltip, ToolTip.GetTip(label));
-                        var grid = Assert.IsType<Grid>(label.Parent);
-                        var numeric = grid.Children.OfType<TextBlock>().Single(block => !ReferenceEquals(block, label));
-                        Assert.Equal(independent && selected == result.Solution.Solutions[1]
-                            ? "Unavailable / Not calculated" : value + " " + unit + " / +15", numeric.Text);
-                        Assert.DoesNotContain("unweighted", ToolTip.GetTip(numeric)?.ToString(), System.StringComparison.OrdinalIgnoreCase);
-                        Assert.DoesNotContain("RMSD unit", ToolTip.GetTip(numeric)?.ToString());
+                        var text = TextFrom(section);
+                        Assert.True(IndexOf(text, "Binding") < IndexOf(text, "Null"));
+                        Assert.True(IndexOf(text, "Null") < IndexOf(text, "ΔAICc"));
+                        Assert.True(IndexOf(text, "ΔAICc") < IndexOf(text, "Conclusion"));
+                        Assert.Equal(2, text.Count(item => item == "RMSD"));
+                        Assert.Equal(2, text.Count(item => item == "AICc"));
+                        Assert.DoesNotContain("Model", text);
+                        Assert.DoesNotContain(ReducedChiSquarePresentation.Label, text);
+                        Assert.DoesNotContain(ReducedChiSquarePresentation.NullLabel, text);
+                        var comparison = NullModelComparisonPresentation.ResultAnalysis(result, selected.Data.UniqueID, family);
+                        Assert.Contains(comparison.BindingRows[0].Value, text);
+                        Assert.Contains(comparison.NullRows[0].Value, text);
+                        Assert.Contains(comparison.DeltaRow.Value, text);
+                        Assert.Contains(comparison.ConclusionRow.Value, text);
                     }
                 }
             }

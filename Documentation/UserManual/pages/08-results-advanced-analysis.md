@@ -55,7 +55,7 @@ In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in
 
 Competitor properties in viewer metadata show captures saved on the experiment; these may differ from the values used by a particular saved fit.
 
-The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy units are chosen consistently from the displayed central values and are also used for graph axes, errors, fitted bands, tooltips, and parameter lists.
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. In **Fit comparison**, **Binding** and **Null** each show unweighted heat RMSD and AICc, followed by **ΔAICc** and the effective assessment. For an independently fitted collection, select an experiment to see its comparison. A joint fit shows one comparison for the whole result. Uncertainty display, correlation information, and evaluation temperature depend on the selected view. Energy units are chosen consistently from the displayed central values and are also used for graph axes, errors, fitted bands, tooltips, and parameter lists.
 
 The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
 
@@ -70,7 +70,7 @@ Validity answers whether the saved fit still describes the experiment inputs cur
 - **Invalid** means the saved fit no longer matches the current inputs, or the set of member experiments has changed.
 - **Unknown status** means FT-ITC cannot make the comparison, for example because an older result has no validity snapshot.
 
-Check the listed validity reasons and use **Update Result** when inputs have changed. Stored fitted parameters continue to describe the earlier inputs until updated.
+In **Summary > Validity**, check the listed reasons and use **Update Result** when inputs have changed. Stored fitted parameters continue to describe the earlier inputs until updated. Use **Export Result…** in the same section to open the Analysis Result Exporter with this result selected.
 
 Removing any source experiment from the experiment browser makes the whole result **Invalid** and names the missing experiment. **Undo** restores the previous validity when it restores the original experiment unchanged.
 
@@ -142,7 +142,7 @@ Standard result-table exports continue to omit no-binding members' binding value
 
 A null hypothesis is the simplest explanation of the data that you want to rule out before trusting a more detailed model. For a titration, the null hypothesis is that the measured heats can be explained without binding. A Null model represents that no-binding explanation, including heat from dilution and mixing. If a binding model does not describe the data clearly better than this background alone, its fitted affinity, enthalpy, and stoichiometry are not supported by the data.
 
-The comparison uses the Offset Null model, which predicts each injection heat as $q_i = b m_i$, where $m_{i}$ is the amount injected and $b$ is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use **Modify Assessment** on the saved result to change it manually or return to automatic assessment. The Summary shows the Null model RMSD and the signed $\Delta\mathrm{AICc}$. For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model does not constrain these local Null model fits. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local null fits are combined under the pooled variance convention to calculate the result-level comparison.
+The comparison uses the Offset Null model, which predicts each injection heat as $q_i = b m_i$, where $m_{i}$ is the amount injected and $b$ is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. For multi-experiment results, the Null model is fitted separately for each experiment using the ordinary single-experiment fit. A locked or shared binding-model parameter leaves the local Null parameters free. For independently fitted binding models, each local comparison determines its member assessment. For pooled shared-parameter binding fits, all local Null fits are combined under the pooled variance convention to calculate the result-level comparison.
 
 The two fits are compared with AICc (see [Information criteria](#information-criteria)), which balances fit quality against the number of fitted parameters:
 

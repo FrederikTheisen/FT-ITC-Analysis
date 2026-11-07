@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
+using AnalysisITC.Avalonia.Results;
+using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -213,6 +216,49 @@ public sealed class SelectionMenuTests
                 Assert.False(Item(menu, "Active").IsChecked);
                 AssertWellFormed(menu);
             });
+    }
+
+    [AvaloniaFact]
+    public void ResultInspectorOffersBothActionsInValidityAndExportsTheSelectedResult()
+    {
+        var otherResult = CreateResult(CreateExperiment("other.itc", integrated: true));
+        var result = CreateResult(CreateExperiment("selected.itc", integrated: true));
+        RunWithWindow(new[] { otherResult, result }, window =>
+        {
+            Dispatcher.UIThread.RunJobs();
+            var items = window.FindControl<ListBox>("ItemsList")!;
+            items.SelectedIndex = -1;
+            items.SelectedIndex = DataManager.IndexOfSourceItem(result);
+            Dispatcher.UIThread.RunJobs();
+            var workspace = window.FindControl<AnalysisResultWorkspaceControl>("ResultWorkspace")!;
+            Assert.Same(result, workspace.Result);
+            var section = Assert.IsType<StackPanel>(
+                Assert.IsType<Border>(workspace.SummaryPanelForTesting.Children[0]).Child);
+            Assert.Equal("Validity", Assert.IsType<TextBlock>(section.Children[0]).Text);
+            var actions = Assert.IsType<Grid>(section.Children[^1]);
+            Assert.Collection(actions.Children.OfType<Button>(),
+                update =>
+                {
+                    Assert.Equal("Update Result", update.Content);
+                    Assert.Equal(26, update.Height);
+                },
+                export =>
+                {
+                    Assert.Equal("Export Result…", export.Content);
+                    Assert.Equal(26, export.Height);
+                    Assert.Equal(1, Grid.GetColumn(export));
+                });
+
+            var exportButton = Assert.IsType<Button>(actions.Children[1]);
+            exportButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var exporter = Assert.IsType<AnalysisResultExporterWindow>(Assert.Single(window.OwnedWindows));
+            try
+            {
+                var results = Assert.Single(exporter.GetLogicalDescendants().OfType<ListBox>());
+                Assert.Same(result, Assert.Single(results.SelectedItems!.Cast<AnalysisResult>()));
+            }
+            finally { exporter.Close(); }
+        });
     }
 
     [AvaloniaFact]

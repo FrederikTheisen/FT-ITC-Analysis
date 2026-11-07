@@ -421,6 +421,29 @@ namespace AnalysisITC
 
             AddPageView(summaryStack, BuildValiditySection());
 
+            var solverRows = new List<NSView>
+            {
+                Pair(
+                    "Algorithm",
+                    Solution.Convergence?.Algorithm.GetProperties().Name ?? ""),
+                Pair(
+                    "Iterations",
+                    Solution.Convergence?.Iterations.ToString(
+                        CultureInfo.CurrentCulture) ?? ""),
+                Pair(
+                    "Fitting",
+                    Solution.UseWeightedFitting
+                        ? "Weighted injection errors"
+                        : "Unweighted"),
+                Pair(
+                    "Uncertainty method",
+                    UncertaintyEstimationPresentation.Method(Solution), UncertaintyEstimationPresentation.MethodTooltip),
+            };
+
+            AddPageView(
+                summaryStack,
+                Section("Solver", solverRows.ToArray()));
+
             var resultRows = new List<NSView>
             {
                 Pair("Name", analysisResult.Name),
@@ -461,28 +484,6 @@ namespace AnalysisITC
                         ? NSColor.Label
                         : NSColor.SecondaryLabel)));
 
-            var solverRows = new List<NSView>
-            {
-                Pair(
-                    "Algorithm",
-                    Solution.Convergence?.Algorithm.GetProperties().Name ?? ""),
-                Pair(
-                    "Iterations",
-                    Solution.Convergence?.Iterations.ToString(
-                        CultureInfo.CurrentCulture) ?? ""),
-                Pair(
-                    "Fitting",
-                    Solution.UseWeightedFitting
-                        ? "Weighted injection errors"
-                        : "Unweighted"),
-                Pair(
-                    "Uncertainty method",
-                    UncertaintyEstimationPresentation.Method(Solution), UncertaintyEstimationPresentation.MethodTooltip),
-            };
-
-            AddPageView(
-                summaryStack,
-                Section("Solver", solverRows.ToArray()));
             var uncertainty = BuildUncertaintySection(Solution);
             if (uncertainty != null) AddPageView(summaryStack, uncertainty);
 
@@ -493,29 +494,6 @@ namespace AnalysisITC
             //    LabeledControl("Errors", uncertaintyStyleControl),
             //    LabeledControl("Temperature", temperatureUnitControl),
             //    LabeledControl("Energy", energyUnitControl)));
-
-            updateResultControl = Button(
-                isUpdatingResult ? "Updating…" : "Update Result");
-            updateResultControl.Enabled =
-                !isUpdatingResult
-                && !isRunningAdvancedAnalysis
-                && !ProcessingActivity.IsBusy
-                && Solution.Model != null;
-            updateResultControl.ToolTip =
-                ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip
-                    : "Refit this saved result using its stored model settings and the current experiment data.";
-            updateResultControl.Activated += async (_, _) =>
-                await UpdateResultAsync();
-
-            var exportButton = Button("Export Analysis Result");
-            exportButton.ToolTip =
-                "Open the analysis result exporter for the selected result.";
-            exportButton.Activated += (_, _) =>
-                AppDelegate.LaunchResultExporter();
-
-            AddPageView(summaryStack, Section(
-                "Actions",
-                EqualButtonRow(updateResultControl, exportButton)));
         }
 
         void BuildDisplayControls()
@@ -588,6 +566,24 @@ namespace AnalysisITC
                 rows.AddRange(displayReasons.Select(Message));
             }
 
+            updateResultControl = Button(isUpdatingResult
+                ? AnalysisResultActionPresentation.UpdatingLabel : AnalysisResultActionPresentation.UpdateLabel);
+            updateResultControl.Enabled =
+                !isUpdatingResult
+                && !isRunningAdvancedAnalysis
+                && !ProcessingActivity.IsBusy
+                && Solution.Model != null;
+            updateResultControl.ToolTip =
+                ProcessingActivity.IsBusy ? FittingStatusPresentation.BusyTooltip : AnalysisResultActionPresentation.UpdateTooltip;
+            updateResultControl.Activated += async (_, _) =>
+                await UpdateResultAsync();
+
+            var exportButton = Button(AnalysisResultActionPresentation.ExportLabel);
+            exportButton.ToolTip = AnalysisResultActionPresentation.ExportTooltip;
+            exportButton.Activated += (_, _) =>
+                AppDelegate.LaunchResultExporter();
+
+            rows.Add(EqualButtonRow(updateResultControl, exportButton));
             return Section("Validity", rows.ToArray());
         }
 
@@ -781,29 +777,26 @@ namespace AnalysisITC
 
         NSView BuildAnalysisNullComparisonSection()
         {
-            var result = analysisResult;
-            if (result == null) return Section("Null hypothesis test", Label("No analysis result selected.", NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
-            var selected = SelectedResultSolution();
-            if (result.IsIndependentAssessmentCollection)
-            {
-                if (selected == null)
-                    return Section("Null hypothesis test", Label(NullModelComparisonPresentation.SelectExperimentHint, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
-                var comparison = result.GetMemberNullComparison(selected);
-                var assessment = result.GetMemberBindingAssessment(selected);
-                return Section("Null hypothesis test",
-                    Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
-                    Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
-                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(comparison), labelTooltip: RmsdPresentation.LabelTooltip),
-                    Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), NullModelComparisonPresentation.AutomaticRecommendation(assessment, comparison)));
-            }
+            var comparison = NullModelComparisonPresentation.ResultAnalysis(
+                analysisResult, SelectedResultSolution()?.Data?.UniqueID, EnergyUnitFamily);
+            if (comparison.SelectionRequired)
+                return Section("Fit comparison", Label(NullModelComparisonPresentation.SelectExperimentHint,
+                    NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
 
-            var pooledComparison = result.NullComparison;
-            var resultAssessment = result.BindingAssessment;
-            return Section("Null hypothesis test",
-                Pair("Model", NullModelComparisonPresentation.NullModel(pooledComparison), NullModelComparisonPresentation.NullFitReason(pooledComparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(pooledComparison, EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(pooledComparison), labelTooltip: RmsdPresentation.LabelTooltip),
-                Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, pooledComparison)));
+            var controls = new List<NSView>();
+            if (!string.IsNullOrEmpty(comparison.ExperimentName))
+                controls.Add(Pair("Experiment", comparison.ExperimentName));
+            controls.Add(Label("Binding", NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold), NSColor.Label));
+            controls.AddRange(comparison.BindingRows.Select(ComparisonRow));
+            controls.Add(Label("Null", NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold), NSColor.Label));
+            controls.AddRange(comparison.NullRows.Select(ComparisonRow));
+            controls.Add(ComparisonRow(comparison.DeltaRow));
+            controls.Add(ComparisonRow(comparison.ConclusionRow));
+            return Section("Fit comparison", controls.ToArray());
         }
+
+        static NSView ComparisonRow(NullModelComparisonDisplayRow row)
+            => row == null ? null : Pair(row.Label, row.Value, labelTooltip: row.LabelTooltip, valueTooltip: row.Tooltip);
 
         NSView BuildParameterEvaluationSection()
         {
@@ -1552,13 +1545,12 @@ namespace AnalysisITC
             var menu = new NSPopUpButton(CGRect.Empty, true)
             {
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                BezelStyle = NSBezelStyle.Recessed,
+                BezelStyle = NSBezelStyle.Rounded,
                 ControlSize = NSControlSize.Regular,
                 Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize)
             };
             menu.HeightAnchor.ConstraintGreaterThanOrEqualToConstant(24).Active = true;
-            menu.WidthAnchor.ConstraintEqualToConstant(164).Active = true;
-            menu.AddItem("Modify Assessment");
+            menu.AddItem(AnalysisResultActionPresentation.AssessmentLabel);
             menu.Menu.Items[0].Hidden = true;
             menu.Menu.AddItem(new NSMenuItem("Use Automatic Assessment", (_, _) =>
             {
@@ -1566,7 +1558,7 @@ namespace AnalysisITC
                 if (result.IsIndependentAssessmentCollection) result.UseAutomaticBindingAssessments();
                 else result.UseAutomaticBindingAssessment();
                 menu.SelectItem(0);
-                menu.Title = "Modify Assessment";
+                menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
                 QueueRefresh();
             }));
             if (result.IsIndependentAssessmentCollection)
@@ -1593,7 +1585,7 @@ namespace AnalysisITC
                         if (!ReferenceEquals(analysisResult, result)) return;
                         result.SetMemberBindingAssessmentOverride(member.SolutionId, BindingAssessmentOutcome.BindingDetected);
                         menu.SelectItem(0);
-                        menu.Title = "Modify Assessment";
+                        menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
                         QueueRefresh();
                     }));
                     memberMenu.AddItem(new NSMenuItem("Mark No Binding Detected", (_, _) =>
@@ -1601,7 +1593,7 @@ namespace AnalysisITC
                         if (!ReferenceEquals(analysisResult, result)) return;
                         result.SetMemberBindingAssessmentOverride(member.SolutionId, BindingAssessmentOutcome.NoBindingDetected);
                         menu.SelectItem(0);
-                        menu.Title = "Modify Assessment";
+                        menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
                         QueueRefresh();
                     }));
                     var memberItem = new NSMenuItem($"{index} — {member.SolutionName}", (EventHandler)null)
@@ -1618,7 +1610,7 @@ namespace AnalysisITC
                     if (!ReferenceEquals(analysisResult, result)) return;
                     result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
                     menu.SelectItem(0);
-                    menu.Title = "Modify Assessment";
+                    menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
                     QueueRefresh();
                 }));
                 menu.Menu.AddItem(new NSMenuItem("Mark No Binding Detected", (_, _) =>
@@ -1626,23 +1618,26 @@ namespace AnalysisITC
                     if (!ReferenceEquals(analysisResult, result)) return;
                     result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
                     menu.SelectItem(0);
-                    menu.Title = "Modify Assessment";
+                    menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
                     QueueRefresh();
                 }));
             }
-            menu.Title = "Modify Assessment";
+            menu.Title = AnalysisResultActionPresentation.AssessmentLabel;
             menu.Menu.AutoEnablesItems = false;
-            menu.ToolTip = "Modify Assessment";
-            menu.SetValueForKey(new NSString("Modify Assessment"), new NSString("accessibilityLabel"));
+            menu.ToolTip = AnalysisResultActionPresentation.AssessmentTooltip;
+            menu.SetValueForKey(new NSString(AnalysisResultActionPresentation.AssessmentLabel), new NSString("accessibilityLabel"));
             menu.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
             menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
-            return SectionWithHeaderAction("Null hypothesis test", menu,
+            var rows = new List<NSView> {
                 Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(result) : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip),
-                Pair(independent ? "Member assessments" : "Conclusion", independent
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip)
+            };
+            rows.Add(Pair(independent ? "Member assessments" : "Conclusion", independent
                     ? NullModelComparisonPresentation.CollectionAssessmentText(result)
                     : NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
                         ?? BindingAssessmentOutcome.NotAssessed), tooltip));
+            rows.Add(menu);
+            return Section(NullModelComparisonPresentation.AnalysisInspectorTitle, rows.ToArray());
         }
 
         static string MemberComparisonUnavailableReason(NullModelComparison comparison)
@@ -2280,51 +2275,6 @@ namespace AnalysisITC
             dividerContainer.WidthAnchor.ConstraintEqualToAnchor(
                 stack.WidthAnchor).Active = true;
 
-            return stack;
-        }
-
-        static NSView SectionWithHeaderAction(string title, NSView action, params NSView[] controls)
-        {
-            var stack = new NSStackView
-            {
-                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
-                Distribution = NSStackViewDistribution.Fill,
-                Alignment = NSLayoutAttribute.Width,
-                Spacing = 4,
-                TranslatesAutoresizingMaskIntoConstraints = false,
-            };
-            var headerTitle = Label(title,
-                NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold), NSColor.Label);
-            headerTitle.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
-            headerTitle.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
-            action.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
-            var header = HorizontalStack(8, headerTitle, action);
-            header.Alignment = NSLayoutAttribute.CenterY;
-            stack.AddArrangedSubview(header);
-            header.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
-
-            foreach (var control in controls.Where(control => control != null))
-            {
-                stack.AddArrangedSubview(control);
-                control.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
-            }
-
-            var dividerContainer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-            dividerContainer.HeightAnchor.ConstraintEqualToConstant(11).Active = true;
-            var divider = new NSBox
-            {
-                BoxType = NSBoxType.NSBoxSeparator,
-                TranslatesAutoresizingMaskIntoConstraints = false,
-            };
-            dividerContainer.AddSubview(divider);
-            NSLayoutConstraint.ActivateConstraints(new[]
-            {
-                divider.LeadingAnchor.ConstraintEqualToAnchor(dividerContainer.LeadingAnchor),
-                divider.TrailingAnchor.ConstraintEqualToAnchor(dividerContainer.TrailingAnchor),
-                divider.CenterYAnchor.ConstraintEqualToAnchor(dividerContainer.CenterYAnchor),
-            });
-            stack.AddArrangedSubview(dividerContainer);
-            dividerContainer.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
             return stack;
         }
 

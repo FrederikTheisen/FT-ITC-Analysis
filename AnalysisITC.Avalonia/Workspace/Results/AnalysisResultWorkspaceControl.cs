@@ -792,21 +792,14 @@ namespace AnalysisITC.Avalonia.Results
 
             var solution = result.Solution;
             var convergence = solution.Convergence;
-            var report = result.ValidityReport;
-            var updateButton = new Button
+            summaryPanel.Children.Add(BuildValiditySection(result));
+            summaryPanel.Children.Add(Section("Solver", new Control[]
             {
-                Content = isUpdatingResult ? "Updating..." : "Update Result",
-                //MinHeight = 30,
-                Padding = new Thickness(8, 1),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                IsEnabled = !isUpdatingResult && result.Solution?.Model != null
-            };
-            ToolTip.SetTip(updateButton, "Refit using the saved analysis settings");
-            CalculationControlAvailability.Update(updateButton, !isUpdatingResult && result.Solution?.Model != null);
-            updateButton.Click += async (_, _) => await UpdateResultAsync();
-
-            summaryPanel.Children.Add(BuildValiditySection(report));
+                Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
+                Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
+                Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
+                Pair("Uncertainty method", UncertaintyEstimationPresentation.Method(solution), rowTooltip: UncertaintyEstimationPresentation.MethodTooltip)
+            }));
 
             var resultRows = new List<Control>
             {
@@ -831,24 +824,12 @@ namespace AnalysisITC.Avalonia.Results
             summaryPanel.Children.Add(BuildNullComparisonSection(result));
             summaryPanel.Children.Add(BuildInformationCriteriaSection(result));
 
-            summaryPanel.Children.Add(Section("Solver", new Control[]
-            {
-                Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
-                Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
-                Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Uncertainty method", UncertaintyEstimationPresentation.Method(solution), rowTooltip: UncertaintyEstimationPresentation.MethodTooltip)
-            }));
-
             var uncertainty = UncertaintyEstimationPresentation.Section(solution);
             if (uncertainty != null)
                 summaryPanel.Children.Add(Section(uncertainty.Title, uncertainty.Rows
                     .Select(row => (Control)Pair(row.Label, row.Value, rowTooltip: row.Tooltip)).ToArray()));
 
             summaryPanel.Children.Add(displaySection);
-            summaryPanel.Children.Add(Section("Actions", new Control[]
-            {
-                updateButton
-            }));
             RefreshParameterEvaluation();
         }
 
@@ -880,18 +861,22 @@ namespace AnalysisITC.Avalonia.Results
                 ? NullModelComparisonPresentation.CollectionAssessmentText(analysisResult)
                 : NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment?.EffectiveOutcome
                     ?? BindingAssessmentOutcome.NotAssessed);
-            var menuButton = WorkspaceControlBuilder.Button("Modify Assessment", 140);
+            var menuButton = WorkspaceControlBuilder.Button(AnalysisResultActionPresentation.AssessmentLabel, 0);
+            menuButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             menuButton.Flyout = BuildAssessmentMenu(analysisResult);
-            ToolTip.SetTip(menuButton, "Modify Assessment");
-            AutomationProperties.SetName(menuButton, "Modify Assessment");
+            ToolTip.SetTip(menuButton, AnalysisResultActionPresentation.AssessmentTooltip);
+            AutomationProperties.SetName(menuButton, AnalysisResultActionPresentation.AssessmentLabel);
             AutomationProperties.SetHelpText(menuButton, "Choose a manual binding conclusion");
             var tooltip = independent
                 ? NullModelComparisonPresentation.CollectionAssessmentTooltip(analysisResult)
                 : NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
-            return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
+            var rows = new List<Control> {
                 Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(analysisResult) : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, AppSettings.EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip),
-                Pair(independent ? "Member assessments" : "Conclusion", conclusion, rowTooltip: tooltip));
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, AppSettings.EnergyUnitFamily), valueTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily), labelTooltip: RmsdPresentation.LabelTooltip)
+            };
+            rows.Add(Pair(independent ? "Member assessments" : "Conclusion", conclusion, rowTooltip: tooltip));
+            rows.Add(menuButton);
+            return Section(NullModelComparisonPresentation.AnalysisInspectorTitle, rows.ToArray());
         }
 
         Border BuildParameterEvaluationSection()
@@ -1174,29 +1159,27 @@ namespace AnalysisITC.Avalonia.Results
         Border BuildAnalysisNullComparisonSection(AnalysisResult analysisResult)
         {
             var selected = DataManager.SelectedResultSolution;
-            if (analysisResult.IsIndependentAssessmentCollection)
-            {
-                if (selected == null || !analysisResult.Solution.Solutions.Contains(selected))
-                    return Section("Null hypothesis test", new Control[]
-                    {
-                        Text(NullModelComparisonPresentation.SelectExperimentHint)
-                    });
-                var member = analysisResult.GetMemberNullComparison(selected);
-                var assessment = analysisResult.GetMemberBindingAssessment(selected);
-                return Section("Null hypothesis test",
-                    Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
-                    Pair("Model", NullModelComparisonPresentation.NullModel(member), rowTooltip: NullModelComparisonPresentation.NullFitReason(member)),
-                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(member, AppSettings.EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(member), labelTooltip: RmsdPresentation.LabelTooltip),
-                    Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(assessment, member)));
-            }
+            var selectedId = selected != null && analysisResult.Solution.Solutions.Contains(selected)
+                ? selected.Data?.UniqueID : null;
+            var presentation = NullModelComparisonPresentation.ResultAnalysis(
+                analysisResult, selectedId, AppSettings.EnergyUnitFamily);
+            if (presentation.SelectionRequired)
+                return Section("Fit comparison", Text(NullModelComparisonPresentation.SelectExperimentHint));
 
-            var comparison = analysisResult.NullComparison;
-            var resultAssessment = analysisResult.BindingAssessment;
-            return Section("Null hypothesis test",
-                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAiccWithUnit(comparison, AppSettings.EnergyUnitFamily), valueTooltip: NullModelComparisonPresentation.ResultAnalysisEvidenceTooltip(comparison), labelTooltip: RmsdPresentation.LabelTooltip),
-                Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, comparison)));
+            var rows = new List<Control>();
+            if (!string.IsNullOrWhiteSpace(presentation.ExperimentName))
+                rows.Add(Pair("Experiment", presentation.ExperimentName));
+            rows.Add(new TextBlock { Text = "Binding", FontWeight = FontWeight.SemiBold });
+            rows.AddRange(presentation.BindingRows.Select(ComparisonRow));
+            rows.Add(new TextBlock { Text = "Null", FontWeight = FontWeight.SemiBold });
+            rows.AddRange(presentation.NullRows.Select(ComparisonRow));
+            rows.Add(ComparisonRow(presentation.DeltaRow));
+            rows.Add(ComparisonRow(presentation.ConclusionRow));
+            return Section("Fit comparison", rows.ToArray());
         }
+
+        static Control ComparisonRow(NullModelComparisonDisplayRow row)
+            => Pair(row.Label, row.Value, valueTooltip: row.Tooltip, labelTooltip: row.LabelTooltip);
 
         Border BuildResultViewSection()
         {
@@ -1572,9 +1555,9 @@ namespace AnalysisITC.Avalonia.Results
             ApplyResultTableColumnWidths();
         }
 
-        Border BuildValiditySection(AnalysisResultValidityReport report)
+        Border BuildValiditySection(AnalysisResult analysisResult)
         {
-            var health = result?.Health ?? AnalysisResultHealth.Unknown;
+            var health = analysisResult.Health;
             var color = health switch
             {
                 AnalysisResultHealth.Valid => AppTheme.StatusValid,
@@ -1593,11 +1576,11 @@ namespace AnalysisITC.Avalonia.Results
             AppTheme.Bind(title, TextBlock.ForegroundProperty, color);
 
             var lines = new List<Control> { title };
-            var displayReasons = result?.HealthReasons ?? Array.Empty<string>();
+            var displayReasons = analysisResult.HealthReasons;
 
             if (displayReasons.Count == 0)
             {
-                lines.Add(Text(report.Status == AnalysisResultValidity.Valid
+                lines.Add(Text(analysisResult.ValidityReport.Status == AnalysisResultValidity.Valid
                     ? "Cached data matches current data."
                     : "Validity could not be determined."));
             }
@@ -1607,6 +1590,21 @@ namespace AnalysisITC.Avalonia.Results
                     lines.Add(Text(reason));
             }
 
+            var updateButton = WorkspaceControlBuilder.Button(isUpdatingResult
+                ? AnalysisResultActionPresentation.UpdatingLabel : AnalysisResultActionPresentation.UpdateLabel, 0);
+            ToolTip.SetTip(updateButton, AnalysisResultActionPresentation.UpdateTooltip);
+            CalculationControlAvailability.Update(updateButton, !isUpdatingResult && analysisResult.Solution?.Model != null);
+            updateButton.Click += async (_, _) => await UpdateResultAsync();
+
+            var exportButton = WorkspaceControlBuilder.Button(AnalysisResultActionPresentation.ExportLabel, 0);
+            ToolTip.SetTip(exportButton, AnalysisResultActionPresentation.ExportTooltip);
+            exportButton.Click += async (_, _) =>
+            {
+                if (TopLevel.GetTopLevel(this) is MainWindow window)
+                    await window.OpenAnalysisResultExporterAsync();
+            };
+
+            lines.Add(EqualWidthRow(updateButton, exportButton));
             return Section("Validity", lines.ToArray());
         }
 

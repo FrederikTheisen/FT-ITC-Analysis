@@ -431,6 +431,7 @@ static class UpdateResultStatusTests
                     {
                         using (var controller = CreateController<AnalysisResultTabViewController>())
                         {
+                            if (outcome == "accepted") CheckInspectorActions(controller);
                             var temperature = controller.GetType().GetField("evaluationTemperatureText", Instance);
                             temperature.SetValue(controller, "17");
                             RefuseConcurrentUpdate(controller, "UpdateResultAsync", result, primary);
@@ -478,6 +479,69 @@ static class UpdateResultStatusTests
                     StatusBarManager.ClearAppStatus();
                 }
             }
+    }
+
+    static void CheckInspectorActions(AnalysisResultTabViewController controller)
+    {
+        var summary = Outlet<NSStackView>(controller, "ResultSummaryStack");
+        var sections = summary.ArrangedSubviews.OfType<NSStackView>().ToArray();
+        var validity = sections[0].ArrangedSubviews;
+        Check((validity[0] as NSTextField)?.StringValue == "Validity", "Validity is not the first summary section");
+        Check((sections[1].ArrangedSubviews[0] as NSTextField)?.StringValue == "Solver", "Solver is not immediately below Validity");
+        var resultSection = sections.Single(section => (section.ArrangedSubviews[0] as NSTextField)?.StringValue == "Result");
+        var resultLabels = resultSection.ArrangedSubviews.OfType<NSStackView>()
+            .Select(row => row.ArrangedSubviews.OfType<NSTextField>().FirstOrDefault()?.StringValue).ToList();
+        var rmsd = resultLabels.IndexOf("RMSD");
+        var molarRmsd = resultLabels.IndexOf("Molar RMSD");
+        Check(rmsd >= 0 && (molarRmsd < 0 || molarRmsd == rmsd + 1), "Summary RMSD rows are not adjacent");
+        Check(!resultLabels.Contains("Reduced chi-square"), "Summary exposed reduced chi-square");
+        var actionRow = (NSStackView)validity[validity.Length - 2];
+        var buttons = actionRow.ArrangedSubviews.OfType<NSButton>().ToArray();
+        Check(buttons.Select(button => button.Title).SequenceEqual(new[] { "Update Result", "Export Result…" }),
+            "Validity did not show the two result actions together below its status");
+
+        var exportRequests = 0;
+        EventHandler exported = (sender, args) => exportRequests++;
+        AppDelegate.OpenResultExporterTool += exported;
+        try { buttons[1].PerformClick(buttons[1]); }
+        finally { AppDelegate.OpenResultExporterTool -= exported; }
+        Check(exportRequests == 1, "Export Result did not launch the result exporter");
+
+        var assessment = sections.Single(section =>
+            (section.ArrangedSubviews[0] as NSTextField)?.StringValue == "Null hypothesis test");
+        var rows = assessment.ArrangedSubviews;
+        var conclusion = (NSStackView)rows[rows.Length - 3];
+        var menu = rows[rows.Length - 2] as NSPopUpButton;
+        Check(conclusion.ArrangedSubviews.OfType<NSTextField>().Any(field => field.StringValue == "Conclusion")
+            && menu?.Title == "Modify Assessment",
+            "Modify Assessment did not appear in its own row below the conclusion");
+        Check(menu.BezelStyle == buttons[0].BezelStyle && menu.ControlSize == buttons[0].ControlSize,
+            "Modify Assessment did not match the other inspector actions");
+
+        var result = (AnalysisResult)typeof(AnalysisResultTabViewController)
+            .GetField("analysisResult", Instance).GetValue(controller);
+        using (var layoutSection = (NSStackView)typeof(AnalysisResultTabViewController)
+            .GetMethod("BuildNullComparisonSection", Instance).Invoke(controller, new object[] { result }))
+        using (var window = new NSWindow(new CGRect(100, 100, 320, 400), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
+        {
+            var host = window.ContentView;
+            host.AddSubview(layoutSection);
+            NSLayoutConstraint.ActivateConstraints(new[]
+            {
+                layoutSection.TopAnchor.ConstraintEqualToAnchor(host.TopAnchor),
+                layoutSection.LeadingAnchor.ConstraintEqualToAnchor(host.LeadingAnchor),
+                layoutSection.TrailingAnchor.ConstraintEqualToAnchor(host.TrailingAnchor),
+            });
+            var layoutMenu = layoutSection.ArrangedSubviews.OfType<NSPopUpButton>().Single();
+            foreach (var inspectorWidth in new[] { 320, 460 })
+            {
+                window.SetContentSize(new CGSize(inspectorWidth, 400));
+                host.LayoutSubtreeIfNeeded();
+                var buttonWidth = layoutMenu.GetAlignmentRectForFrame(layoutMenu.Frame).Width;
+                Check(host.Bounds.Width >= inspectorWidth && Math.Abs((double)(buttonWidth - host.Bounds.Width)) < 1,
+                    $"Modify Assessment width was {buttonWidth} in a {host.Bounds.Width}-point inspector");
+            }
+        }
     }
 
     static void RefuseConcurrentUpdate(object controller, string method, AnalysisResult result, NSTextField primary)

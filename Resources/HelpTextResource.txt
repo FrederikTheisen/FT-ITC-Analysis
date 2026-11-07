@@ -243,19 +243,21 @@ Thermodynamic conversions use the molar gas constant R = 8.31446261815324 J/(mol
 
 Results and the Analysis Result Exporter each remember their Celsius/Kelvin choice for the current application session. Both start from **Preferences > Temperature units**. Changing that preference resets both choices immediately; changing either workflow's selector affects only that workflow. Switching units preserves the physical evaluation temperature.
 
-Use **Export result...** to choose results, summary or individual rows, value and uncertainty columns, and CSV or TSV output. The same table can be copied. Numeric tables use decimal points regardless of regional settings.
+In **Summary > Validity**, use **Export Result…** to open the table exporter with this result selected. Choose summary or individual rows, value and uncertainty columns, and CSV or TSV output. The same table can be copied. Numeric tables use decimal points regardless of regional settings.
 
 Distinguish **Combined SD** and **Approximate propagated interval** in local summaries from model-estimated SDs and CI95 intervals. See **Parameter uncertainty** for the refitting methods and **Binding assessment** for model comparisons and output restrictions.
 
 ## Result validity
 
-Validity compares saved fit inputs with the current experiments, including temperature, concentrations, included injections and heats. Check the reasons and use **Update Result** after changing inputs. An independent collection without temperature dependence can be **Partially invalid** when only some members change. A result with shared parameters or temperature dependence becomes **Invalid** when any member's fit inputs change, even when the experiments were fitted individually.
+Validity compares saved fit inputs with the current experiments, including temperature, concentrations, included injections and heats. In **Summary > Validity**, check the reasons and use **Update Result** after changing inputs. An independent collection without temperature dependence can be **Partially invalid** when only some members change. A result with shared parameters or temperature dependence becomes **Invalid** when any member's fit inputs change, even when the experiments were fitted individually.
 
 Removing any source experiment from the experiment browser makes the whole result **Invalid** and names the missing experiment. **Undo** restores the previous validity when it restores the original experiment unchanged.
 
 # Fit metrics
 
 RMSD describes unweighted heat differences even when the fitting objective was weighted. A saved global fit may also provide Molar RMSD. Compare AIC or AICc only for the same observations under the same weighting and likelihood assumptions.
+
+In the result's **Analysis** tab, **Binding** and **Null** each show RMSD and AICc. **ΔAICc** and the assessment follow. Select an experiment for an independently fitted collection. A joint fit shows statistics for the whole result.
 
 # Summary uncertainty
 
@@ -270,7 +272,7 @@ These intervals lack established 95% coverage, especially for small collections,
 ## Binding assessment
 Check the automatic assessment alongside the curve, residuals, and uncertainty. It compares the binding fit with a **Null model**, which describes heat without binding. **No binding detected** means this experiment does not establish binding relative to that model; it does not show that the molecules cannot bind.
 
-Use **Modify Assessment** on a saved result to override the conclusion or restore automatic assessment. Manual assessments take precedence. **Null prediction** overlays the saved Null fit; on native macOS, choose **Analysis > Show Null Prediction** in the Analysis toolbar menu.
+In **Summary > Null hypothesis test**, use **Modify Assessment** to override the conclusion or restore automatic assessment. Manual assessments take precedence. **Null prediction** overlays the saved Null fit; on native macOS, choose **Analysis > Show Null Prediction** in the Analysis toolbar menu.
 
 # Uncertainty and updates
 

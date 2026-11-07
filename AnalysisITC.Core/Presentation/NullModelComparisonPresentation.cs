@@ -28,14 +28,73 @@ namespace AnalysisITC.Core.Presentation
         public string LabelTooltip { get; }
     }
 
+    public sealed class ResultAnalysisComparison
+    {
+        public string ExperimentName { get; internal set; } = string.Empty;
+        public bool SelectionRequired { get; internal set; }
+        public IReadOnlyList<NullModelComparisonDisplayRow> BindingRows { get; internal set; } = Array.Empty<NullModelComparisonDisplayRow>();
+        public IReadOnlyList<NullModelComparisonDisplayRow> NullRows { get; internal set; } = Array.Empty<NullModelComparisonDisplayRow>();
+        public NullModelComparisonDisplayRow DeltaRow { get; internal set; }
+        public NullModelComparisonDisplayRow ConclusionRow { get; internal set; }
+    }
+
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
     public static class NullModelComparisonPresentation
     {
         public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 15 are inconclusive; values ≥ 15 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to the Null model used for the comparison; it does not establish that the molecules cannot bind.";
 
-        public const string SelectExperimentHint = "Select an experiment to inspect its saved Null model comparison.";
+        public const string SelectExperimentHint = "Select an experiment to compare its binding and Null fits.";
 
         public const string AnalysisInspectorTitle = "Null hypothesis test";
+
+        /// <summary>Saved evidence at the result's applicable comparison scope.</summary>
+        public static ResultAnalysisComparison ResultAnalysis(AnalysisResult result, string selectedExperimentId, EnergyUnitFamily family)
+        {
+            var view = new ResultAnalysisComparison();
+            var solutions = result?.Solution?.Solutions;
+            if (solutions == null || solutions.Count == 0) { view.SelectionRequired = true; return view; }
+            var independent = result.IsIndependentAssessmentCollection;
+            if (independent && string.IsNullOrWhiteSpace(selectedExperimentId))
+            {
+                view.SelectionRequired = true;
+                return view;
+            }
+            var member = independent
+                ? solutions.FirstOrDefault(s => s?.Data?.UniqueID == selectedExperimentId)
+                : solutions.FirstOrDefault();
+            if (member == null) { view.SelectionRequired = true; return view; }
+            if (independent) view.ExperimentName = member.Data?.Name ?? string.Empty;
+            var comparison = independent ? result.GetMemberNullComparison(member) : result.NullComparison;
+            var assessment = independent ? result.GetMemberBindingAssessment(member) : result.BindingAssessment;
+            var bindingCriteria = comparison?.BindingInformationCriteria
+                ?? (independent ? result.GetMemberInformationCriteria(member) : result.InformationCriteria);
+            var bindingRmsd = independent || solutions.Count == 1 ? member.Convergence?.UnweightedRmsd : result.Solution.Convergence?.UnweightedRmsd;
+            var nullRmsd = comparison?.NullInformationCriteria?.ResidualRmsdMicrojoules;
+            if (!nullRmsd.HasValue && comparison?.NullFitSucceeded == true && (independent || solutions.Count == 1))
+                nullRmsd = SavedNullSolution(comparison, member.Data?.UniqueID)?.Convergence?.UnweightedRmsd;
+            var nullReason = NullRmsdReason(comparison);
+            view.BindingRows = new[] {
+                new NullModelComparisonDisplayRow("RMSD", RmsdPresentation.FormatHeat(bindingRmsd, family), bindingRmsd.HasValue && FWEMath.IsFinite(bindingRmsd.Value) ? "Saved unweighted binding fit RMSD" : "Saved binding RMSD is unavailable.", RmsdPresentation.LabelTooltip),
+                CriteriaRow(bindingCriteria)
+            };
+            view.NullRows = new[] {
+                new NullModelComparisonDisplayRow("RMSD", RmsdPresentation.FormatHeat(nullRmsd, family), nullReason, RmsdPresentation.LabelTooltip),
+                CriteriaRow(comparison?.NullInformationCriteria)
+            };
+            var delta = Delta(comparison);
+            view.DeltaRow = new NullModelComparisonDisplayRow("ΔAICc", delta == "Not calculated" ? "Unavailable" : delta,
+                "Null AICc − binding AICc" + (delta == "Unavailable" || delta == "Not calculated" ? ". " + ComparisonReason(comparison) : string.Empty));
+            view.ConclusionRow = new NullModelComparisonDisplayRow("Conclusion", Conclusion(assessment), AutomaticRecommendation(assessment, comparison));
+            return view;
+        }
+
+        static NullModelComparisonDisplayRow CriteriaRow(FitInformationCriteria criteria)
+        {
+            var available = criteria?.IsAiccAvailable == true;
+            return new NullModelComparisonDisplayRow("AICc", available ? Aicc(criteria) : "Unavailable",
+                available ? "Saved corrected Akaike information criterion" :
+                    string.IsNullOrWhiteSpace(criteria?.AiccUnavailableReason) ? "Saved AICc is unavailable." : criteria.AiccUnavailableReason);
+        }
 
         /// <summary>Rows shown by the live analysis inspector on every platform.</summary>
         public static IReadOnlyList<NullModelComparisonDisplayRow> AnalysisInspectorRows(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)

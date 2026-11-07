@@ -51,7 +51,12 @@ static class AnalysisNullEvidenceTests
             var model = new OneSetOfSites(experiment);
             model.InitializeParameters(experiment);
             model.Solution = SolutionInterface.FromModel(model,
-                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+                {
+                    ReducedChiSquareQ = 5,
+                    ReducedChiSquareObservationCount = 3,
+                    ReducedChiSquareParameterCount = 1
+                }));
             var comparison = new NullModelComparison
             {
                 NullModelId = "offset",
@@ -62,6 +67,7 @@ static class AnalysisNullEvidenceTests
                 NullInformationCriteria = Criteria(112, 2, 4.184),
                 Members = { Member(experiment, 40) }
             };
+            comparison.NullSolutions.Add(model.Solution);
             typeof(SolutionInterface).GetProperty("NullComparison").GetSetMethod(true)
                 .Invoke(model.Solution, new object[] { comparison });
             experiment.Model = model;
@@ -81,6 +87,9 @@ static class AnalysisNullEvidenceTests
                 && rendered.Contains("Null RMSD") && rendered.Contains("ΔAICc")
                 && rendered.Contains("Conclusion") && rendered.Contains("Offset")
                 && rendered.Contains("+12"), "Saved Null evidence values were not rendered");
+
+            Check(!rendered.Contains("Reduced chi-square") && !rendered.Contains("Null reduced chi-square"),
+                "Routine fit inspector exposed reduced chi-square");
 
             CheckHeatRow(stack, 4.184.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ");
             AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
@@ -102,6 +111,8 @@ static class AnalysisNullEvidenceTests
                 "Graph retained cleared Null evidence");
             Check(AnalysisGraphView.ShowNullPrediction, "Clearing a fit reset the prediction preference");
             rendered = Rendered(stack);
+            Check(!rendered.Contains("Reduced chi-square") && !rendered.Contains("Null reduced chi-square"),
+                "Cleared fit retained reduced chi-square rows");
             Check(rendered.Contains("Unknown") && rendered.Contains("Unavailable")
                 && rendered.Contains("Not calculated") && rendered.Contains("Not assessed")
                 && rendered.Contains("No fit result for the selected experiment."),
@@ -232,8 +243,8 @@ static class AnalysisNullEvidenceTests
 
     static void CheckResultHeatRows()
     {
-        var first = CreateExperiment("rmsd-first.DH", 12).Model;
-        var second = CreateExperiment("rmsd-second.DH", 15).Model;
+        var first = CreateExperiment("rmsd-first.DH", 12, reducedChiSquareQ: 4).Model;
+        var second = CreateExperiment("rmsd-second.DH", 15, reducedChiSquareQ: 6).Model;
         first.Solution.NullComparison.NullInformationCriteria = Criteria(112, 2, 4.184);
         second.Solution.NullComparison.NullInformationCriteria = Criteria(115, 2, 8.368);
         var single = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = first }));
@@ -245,6 +256,11 @@ static class AnalysisNullEvidenceTests
             new System.Collections.Generic.List<SolutionInterface> { first.Solution, second.Solution },
             first.Solution.Convergence);
         var independent = new AnalysisResult(global.Solution);
+        using (var table = new ResultViewDataSource(independent, EnergyUnitFamily.Joules, useKelvin: false))
+        {
+            Check(!table.Presentation.Columns.Any(column => column.Title == ReducedChiSquarePresentation.Label),
+                "Independent member table exposed reduced chi-square");
+        }
         foreach (var scope in new[] { 0, 1, 2 })
         {
             var result = scope == 0 ? single : independent;
@@ -256,10 +272,24 @@ static class AnalysisNullEvidenceTests
                     new object[] { first.Solution.NullComparison });
                 result = new AnalysisResult(global.Solution);
                 Check(!result.IsIndependentAssessmentCollection, "Pooled fixture must share fitted parameters");
+                using (var table = new ResultViewDataSource(result, EnergyUnitFamily.Joules, useKelvin: false))
+                    Check(!table.Presentation.Columns.Any(column => column.Title == ReducedChiSquarePresentation.Label),
+                        "Joint member rows exposed a reduced chi-square column");
             }
             using (var controller = (AnalysisResultTabViewController)Create(typeof(AnalysisResultTabViewController)))
             {
                 typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+                if (result.IsIndependentAssessmentCollection)
+                {
+                    DataManager.ClearResultSolutionSelection();
+                    using (var prompt = (NSView)typeof(AnalysisResultTabViewController)
+                        .GetMethod("BuildAnalysisNullComparisonSection", Instance).Invoke(controller, null))
+                        Check(Rendered(prompt).Contains(NullModelComparisonPresentation.SelectExperimentHint), "Independent comparison did not request a selection");
+                    DataManager.SelectResultSolution(CreateExperiment("foreign.DH", 99).Solution);
+                    using (var prompt = (NSView)typeof(AnalysisResultTabViewController)
+                        .GetMethod("BuildAnalysisNullComparisonSection", Instance).Invoke(controller, null))
+                        Check(Rendered(prompt).Contains(NullModelComparisonPresentation.SelectExperimentHint), "Independent comparison accepted a foreign selection");
+                }
                 foreach (var family in new[] { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories })
                 {
                     AppSettings.EnergyUnitFamily = family;
@@ -269,13 +299,23 @@ static class AnalysisNullEvidenceTests
                         using (var section = (NSView)typeof(AnalysisResultTabViewController)
                             .GetMethod("BuildAnalysisNullComparisonSection", Instance).Invoke(controller, null))
                         {
-                            var label = Descendants(section).OfType<NSTextField>().Single(field => field.StringValue == "RMSD / ΔAICc");
-                            var value = label.Superview.Subviews.OfType<NSTextField>().Single(field => field != label);
+                            var fields = Descendants(section).OfType<NSTextField>().ToList();
+                            var names = fields.Select(field => field.StringValue).ToList();
+                            var bindingIndex = names.IndexOf("Binding");
+                            var nullIndex = names.IndexOf("Null");
+                            var deltaIndex = names.IndexOf("ΔAICc");
+                            var conclusionIndex = names.IndexOf("Conclusion");
+                            Check(bindingIndex >= 0 && bindingIndex < nullIndex && nullIndex < deltaIndex && deltaIndex < conclusionIndex,
+                                "Result comparison groups are out of order: " + string.Join(", ", names));
+                            Check(names.Skip(bindingIndex + 1).Take(nullIndex - bindingIndex - 1).Count(name => name == "RMSD" || name == "AICc") == 2
+                                && names.Skip(nullIndex + 1).Take(deltaIndex - nullIndex - 1).Count(name => name == "RMSD" || name == "AICc") == 2,
+                                "Result comparison is missing fit statistics");
+                            var nullRmsd = fields.Skip(nullIndex + 1).First(field => field.StringValue == "RMSD");
+                            var value = nullRmsd.Superview.Subviews.OfType<NSTextField>().Single(field => field != nullRmsd);
                             var heat = result.IsIndependentAssessmentCollection && member == second.Solution ? (family == EnergyUnitFamily.Joules ? 8.368.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ" : "2 µcal")
                                 : family == EnergyUnitFamily.Joules ? 4.184.ToString("G4", System.Globalization.CultureInfo.CurrentCulture) + " µJ" : "1 µcal";
-                            Check(value.StringValue.StartsWith(heat + " / +"), "Result analysis heat unit: " + value.StringValue);
-                            Check(label.ToolTip == RmsdPresentation.LabelTooltip, "Result RMSD label explanation");
-                            Check(!value.ToolTip.Contains("unweighted") && !value.ToolTip.Contains("RMSD unit"), "Result value repeats label/unit");
+                            Check(value.StringValue == heat, "Result analysis heat unit: " + value.StringValue);
+                            Check(!names.Contains("Reduced chi-square") && !names.Contains("Null reduced chi-square"), "Result analysis exposed reduced chi-square");
                         }
                     }
                 }
@@ -319,7 +359,7 @@ static class AnalysisNullEvidenceTests
         return controller;
     }
 
-    static ExperimentData CreateExperiment(string name, double delta)
+    static ExperimentData CreateExperiment(string name, double delta, double? reducedChiSquareQ = null)
     {
         var experiment = new ExperimentData(name);
         for (var index = 0; index < 3; index++)
@@ -338,7 +378,12 @@ static class AnalysisNullEvidenceTests
         var model = new OneSetOfSites(experiment);
         model.InitializeParameters(experiment);
         model.Solution = SolutionInterface.FromModel(model,
-            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                ReducedChiSquareQ = reducedChiSquareQ,
+                ReducedChiSquareObservationCount = reducedChiSquareQ.HasValue ? 3 : (int?)null,
+                ReducedChiSquareParameterCount = reducedChiSquareQ.HasValue ? 1 : (int?)null,
+            }));
         typeof(SolutionInterface).GetProperty("NullComparison").GetSetMethod(true)
             .Invoke(model.Solution, new object[] { Comparison(experiment, delta) });
         experiment.Model = model;
