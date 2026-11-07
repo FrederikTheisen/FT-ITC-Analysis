@@ -15,10 +15,14 @@
 [Licence](LICENSE.md)
 
 FT-ITC Analysis is an open-source desktop application for processing,
-analyzing, and presenting isothermal titration calorimetry (ITC) data. It
-supports baseline correction, peak integration, model fitting,
-multi-experiment analysis, uncertainty estimation, and publication-oriented
-figures, reports, and data export.
+analyzing, and presenting isothermal titration calorimetry (ITC) data on
+macOS, Windows, and Linux.
+
+- Process MicroCal and NanoITC thermograms with baseline correction and adjustable peak integration.
+- Fit integrated heats with single-site, multisite, or competitive binding models.
+- Fit experiments jointly with shared or temperature-dependent parameters.
+- Estimate parameter uncertainty with residual bootstrap or profile likelihood.
+- Export publication figures, PDF analysis reports, and numerical results.
 
 [<img src="Documentation/assets/program-overview.png" width="800" alt="Annotated FT-ITC Analysis interface showing navigation, processing, fitting, publication figures, and analysis results.">](Documentation/assets/program-overview.png)
 
