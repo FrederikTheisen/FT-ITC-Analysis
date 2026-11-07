@@ -3252,6 +3252,56 @@ public sealed partial class AnalysisReportBuilderTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StandardReportRequiresAssessmentAndDiagnosticReportRetainsNullReducedChiSquare(bool hasSavedDiagnostic)
+    {
+        var result = CreateResult(1);
+        var experiment = result.Solution.Solutions.Single().Data;
+        var model = new Offset(experiment);
+        model.InitializeParameters(experiment);
+        var nullFit = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+        {
+            Termination = SolverTermination.Converged,
+            ReducedChiSquareQ = hasSavedDiagnostic ? 5d : (double?)null,
+            ReducedChiSquareObservationCount = 3,
+            ReducedChiSquareParameterCount = 1,
+        }));
+        var comparison = new NullModelComparison
+        {
+            NullModelId = "offset",
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            NullInformationCriteria = FitInformationCriteria.Restore(
+                observationCount: 3, fittedParameterCount: 1, likelihoodParameterCount: 2,
+                likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
+                minusTwoLogLikelihood: 90, aic: 94, aicc: null, isAicAvailable: true, isAiccAvailable: false,
+                aicUnavailableReason: "", aiccUnavailableReason: "Insufficient observations",
+                rawResidualSumOfSquares: 1, residualRmsdMicrojoules: 2,
+                standardizedResidualSumOfSquares: 5, logSigmaSquaredSum: 0),
+            NullSolutions = { nullFit },
+            Members = { new NullModelComparisonMember { ExperimentId = experiment.UniqueID, Scope = "local" } },
+        };
+        result.RestoreNullComparison(comparison);
+        Assert.Equal(BindingAssessmentOutcome.NotAssessed, result.BindingAssessment.EffectiveOutcome);
+
+        var blocks = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Standard })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Where(block => block.Title == "Binding assessment");
+        Assert.Empty(blocks);
+        var diagnosticItems = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items);
+        Assert.Equal(hasSavedDiagnostic ? new[] { "2.5" } : Array.Empty<string>(),
+            diagnosticItems.Where(item => item.Label == "Null reduced chi-square").Select(item => item.Value));
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        blocks = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Standard })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Where(block => block.Title == "Binding assessment");
+        Assert.Single(blocks);
+    }
+
+    [Theory]
     [InlineData(EnergyUnitFamily.Joules, "missing comparison", null, "Unavailable")]
     [InlineData(EnergyUnitFamily.Calories, "missing comparison", null, "Unavailable")]
     [InlineData(EnergyUnitFamily.Joules, "missing criteria", null, "Unavailable")]

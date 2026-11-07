@@ -164,8 +164,8 @@ codes retain their existing identifiers.
 
 ### A01. Binding assessment
 
-**Std.** — printed heading: **Binding assessment**. Single or pooled result only;
-omitted for Not assessed and independent collections. Rows, in order:
+**Std.** — printed heading: **Binding assessment**. Applies to single or joint
+fits with an effective assessment other than Not assessed. Rows, in order:
 
 | Row | Content / conditions |
 | --- | --- |
@@ -185,6 +185,7 @@ single or pooled result, rows appear in this order:
 | Null fit | Fit status. |
 | Null model parameters | Saved parameters per experiment. |
 | Null RMSD | Selected heat unit; "Unavailable" has no unit. |
+| Null reduced chi-square | Shown when the saved Null fit has complete diagnostic evidence. |
 | Binding AICc | Saved binding criteria. |
 | Null AICc | Saved Null criteria. |
 | ΔAICc | Saved signed difference, or unavailable. |
@@ -208,6 +209,7 @@ A02 follows this independent-collection version of A01.
 | "Pooled across the independently fitted experiments with one common variance; diagnostic only…" | Does not determine member assessments. |
 | ΔAICc, or reason unavailable | |
 | Null fit: RMSD, or status | |
+| Null reduced chi-square | Requires saved diagnostic evidence for every Null fit. |
 
 ### A04. No binding detected
 
@@ -294,6 +296,7 @@ Same structure in both modes. Rows, in order:
 | Ligand enthalpy | Indented under Model; energy/mol unit; report uncertainty style. |
 | Constraint | <parameter>: <description>, one row per constraint. |
 | RMSD / Molar RMSD | µJ / kJ/mol. |
+| Reduced chi-square | Diag. only. Uses the whole fit or pools every independent member. Requires complete saved evidence and follows the combined binding-output policy. |
 | Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". A residual bootstrap that lost no refits but kept fewer than the shared minimum (`FittingOptionsController.MinimumRetainedBootstrapRefits`, 50) reads "incomplete" and ends with "at least 50 needed" ("… per experiment" on the aggregate row of an independent collection); results saved before this rule keep their recorded outcome (ITC-185). Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Pooled bootstrap results add the saved residual sampling and scale source to the joint summary. If pool preparation failed, the summary gives the reason. Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
 | AIC / AICc | Omitted for independent collections. |
 | Solver | Algorithm; termination; iterations (time); weighting. Omitted without convergence info. |
@@ -444,11 +447,13 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E07** | **[Info] Reading parameter correlations** | expanded + E06 |
 | **E08** | **Fit details** | |
 | | · RMSD / Molar RMSD | omitted for no-binding |
+| | · Reduced chi-square | Diag. only, for single or independent member fits with saved evidence, subject to member binding-output policy |
 | | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; uses the report uncertainty style; omitted for no-binding. Bootstrap and leave-one-out use the c-value calculated for each retained refit. |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
 | | · Uncertainty: same form as A10, including "not estimated (no binding detected)" and preserved profile/cancellation outcomes | omitted for global or constrained fits |
 | | · Binding assessment + "(manual)" if overridden | independent collection, assessed |
 | | · ΔAICc (null − binding) | independent collection, assessed |
+| | · Null reduced chi-square | Diag. only, for independent collections with saved member Null evidence |
 | **E09** | **Comments** | only when written |
 | **E10** | **Injection table** (one row per injection) | tables on; replaced by E11 for no-binding |
 | | · # | |

@@ -281,6 +281,33 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
+    public void FitInspectorOmitsSavedReducedChiSquareBeforeResultCreation()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var experiment = CreateReadyExperiment("chi-square-inspector.itc");
+            var model = new OneSetOfSites(experiment);
+            model.InitializeParameters(experiment);
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                ReducedChiSquareQ = 5,
+                ReducedChiSquareObservationCount = 3,
+                ReducedChiSquareParameterCount = 1
+            }));
+            experiment.Model = model;
+            var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                Assert.DoesNotContain(ReducedChiSquarePresentation.Label, FitSummaryLabels(workspace));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [AvaloniaFact]
     public void FitSummaryStaysVisibleAndCompleteWhenGraphParameterOverlaysChange()
     {
         var previousDisplay = AppSettings.AnalysisParameterDisplay;

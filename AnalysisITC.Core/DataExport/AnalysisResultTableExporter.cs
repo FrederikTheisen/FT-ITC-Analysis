@@ -402,6 +402,7 @@ namespace AnalysisITC.Core.Export
             }
 
             header.Add("Loss");
+            if (options.OutputPurpose == ResultOutputPurpose.Diagnostic) header.Add(ReducedChiSquarePresentation.Label);
             header.Add("Output purpose");
             header.Add("Binding assessment");
             header.Add("Assessment mode");
@@ -412,12 +413,14 @@ namespace AnalysisITC.Core.Export
             header.Add("Null RMSD (" + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily) + ")");
             header.Add("Binding AICc");
             header.Add("Null AICc");
+            if (options.OutputPurpose == ResultOutputPurpose.Diagnostic) header.Add(ReducedChiSquarePresentation.NullLabel);
             header.Add("ΔAICc");
             header.Add("Assessment reason");
             if (includePooledDiagnostics)
             {
                 header.Add("Pooled diagnostic binding AICc");
                 header.Add("Pooled diagnostic null AICc");
+                header.Add("Pooled diagnostic null reduced chi-square");
                 header.Add("Pooled diagnostic ΔAICc");
                 header.Add("Pooled diagnostic null RMSD (" + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily) + ")");
                 header.Add("Pooled diagnostic fit status");
@@ -455,8 +458,9 @@ namespace AnalysisITC.Core.Export
                     AddValue(row, SummaryValue(result, column.Parameter), column.Parameter, concentrationUnits, energyUnits, options);
             }
 
-            row.Add(ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose)
-                ? "" : result.Solution.UnweightedRmsd.ToString("G3"));
+            row.Add(suppressBinding ? "" : result.Solution.UnweightedRmsd.ToString("G3"));
+            if (options.OutputPurpose == ResultOutputPurpose.Diagnostic)
+                row.Add(suppressBinding ? "" : ReducedChiSquarePresentation.Format(ReducedChiSquarePresentation.ForResult(result)));
             AddSummaryAssessment(row, result, options);
             if (includePooledDiagnostics)
                 AddPooledDiagnostics(row, result, options);
@@ -541,6 +545,8 @@ namespace AnalysisITC.Core.Export
 
             row.Add(suppressBinding
                 ? "" : solution.UnweightedRmsd.ToString("G3"));
+            if (options.OutputPurpose == ResultOutputPurpose.Diagnostic)
+                row.Add(suppressBinding ? "" : ReducedChiSquarePresentation.Format(ReducedChiSquarePresentation.ForFit(solution)));
             AddMemberAssessment(row, result, solution, options);
 
             return row;
@@ -566,7 +572,7 @@ namespace AnalysisITC.Core.Export
             row.Add(CollectionAssessmentSummary(result));
             row.Add("Derived from member assessments");
             // A single Summary comparison cannot represent independent member tests.
-            for (var i = 0; i < 9; i++) row.Add("");
+            for (var i = 0; i < (options.OutputPurpose == ResultOutputPurpose.Diagnostic ? 10 : 9); i++) row.Add("");
         }
 
         static string CollectionAssessmentSummary(AnalysisResult result)
@@ -594,13 +600,15 @@ namespace AnalysisITC.Core.Export
         {
             if (!result.IsIndependentAssessmentCollection)
             {
-                for (var i = 0; i < 7; i++) row.Add("");
+                for (var i = 0; i < 8; i++) row.Add("");
                 return;
             }
 
             var comparison = result.PooledNullComparison;
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria));
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria));
+            row.Add(ReducedChiSquarePresentation.Format(ReducedChiSquarePresentation.ForNull(comparison,
+                result.Solution.Solutions.Select(member => member.Data?.UniqueID))));
             row.Add(NullModelComparisonPresentation.Delta(comparison));
             row.Add(NullModelComparisonPresentation.NullRmsd(comparison, options.EnergyUnitFamily));
             row.Add("Binding fit: " + NullModelComparisonPresentation.BindingStatus(comparison)
@@ -649,6 +657,11 @@ namespace AnalysisITC.Core.Export
             row.Add(NullModelComparisonPresentation.NullRmsd(comparison, energyUnitFamily));
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria));
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria));
+            var expectedExperimentIds = result.IsIndependentAssessmentCollection
+                ? new[] { onlyMember?.Data?.UniqueID }
+                : result.Solution.Solutions.Select(member => member.Data?.UniqueID);
+            if (purpose == ResultOutputPurpose.Diagnostic)
+                row.Add(ReducedChiSquarePresentation.Format(ReducedChiSquarePresentation.ForNull(comparison, expectedExperimentIds)));
             row.Add(NullModelComparisonPresentation.Delta(comparison));
             row.Add(comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
                 : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)

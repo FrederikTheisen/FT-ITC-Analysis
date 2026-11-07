@@ -232,6 +232,43 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(GaussianLikelihoodEvaluator.NonFiniteWeightedStatisticsReason, evaluation.UnavailableReason);
         }
 
+        [Fact]
+        public void DiagnosticUsesOnlyIncludedActualSigmasAndDoesNotAlterUnweightedLikelihood()
+        {
+            var complete = CreateProbe(new ResidualSpec(true, 1e-6, 1e-6),
+                new ResidualSpec(true, -4e-6, 2e-6), new ResidualSpec(false, 1, 0));
+            var missing = CreateProbe(new ResidualSpec(true, 1e-6, 0),
+                new ResidualSpec(true, -4e-6, 2e-6));
+            var a = GaussianLikelihoodEvaluator.Evaluate(complete, GaussianLikelihoodMode.EstimatedCommonVariance);
+            var b = GaussianLikelihoodEvaluator.Evaluate(missing, GaussianLikelihoodMode.EstimatedCommonVariance);
+            Assert.Equal(5, a.ReducedChiSquareQ.Value, 12);
+            Assert.Null(b.ReducedChiSquareQ);
+            Assert.Equal(a.RmsdMicrojoules, b.RmsdMicrojoules);
+            Assert.Equal(a.MinusTwoLogLikelihood, b.MinusTwoLogLikelihood);
+            var overflow = GaussianLikelihoodEvaluator.Evaluate(CreateProbe(new ResidualSpec(true, 1, 1e-200)), GaussianLikelihoodMode.EstimatedCommonVariance);
+            Assert.Null(overflow.ReducedChiSquareQ);
+            Assert.True(overflow.IsLikelihoodAvailable);
+            Assert.Equal(1e6, overflow.RmsdMicrojoules);
+        }
+
+        [Fact]
+        public void DiagnosticSnapshotAndCopyPreserveEvidence()
+        {
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(CreateProbe(
+                new ResidualSpec(true, 1, 1), new ResidualSpec(true, 2, 1), new ResidualSpec(true, 3, 1)),
+                GaussianLikelihoodMode.EstimatedCommonVariance);
+            var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot());
+            convergence.SetResidualStatistics(evaluation, 1);
+            var restored = SolverConvergence.FromSnapshot(convergence.Copy().ToSnapshot());
+            Assert.Equal(14, restored.ReducedChiSquareQ);
+            Assert.Equal(3, restored.ReducedChiSquareObservationCount);
+            Assert.Equal(1, restored.ReducedChiSquareParameterCount);
+            convergence.SetResidualStatistics(evaluation, 1, captureReducedChiSquare: false);
+            Assert.Null(convergence.ReducedChiSquareQ);
+            Assert.Null(convergence.ReducedChiSquareObservationCount);
+            Assert.Null(convergence.ReducedChiSquareParameterCount);
+        }
+
         static double GaussianDensity(double residual, double variance)
             => Math.Exp(-residual * residual / (2 * variance)) / Math.Sqrt(2 * Math.PI * variance);
 

@@ -11,6 +11,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 using Xunit;
@@ -333,6 +334,29 @@ public sealed class ProjectWriterTests : IDisposable
                     restored.OfType<ExperimentData>().Select(item => item.UniqueID).OrderBy(id => id));
             }
         }
+    }
+
+    [Fact]
+    public async Task SaveSelectedKeepsReducedChiSquareForTheFitAndItsNullComparison()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        foreach (var injection in model.Data.Injections)
+            injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 1e-6));
+        model.Solution.Convergence.SetResidualStatistics(model.ResidualStatistics(), model.NumberOfParameters);
+        NullModelComparisonCalculator.Calculate(model.Solution, false, SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        var primary = ReducedChiSquarePresentation.ForResult(result);
+        var nullFit = ReducedChiSquarePresentation.ForNull(result.NullComparison);
+        Assert.NotNull(primary);
+        Assert.NotNull(nullFit);
+        var path = Path.Combine(directory, "selected-reduced-chi-square.ftxtc");
+        PlatformServices.RegisterFileSavePromptService(new FixedPrompt(path));
+
+        Assert.True(await ProjectWriter.SaveSelectedAsync(result));
+
+        var restored = Assert.Single((await Read(path)).OfType<AnalysisResult>());
+        Assert.Equal(primary.Value, ReducedChiSquarePresentation.ForResult(restored).Value);
+        Assert.Equal(nullFit.Value, ReducedChiSquarePresentation.ForNull(restored.NullComparison).Value);
     }
 
     [Fact]

@@ -479,6 +479,12 @@ namespace AnalysisITC.Core.Export
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? Objective { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? ReducedChiSquareQ { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ReducedChiSquareObservationCount { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ReducedChiSquareParameterCount { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? MolarRmsdJoulesPerMole { get; set; }
         public double TimeSeconds { get; set; }
         public double ErrorEstimationTimeSeconds { get; set; }
@@ -2077,6 +2083,9 @@ namespace AnalysisITC.Core.Export
                 Termination = TerminationId(value.Termination), ErrorOutcome = ErrorOutcomeId(value.ErrorEstimationOutcome),
                 Iterations = value.Iterations, Loss = value.Loss, Objective = value.Objective, TimeSeconds = value.TimeSeconds,
                 MolarRmsdJoulesPerMole = value.MolarRmsdJoulesPerMole,
+                ReducedChiSquareQ = value.ReducedChiSquareQ,
+                ReducedChiSquareObservationCount = value.ReducedChiSquareObservationCount,
+                ReducedChiSquareParameterCount = value.ReducedChiSquareParameterCount,
                 ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds,
                 FailureReason = value.FailureReason, ErrorEstimationSummary = value.ErrorEstimationSummary,
                 ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,

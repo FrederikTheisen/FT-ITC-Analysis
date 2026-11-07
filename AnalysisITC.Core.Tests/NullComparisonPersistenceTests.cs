@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -12,6 +13,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Viewer;
 using Xunit;
@@ -658,6 +660,43 @@ public sealed class NullComparisonPersistenceTests
         Assert.NotSame(restored.Solution.Solutions[0].Model.Data, detachedNullSolution.Model.Data);
         foreach (var point in actualMember.Points)
             Assert.Equal(point.PredictedHeatJoules, detachedNullSolution.Model.Evaluate(point.InjectionId), 12);
+    }
+
+    [Fact]
+    public async Task ReducedChiSquareEvidenceSurvivesSdEditsAndStrictRoundTrip()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        foreach (var injection in model.Data.Injections)
+            injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 1e-6));
+        model.Solution.Convergence.SetResidualStatistics(model.ResidualStatistics(), model.NumberOfParameters);
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        var result = CreateResult(model);
+        var fit = ReducedChiSquarePresentation.ForResult(result);
+        var nullFit = ReducedChiSquarePresentation.ForNull(result.NullComparison);
+        Assert.NotNull(fit);
+        Assert.NotNull(nullFit);
+        foreach (var injection in model.Data.Injections)
+            injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 3e-6));
+        using var package = await Write(model.Data, result);
+        FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+        package.Position = 0;
+        var restored = await FTXTCReader.ReadWithRecovery(package, FtxtcReadPolicy.Strict);
+        Assert.Empty(restored.Issues);
+        var saved = Assert.Single(restored.Containers.OfType<AnalysisResult>());
+        Assert.False(saved.ValidityReport.IsValid);
+        Assert.Equal(fit.Value, ReducedChiSquarePresentation.ForResult(saved).Value);
+        Assert.Equal(nullFit.Value, ReducedChiSquarePresentation.ForNull(saved.NullComparison).Value);
+        Assert.Equal(fit.ObservationCount, ReducedChiSquarePresentation.ForResult(saved).ObservationCount);
+        Assert.Equal(fit.ParameterCount, ReducedChiSquarePresentation.ForResult(saved).ParameterCount);
+
+        var report = AnalysisReportBuilder.Build(saved, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic });
+        var items = report.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items).ToList();
+        Assert.Equal(fit.Value.ToString("G4", CultureInfo.InvariantCulture),
+            Assert.Single(items, item => item.Label == ReducedChiSquarePresentation.Label).Value);
+        Assert.Equal(nullFit.Value.ToString("G4", CultureInfo.InvariantCulture),
+            Assert.Single(items, item => item.Label == ReducedChiSquarePresentation.NullLabel).Value);
     }
 
     [Theory]

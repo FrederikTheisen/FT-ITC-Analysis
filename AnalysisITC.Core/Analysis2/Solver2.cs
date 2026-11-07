@@ -1206,7 +1206,7 @@ namespace AnalysisITC.Core.Analysis
             if (convergence.Failed || convergence.Stopped)
                 convergence.SetObjective(null);
             if (!convergence.Failed && !convergence.Stopped)
-                convergence.SetResidualStatistics(Model.ResidualStatistics());
+                convergence.SetResidualStatistics(Model.ResidualStatistics(), Model.NumberOfParameters);
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -1271,7 +1271,7 @@ namespace AnalysisITC.Core.Analysis
             if (convergence.Failed || convergence.Stopped)
                 convergence.SetObjective(null);
             if (!convergence.Failed && !convergence.Stopped)
-                convergence.SetResidualStatistics(Model.ResidualStatistics());
+                convergence.SetResidualStatistics(Model.ResidualStatistics(), Model.NumberOfParameters);
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -1640,7 +1640,7 @@ namespace AnalysisITC.Core.Analysis
 
                             convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
                             if (!convergence.Failed && !convergence.Stopped)
-                                convergence.SetResidualStatistics(Model.ResidualStatistics());
+                                convergence.SetResidualStatistics(Model.ResidualStatistics(), Model.NumberOfParameters);
                             Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
                             Model.Solution.NullComparison = comparison;
                         }
@@ -1648,7 +1648,7 @@ namespace AnalysisITC.Core.Analysis
                         {
                             convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
                             if (!convergence.Failed && !convergence.Stopped)
-                                convergence.SetResidualStatistics(Model.ResidualStatistics());
+                                convergence.SetResidualStatistics(Model.ResidualStatistics(), Model.NumberOfParameters);
 
                             Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
                         }

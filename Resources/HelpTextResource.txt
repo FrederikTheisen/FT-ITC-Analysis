@@ -286,6 +286,8 @@ Reopening evaluates saved comparison evidence with the current automatic rule wh
 
 **Tables:** Standard exports omit binding values and RMSD for no-binding members and retain Inconclusive values. Choose **Diagnostic report** or **Diagnostic export** to inspect available attempted binding detail. **Not assessed** imposes no restriction and is not positive evidence of binding.
 
+**Reduced chi-square** appears in Diagnostic reports and exports when the fit has the required evidence. It describes residual scatter relative to the saved integration SDs, whose scale may differ from variation across repeat measurements.
+
 # Independent experiments
 
 Each independent fit has its own Null comparison. **Member assessments** shows a common conclusion or **Mixed assessments**; this summary is not a joint statistical verdict.

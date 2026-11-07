@@ -39,6 +39,7 @@ namespace AnalysisITC.Core.Analysis
 
         internal double StandardizedResidualSumOfSquares { get; }
         internal double LogSigmaSquaredSum { get; }
+        internal double? ReducedChiSquareQ { get; set; }
 
         internal double Objective =>
             Mode == GaussianLikelihoodMode.EstimatedWeightedVariance
@@ -150,6 +151,7 @@ namespace AnalysisITC.Core.Analysis
             double molarRss = 0;
             double standardizedRss = 0;
             double logSigmaSquaredSum = 0;
+            double? diagnosticQ = AnalysisBuilder.CanUseErrorWeightedFitting(model.Data) ? 0.0 : (double?)null;
 
             foreach (var injection in included)
             {
@@ -195,6 +197,13 @@ namespace AnalysisITC.Core.Analysis
                         double.NaN,
                         double.NaN,
                         NonFiniteResidualReason);
+                }
+
+                if (diagnosticQ.HasValue)
+                {
+                    var standardized = residual / injection.PeakArea.SD;
+                    var next = diagnosticQ.Value + standardized * standardized;
+                    diagnosticQ = FWEMath.IsFinite(next) ? next : (double?)null;
                 }
 
                 var squaredResidual = residual * residual;
@@ -266,7 +275,9 @@ namespace AnalysisITC.Core.Analysis
                 }
             }
 
-            return Finalize(mode, included.Count, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
+            var result = Finalize(mode, included.Count, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
+            result.ReducedChiSquareQ = diagnosticQ;
+            return result;
         }
 
         internal static GaussianLikelihoodEvaluation Evaluate(
@@ -357,7 +368,13 @@ namespace AnalysisITC.Core.Analysis
                 }
             }
 
-            return Finalize(mode, observations, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
+            var result = Finalize(mode, observations, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
+            if (list.All(component => component.ReducedChiSquareQ.HasValue))
+            {
+                var q = list.Sum(component => component.ReducedChiSquareQ.Value);
+                result.ReducedChiSquareQ = FWEMath.IsFinite(q) ? q : (double?)null;
+            }
+            return result;
         }
 
         static GaussianLikelihoodEvaluation Finalize(

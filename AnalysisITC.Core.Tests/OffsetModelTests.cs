@@ -4,6 +4,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests;
@@ -14,6 +15,79 @@ public sealed class OffsetSolverTestCollection { }
 [Collection("OffsetSolverTests")]
 public sealed class OffsetModelTests
 {
+    [Theory]
+    [InlineData(SolverAlgorithm.NelderMead, false, 2.5)]
+    [InlineData(SolverAlgorithm.NelderMead, true, 2.0)]
+    [InlineData(SolverAlgorithm.LevenbergMarquardt, false, 2.5)]
+    [InlineData(SolverAlgorithm.LevenbergMarquardt, true, 2.0)]
+    public void ReducedChiSquareUsesTheAcceptedOffsetFit(SolverAlgorithm algorithm, bool weighted, double expected)
+    {
+        var model = OffsetWithThreeEqualInjections("single-offset.itc");
+        var solver = new Solver
+        {
+            Model = model,
+            SolverAlgorithm = algorithm,
+            UseErrorWeightedFitting = weighted,
+            ErrorEstimationMethod = ErrorEstimationMethod.None,
+        };
+        var convergence = solver.Solve();
+
+        Assert.True(convergence.Success, convergence.Message);
+        var diagnostic = ReducedChiSquarePresentation.ForFit(model.Solution);
+        Assert.NotNull(diagnostic);
+        Assert.Equal(expected, diagnostic.Value, 4);
+        Assert.Equal(3, diagnostic.ObservationCount);
+        Assert.Equal(1, diagnostic.ParameterCount);
+    }
+
+    [Fact]
+    public void JointReducedChiSquareCountsSharedOffsetOnceAndClearsMemberEvidence()
+    {
+        var members = new Model[] { OffsetWithThreeEqualInjections("first-offset.itc"),
+            OffsetWithThreeEqualInjections("second-offset.itc") };
+        var model = new GlobalModel(members.ToList()) { Parameters = new GlobalModelParameters() };
+        foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Parameters);
+        model.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
+        model.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0);
+        model.Parameters.SetIndividualFromGlobal();
+        var solver = new GlobalSolver
+        {
+            Model = model,
+            SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+            ErrorEstimationMethod = ErrorEstimationMethod.None,
+        };
+
+        Assert.True(solver.Solve().Success);
+
+        var diagnostic = ReducedChiSquarePresentation.ForResult(new AnalysisResult(model.Solution));
+        Assert.NotNull(diagnostic);
+        Assert.Equal(2, diagnostic.Value, 4);
+        Assert.Equal(6, diagnostic.ObservationCount);
+        Assert.Equal(1, diagnostic.ParameterCount);
+        Assert.All(model.Solution.Solutions, member =>
+        {
+            Assert.Null(member.Convergence.ReducedChiSquareQ);
+            Assert.Null(member.Convergence.ReducedChiSquareObservationCount);
+            Assert.Null(member.Convergence.ReducedChiSquareParameterCount);
+            Assert.Null(ReducedChiSquarePresentation.ForFit(member));
+        });
+    }
+
+    static Offset OffsetWithThreeEqualInjections(string name)
+    {
+        var experiment = CreateExperiment(name);
+        experiment.Injections.Clear();
+        for (var index = 0; index < 3; index++)
+        {
+            var injection = new InjectionData(experiment, index, 1e-6, 0, include: true);
+            injection.SetPeakArea(new FloatWithError(index * 2e-6, index == 2 ? 2e-6 : 1e-6));
+            experiment.Injections.Add(injection);
+        }
+        var model = new Offset(experiment);
+        model.InitializeParameters(experiment);
+        return model;
+    }
+
     [Fact]
     public void OffsetPredictionUsesInjectedMolesAndSupportsUnequalShotVolumes()
     {

@@ -578,13 +578,18 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         var containers = await FTITCReader.ReadStream(source);
         var result = Assert.Single(containers.OfType<AnalysisResult>());
         foreach (var experiment in containers.OfType<ExperimentData>())
+        {
+            foreach (var injection in experiment.Injections)
+                injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 1e-6));
             DataManager.AddData(experiment);
+        }
         result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             member.ErrorMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.BindingDetected);
         var original = result.Solution;
+        Assert.Null(ReducedChiSquarePresentation.ForResult(result));
 
         var convergence = await AnalysisResultUpdater.UpdateAsync(result);
 
@@ -594,6 +599,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         Assert.Same(convergence, result.Solution.Convergence);
         Assert.False(convergence.Failed);
         Assert.False(convergence.Stopped);
+        Assert.NotNull(ReducedChiSquarePresentation.ForResult(result));
     }
 
     [Fact]

@@ -110,15 +110,21 @@ For a **weighted fit with one estimated variance multiplier**:
 >
 > This uses each injection's processing SD $\sigma$ as a relative weight. The score also includes their different uncertainty scales.
 
-Weighted criteria use the processing SDs as relative measures of injection uncertainty and estimate one common variance multiplier, $Q/n$, from the standardized residual score $Q$ and observation count $n$. This does not change those SDs or the fitted parameters. Every included injection needs a positive SD for weighted fitting. A score is unavailable when residual variance is zero. Weighted profile-likelihood intervals retain the relative weights and use the estimated overall residual scale for their threshold.
+Weighted criteria use the processing SDs as relative measures of injection uncertainty and estimate one common variance multiplier, $Q/n$, from the standardized residual score $Q$ and observation count $n$. This does not change those SDs or the fitted parameters. Every included injection needs a positive SD for weighted fitting. AIC and AICc are unavailable when residual variance is zero. Weighted profile-likelihood intervals retain the relative weights and use the estimated overall residual scale for their threshold.
 
 The fitted parameter count $p$ includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, $p$ includes only that member model's free fitted parameters. In both weighting modes, the reported values use $K = p + 1$, $\mathrm{AIC} = -2\log L + 2K$, and $\mathrm{AICc} = \mathrm{AIC} + 2K(K + 1)/(n - K - 1)$. This standard small-sample correction is an approximation for nonlinear ITC models.
+
+### Reduced chi-square in Diagnostic output
+
+**Diagnostic report** and **Diagnostic export** can show reduced chi-square for weighted and unweighted fits with saved integration SDs. It describes the residual scatter on the scale of those processing estimates. The integration SDs may be smaller or larger than the variation in repeated measurements, so the value has no calibrated target without an independently justified error scale.
+
+The value is $Q/(n-p)$, where $Q$ is the standardized residual score above, $n$ is the number of included injections, and $p$ is the number of free parameters. In a joint fit, shared parameters count once. A pooled diagnostic for independent fits sums the scores and degrees of freedom across the full collection. The Null fit uses its own residuals and parameter count.
 
 <a id="null-hypothesis-test"></a>
 
 ### Binding assessment
 
-Review the automatic conclusion beside the fit and residuals. **No binding detected** means this experiment does not establish binding relative to the Null model; it does not establish that the molecules cannot bind. Use **Modify Assessment** to override the conclusion or restore automatic assessment. Updates recalculate the automatic outcome and retain manual overrides; reopening applies the current rule to saved comparison evidence without refitting. Assessments are saved in `.ftxtc` projects.
+Review the conclusion beside the fit and residuals. **No binding detected** means this experiment does not establish binding relative to the Null model; it does not establish that the molecules cannot bind. In **Summary > Null hypothesis test**, use **Modify Assessment** to override the conclusion or restore automatic assessment. Updates recalculate the automatic outcome and retain manual overrides; reopening applies the current rule to saved comparison evidence without refitting. Assessments are saved in `.ftxtc` projects.
 
 **Null prediction** overlays the model fit on the integrated-heats graph; the original binding fit remains available. In the native macOS Analysis view, choose **Show Null Prediction** from the **Analysis** menu on the right side of the toolbar.
 

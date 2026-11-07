@@ -139,6 +139,106 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         Assert.Equal("", independentRow[Array.IndexOf(headers, "Binding AICc")]);
     }
 
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard, "", "")]
+    [InlineData(ResultOutputPurpose.Diagnostic, "1.75", "3")]
+    public void ReducedChiSquareUsesFullPoolAndBindingOutputPolicy(
+        ResultOutputPurpose purpose, string expectedPooled, string expectedNoBindingMember)
+    {
+        var result = IndependentResult(out var members, includePooledComparison: false, includeReducedChiSquare: true);
+        result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.BindingDetected);
+        result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.NoBindingDetected);
+
+        var pooledNull = new NullModelComparison { NullModelId = "offset", NullFitSucceeded = true };
+        for (var index = 0; index < members.Count; index++)
+        {
+            var data = members[index].Data;
+            var model = new Offset(data);
+            model.InitializeParameters(data);
+            var nullSolution = SolutionInterface.FromModel(model, ConvergenceWithReducedChiSquare(
+                SolverConvergence.FromFixedFit(0, 0), index == 0 ? 5 : 15, 6, 1));
+            var localNull = new NullModelComparison { NullModelId = "offset", NullFitSucceeded = true };
+            localNull.NullSolutions.Add(nullSolution);
+            localNull.Members.Add(new NullModelComparisonMember { ExperimentId = data.UniqueID, Scope = "local" });
+            pooledNull.NullSolutions.Add(nullSolution);
+            pooledNull.Members.AddRange(localNull.Members);
+            var assessment = result.GetMemberBindingAssessment(members[index]);
+            result.RestoreMemberComparisonAndAssessment(members[index].Guid, localNull, assessment);
+        }
+        result.RestoreNullComparison(pooledNull);
+
+        var options = new AnalysisResultExportOptions
+        {
+            OutputPurpose = purpose,
+            FileFormat = AnalysisResultExportFileFormat.TSV,
+            RowMode = AnalysisResultExportRowMode.Summary,
+        };
+        var summary = Lines(AnalysisResultTableExporter.Build(new[] { result }, options));
+        Assert.All(summary.Skip(1), row => Assert.Equal(summary[0].Length, row.Length));
+        if (purpose == ResultOutputPurpose.Diagnostic)
+        {
+            Assert.Equal(expectedPooled, summary[1][Array.IndexOf(summary[0], "Reduced chi-square")]);
+            Assert.Equal("", summary[1][Array.IndexOf(summary[0], "Null reduced chi-square")]);
+        }
+        else
+        {
+            Assert.DoesNotContain("Reduced chi-square", summary[0]);
+            Assert.DoesNotContain("Null reduced chi-square", summary[0]);
+        }
+        var pooledNullColumn = Array.IndexOf(summary[0], "Pooled diagnostic null reduced chi-square");
+        if (purpose == ResultOutputPurpose.Diagnostic)
+            Assert.Equal("2", summary[1][pooledNullColumn]);
+        else
+            Assert.Equal(-1, pooledNullColumn);
+
+        options.RowMode = AnalysisResultExportRowMode.AllRows;
+        var rows = Lines(AnalysisResultTableExporter.Build(new[] { result }, options));
+        var primaryColumn = Array.IndexOf(rows[0], "Reduced chi-square");
+        var nullColumn = Array.IndexOf(rows[0], "Null reduced chi-square");
+        Assert.All(rows.Skip(1), row => Assert.Equal(rows[0].Length, row.Length));
+        if (purpose == ResultOutputPurpose.Diagnostic)
+        {
+            Assert.Equal(new[] { "1", expectedNoBindingMember }, rows.Skip(1).Select(row => row[primaryColumn]));
+            Assert.Equal(new[] { "1", "3" }, rows.Skip(1).Select(row => row[nullColumn]));
+        }
+        else { Assert.Equal(-1, primaryColumn); Assert.Equal(-1, nullColumn); }
+
+        var report = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+        var summaryBlocks = report.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().ToList();
+        Assert.Equal(expectedPooled, ReadItem(summaryBlocks.Single(block => block.Title == "Model and fit details"),
+            "Reduced chi-square"));
+        Assert.Equal(purpose == ResultOutputPurpose.Diagnostic ? new[] { "2" } : Array.Empty<string>(),
+            summaryBlocks.SelectMany(block => block.Items).Where(item => item.Label == "Null reduced chi-square")
+                .Select(item => item.Value));
+        var memberBlocks = report.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Select(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details"))
+            .ToList();
+        Assert.Equal(purpose == ResultOutputPurpose.Diagnostic ? new[] { "1", expectedNoBindingMember } : new[] { "", "" }, memberBlocks.Select(block => ReadItem(block, "Reduced chi-square")));
+        Assert.Equal(purpose == ResultOutputPurpose.Diagnostic ? new[] { "1", "3" } : new[] { "", "" }, memberBlocks.Select(block => ReadItem(block, "Null reduced chi-square")));
+
+        if (purpose == ResultOutputPurpose.Diagnostic)
+        {
+            pooledNull.NullSolutions.RemoveAt(1);
+            pooledNull.NullFitSucceeded = false;
+            options.RowMode = AnalysisResultExportRowMode.Summary;
+            var incomplete = Lines(AnalysisResultTableExporter.Build(new[] { result }, options));
+            Assert.Equal("", incomplete[1][pooledNullColumn]);
+        }
+
+        static string ReadItem(AnalysisReportKeyValueBlock block, string label)
+            => block.Items.SingleOrDefault(item => item.Label == label)?.Value ?? "";
+    }
+
+    [Fact]
+    public void DesktopOverviewOmitsSavedMemberReducedChiSquare()
+    {
+        var result = IndependentResult(out _, includePooledComparison: false, includeReducedChiSquare: true);
+        var desktop = AnalysisResultOverviewTable.Build(result.PresentationData, EnergyUnitFamily.Joules,
+            energyUnitOverride: null, useKelvin: false);
+        Assert.DoesNotContain(desktop.Columns, candidate => candidate.Title == "Reduced chi-square");
+    }
+
     public static IEnumerable<object[]> ExportLayouts()
     {
         foreach (var format in Enum.GetValues<AnalysisResultExportFileFormat>())
@@ -191,6 +291,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
                 options.FileFormat = AnalysisResultExportFileFormat.TSV;
                 var table = Lines(AnalysisResultTableExporter.Build(new[] { single, independent }, options));
                 options.FileFormat = format;
+                Assert.All(table.Skip(1), item => Assert.Equal(table[0].Length, item.Length));
                 var header = table[0];
                 var row = table[1];
                 Assert.Equal("123.25", row[Array.IndexOf(header, "Binding AICc")]);
@@ -267,12 +368,20 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         return result;
     }
 
-    static AnalysisResult IndependentResult(out List<SolutionInterface> members, bool includePooledComparison)
+    static AnalysisResult IndependentResult(out List<SolutionInterface> members, bool includePooledComparison,
+        bool includeReducedChiSquare = false)
     {
         var first = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         var second = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         first.Data.Name = "Duplicate";
         second.Data.Name = "Duplicate";
+        if (includeReducedChiSquare)
+        {
+            first.Solution = SolutionInterface.FromModel(first,
+                ConvergenceWithReducedChiSquare(first.Solution.Convergence, 10, 12, 2));
+            second.Solution = SolutionInterface.FromModel(second,
+                ConvergenceWithReducedChiSquare(second.Solution.Convergence, 18, 8, 2));
+        }
         members = new List<SolutionInterface> { first.Solution, second.Solution };
         var model = new GlobalModel(new List<Model> { first, second })
         {
@@ -287,6 +396,15 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         if (includePooledComparison)
             solution.NullComparison = Comparison(first.Data.UniqueID, 15);
         return new AnalysisResult(solution);
+    }
+
+    static SolverConvergence ConvergenceWithReducedChiSquare(SolverConvergence convergence, double q, int n, int p)
+    {
+        var snapshot = convergence.ToSnapshot();
+        snapshot.ReducedChiSquareQ = q;
+        snapshot.ReducedChiSquareObservationCount = n;
+        snapshot.ReducedChiSquareParameterCount = p;
+        return SolverConvergence.FromSnapshot(snapshot);
     }
 
     static NullModelComparison Comparison(string id, double delta, double bindingAicc = 100, double rmsd = 2)

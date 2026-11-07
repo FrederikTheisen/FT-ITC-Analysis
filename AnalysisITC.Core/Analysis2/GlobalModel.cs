@@ -432,14 +432,15 @@ namespace AnalysisITC.Core.Analysis
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
 			if (Convergence != null && !Convergence.Failed && !Convergence.Stopped)
-				Convergence.SetResidualStatistics(Model.ResidualStatistics());
+				Convergence.SetResidualStatistics(Model.ResidualStatistics(), Model.NumberOfParameters);
 
 			foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, convergence.Copy());
+                if (Model.Models.Count > 1) mdl.Solution.Convergence.ClearReducedChiSquare();
                 if (!mdl.Solution.Convergence.Failed && !mdl.Solution.Convergence.Stopped)
                 {
-                    mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics());
+                    mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics(), mdl.NumberOfParameters, captureReducedChiSquare: Model.Models.Count == 1);
                     if (convergence?.Objective.HasValue == true)
                         mdl.Solution.Convergence.SetObjective(
                             mdl.ResidualStatistics(UseWeightedFitting).Objective);

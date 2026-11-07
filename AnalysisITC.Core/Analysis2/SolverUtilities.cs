@@ -542,6 +542,9 @@ namespace AnalysisITC.Core.Analysis
         /// of squares for weighted fits.
         /// </summary>
         public double? Objective { get; private set; }
+        public double? ReducedChiSquareQ { get; private set; }
+        public int? ReducedChiSquareObservationCount { get; private set; }
+        public int? ReducedChiSquareParameterCount { get; private set; }
 
         /// <summary>
         /// Compatibility alias for the historical serialized/display metric.
@@ -631,10 +634,20 @@ namespace AnalysisITC.Core.Analysis
         public void SetLoss(double loss) => SetUnweightedRmsd(loss);
         public void SetMolarRMSD(Energy? molarRmsd) => MolarRMSD = molarRmsd;
 
-        internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation)
+        internal void ClearReducedChiSquare()
+        {
+            ReducedChiSquareQ = null;
+            ReducedChiSquareObservationCount = null;
+            ReducedChiSquareParameterCount = null;
+        }
+
+        internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation, int parameterCount, bool captureReducedChiSquare = true)
         {
             if (evaluation == null) throw new ArgumentNullException(nameof(evaluation));
 
+            ReducedChiSquareQ = captureReducedChiSquare ? evaluation.ReducedChiSquareQ : null;
+            ReducedChiSquareObservationCount = ReducedChiSquareQ.HasValue ? evaluation.ObservationCount : (int?)null;
+            ReducedChiSquareParameterCount = ReducedChiSquareQ.HasValue ? parameterCount : (int?)null;
             UnweightedRmsd = evaluation.RmsdMicrojoules;
             MolarRMSD = evaluation.MolarRmsdJoulesPerMole.HasValue
                 ? new Energy(evaluation.MolarRmsdJoulesPerMole.Value)
@@ -822,6 +835,9 @@ namespace AnalysisITC.Core.Analysis
                 Iterations = this.Iterations,
                 UnweightedRmsd = this.UnweightedRmsd,
                 Objective = this.Objective,
+                ReducedChiSquareQ = ReducedChiSquareQ,
+                ReducedChiSquareObservationCount = ReducedChiSquareObservationCount,
+                ReducedChiSquareParameterCount = ReducedChiSquareParameterCount,
                 MolarRMSD = this.MolarRMSD,
 
                 Time = this.Time,
@@ -852,6 +868,9 @@ namespace AnalysisITC.Core.Analysis
                 Iterations = Iterations,
                 Loss = UnweightedRmsd,
                 Objective = Objective,
+                ReducedChiSquareQ = ReducedChiSquareQ,
+                ReducedChiSquareObservationCount = ReducedChiSquareObservationCount,
+                ReducedChiSquareParameterCount = ReducedChiSquareParameterCount,
                 MolarRmsdJoulesPerMole = MolarRMSD?.Value,
                 TimeSeconds = Time.TotalSeconds,
                 ErrorEstimationTimeSeconds = ErrorEstimationTime.TotalSeconds,
@@ -879,6 +898,9 @@ namespace AnalysisITC.Core.Analysis
                 Objective = snapshot.Objective.HasValue && FWEMath.IsFinite(snapshot.Objective.Value)
                     ? snapshot.Objective
                     : (double?)null,
+                ReducedChiSquareQ = snapshot.ReducedChiSquareQ,
+                ReducedChiSquareObservationCount = snapshot.ReducedChiSquareObservationCount,
+                ReducedChiSquareParameterCount = snapshot.ReducedChiSquareParameterCount,
                 MolarRMSD = snapshot.MolarRmsdJoulesPerMole.HasValue
                     ? new Energy(snapshot.MolarRmsdJoulesPerMole.Value)
                     : (Energy?)null,
@@ -1222,6 +1244,9 @@ namespace AnalysisITC.Core.Analysis
         public int Iterations { get; set; }
         public double Loss { get; set; }
         public double? Objective { get; set; }
+        public double? ReducedChiSquareQ { get; set; }
+        public int? ReducedChiSquareObservationCount { get; set; }
+        public int? ReducedChiSquareParameterCount { get; set; }
         public double? MolarRmsdJoulesPerMole { get; set; }
         public double TimeSeconds { get; set; }
         public double ErrorEstimationTimeSeconds { get; set; }

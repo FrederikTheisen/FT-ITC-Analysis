@@ -76,6 +76,26 @@ public sealed class AnalysisResultTableColumnWidthTests
     }
 
     [AvaloniaFact]
+    public void ResultTableOmitsSavedReducedChiSquare()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateResult("with-diagnostic.itc", new SolverConvergenceSnapshot
+            {
+                ReducedChiSquareQ = 5,
+                ReducedChiSquareObservationCount = 3,
+                ReducedChiSquareParameterCount = 1,
+            });
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var grid = workspace.ResultTableGridForTesting!;
+            var headers = grid.Children.OfType<Border>().Where(cell => Grid.GetRow(cell) == 0)
+                .ToDictionary(cell => ((Grid)cell.Child!).Children.OfType<TextBlock>().Single().Text!, Grid.GetColumn);
+            Assert.Contains("RMSD (µJ)", headers.Keys);
+            Assert.DoesNotContain(ReducedChiSquarePresentation.Label, headers.Keys);
+        });
+    }
+
+    [AvaloniaFact]
     public void ManualWidthUsesMinimumAndSurvivesRefresh()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -116,7 +136,7 @@ public sealed class AnalysisResultTableColumnWidthTests
         });
     }
 
-    static AnalysisResult CreateResult(string experimentName)
+    static AnalysisResult CreateResult(string experimentName, SolverConvergenceSnapshot? convergence = null)
     {
         var experiment = new ExperimentData(experimentName)
         {
@@ -136,7 +156,7 @@ public sealed class AnalysisResultTableColumnWidthTests
         model.InitializeParameters(experiment);
         model.Solution = SolutionInterface.FromModel(
             model,
-            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            SolverConvergence.FromSnapshot(convergence ?? new SolverConvergenceSnapshot()));
         return new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
     }
 }

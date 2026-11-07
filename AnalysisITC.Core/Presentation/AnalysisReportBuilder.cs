@@ -998,6 +998,7 @@ namespace AnalysisITC.Core.Presentation
                     var nullRmsd = NullModelComparisonPresentation.NullRmsd(comparison, options.EnergyUnitFamily);
                     assessmentItems.Add(Item("Null RMSD", nullRmsd == "Unavailable" ? nullRmsd
                         : nullRmsd + " " + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily)));
+                    AddNullReducedChiSquare(assessmentItems, comparison, result.Solution.Solutions.Select(member => member.Data?.UniqueID));
                     assessmentItems.Add(Item("Binding AICc", NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria)));
                     assessmentItems.Add(Item("Null AICc", NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria)));
                     assessmentItems.Add(Item("ΔAICc", NullModelComparisonPresentation.Delta(comparison)));
@@ -1007,21 +1008,26 @@ namespace AnalysisITC.Core.Presentation
                 if (result.IsIndependentAssessmentCollection)
                     AddPooledComparisonDiagnostics(section, result, options);
             }
-            if (options.OutputPurpose == ResultOutputPurpose.Standard && !result.IsIndependentAssessmentCollection
-                && result.BindingAssessment != null && result.BindingAssessment.EffectiveOutcome != BindingAssessmentOutcome.NotAssessed)
+            else if (options.OutputPurpose == ResultOutputPurpose.Standard && !result.IsIndependentAssessmentCollection)
             {
                 var comparison = result.NullComparison;
-                var labelsById = result.Solution.Solutions.Select((member, index) => new { member, index })
-                    .Where(item => !string.IsNullOrWhiteSpace(item.member?.Data?.UniqueID))
-                    .GroupBy(item => item.member.Data.UniqueID).ToDictionary(group => group.Key, group => labels[group.First().index]);
-                section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
+                var members = result.Solution.Solutions;
+                var outcome = result.BindingAssessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
+                if (outcome != BindingAssessmentOutcome.NotAssessed)
                 {
-                    Item("Conclusion", AssessmentText(result.BindingAssessment)),
-                    Item("Binding model", ModelName(result)),
-                    Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
-                    Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
-                    Item("ΔAICc", FormatDeltaAicc(comparison)),
-                }));
+                    var labelsById = members.Select((member, index) => new { member, index })
+                        .Where(item => !string.IsNullOrWhiteSpace(item.member?.Data?.UniqueID))
+                        .GroupBy(item => item.member.Data.UniqueID).ToDictionary(group => group.Key, group => labels[group.First().index]);
+                    var assessmentItems = new List<AnalysisReportKeyValueItem>
+                    {
+                        Item("Conclusion", AssessmentText(result.BindingAssessment)),
+                        Item("Binding model", ModelName(result)),
+                        Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
+                        Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
+                        Item("ΔAICc", FormatDeltaAicc(comparison)),
+                    };
+                    section.Add(new AnalysisReportKeyValueBlock("Binding assessment", assessmentItems));
+                }
             }
             var omitted = result.Solution.Solutions.Where(member => member?.Data != null
                 && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member)).ToList();
@@ -1054,7 +1060,7 @@ namespace AnalysisITC.Core.Presentation
             }
 
             section.Add(new AnalysisReportKeyValueBlock("Model and fit details",
-                BuildModelItems(result, options).Concat(BuildFitDiagnosticItems(result))));
+                BuildModelItems(result, options).Concat(BuildFitDiagnosticItems(result, options.OutputPurpose))));
             var fixedItems = BuildFixedParameterItems(result, overview, options);
             if (fixedItems.Count > 0)
                 section.Add(new AnalysisReportKeyValueBlock("Fixed parameters", fixedItems));
@@ -1144,7 +1150,7 @@ namespace AnalysisITC.Core.Presentation
                     AddCorrelation(section, result, index, options);
                 var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose, options.UncertaintyDisplayStyle).ToList();
                 if (result.IsIndependentAssessmentCollection)
-                    AddMemberAssessmentItems(fitItems, result, solution);
+                    AddMemberAssessmentItems(fitItems, result, solution, options.OutputPurpose);
                 section.Add(new AnalysisReportKeyValueBlock("Fit details", fitItems));
                 if (!string.IsNullOrWhiteSpace(data.Comments))
                     section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
@@ -1436,12 +1442,21 @@ namespace AnalysisITC.Core.Presentation
                 ? NullModelComparisonPresentation.NullStatus(comparison)
                 : rmsd == "Unavailable" ? "Converged"
                 : "RMSD " + rmsd + " " + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily);
-            section.Add(new AnalysisReportKeyValueBlock("", new[]
+            var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("ΔAICc", delta == "Unavailable" || delta == "Not calculated"
                     ? ComparisonReasonForReport(comparison) : delta),
                 Item("Null fit", nullFit),
-            }));
+            };
+            AddNullReducedChiSquare(items, comparison, result.Solution.Solutions.Select(member => member.Data?.UniqueID));
+            section.Add(new AnalysisReportKeyValueBlock("", items));
+        }
+
+        static void AddNullReducedChiSquare(List<AnalysisReportKeyValueItem> items, NullModelComparison comparison,
+            IEnumerable<string> expectedExperimentIds)
+        {
+            if (ReducedChiSquarePresentation.ForNull(comparison, expectedExperimentIds) is { } diagnostic)
+                items.Add(Item(ReducedChiSquarePresentation.NullLabel, ReducedChiSquarePresentation.Format(diagnostic)));
         }
 
         static AnalysisReportTableBlock OverviewTableBlock(
@@ -1873,11 +1888,14 @@ namespace AnalysisITC.Core.Presentation
             return false;
         }
 
-        static IEnumerable<AnalysisReportKeyValueItem> BuildFitDiagnosticItems(AnalysisResult result)
+        static IEnumerable<AnalysisReportKeyValueItem> BuildFitDiagnosticItems(AnalysisResult result, ResultOutputPurpose purpose)
         {
             var solution = result.Solution;
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem> { RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD) };
+            if (purpose == ResultOutputPurpose.Diagnostic && ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, purpose)
+                && ReducedChiSquarePresentation.ForResult(result) is { } diagnostic)
+                items.Add(Item(ReducedChiSquarePresentation.Label, ReducedChiSquarePresentation.Format(diagnostic)));
             if (convergence != null)
             {
                 var uncertainty = UncertaintyText(solution.ErrorEstimationMethod, convergence,
@@ -2472,13 +2490,18 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static void AddMemberAssessmentItems(List<AnalysisReportKeyValueItem> items, AnalysisResult result,
-            SolutionInterface solution)
+            SolutionInterface solution, ResultOutputPurpose purpose)
         {
             var assessment = result.GetMemberBindingAssessment(solution);
-            if ((assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed) == BindingAssessmentOutcome.NotAssessed) return;
-            // The experiment chapter always identifies a manual conclusion.
-            items.Add(Item("Binding assessment", AssessmentText(assessment)));
-            items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
+            var comparison = result.GetMemberNullComparison(solution);
+            if ((assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed) != BindingAssessmentOutcome.NotAssessed)
+            {
+                // The experiment chapter always identifies a manual conclusion.
+                items.Add(Item("Binding assessment", AssessmentText(assessment)));
+                items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(comparison)));
+            }
+            if (purpose == ResultOutputPurpose.Diagnostic)
+                AddNullReducedChiSquare(items, comparison, new[] { solution.Data?.UniqueID });
         }
 
         static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution,
@@ -2486,7 +2509,11 @@ namespace AnalysisITC.Core.Presentation
         {
             var items = new List<AnalysisReportKeyValueItem>();
             if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose))
+            {
                 items.Add(RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD));
+                if (purpose == ResultOutputPurpose.Diagnostic && ReducedChiSquarePresentation.ForFit(solution) is { } diagnostic)
+                    items.Add(Item(ReducedChiSquarePresentation.Label, ReducedChiSquarePresentation.Format(diagnostic)));
+            }
             var cValues = AnalysisCValueCalculator.Calculate(solution);
             foreach (var cValue in cValues.Where(_ => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
                 items.Add(Item(cValue.Label,
