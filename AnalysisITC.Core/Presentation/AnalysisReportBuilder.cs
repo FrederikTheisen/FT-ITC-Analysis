@@ -1832,7 +1832,7 @@ namespace AnalysisITC.Core.Presentation
             var properties = result.Model.ModelType.GetProperties();
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Analysis", result.Model.Parameters.RequiresGlobalFitting
+                Item("Analysis", !result.Model.ShouldFitIndividually
                     ? "Experiments fitted globally"
                     : "Experiments fitted individually"),
                 Item("Model", properties?.Name ?? result.Model.ModelType.ToString()),
@@ -2520,7 +2520,7 @@ namespace AnalysisITC.Core.Presentation
                     cValue.IsAvailable ? cValue.Estimate.Value.ToString(style: uncertaintyStyle) : "Unavailable"));
             if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose) && cValues.Any(item => item.ConcentrationBasis == "initial-tandem-segment"))
                 items.Add(Item("c-value concentration basis", "Initial tandem segment"));
-            var isGlobal = result?.Model?.Parameters?.RequiresGlobalFitting == true
+            var isGlobal = result?.Model?.ShouldFitIndividually == false
                 || result?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true;
             if (!isGlobal)
                 items.Add(Item("Uncertainty", UncertaintyText(solution.ErrorMethod, solution.Convergence)));

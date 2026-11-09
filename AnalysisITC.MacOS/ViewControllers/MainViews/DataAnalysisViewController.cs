@@ -104,6 +104,7 @@ namespace AnalysisITC
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
             ErrorMethodControl.Activated += OnErrorMethodActivated;
+            UnlockParametersForErrorEstimationControl.Activated += OnUnlockParametersActivated;
             PoolResidualsControl.Activated += (_, _) => FittingOptionsController.PoolBootstrapResiduals =
                 PoolResidualsControl.State == NSCellStateValue.On;
 
@@ -197,7 +198,17 @@ namespace AnalysisITC
 
         void OnErrorMethodActivated(object sender, EventArgs e)
         {
+            FittingOptionsController.ErrorEstimationMethod =
+                (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem;
             UpdateErrorEstimationControlState();
+            RefreshAnalysisSummaryOnMainThread();
+        }
+
+        void OnUnlockParametersActivated(object sender, EventArgs e)
+        {
+            FittingOptionsController.UnlockBootstrapParameters =
+                UnlockParametersForErrorEstimationControl.State == NSCellStateValue.On;
+            RefreshAnalysisSummaryOnMainThread();
         }
 
         partial void FitSimplex(NSObject sender) => RunFit();
@@ -1362,6 +1373,7 @@ namespace AnalysisITC
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;
             ErrorMethodControl.Activated -= OnErrorMethodActivated;
+            UnlockParametersForErrorEstimationControl.Activated -= OnUnlockParametersActivated;
             if (summaryExperiment != null)
             {
                 summaryExperiment.SolutionChanged -= OnSummaryExperimentSolutionChanged;

@@ -517,4 +517,4 @@ For residual bootstrap and leave-one-out, individual-fit uncertainty for $K_{\ma
 
 **Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked only for residual-bootstrap refits and can vary in the resampled solutions. Leave-one-out and profile likelihood always preserve the primary-fit locks.
 
-This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.
+If a locked parameter is shared across experiments, enabling **Unlock parameters** makes the analysis joint. The shared value stays fixed in the primary fit. During bootstrap it can vary between refits, with one shared value across all experiments in each refit. The reported estimate comes from the primary fit.

@@ -201,7 +201,7 @@ namespace AnalysisITC.Core.Interpretation
                 Model = new InterpretationModelEvidence
                 {
                     Type = FtxtcWireIds.Model(global.Model.ModelType),
-                    IsGlobal = global.Model.Parameters?.RequiresGlobalFitting == true,
+                    IsGlobal = !global.Model.ShouldFitIndividually,
                     UsesWeightedFitting = global.UseWeightedFitting,
                     Options = showModelContext ? NamedValues(global.Model.ModelOptions) : new List<InterpretationNamedValue>(),
                     Constraints = (showModelContext ? global.Model.Parameters?.Constraints ?? new Dictionary<ParameterType, VariableConstraint>()

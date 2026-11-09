@@ -55,7 +55,9 @@ namespace AnalysisITC.Core.Analysis
 
         public bool WillFitGlobally =>
             IsMultiExperiment &&
-            GlobalModelParameters?.RequiresGlobalFitting == true;
+            (GlobalModelParameters.RequiresGlobalFitting
+                || GlobalModelParameters.BootstrapRequiresJointFit(FittingOptionsController.ErrorEstimationMethod,
+                    FittingOptionsController.UnlockBootstrapParameters));
 
         /// <summary>
         /// Number of independent variables in the current fit configuration.
@@ -216,9 +218,6 @@ namespace AnalysisITC.Core.Analysis
                 {
                     if (attachToExperiments)
                         mdl.Data.Model = mdl;
-                    mdl.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting
-                        ? ModelCloneOptions.DefaultGlobalOptions
-                        : ModelCloneOptions.DefaultOptions;
                     mdl.SetModelOptions(GlobalModel.ModelOptions);
                     GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
                 }
@@ -227,11 +226,14 @@ namespace AnalysisITC.Core.Analysis
 
                 GlobalModelParameters.SetIndividualFromGlobal();
 
-                GlobalModel.ModelCloneOptions = WillFitGlobally
+                var joint = WillFitGlobally;
+                GlobalModel.ModelCloneOptions = joint
                     ? ModelCloneOptions.DefaultGlobalOptions
                     : ModelCloneOptions.DefaultOptions;
                 GlobalModel.ModelCloneOptions.PoolBootstrapResiduals =
-                    WillFitGlobally && FittingOptionsController.PoolBootstrapResiduals;
+                    joint && FittingOptionsController.PoolBootstrapResiduals;
+                foreach (var member in GlobalModel.Models)
+                    member.ModelCloneOptions = joint ? ModelCloneOptions.DefaultGlobalOptions : ModelCloneOptions.DefaultOptions;
             }
         }
 

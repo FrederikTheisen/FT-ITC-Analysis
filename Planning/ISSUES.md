@@ -627,8 +627,10 @@ A controller-owned integer draft retains the exact loaded count, supplies the la
 ## ITC-118 - Bootstrap unlocking of locked shared parameters needs a solver policy
 
 - Priority: Medium.
-- Status: Focused implementation plan requested and written (2026-10-23), following investigation. Scientific policies are agreed; implementation has not been authorized.
-- Plan: [Shared-parameter bootstrap unlocking](ITC-118_SHARED_PARAMETER_BOOTSTRAP_PLAN.md).
+- Status: Implemented (2026-11-08).
+- Resolution: When residual bootstrap unlocks a locked shared coordinate, run the whole analysis through the existing joint path. Preserve the primary lock and use the existing joint binding assessment and skip policy. The existing clone flag records the route. This supersedes the deferred-uncertainty approach described below.
+- Validation: Both optimizers reached the analytic per-member optima with unequal objective contributions and either member order. The joint and independent objectives agreed within 0.00003% for each member in the one-site comparison. Weighted, unweighted and fully locked workflow cases verified shared variation, refit counts, save/reopen and Update Result. Both desktop fitting controls passed focused checks.
+- Earlier plan: [Shared-parameter bootstrap unlocking](ITC-118_SHARED_PARAMETER_BOOTSTRAP_PLAN.md).
 - Origin: Moved from [CR-071 in the October code review](CODE_REVIEW_2026-10.md#cr-071--bootstrap-unlocking-is-bypassed-when-every-shared-coordinate-is-locked), including its runtime investigation and subsequent design discussion.
 - Location: Core `GlobalModelParameters.RequiresGlobalFitting`, `GlobalSolver.Analyze`, local/global `BoostrapResiduals` in `Solver2.cs`, `Model.SetSynthModelParameters`, `Parameter.Copy`/`Unlock`/`IsFitted`, and `GlobalModel.CopyUncertaintyFitTopologyTo`; both desktop applications use these shared paths.
 - Trigger and problem: In a multi-experiment analysis, share and lock N or Offset, leave the remaining coordinates local, and select residual bootstrap with Unlock parameters enabled. When no other constraint requires a joint primary fit, `GlobalSolver.Analyze` dispatches to individual member solvers. Their bootstrap copies retain `IsGloballyDetermined`; clearing `IsLocked` therefore does not admit the shared coordinate to fitting. The recorded unlocking setting is enabled, but the parameter remains fixed.

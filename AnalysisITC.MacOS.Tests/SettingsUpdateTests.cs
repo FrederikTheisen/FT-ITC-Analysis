@@ -181,6 +181,8 @@ static class SettingsUpdateTests
         var preview = typeof(DataAnalysisViewController).GetField("inspectorPreviewContext", Instance);
         preview.SetValue(controller, null);
         errors.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
+        typeof(DataAnalysisViewController).GetMethod("OnErrorMethodActivated", Instance)
+            .Invoke(controller, new object[] { errors, EventArgs.Empty });
         refresh.Invoke(controller, null);
         Check(!checkbox.Enabled && checkbox.State == NSCellStateValue.Off, "Pooling should default off and require a joint fit");
         Check(checkbox.ToolTip == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.PoolResidualsTooltip,
@@ -201,6 +203,20 @@ static class SettingsUpdateTests
         weighted.State = NSCellStateValue.Off;
         refresh.Invoke(controller, null);
         Check(checkbox.Enabled, "Pooling should be available for unweighted joint fits");
+        var unlock = Outlet<NSButton>(controller, "UnlockParametersForErrorEstimationControl");
+        var changeUnlock = typeof(DataAnalysisViewController).GetMethod("OnUnlockParametersActivated", Instance);
+        var shared = controller.Workspace.Context.GlobalModelParameters.GlobalTable[ParameterType.Affinity1];
+        controller.Workspace.SetParameterOverride(ParameterType.Affinity1, shared.Value, isLocked: true, rebuild: false);
+        Check(controller.Workspace.TryRebuild(new[] { first, second }), "Could not prepare the locked shared parameter");
+        preview.SetValue(controller, null);
+        unlock.State = NSCellStateValue.Off;
+        changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
+        Check(!checkbox.Enabled, "Pooling was enabled for a locked shared parameter without unlocking");
+        unlock.State = NSCellStateValue.On;
+        changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
+        Check(checkbox.Enabled, "Unlocking a locked shared parameter should enable pooling");
+        unlock.State = NSCellStateValue.Off;
+        changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
         errors.SelectItem((int)ErrorEstimationMethod.LeaveOneOut);
         refresh.Invoke(controller, null);
         Check(!checkbox.Enabled, "Pooling was enabled for leave-one-out");

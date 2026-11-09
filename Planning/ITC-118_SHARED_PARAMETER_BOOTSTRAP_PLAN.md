@@ -1,5 +1,7 @@
 # ITC-118 — Shared-parameter bootstrap unlocking
 
+Superseded on 8 November 2026 by the joint primary-fit and bootstrap route documented in [ITC-118](ISSUES.md#itc-118---bootstrap-unlocking-of-locked-shared-parameters-needs-a-solver-policy).
+
 Execution guidance: If gpt-6-astra coordinates implementation, generally use gpt-6-luna agents for scoped execution, following repository instructions. This document authorizes no implementation or agent execution.
 
 Status: Focused implementation plan, 23 October 2026. The user approved the scientific policies below and requested this plan only. Tracker: [ITC-118](ISSUES.md#itc-118---bootstrap-unlocking-of-locked-shared-parameters-needs-a-solver-policy); origin: [CR-071](CODE_REVIEW_2026-10.md#cr-071--bootstrap-unlocking-is-bypassed-when-every-shared-coordinate-is-locked).

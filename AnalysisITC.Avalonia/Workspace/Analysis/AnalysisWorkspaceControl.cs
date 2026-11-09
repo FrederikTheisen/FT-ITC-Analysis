@@ -850,6 +850,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     return;
                 }
                 FittingOptionsController.PoolBootstrapResiduals = poolResidualsCheck.IsChecked == true;
+                FittingOptionsController.ErrorEstimationMethod = SelectedErrorMethod();
                 var solver = workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
@@ -862,7 +863,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 UpdateFitButtonState();
 
                 FittingOptionsController.Algorithm = solver.SolverAlgorithm;
-                FittingOptionsController.ErrorEstimationMethod = solver.ErrorEstimationMethod;
                 FittingOptionsController.BootstrapIterations = solver.BootstrapIterations;
                 bootstrapIterationsBox.Text = solver.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
                 FittingOptionsController.UseErrorWeightedFitting = requestedWeightedFitting;
@@ -1417,7 +1417,9 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (isUpdatingControls) return;
             ClearPreservedFitCompletionStatus();
+            FittingOptionsController.ErrorEstimationMethod = SelectedErrorMethod();
             UpdateErrorEstimationControlState();
+            RefreshAnalysisSummary();
         }
 
         void UpdateErrorEstimationControlState()
@@ -1443,6 +1445,8 @@ namespace AnalysisITC.Avalonia.Analysis
             if (isUpdatingControls) return;
             ClearPreservedFitCompletionStatus();
             FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
+            UpdateErrorEstimationControlState();
+            RefreshAnalysisSummary();
         }
 
         void ChangeCreateResult()

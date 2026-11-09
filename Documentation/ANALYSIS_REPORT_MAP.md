@@ -289,7 +289,7 @@ Same structure in both modes. Rows, in order:
 
 | Row | Content / conditions |
 | --- | --- |
-| Analysis | Experiments fitted globally / individually. |
+| Analysis | Experiments fitted globally / individually. Joint analyses include residual bootstrap runs that unlock a locked shared parameter. |
 | Model | Saved model name. |
 | <option name> | One row per model option, indented under Model; routine defaults omitted. |
 | Ligand affinity (Kd) | Indented under Model; concentration unit, converted from stored log10(Ka); report uncertainty style. |

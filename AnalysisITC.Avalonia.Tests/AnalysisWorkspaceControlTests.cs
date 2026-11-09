@@ -1510,6 +1510,7 @@ public sealed class AnalysisWorkspaceControlTests
         {
             FittingOptionsController.PoolBootstrapResiduals = false;
             FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            FittingOptionsController.UnlockBootstrapParameters = false;
             FittingOptionsController.UseErrorWeightedFitting = weighted;
             Dispatcher.UIThread.Invoke(() =>
             {
@@ -1533,6 +1534,12 @@ public sealed class AnalysisWorkspaceControlTests
                     affinity.SelectedItem = affinity.Items.OfType<ComboBoxItem>()
                         .Single(item => Equals(item.Tag, VariableConstraint.SameForAll));
                     Dispatcher.UIThread.RunJobs();
+                    Assert.True(workspace.PoolResidualsCheck.IsEnabled);
+                    var shared = workspace.ContextForTesting!.GlobalModelParameters.GlobalTable[ParameterType.Affinity1];
+                    CoreWorkspaceFor(workspace).SetParameterOverride(ParameterType.Affinity1, shared.Value, isLocked: true);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                    workspace.UnlockParametersCheck.IsChecked = true;
                     Assert.True(workspace.PoolResidualsCheck.IsEnabled);
                     workspace.PoolResidualsCheck.IsChecked = true;
                     Assert.True(FittingOptionsController.PoolBootstrapResiduals);

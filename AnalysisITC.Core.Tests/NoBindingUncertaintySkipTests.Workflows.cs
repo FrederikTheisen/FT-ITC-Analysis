@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using Xunit;
@@ -13,6 +17,87 @@ namespace AnalysisITC.Core.Tests;
 
 public sealed partial class NoBindingUncertaintySkipTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task BootstrapUnlocksLockedSharedStoichiometryInJointRefits(bool weighted, bool allLocked)
+    {
+        var first = PolicyModel(false, "first");
+        var second = PolicyModel(false, "second");
+        var solver = (GlobalSolver)PolicySolver(BindingAssessmentScope.Independent,
+            ErrorEstimationMethod.BootstrapResiduals, first, second);
+        const ParameterType shared = ParameterType.Nvalue1;
+        var n = first.Parameters.Table[shared].Value;
+        solver.Model.Parameters.SetConstraintForParameter(shared, VariableConstraint.SameForAll);
+        solver.Model.Parameters.AddorUpdateGlobalParameter(shared, n, islocked: true);
+        solver.Model.Parameters.SetIndividualFromGlobal();
+        solver.Model.ModelCloneOptions.UnlockBootstrapParameters = true;
+        foreach (var member in solver.Model.Models)
+        {
+            member.ModelCloneOptions.UnlockBootstrapParameters = true;
+            if (allLocked)
+            {
+                var offset = member.Parameters.Table[ParameterType.Offset];
+                offset.SetValue(offset.Value, true);
+            }
+        }
+        solver.SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt;
+        solver.UseErrorWeightedFitting = weighted;
+        solver.SkipNoBindingUncertainty = false;
+        solver.BootstrapIterations = 12;
+
+        // Historical independent analyses can carry the unlock preference too.
+        Assert.True(solver.Model.ShouldFitIndividually);
+        var convergence = await Run(solver);
+        Assert.True(convergence.Success, convergence.Message);
+        AssertJoint(solver.Solution);
+
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { first.Data, second.Data },
+            new[] { new AnalysisResult(solver.Solution) });
+        package.Position = 0;
+        var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+        AssertJoint(restored.Solution);
+        DataManager.Clear(DataClearMode.ResetSession);
+        try
+        {
+            foreach (var member in restored.Solution.Solutions) DataManager.AddData(member.Data);
+            var updater = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
+            Assert.False(updater.Model.ShouldFitIndividually);
+            Assert.True(updater.Model.Parameters.GlobalTable[shared].IsLocked);
+            Assert.True(updater.Model.ModelCloneOptions.UnlockBootstrapParameters);
+            var updated = await AnalysisResultUpdater.UpdateAsync(restored);
+            Assert.True(updated.Success, updated.Message);
+            AssertJoint(restored.Solution);
+        }
+        finally
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+
+        void AssertJoint(GlobalSolution solution)
+        {
+            Assert.False(solution.Model.ShouldFitIndividually);
+            var primary = solution.Model.Parameters.GlobalTable[shared];
+            Assert.True(primary.IsLocked);
+            Assert.Equal(n, primary.Value);
+            Assert.All(solution.Solutions, member => Assert.Equal(n, member.Parameters[shared].Value));
+            Assert.Equal(12, solution.Convergence.RequestedBootstrapIterations);
+            Assert.Equal(12, solution.Convergence.ErrorEstimationAttemptedRefits);
+            Assert.Equal(solution.BootstrapSolutions.Count, solution.Convergence.ErrorEstimationSucceededRefits);
+            var values = solution.BootstrapSolutions.Select(refit =>
+            {
+                var parameter = refit.Model.Parameters.GlobalTable[shared];
+                Assert.False(parameter.IsLocked);
+                Assert.Equal(2, refit.Solutions.Count);
+                Assert.All(refit.Solutions, member => Assert.Equal(parameter.Value, member.Parameters[shared].Value));
+                return parameter.Value;
+            }).ToArray();
+            Assert.True(values.Distinct().Count() > 1);
+        }
+    }
+
     public static IEnumerable<object[]> WorkflowCases()
     {
         foreach (var method in EstimationMethods)

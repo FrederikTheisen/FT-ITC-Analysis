@@ -693,11 +693,12 @@ namespace AnalysisITC.Core.Analysis
 
         private SolverConvergence() { }
 
-        internal static SolverConvergence FromFixedFit(double rmsd, double objective)
+        internal static SolverConvergence FromFixedFit(double rmsd, double objective,
+            SolverAlgorithm algorithm = SolverAlgorithm.NelderMead)
         {
             var convergence = new SolverConvergence
             {
-                Algorithm = SolverAlgorithm.NelderMead,
+                Algorithm = algorithm,
                 UnweightedRmsd = rmsd,
                 Objective = FWEMath.IsFinite(objective) ? objective : (double?)null,
             };

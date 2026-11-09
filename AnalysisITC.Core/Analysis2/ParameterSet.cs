@@ -282,6 +282,12 @@ namespace AnalysisITC.Core.Analysis
         public bool RequiresGlobalFitting => GlobalFittingParameterCount > 0
             || Constraints.Any(item => item.Value == VariableConstraint.ThermodynamicallyLinked);
 
+        internal bool BootstrapRequiresJointFit(ErrorEstimationMethod method, bool unlockParameters) =>
+            IndividualModelParameterList.Count > 1
+            && method == ErrorEstimationMethod.BootstrapResiduals
+            && unlockParameters
+            && GlobalTable.Values.Any(parameter => parameter.IsLocked);
+
         /// <summary>
         /// Captures the fit origin once the complete member set is installed.
         /// Rebuilding the parameter table or preparing a solver must not move it.

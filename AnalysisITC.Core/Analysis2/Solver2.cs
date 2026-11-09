@@ -728,18 +728,24 @@ namespace AnalysisITC.Core.Analysis
                     break;
 
                 case GlobalSolver global when global.Model != null:
+                    var jointBootstrap = global.Model.Parameters.BootstrapRequiresJointFit(ErrorEstimationMethod,
+                        global.Model.ModelCloneOptions?.UnlockBootstrapParameters ?? FittingOptionsController.UnlockBootstrapParameters);
                     var isGlobalClone = global.Model.ModelCloneOptions?.IsGlobalClone
                         ?? !global.Model.ShouldFitIndividually;
                     global.Model.ModelCloneOptions = ApplyErrorEstimationPolicy(
                         global.Model.ModelCloneOptions,
                         ErrorEstimationMethod,
                         isGlobalClone);
+                    if (jointBootstrap)
+                        global.Model.ModelCloneOptions.IsGlobalClone = true;
                     foreach (var member in global.Model.Models)
                     {
                         member.ModelCloneOptions = ApplyErrorEstimationPolicy(
                             member.ModelCloneOptions,
                             ErrorEstimationMethod,
                             isGlobalClone);
+                        if (jointBootstrap)
+                            member.ModelCloneOptions.IsGlobalClone = true;
                     }
                     break;
             }
@@ -1499,8 +1505,8 @@ namespace AnalysisITC.Core.Analysis
             using var activity = await ProcessingActivity.BeginAsync();
             using var ownership = activity.Enter();
             deferCompletion = true;
-            base.Analyze();
             ApplyErrorEstimationPolicy();
+            base.Analyze();
 
             SolverConvergence convergence = null;
 
@@ -1796,6 +1802,17 @@ namespace AnalysisITC.Core.Analysis
             var limits = Model.Parameters.GetLimits();
             int m = Model.GetNumberOfPoints();
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            // Bootstrap can make an otherwise fully locked analysis joint.
+            // Its primary fit just evaluates the fixed model.
+            if (initialGuess.Length == 0)
+            {
+                if (!Model.TryLossFunction(initialGuess, UseErrorWeightedFitting, out var objectiveValue)
+                    || Model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
+                    throw new ArithmeticException("The fixed global model parameters do not produce finite predictions.");
+                Model.Solution = new GlobalSolution(this,
+                    SolverConvergence.FromFixedFit(Model.Loss(), objectiveValue, SolverAlgorithm));
+                return Model.Solution.Convergence;
+            }
             double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters, initialGuess, out var usedInward);
             PrepareCandidateEvaluations(
                 Model, initialGuess, UseErrorWeightedFitting, m);

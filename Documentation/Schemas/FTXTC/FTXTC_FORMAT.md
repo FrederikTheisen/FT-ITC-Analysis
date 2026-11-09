@@ -6,6 +6,8 @@ Legacy `.ftitc` files are read-only imports; saving an imported document creates
 
 Fit clone options may include `poolBootstrapResiduals` (default false) and `bootstrapScaleSource` (`injection-heat-sd`, `experiment-residual-sd`, or `zero-residuals`). The latter records the scale used in a prepared pooled run. Older files without these fields retain within-experiment sampling. The prepared pool is transient.
 
+When residual bootstrap unlocks a locked shared parameter, the existing `isGlobalClone` flag records that the primary fit and refits ran jointly. An independent fit with the unlock option enabled retains its saved independent classification.
+
 ## Package layout
 
 ```text
