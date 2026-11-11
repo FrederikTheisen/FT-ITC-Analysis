@@ -107,6 +107,10 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         DataManager.Clear(DataClearMode.ResetSession);
         var model = InjectionProcessingMethodTests.FittedModel();
         model.Data.TandemMergeDescription = "Recorded merge";
+        model.Data.TandemMergeInfo = new TandemMergeInfo(new[] { .2, .4 }, TandemMixingCriterion.ModelFree,
+            DilutionMethod.DiscreteDisplacement, 80e-6, true, 0, TandemContinuityScanner.PointsPerSide,
+            new TandemMixingUncertainty(MixingUncertaintyMethod.MonteCarlo95,
+                new[] { TandemMixingInterval.Unavailable(), TandemMixingInterval.Unavailable() }, monteCarloDraws: 200));
         model.Data.SetTandemSourceExperimentIds(new[] { "second", "first" });
         DataManager.AddData(model.Data);
         DataManager.DuplicateSelectedData(model.Data);
@@ -118,6 +122,7 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         {
             Assert.Equal(new[] { "second", "first" }, copy.TandemSourceExperimentIds);
             Assert.Equal("Recorded merge", copy.TandemMergeDescription);
+            Assert.Same(model.Data.TandemMergeInfo, copy.TandemMergeInfo);
         }
         model.Data.SetTandemSourceExperimentIds(new[] { "new-id" });
         Assert.All(new[] { duplicate, synthetic, bootstrap }, copy =>

@@ -328,7 +328,7 @@ namespace AnalysisITC.Avalonia.Tools
                             progressBar.Value = total <= 0 ? 0 : completed / (double)total;
                             SetStatus($"Scanning tandem back-mixing... {100 * progressBar.Value:0}%");
                         }),
-                        criterion));
+                        criterion, estimateUncertainty: true));
 
                     if (bestPoint == null)
                         throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
@@ -337,7 +337,7 @@ namespace AnalysisITC.Avalonia.Tools
                     progressBar.Value = 1;
                     merged = TandemConcatenation.ConcatTandemWithBackMixing(
                         selected, settings, bestPoint.TransitionMixingFractions,
-                        automaticCriterion: criterion);
+                        automaticCriterion: criterion, uncertainty: bestPoint.Uncertainty, bookkeeping: bestPoint.UncertaintyBookkeeping);
                 }
                 else if (mode == MergeMode.FixedBackMixing)
                 {

@@ -200,7 +200,7 @@ namespace AnalysisITC.Avalonia.Details
             }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
             if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(TandemOriginPresentation.FormatDescription(data.TandemMergeDescription)) }));
+                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(TandemOriginPresentation.FormatDescription(data.TandemMergeDescription, data.TandemMergeInfo)) }));
 
             var addAttribute = Button("Add Attribute", 116);
             addAttribute.Click += (_, _) =>

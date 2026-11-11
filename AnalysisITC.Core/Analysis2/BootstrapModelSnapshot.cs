@@ -86,6 +86,7 @@ namespace AnalysisITC.Core.Analysis
                 HeatMethod = HeatMethod,
                 MeasuredTemperature = MeasuredTemperature,
                 TandemMergeDescription = primaryModel.Data.TandemMergeDescription,
+                TandemMergeInfo = primaryModel.Data.TandemMergeInfo,
             };
             data.SetTandemSourceExperimentIds(primaryModel.Data.TandemSourceExperimentIds);
             data.SetID(primaryModel.Data.UniqueID);

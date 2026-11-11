@@ -669,6 +669,7 @@ namespace AnalysisITC.Core.Application
                 TargetPowerDiff = data.TargetPowerDiff,
                 MeasuredTemperature = data.MeasuredTemperature,
                 TandemMergeDescription = data.TandemMergeDescription,
+                TandemMergeInfo = data.TandemMergeInfo,
                 Date = data.Date,
                 DateSource = data.DateSource,
             };

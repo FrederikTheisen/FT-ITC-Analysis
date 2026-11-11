@@ -163,14 +163,16 @@ namespace AnalysisITC.Core.Processing
             BackMixingSettings settings,
             IReadOnlyList<double> transitionMixingFractions,
             string fileName = null,
-            TandemMixingCriterion? automaticCriterion = null)
+            TandemMixingCriterion? automaticCriterion = null,
+            TandemMixingUncertainty uncertainty = null,
+            DilutionMethod? bookkeeping = null)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
             if (transitionMixingFractions == null) throw new ArgumentNullException(nameof(transitionMixingFractions));
             if (transitionMixingFractions.Count != Math.Max(0, experiments.Count - 1))
                 throw new ArgumentException("A mixing fraction must be supplied for each transition between tandem experiments.", nameof(transitionMixingFractions));
-            var dilutionMethod = AppSettings.DilutionCalculationMethod;
+            var dilutionMethod = bookkeeping ?? AppSettings.DilutionCalculationMethod;
             if (!settings.UseBackMixingMethod) return ConcatTandem(experiments, dilutionMethod, fileName);
 
             var formattedFractions = string.Join(
@@ -186,6 +188,11 @@ namespace AnalysisITC.Core.Processing
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
+
+            if (automaticCriterion.HasValue && uncertainty != null)
+                merged.TandemMergeInfo = new TandemMergeInfo(transitionMixingFractions, automaticCriterion.Value,
+                    dilutionMethod, settings.DeadVolume, settings.DidRemoveOverflow, settings.RemoveOverflowVolume,
+                    automaticCriterion.Value == TandemMixingCriterion.ModelFree ? TandemContinuityScanner.PointsPerSide : 0, uncertainty);
 
             ProcessInjectionsWithBackMixing(merged, segments, settings, transitionMixingFractions, dilutionMethod);
             RawDataReader.ProcessExperiment(merged);

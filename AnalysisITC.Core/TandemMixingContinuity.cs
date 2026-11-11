@@ -57,11 +57,22 @@ namespace AnalysisITC.Core.Processing
             Action<int, int> reportProgress,
             DilutionMethod dilutionMethod)
         {
-            var transitionCount = sources.Count - 1;
+            var (scanExperiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
+            return FindBest(scanExperiment, segments, settings, reportProgress, dilutionMethod);
+        }
+
+        internal static TandemMixingScanPoint FindBest(
+            ExperimentData scanExperiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            TandemConcatenation.BackMixingSettings settings,
+            Action<int, int> reportProgress,
+            DilutionMethod dilutionMethod,
+            bool logResults = true)
+        {
+            var transitionCount = segments.Count - 1;
             var progressTotal = transitionCount * EvaluationsPerTransition;
             var completed = 0;
 
-            var (scanExperiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
             var fractions = new double[transitionCount];
 
             for (var transition = 0; transition < transitionCount; transition++)
@@ -82,7 +93,7 @@ namespace AnalysisITC.Core.Processing
                 if (double.IsNaN(fraction)) return null;
 
                 fractions[transition] = fraction;
-                AppEventHandler.PrintAndLog(
+                if (logResults) AppEventHandler.PrintAndLog(
                     $"Model-free tandem mixing transition {transition + 1}: mix={(100 * fraction).ToString("0.###", CultureInfo.InvariantCulture)}%",
                     1);
             }

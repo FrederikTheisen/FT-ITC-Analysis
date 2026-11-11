@@ -312,7 +312,7 @@ namespace AnalysisITC
                             StatusBarManager.SetProgress(progress);
                             StatusBarManager.SetSecondaryStatus($"{100 * progress:0}%", 0);
                         }),
-                        autoBackMixingCriterion));
+                        autoBackMixingCriterion, estimateUncertainty: true));
                     if (bestPoint == null)
                         throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
 
@@ -323,7 +323,7 @@ namespace AnalysisITC
                         exps,
                         MergeSettings,
                         bestPoint.TransitionMixingFractions,
-                        automaticCriterion: autoBackMixingCriterion);
+                        automaticCriterion: autoBackMixingCriterion, uncertainty: bestPoint.Uncertainty, bookkeeping: bestPoint.UncertaintyBookkeeping);
                 }
                 else if (MergeSettings.UseBackMixingMethod)
                 {

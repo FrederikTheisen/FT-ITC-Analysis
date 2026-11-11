@@ -56,6 +56,7 @@ namespace AnalysisITC.Core.Data
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         /// <summary>Read-only provenance description for generated tandem experiments.</summary>
         public string TandemMergeDescription { get; internal set; }
+        public TandemMergeInfo TandemMergeInfo { get; internal set; }
         /// <summary>Source experiment identities in the order used to create this tandem.</summary>
         public IReadOnlyList<string> TandemSourceExperimentIds { get; private set; } = Array.Empty<string>();
 
@@ -838,6 +839,7 @@ namespace AnalysisITC.Core.Data
                 CellConcentration = CellConcentration,
                 SyringeConcentration = SyringeConcentration,
                 TandemMergeDescription = TandemMergeDescription,
+                TandemMergeInfo = TandemMergeInfo,
             };
             clone.SetTandemSourceExperimentIds(TandemSourceExperimentIds);
             List<InjectionData> syninj;

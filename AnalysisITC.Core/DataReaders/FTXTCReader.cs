@@ -519,6 +519,7 @@ namespace AnalysisITC.Core.DataReaders
                     experiment.CellSampleId = state.CellSampleId;
                     experiment.SyringeSampleId = state.SyringeSampleId;
                     experiment.TandemMergeDescription = state.TandemMergeDescription;
+                    experiment.TandemMergeInfo = state.TandemMergeInfo?.Restore();
                     experiment.SetTandemSourceExperimentIds(state.TandemSourceExperimentIds);
                     experiment.DateSource = ParseDateSource(state.DateSource);
                     experiment.DataSourceFormat = ParseDataFormat(state.SourceFormat); experiment.Instrument = ParseInstrument(state.Instrument);

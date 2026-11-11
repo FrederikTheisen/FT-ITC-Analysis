@@ -410,7 +410,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | ·· One line per attribute (Buffer, Salt, pH, …) | |
 | | ·· Buffer subtraction: "<ref> (Experiment S1; <method>)" (current setting) | report label only when the reference is in the report |
 | | ·· Competitor properties: From result "…", Kd = …, ΔH = … on separate lines, or reason not captured | competitor attribute; result chapters use fit-time captures only, never later live-attribute values |
-| | · Tandem merge origin: mode, mixing settings, and source files on separate lines | recorded tandem provenance, including single-file concatenated imports |
+| | · Tandem merge origin: mode, mixing settings, source files, and saved mixing uncertainty on separate lines | recorded tandem provenance, including single-file concatenated imports |
 | | · Tandem sources: "n of m recorded source experiments … not in this project." | only when sources are missing |
 | **E03** | **Experiment details — condensed** | repeat appearance + condense on |
 | | · Experiment date | as E02 |
@@ -616,3 +616,5 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 
 - 2026-10-18 (CR-025/CR-027): Both interpretation dialogs use cumulative Results, Injection data, Processing details and Thermograms evidence levels. Capability refresh preserves dialog intent; Thermograms needs a fresh opening opt-in. Full local canonical evidence is distinct from the selected transmitted evidence. Printed report content is unchanged; interpretation freshness continues to use full canonical evidence. No-binding observation restrictions survive trace removal.
 - 2026-11-02 (ITC-032): Application autosave recovery now restores report-only snapshots and valid empty native snapshots after deleting the final report. Restored report text, identity and Last saved metadata are preserved. Recovery creates a dirty, unnamed document for Save As; saved-report definitions and printed blocks are unchanged.
+
+- Automatic tandem merge uncertainty is displayed in the existing merge-origin row through the shared formatter. One-site uses approximate grid-based 95% limits; model-free shows 95% Monte Carlo ranges. Bound-reached and unavailable sides are explicit. The recorded original-data fractions remain the displayed estimates.

@@ -247,6 +247,8 @@ namespace AnalysisITC.Core.Export
         public string TandemMergeDescription { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string> TandemSourceExperimentIds { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcTandemMergeInfo TandemMergeInfo { get; set; }
         public bool Included { get; set; }
         public string SourceFormat { get; set; }
         public string Instrument { get; set; }
@@ -1460,6 +1462,7 @@ namespace AnalysisITC.Core.Export
             CellSampleId = string.IsNullOrEmpty(experiment.CellSampleId) ? null : experiment.CellSampleId,
             SyringeSampleId = string.IsNullOrEmpty(experiment.SyringeSampleId) ? null : experiment.SyringeSampleId,
             TandemMergeDescription = experiment.TandemMergeDescription,
+            TandemMergeInfo = FtxtcTandemMergeInfo.Capture(experiment.TandemMergeInfo),
             TandemSourceExperimentIds = experiment.TandemSourceExperimentIds.Count == 0
                 ? null : experiment.TandemSourceExperimentIds.ToList(),
             Included = experiment.StoredInclude,

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Linq;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Presentation
 {
@@ -12,7 +15,7 @@ namespace AnalysisITC.Core.Presentation
             @"^Tandem concatenation \(MicroCal concat; no back-mixing; (?<method>[^\r\n]+) bookkeeping\)\.$");
 
         /// <summary>Formats recorded provenance for display without changing the saved description.</summary>
-        public static string FormatDescription(string description)
+        public static string FormatDescription(string description, TandemMergeInfo info = null)
         {
             if (string.IsNullOrWhiteSpace(description)) return description;
 
@@ -42,7 +45,27 @@ namespace AnalysisITC.Core.Presentation
                 }
                 else lines.Add(line);
             }
+            if (info != null)
+            {
+                lines.Add("");
+                var available = info.Uncertainty.Intervals.Any(interval => interval.Lower.HasValue || interval.Upper.HasValue);
+                lines.Add(info.Uncertainty.Method == MixingUncertaintyMethod.Grid95
+                    ? "Approximate grid-based 95% mixing limits"
+                    : available ? $"95% Monte Carlo mixing ranges ({info.Uncertainty.MonteCarloDraws} draws)"
+                    : $"Monte Carlo mixing uncertainty unavailable ({info.Uncertainty.MonteCarloDraws} draws requested)");
+                for (var index = 0; index < info.Fractions.Count; index++)
+                {
+                    var interval = info.Uncertainty.Intervals[index];
+                    var lower = FormatLimit(interval.Lower, interval.LowerStatus);
+                    var upper = FormatLimit(interval.Upper, interval.UpperStatus);
+                    lines.Add($"Refill {index + 1}: {Percent(info.Fractions[index])}; lower {lower}, upper {upper}");
+                }
+            }
             return string.Join("\n", lines);
         }
+
+        static string Percent(double value) => new FloatWithError(100 * value).AsNumber() + "%";
+        static string FormatLimit(double? value, MixingLimitStatus status) => value.HasValue
+            ? Percent(value.Value) + (status == MixingLimitStatus.BoundReached ? " (bound reached)" : "") : "unavailable";
     }
 }

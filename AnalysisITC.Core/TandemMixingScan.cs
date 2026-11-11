@@ -42,6 +42,16 @@ namespace AnalysisITC.Core.Processing
         public double Offset { get; }
         public string Termination { get; }
         public int Iterations { get; }
+        public TandemMixingUncertainty Uncertainty { get; private set; }
+        public DilutionMethod? UncertaintyBookkeeping { get; private set; }
+
+        internal TandemMixingScanPoint WithUncertainty(TandemMixingUncertainty uncertainty, DilutionMethod bookkeeping)
+        {
+            var result = new TandemMixingScanPoint(TransitionMixingFractions, Rmsd, N, LogK, Enthalpy, Offset, Termination, Iterations);
+            result.Uncertainty = uncertainty;
+            result.UncertaintyBookkeeping = bookkeeping;
+            return result;
+        }
 
         public bool IsValid => IsFinite(Rmsd);
 
@@ -373,13 +383,31 @@ namespace AnalysisITC.Core.Processing
             IReadOnlyList<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings,
             Action<int, int> reportProgress = null,
-            TandemMixingCriterion criterion = TandemMixingCriterion.OneSiteFit)
+            TandemMixingCriterion criterion = TandemMixingCriterion.OneSiteFit,
+            bool estimateUncertainty = false)
         {
             ValidateAdaptiveSources(sources, settings);
 
             var dilutionMethod = AppSettings.DilutionCalculationMethod;
             if (criterion == TandemMixingCriterion.ModelFree)
-                return TandemContinuityScanner.FindBest(sources, settings, reportProgress, dilutionMethod);
+            {
+                if (estimateUncertainty) SolverInterface.TerminateAnalysisFlag.Lower();
+                var primary = TandemContinuityScanner.FindBest(sources, settings,
+                    estimateUncertainty ? null : reportProgress, dilutionMethod);
+                if (primary == null || !estimateUncertainty) return primary;
+                TandemMixingUncertainty uncertainty;
+                try
+                {
+                    uncertainty = TandemMixingUncertaintyEstimator.MonteCarlo(sources, settings, primary, dilutionMethod, reportProgress);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.PrintAndLog($"Mixing uncertainty unavailable: {ex.Message}");
+                    uncertainty = new TandemMixingUncertainty(MixingUncertaintyMethod.MonteCarlo95,
+                        primary.TransitionMixingFractions.Select(_ => TandemMixingInterval.Unavailable()), monteCarloDraws: 200);
+                }
+                return primary.WithUncertainty(uncertainty, dilutionMethod);
+            }
 
             var transitionCount = sources.Count - 1;
             var broadStep = AdaptiveBroadStepForExperimentCount(sources.Count);
@@ -401,6 +429,7 @@ namespace AnalysisITC.Core.Processing
             SolverInterface.TerminateAnalysisFlag.Lower();
 
             var (scanExperiment, segments) = BuildScanExperiment(sources);
+            var broadPoints = estimateUncertainty ? new List<TandemMixingScanPoint>() : null;
             var completed = 0;
             var bestPoint = EvaluateGrid(
                 scanExperiment,
@@ -410,7 +439,8 @@ namespace AnalysisITC.Core.Processing
                 dilutionMethod,
                 ref completed,
                 progressTotal,
-                reportProgress);
+                reportProgress,
+                broadPoints);
             if (bestPoint == null) return null;
 
             var broadBestPoint = bestPoint;
@@ -447,6 +477,12 @@ namespace AnalysisITC.Core.Processing
                 $"(broad={FormatPoint(broadBestPoint)}, medium={FormatPoint(mediumBestPoint)})",
                 1);
 
+            if (estimateUncertainty)
+            {
+                var uncertainty = TandemMixingUncertaintyEstimator.FromGrid(broadPoints, broadFractions, bestPoint,
+                    scanExperiment.Injections.Count(injection => injection.Include));
+                return bestPoint.WithUncertainty(uncertainty, dilutionMethod);
+            }
             return bestPoint;
         }
 
@@ -530,12 +566,14 @@ namespace AnalysisITC.Core.Processing
             DilutionMethod dilutionMethod,
             ref int completed,
             int progressTotal,
-            Action<int, int> reportProgress)
+            Action<int, int> reportProgress,
+            List<TandemMixingScanPoint> points = null)
         {
             TandemMixingScanPoint bestPoint = null;
             foreach (var fractions in EnumerateTransitionFractionGrid(transitionFractions))
             {
                 var point = TryFitPoint(scanExperiment, segments, settings, fractions, dilutionMethod, "broad");
+                points?.Add(point);
                 if (point.IsValid && (bestPoint == null || point.Rmsd < bestPoint.Rmsd)) bestPoint = point;
                 completed++;
                 reportProgress?.Invoke(completed, progressTotal);

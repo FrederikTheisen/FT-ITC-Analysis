@@ -202,7 +202,7 @@ namespace AnalysisITC
             formStack.AddArrangedSubview(Section("Comments", Comments()));
             if (!string.IsNullOrWhiteSpace(Data?.TandemMergeDescription))
             {
-                var origin = NSTextField.CreateLabel(TandemOriginPresentation.FormatDescription(Data.TandemMergeDescription));
+                var origin = NSTextField.CreateLabel(TandemOriginPresentation.FormatDescription(Data.TandemMergeDescription, Data.TandemMergeInfo));
                 origin.LineBreakMode = NSLineBreakMode.ByWordWrapping;
                 origin.Cell.Wraps = true;
                 origin.Cell.UsesSingleLineMode = false;
