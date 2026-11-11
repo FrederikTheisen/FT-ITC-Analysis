@@ -439,28 +439,24 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Button Button(string text, double width)
         {
-            return new Button
-            {
-                Content = text,
-                MinWidth = width,
-                Height = 26,
-                Padding = ButtonPadding,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
+            var button = new Button { Content = text, MinWidth = width };
+            ApplyButtonLayout(button);
+            return button;
         }
 
         public static ToggleButton Toggle(string text, double width)
         {
-            return new ToggleButton
-            {
-                Content = text,
-                MinWidth = width,
-                Height = 26,
-                Padding = ButtonPadding,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
+            var button = new ToggleButton { Content = text, MinWidth = width };
+            ApplyButtonLayout(button);
+            return button;
+        }
+
+        public static void ApplyButtonLayout(Button button)
+        {
+            button.Height = 26;
+            button.Padding = ButtonPadding;
+            button.HorizontalContentAlignment = HorizontalAlignment.Center;
+            button.VerticalContentAlignment = VerticalAlignment.Center;
         }
 
         public static CheckBox Check(string text, bool isChecked = false, string tooltip = "")

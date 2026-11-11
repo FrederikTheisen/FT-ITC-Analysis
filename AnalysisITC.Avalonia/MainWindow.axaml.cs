@@ -36,6 +36,7 @@ using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 using AnalysisITC.Avalonia.Tools;
+using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Platform.Avalonia;
 
 namespace AnalysisITC.Avalonia;
@@ -74,6 +75,10 @@ public partial class MainWindow : Window
     {
         this.useMacTitleBar = useMacTitleBar;
         InitializeComponent();
+        WorkspaceControlBuilder.ApplyButtonLayout(WelcomeOpenButton);
+        WorkspaceControlBuilder.ApplyButtonLayout(WelcomeReloadButton);
+        WorkspaceControlBuilder.ApplyButtonLayout(OverviewRawButton);
+        WorkspaceControlBuilder.ApplyButtonLayout(OverviewInjectionsButton);
         if (useMacTitleBar)
         {
             WindowDecorations = WindowDecorations.Full;
