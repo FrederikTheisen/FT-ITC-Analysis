@@ -57,7 +57,7 @@ internal sealed class AboutDialogWindow : Window
         {
             showingBuildVersion = !showingBuildVersion;
             version.Text = showingBuildVersion
-                ? $"Version {AppVersion.FullVersionString}"
+                ? $"Version {AppVersion.FullVersionString}.{DesktopBuildTime.HourMinute}"
                 : $"Version {AppVersion.ShortVersionString}";
         };
 

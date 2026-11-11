@@ -39,7 +39,7 @@ namespace AnalysisITC
 
         partial void VersionButtonAction(NSObject sender)
         {
-            VersionButton.Title = $"Version: {AppVersion.FullVersionString}";
+            VersionButton.Title = $"Version: {AppVersion.FullVersionString}.{DesktopBuildTime.HourMinute}";
         }
     }
 }

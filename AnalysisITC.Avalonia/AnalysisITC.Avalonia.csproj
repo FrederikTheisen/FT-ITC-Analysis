@@ -54,4 +54,5 @@
       <ReferenceSourceTarget></ReferenceSourceTarget>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="..\Build\DesktopBuildTime.targets" />
 </Project>

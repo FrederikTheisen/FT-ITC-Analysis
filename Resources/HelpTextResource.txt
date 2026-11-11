@@ -1,6 +1,8 @@
 ## About \appname
 \appname processes, fits, designs, and presents isothermal titration calorimetry (ITC) experiments on macOS, Windows, and Linux. All workflows are available through the graphical interface.
 
+Click the version in **About** to see the build time as the fourth part of the version number. For example, `1.5.2.0942` was built at 09:42 local time on the build machine.
+
 # Main workflow
 
 Load data, inspect the experiment details, and define baselines and integration regions for raw thermograms. Fit an appropriate model, review the result and uncertainty, then export tables, figures, or a report.

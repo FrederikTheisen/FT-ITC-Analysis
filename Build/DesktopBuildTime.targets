@@ -1,0 +1,18 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="GenerateDesktopBuildTime" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_DesktopBuildTimeSource>$(IntermediateOutputPath)DesktopBuildTime.g.cs</_DesktopBuildTimeSource>
+    </PropertyGroup>
+    <ItemGroup>
+      <Compile Include="$(_DesktopBuildTimeSource)" />
+      <FileWrites Include="$(_DesktopBuildTimeSource)" />
+    </ItemGroup>
+    <!-- Keep the timestamp in the executable so an older copy displays its own build time. -->
+    <WriteLinesToFile
+      Condition="'$(DesignTimeBuild)' != 'true' Or !Exists('$(_DesktopBuildTimeSource)')"
+      File="$(_DesktopBuildTimeSource)"
+      Lines='namespace AnalysisITC { internal static class DesktopBuildTime { internal const string HourMinute = "$([System.DateTime]::Now.ToString("HHmm"))"%3B } }'
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
+</Project>

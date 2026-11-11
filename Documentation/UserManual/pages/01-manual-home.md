@@ -74,4 +74,6 @@ Interface labels appear in **bold**. A path such as **File > Save As...** means 
 
 ## Help and support
 
+Click the version in **About** to see the build time as four digits at the end of the version number. For example, `1.5.2.0942` was built at 09:42 local time on the build machine.
+
 **Help and Guide** opens the topic-based in-app help, with practical guidance followed by scientific explanations and calculations. On native macOS, choose **FT-ITC Analysis Help** from the **Help** menu. **Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
