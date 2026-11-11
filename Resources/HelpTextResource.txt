@@ -535,9 +535,9 @@ The back-mixing factor is the fraction of a homogeneous dead-volume compartment 
 
 **One-site** chooses reload fractions by minimizing the one-set-of-sites RMSD for the combined titration.
 
-**Model-free** estimates reloads in order, retaining earlier fractions. For each candidate fraction, it recalculates concentrations and fits one unweighted cubic to heat per mole of injectant against midpoint molar ratio. It uses included injections among the six nearest positions on each side, requiring at least three per side. Excluded injections still enter the concentration bookkeeping.
+**Model-free** estimates reloads in order, retaining earlier fractions. For each candidate fraction, it recalculates concentrations and fits one unweighted cubic to heat per mole of injectant against midpoint molar ratio. It uses included injections among the eight nearest positions on each side, requiring at least three per side. Excluded injections still enter the concentration bookkeeping.
 
-The cubic must keep rising or keep falling across the window. This assumes the local isotherm does not turn near the reload. Where the data barely distinguish fractions, a weak, chosen preference favors 5%; it is not measured mixing information.
+The cubic must keep rising or falling and retain one curvature direction across the window. This assumes the local isotherm neither turns nor forms an S-shaped curve near the reload. Fractions are selected solely by the residual sum of squares, without a preferred mixing fraction.
 
 Automatic merges save mixing uncertainty in the merge information. One-site uses approximate 95% limits from the existing grid. Model-free uses 200 Monte Carlo draws with heat noise estimated from the local cubic residuals and adjusted for the fitted curve coefficients and mixing fractions. The reported fractions remain the selections from the original data. Bound-reached limits extend to 0% or 100%; unresolved limits are unavailable. Monte Carlo ranges describe sensitivity to the assumed heat noise.
 

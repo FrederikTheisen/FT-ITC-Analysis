@@ -85,7 +85,7 @@ The merge **Mode** selector contains:
 
 Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the shared slider supplies the fraction. With three or four experiments selected, enable the individual-fractions option to set **Reload 1**, **Reload 2**, and, for four experiments, **Reload 3** separately. Auto mode estimates the values from the selected data; these are inferred corrections rather than direct measurements of mixing.
 
-Choose **One-site** when a one-set-of-sites model is appropriate, or **Model-free** to match the two sides of each reload without a binding model. Model-free needs at least three included injections among the six nearest on each side. Compare criteria for noisy data or reloads near saturation.
+Choose **One-site** when a one-set-of-sites model is appropriate, or **Model-free** to match the two sides of each reload without a binding model. Model-free needs at least three included injections among the eight nearest on each side. Compare criteria for noisy data or reloads near saturation.
 
 Automatic merges also save mixing-fraction uncertainty. **One-site** estimates approximate 95% limits from the existing search grid, without additional binding fits. **Model-free** uses 200 Monte Carlo draws, with a shared heat-noise SD estimated from the local cubic residuals, adjusted for the fitted curve coefficients and mixing fractions. Each draw re-estimates the reloads in order. The fractions reported for the merge remain those selected from the original heats.
 
@@ -121,6 +121,6 @@ In **Fixed back-mixing** and **Auto back-mixing**, the model tracks the active c
 
 ### Automatic back-mixing calculation
 
-One-site minimizes the combined titration's one-set-of-sites RMSD. Model-free solves reloads in order, keeping earlier fractions. Each candidate recalculates concentrations and fits one unweighted, monotonic cubic to heat per mole of injectant against midpoint molar ratio, using included injections among the six nearest positions on each side. Excluded injections still contribute their delivered volume to bookkeeping.
+One-site minimizes the combined titration's one-set-of-sites RMSD. Model-free solves reloads in order, keeping earlier fractions. Each candidate recalculates concentrations and fits one unweighted, monotonic cubic to heat per mole of injectant against midpoint molar ratio, using included injections among the eight nearest positions on each side. Excluded injections still contribute their delivered volume to bookkeeping.
 
-The cubic must keep rising or falling across the window, so it assumes the local isotherm does not turn. Where fractions are poorly distinguished, a weak, chosen preference favors 5%; this is not measured mixing information. The small local window makes model-free estimates less precise with noise or near saturation.
+The cubic must keep rising or falling and retain one curvature direction across the window, so it assumes the local isotherm neither turns nor forms an S-shaped curve. Fractions are selected solely by the residual sum of squares, without a preferred mixing fraction. The small local window makes model-free estimates less precise with noise or near saturation.

@@ -21,8 +21,7 @@ namespace AnalysisITC.Core.Tests
         const double CellVolume = 200e-6;
         const double CellConcentration = 30e-6;
 
-        // Kd = 100 uM. The model-free criterion assumes the isotherm is close to straight around
-        // each transition, which only holds for weak binding (Kd above about 50 uM).
+        // Kd = 100 uM gives smooth monotonic windows without inflections around these refills.
         const double WeakBindingLogK = 4.0;
 
         readonly PreferencesState original = PreferencesState.FromSettings();
@@ -118,8 +117,8 @@ namespace AnalysisITC.Core.Tests
 
             var (pre, post) = TandemContinuityScanner.TransitionWindow(experiment, segments, 0);
 
-            var expectedPre = new[] { 6, 5, 4, 2, 1 }.Select(back => runLength - back).ToArray();
-            var expectedPost = new[] { 1, 2, 3, 4, 5 }.Select(offset => runLength + offset).ToArray();
+            var expectedPre = new[] { 8, 7, 6, 5, 4, 2, 1 }.Select(back => runLength - back).ToArray();
+            var expectedPost = new[] { 1, 2, 3, 4, 5, 6, 7 }.Select(offset => runLength + offset).ToArray();
             Assert.Equal(expectedPre.Select(index => experiment.Injections[index].Enthalpy), pre.Select(point => point.y));
             Assert.Equal(expectedPost.Select(index => experiment.Injections[index].Enthalpy), post.Select(point => point.y));
         }
@@ -132,7 +131,7 @@ namespace AnalysisITC.Core.Tests
             var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);
 
             // The second run's first injection is already excluded; keep only the requested number of
-            // the next five.
+            // the next seven.
             var second = sources[1].Injections;
             for (var index = 1 + includedAfterTransition; index < TandemContinuityScanner.PointsPerSide; index++)
                 second[index].Include = false;
@@ -173,6 +172,29 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(2, modelFree.TransitionMixingFractions.Count);
             for (var index = 0; index < 2; index++)
                 Assert.InRange(modelFree.TransitionMixingFractions[index], oneSite.TransitionMixingFractions[index] - 0.1, oneSite.TransitionMixingFractions[index] + 0.1);
+        }
+
+        [Theory]
+        [InlineData(DilutionMethod.Exponential, 0.164, 0.168)]
+        [InlineData(DilutionMethod.DiscreteDisplacement, 0.162, 0.166)]
+        public async Task HistoricalTandemSelectsUnbiasedSingleCurvatureOptima(
+            DilutionMethod method, double expectedFirst, double expectedSecond)
+        {
+            // Reference: eight positions per side, full 0-100% scans in 0.2-point steps,
+            // with constrained least squares
+            // independently solved by SVD null-space enumeration of the active constraint faces.
+            AppSettings.DilutionCalculationMethod = method;
+            var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tandem", "280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
+            await using var stream = File.OpenRead(path);
+            var sources = (await FTXTCReader.ReadStream(stream)).OfType<ExperimentData>().Take(3).ToList();
+            foreach (var source in sources)
+                await source.Processor.ProcessData(replace: false, invalidate: false, showProgress: false);
+
+            var point = FindModelFree(sources);
+
+            Assert.NotNull(point);
+            Assert.Equal(expectedFirst, point.FirstTransitionMixingFraction, 10);
+            Assert.Equal(expectedSecond, point.SecondTransitionMixingFraction, 10);
         }
 
         TandemMixingScanPoint FindModelFree(IReadOnlyList<ExperimentData> sources)

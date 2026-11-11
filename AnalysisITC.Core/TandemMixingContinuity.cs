@@ -17,8 +17,8 @@ namespace AnalysisITC.Core.Processing
         OneSiteFit,
 
         /// <summary>
-        /// For each transition, minimise the residual of a monotonic cubic through the included
-        /// injections on either side of it.
+        /// For each transition, minimise the residual of a monotonic, single-curvature cubic through
+        /// the included injections on either side of it.
         /// </summary>
         [Description("Model-free")]
         ModelFree,
@@ -27,21 +27,16 @@ namespace AnalysisITC.Core.Processing
     /// <summary>
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
     /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
-    /// sum of squares of one monotonic cubic in molar ratio through the included injections among the
-    /// last injections before the transition and the first injections after it, modulated by a weak
-    /// preference for a typical mixing fraction.
+    /// sum of squares of one monotonic, single-curvature cubic in molar ratio through the included
+    /// injections among the last injections before the transition and the first injections after it.
     /// </summary>
     internal static class TandemContinuityScanner
     {
-        public const int PointsPerSide = 6;
+        public const int PointsPerSide = 8;
         public const int MinimumIncludedPointsPerSide = 3;
         internal const int PolynomialOrder = 3;
 
-        // Slope sign is enforced at this many evenly spaced points across the window.
-        const int MonotoneConstraintPointCount = 41;
         public const double ScanStep = 0.02;
-
-        internal static MixingFractionBias Bias => MixingFractionBias.Default;
 
         static readonly IReadOnlyList<double> ScanFractions = TandemMixingScanner.MixingFractionsForStep(
             TandemMixingScanner.DefaultMinimumMixingFraction,
@@ -150,7 +145,7 @@ namespace AnalysisITC.Core.Processing
                 reportEvaluation();
 
                 var rss = ResidualSumOfSquares(pre.Concat(post).ToList());
-                return double.IsNaN(rss) ? double.PositiveInfinity : Bias.Apply(rss, fraction);
+                return double.IsNaN(rss) ? double.PositiveInfinity : rss;
             }
 
             // Scan 0-100% in 2% steps, then refine around the best point in 1% and 0.2% steps,
@@ -223,9 +218,9 @@ namespace AnalysisITC.Core.Processing
         }
 
         /// <summary>
-        /// A polynomial in molar ratio, fitted by least squares to the window. The isotherm of a single
-        /// binding process never changes direction, so the slope is constrained to keep one sign across
-        /// the window; both directions are tried and the better fit is kept.
+        /// A polynomial in molar ratio, fitted by least squares to the window. Slope and curvature
+        /// each retain one sign across the window, assuming the local isotherm neither turns nor
+        /// inflects. All four sign combinations are tried and the smallest residual is kept.
         /// </summary>
         internal sealed class WindowFit
         {
@@ -274,14 +269,20 @@ namespace AnalysisITC.Core.Processing
                 }
             }
 
-            WindowFit Solve(double slopeSign)
+            WindowFit Solve(double slopeSign, double curvatureSign)
             {
-                // Rows are slopeSign * p'(t) at evenly spaced t; the solver keeps each row >= 0.
-                var constraints = new double[MonotoneConstraintPointCount, terms];
-                for (var row = 0; row < MonotoneConstraintPointCount; row++)
+                // A cubic's second derivative is linear, so its endpoint signs constrain curvature
+                // throughout the interval. This makes the first derivative monotonic; constraining
+                // its two endpoints therefore also fixes the slope sign throughout the interval.
+                // Goldfarb-Idnani keeps each constraint row >= 0.
+                var constraints = new double[4, terms];
+                for (var endpoint = 0; endpoint < 2; endpoint++)
                 {
-                    var t = -1.0 + 2.0 * row / (MonotoneConstraintPointCount - 1);
-                    for (var k = 1; k < terms; k++) constraints[row, k] = slopeSign * k * Math.Pow(t, k - 1);
+                    var t = endpoint == 0 ? -1.0 : 1.0;
+                    for (var k = 1; k < terms; k++)
+                        constraints[endpoint, k] = slopeSign * k * Math.Pow(t, k - 1);
+                    for (var k = 2; k < terms; k++)
+                        constraints[2 + endpoint, k] = curvatureSign * k * (k - 1) * Math.Pow(t, k - 2);
                 }
 
                 var solver = new GoldfarbIdnani(
@@ -298,11 +299,14 @@ namespace AnalysisITC.Core.Processing
                 return new WindowFit(center, halfWidth, coefficients, rss);
             }
 
-            var rising = Solve(1);
-            var falling = Solve(-1);
-            if (rising == null) return falling;
-            if (falling == null) return rising;
-            return rising.Rss <= falling.Rss ? rising : falling;
+            WindowFit best = null;
+            foreach (var slopeSign in new[] { 1.0, -1.0 })
+            foreach (var curvatureSign in new[] { 1.0, -1.0 })
+            {
+                var fit = Solve(slopeSign, curvatureSign);
+                if (fit != null && (best == null || fit.Rss < best.Rss)) best = fit;
+            }
+            return best;
         }
 
         static List<(double x, double y)> IncludedPoints(ExperimentData experiment, int start, int count)
