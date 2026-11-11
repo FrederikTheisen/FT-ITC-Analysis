@@ -552,6 +552,12 @@ namespace AnalysisITC.Core.Analysis
         public double Loss => UnweightedRmsd;
         public Energy? MolarRMSD { get; private set; }
 
+        /// <summary>
+        /// The unweighted molar residual sum of squares per residual degree of freedom,
+        /// in (J/mol)^2. This is the MicroCal Origin statistic on the same molar residuals.
+        /// </summary>
+        public double? MolarResidualMeanSquare { get; private set; }
+
         public TimeSpan Time { get; private set; } = new(0);
         public TimeSpan ErrorEstimationTime { get; private set; } = new(0);
 
@@ -634,20 +640,26 @@ namespace AnalysisITC.Core.Analysis
         public void SetLoss(double loss) => SetUnweightedRmsd(loss);
         public void SetMolarRMSD(Energy? molarRmsd) => MolarRMSD = molarRmsd;
 
-        internal void ClearReducedChiSquare()
+        internal void ClearDegreesOfFreedomDiagnostics()
         {
             ReducedChiSquareQ = null;
             ReducedChiSquareObservationCount = null;
             ReducedChiSquareParameterCount = null;
+            MolarResidualMeanSquare = null;
         }
 
-        internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation, int parameterCount, bool captureReducedChiSquare = true)
+        internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation, int parameterCount, bool captureDegreesOfFreedomDiagnostics = true)
         {
             if (evaluation == null) throw new ArgumentNullException(nameof(evaluation));
 
-            ReducedChiSquareQ = captureReducedChiSquare ? evaluation.ReducedChiSquareQ : null;
+            ReducedChiSquareQ = captureDegreesOfFreedomDiagnostics ? evaluation.ReducedChiSquareQ : null;
             ReducedChiSquareObservationCount = ReducedChiSquareQ.HasValue ? evaluation.ObservationCount : (int?)null;
             ReducedChiSquareParameterCount = ReducedChiSquareQ.HasValue ? parameterCount : (int?)null;
+            MolarResidualMeanSquare = captureDegreesOfFreedomDiagnostics
+                && parameterCount >= 0 && evaluation.ObservationCount > parameterCount
+                && FWEMath.IsFinite(evaluation.MolarResidualSumOfSquares)
+                ? evaluation.MolarResidualSumOfSquares / (evaluation.ObservationCount - parameterCount)
+                : (double?)null;
             UnweightedRmsd = evaluation.RmsdMicrojoules;
             MolarRMSD = evaluation.MolarRmsdJoulesPerMole.HasValue
                 ? new Energy(evaluation.MolarRmsdJoulesPerMole.Value)
@@ -840,6 +852,7 @@ namespace AnalysisITC.Core.Analysis
                 ReducedChiSquareObservationCount = ReducedChiSquareObservationCount,
                 ReducedChiSquareParameterCount = ReducedChiSquareParameterCount,
                 MolarRMSD = this.MolarRMSD,
+                MolarResidualMeanSquare = MolarResidualMeanSquare,
 
                 Time = this.Time,
                 ErrorEstimationTime = this.ErrorEstimationTime,

@@ -263,10 +263,35 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(14, restored.ReducedChiSquareQ);
             Assert.Equal(3, restored.ReducedChiSquareObservationCount);
             Assert.Equal(1, restored.ReducedChiSquareParameterCount);
-            convergence.SetResidualStatistics(evaluation, 1, captureReducedChiSquare: false);
+            convergence.SetResidualStatistics(evaluation, 1, captureDegreesOfFreedomDiagnostics: false);
             Assert.Null(convergence.ReducedChiSquareQ);
             Assert.Null(convergence.ReducedChiSquareObservationCount);
             Assert.Null(convergence.ReducedChiSquareParameterCount);
+        }
+
+        [Fact]
+        public void MolarResidualMeanSquareUsesFreeParameterCountAndIgnoresHeatErrors()
+        {
+            var model = CreateProbe(
+                new ResidualSpec(true, 2e-6, 0, 1e-9),
+                new ResidualSpec(false, 100e-6, 0, 1e-9),
+                new ResidualSpec(true, -3e-6, 0, 3e-9),
+                new ResidualSpec(true, 8e-6, 0, 2e-9));
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedCommonVariance);
+            var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot());
+
+            convergence.SetResidualStatistics(evaluation, parameterCount: 1);
+
+            // Molar residuals are 2000, -1000, and 4000 J/mol, with two residual degrees of freedom.
+            Assert.Equal(10_500_000, convergence.MolarResidualMeanSquare.Value, 7);
+            Assert.Equal(convergence.MolarResidualMeanSquare, convergence.Copy().MolarResidualMeanSquare);
+            Assert.Null(convergence.ReducedChiSquareQ);
+
+            convergence.SetResidualStatistics(evaluation, parameterCount: 3);
+            Assert.Null(convergence.MolarResidualMeanSquare);
+
+            convergence.SetResidualStatistics(evaluation, parameterCount: 1, captureDegreesOfFreedomDiagnostics: false);
+            Assert.Null(convergence.MolarResidualMeanSquare);
         }
 
         static double GaussianDensity(double residual, double variance)

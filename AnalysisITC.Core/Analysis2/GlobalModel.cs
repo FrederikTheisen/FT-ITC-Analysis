@@ -438,10 +438,10 @@ namespace AnalysisITC.Core.Analysis
 			foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, convergence.Copy());
-                if (Model.Models.Count > 1) mdl.Solution.Convergence.ClearReducedChiSquare();
+                if (Model.Models.Count > 1) mdl.Solution.Convergence.ClearDegreesOfFreedomDiagnostics();
                 if (!mdl.Solution.Convergence.Failed && !mdl.Solution.Convergence.Stopped)
                 {
-                    mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics(), mdl.NumberOfParameters, captureReducedChiSquare: Model.Models.Count == 1);
+                    mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics(), mdl.NumberOfParameters, captureDegreesOfFreedomDiagnostics: Model.Models.Count == 1);
                     if (convergence?.Objective.HasValue == true)
                         mdl.Solution.Convergence.SetObjective(
                             mdl.ResidualStatistics(UseWeightedFitting).Objective);
