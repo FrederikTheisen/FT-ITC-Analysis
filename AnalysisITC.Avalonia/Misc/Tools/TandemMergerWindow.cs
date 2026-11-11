@@ -94,7 +94,7 @@ namespace AnalysisITC.Avalonia.Tools
             mixingLabels = new[] { mixingLabel, secondMixingLabel, thirdMixingLabel };
 
             items = DataManager.Data
-                .Where(data => data.HasThermogram && !data.IsTandemExperiment)
+                .Where(data => !data.IsTandemExperiment && TandemConcatenation.HasCompletedSourceBaseline(data))
                 .Select(data => new TandemMergeItem(data))
                 .ToList();
 
@@ -246,6 +246,8 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var selected = SelectedItems();
             var hasCorrectedSource = BufferSubtractionPolicy.HasCorrectedSource(selected.Select(item => item.Data));
+            var needsBaseline = selected.Count < 2
+                || selected.Any(item => !TandemConcatenation.HasCompletedSourceBaseline(item.Data));
             var mode = SelectedMode();
             var autoAllowed = !IsAutomatic(mode) || selected.Count <= 5;
             var backMixing = mode != MergeMode.Simple;
@@ -275,7 +277,7 @@ namespace AnalysisITC.Avalonia.Tools
             experimentList.IsEnabled = !isBusy;
             modeCombo.IsEnabled = !isBusy;
             CalculationControlAvailability.Update(createButton, !isBusy && !hasCorrectedSource
-                && selected.Count >= 2 && autoAllowed && TryReadSettings(out _));
+                && !needsBaseline && autoAllowed && TryReadSettings(out _));
             if (!ProcessingActivity.IsBusy)
             {
                 ToolTip.SetTip(createButton, hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason : null);
@@ -285,8 +287,8 @@ namespace AnalysisITC.Avalonia.Tools
 
             if (hasCorrectedSource)
                 SetStatus(BufferSubtractionPolicy.CorrectedSourceReason);
-            else if (selected.Count < 2)
-                SetStatus("Select at least two experiments.");
+            else if (needsBaseline)
+                SetStatus(TandemConcatenation.SourceBaselineRequired);
             else if (!autoAllowed)
                 SetStatus("Auto back-mixing is available for up to five experiments.");
             else if (!TryReadSettings(out _))
@@ -309,6 +311,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             try
             {
+                TandemConcatenation.ValidateSourceBaselines(selected);
                 ExperimentData merged;
                 var mode = SelectedMode();
 
@@ -350,7 +353,7 @@ namespace AnalysisITC.Avalonia.Tools
                     merged = TandemConcatenation.ConcatTandem(selected);
                 }
 
-                await merged.Processor.ProcessData();
+                await merged.Processor.ProcessTandemMergeAsync();
                 DataManager.AddData(merged);
                 PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
                     "Tandem mixing finished", "The merged experiment is ready.");

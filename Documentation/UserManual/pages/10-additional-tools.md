@@ -75,7 +75,7 @@ When a target is saved without its reference experiment, for example with **Save
 
 Source experiments must have no buffer subtraction. Remove any buffer-subtraction attribute in **Experiment Details** before merging or scanning. This restriction applies to every merger mode.
 
-**Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
+**Experiment Merger...** joins two or more baseline-corrected thermograms from consecutive segments of a tandem titration. Complete baseline correction on each source before opening the merger. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
 The merge **Mode** selector contains:
 
@@ -90,6 +90,8 @@ Choose **One-site** when a one-set-of-sites model is appropriate, or **Model-fre
 **Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments retain the first source’s notes and append the selected tandem mode, the auto criterion when used, the back-mixing settings, and the selected fractions in reload order. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. It is a snapshot and does not update if its source experiments are subsequently edited. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
 
 When the first source experiment has an external experiment ID, the merged experiment's ID is that value followed by `-concat`; if its ID is blank, the merged ID stays blank. The cell and syringe sample/batch IDs are copied only when every source has the same nonblank value; otherwise the merged IDs are blank. The merger does not open the import review, so select the merged experiment and open **Details > Identifiers** to add or change IDs.
+
+The merger joins the baseline-corrected traces, applies a zero baseline, and integrates the copied windows. Processing starts locked. To recalculate Auto back-mixing after changing an integration window, edit the source experiment and rerun the merge.
 
 The new experiment uses the **Injection bookkeeping** method selected in **Preferences > Processing** for dilution during each injection. That choice is separate from the merger’s between-segment back-mixing setting. See [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas) for the methods and their limits.
 

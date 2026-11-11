@@ -84,7 +84,7 @@ public sealed class TandemMergerWindowTests
         DataManager.Clear(DataClearMode.ResetSession);
         var sources = new[] { CreateExperiment(1), CreateExperiment(2) };
         DataManager.AddData(sources);
-        // Keep the raw fixture unprocessed when MainWindow binds its processing workspace.
+        // Keep the baseline-corrected fixture unintegrated when the processing workspace binds it.
         MainWindow main;
         using (DocumentDirtyTracker.RestoreDocument())
             main = new MainWindow();
@@ -150,6 +150,27 @@ public sealed class TandemMergerWindowTests
             if (mergerCompletion != null) await mergerCompletion;
             DocumentDirtyTracker.MarkClean();
             main.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SourceSelectionRequiresCompletedBaselineCorrection()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var corrected = CreateExperiment(1);
+        var raw = CreateExperiment(2);
+        raw.Processor.BaselineCompleted = false;
+        DataManager.AddData(new[] { corrected, raw });
+        var window = new TandemMergerWindow();
+        try
+        {
+            Assert.Single(window.ExperimentListForTesting.Items);
+            Assert.False(window.CreateButtonForTesting.IsEnabled);
+        }
+        finally
+        {
+            window.Close();
             DataManager.Clear(DataClearMode.ResetSession);
         }
     }
@@ -357,6 +378,8 @@ public sealed class TandemMergerWindowTests
             },
         };
         experiment.Injections.Add(new InjectionData(experiment, 1e-6));
+        experiment.BaseLineCorrectedDataPoints = experiment.DataPoints.ToList();
+        experiment.Processor.BaselineCompleted = true;
         return experiment;
     }
 }

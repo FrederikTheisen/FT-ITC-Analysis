@@ -46,6 +46,7 @@ static class TandemCreationTests
             SynchronizationContext.SetSynchronizationContext(new CapturingContext(cocoaContext));
             Check(NSThread.IsMain, "harness must run on the main thread");
             DocumentDirtyTracker.Initialize();
+            SourceEligibility();
             CreationFailure(mode: 2, criterion: 0);
             CreationFailure(mode: 2, criterion: 1);
             CreationFailure(mode: 0, criterion: 0);
@@ -78,6 +79,17 @@ static class TandemCreationTests
             PlatformServices.RegisterMainThreadDispatcher(dispatcher);
             PlatformServices.RegisterAppNotificationService(notificationService);
             SynchronizationContext.SetSynchronizationContext(context);
+        }
+    }
+
+    static void SourceEligibility()
+    {
+        using (var fixture = new Fixture(mode: 0, criterion: 0, baselineCorrected: false))
+        {
+            Check(Outlet<NSTableView>(fixture.Controller, "MergeTableView").RowCount == 0,
+                "the merger listed unprocessed thermograms");
+            Check(!Outlet<NSButton>(fixture.Controller, "MergeButtonControl").Enabled,
+                "the merger admitted unprocessed thermograms");
         }
     }
 
@@ -158,8 +170,8 @@ static class TandemCreationTests
                     Expect(DataManager.Data.SequenceEqual(fixture.Sources)
                         && !DocumentDirtyTracker.IsDirty && Revision() == revision,
                         prefix + ": failed creation published data or changed document dirty state");
-                    Expect(fixture.Sources.All(s => !s.Processor.BaselineCompleted && s.Injections.All(i => !i.IsIntegrated)),
-                        prefix + ": creation processed its raw sources");
+                    Expect(fixture.Sources.All(s => s.Processor.BaselineCompleted && s.Injections.All(i => !i.IsIntegrated)),
+                        prefix + ": creation changed processing on its sources");
                     Expect(ReferenceEquals(controller.PresentingViewController, fixture.Presenter)
                         && notifications.Count == fixture.InitialNotifications,
                         prefix + ": failed creation dismissed the sheet or sent success notification");
@@ -246,8 +258,10 @@ static class TandemCreationTests
                     && !double.IsInfinity(i.ActualTitrantConcentration)), "valid dead volume must produce finite concentrations");
             }
             Expect(dialogs == 0 && merged.IsTandemExperiment && merged.Processor.BaselineCompleted
-                && merged.Processor.IntegrationCompleted && DocumentDirtyTracker.IsDirty,
+                && merged.Processor.IntegrationCompleted && merged.Processor.IsLocked && DocumentDirtyTracker.IsDirty,
                 "mode=" + mode + ": successful tandem was not processed and published");
+            Expect(merged.Processor.Interpolator.Baseline.All(sample => sample.Value == 0),
+                "mode=" + mode + ": merged baseline was not zero");
             Expect(merged.TandemSourceExperimentIds.SequenceEqual(fixture.Sources.Select(s => s.UniqueID)),
                 "mode=" + mode + ": successful tandem lost source order");
             Expect(notifications.Count == fixture.InitialNotifications + 1
@@ -265,10 +279,19 @@ static class TandemCreationTests
         public readonly NSWindow Window;
         public readonly int InitialNotifications = notifications.Count;
 
-        public Fixture(int mode, int criterion)
+        public Fixture(int mode, int criterion, bool baselineCorrected = true)
         {
             DataManager.Clear(DataClearMode.ResetSession);
             Sources = new[] { Experiment("source A"), Experiment("source B") };
+            if (baselineCorrected)
+                foreach (var source in Sources)
+                {
+                    source.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);
+                    ((PolynomialLeastSquaresInterpolator)source.Processor.Interpolator).Degree = 0;
+                    var correction = source.Processor.InterpolateBaseline(throwOnError: true);
+                    PumpUntil(() => correction.IsCompleted, "source baseline correction did not finish");
+                    correction.GetAwaiter().GetResult();
+                }
             DataManager.AddData(Sources);
             var handle = Send(Send(new Class(typeof(ExperimentMergerViewController)).Handle,
                 Selector.GetHandle("alloc")), Selector.GetHandle("init"));
@@ -287,7 +310,8 @@ static class TandemCreationTests
             Outlet<NSSlider>(Controller, "BackMixingSliderControl").Action = new Selector("takeFloatValueFrom:");
             Outlet<NSSlider>(Controller, "BackMixingSliderControl").Target = Outlet<NSTextField>(Controller, "BackMixFracLabel");
             Controller.ViewDidLoad();
-            Outlet<NSTableView>(Controller, "MergeTableView").SelectRows(NSIndexSet.FromNSRange(new NSRange(0, 2)), false);
+            if (baselineCorrected)
+                Outlet<NSTableView>(Controller, "MergeTableView").SelectRows(NSIndexSet.FromNSRange(new NSRange(0, 2)), false);
             Outlet<NSSegmentedControl>(Controller, "MergeMethodControl").SelectedSegment = mode;
             Outlet<NSSegmentedControl>(Controller, "AutoCriterionControl").SelectedSegment = criterion;
             Outlet<NSSlider>(Controller, "BackMixingSliderControl").DoubleValue = 0.23;
@@ -295,7 +319,8 @@ static class TandemCreationTests
             Outlet<NSButton>(Controller, "RemovedTitratedAfterExperimentControl").State = NSCellStateValue.On;
             typeof(ExperimentMergerViewController).GetMethod("MergeMethodControlAction", Instance)
                 .Invoke(Controller, new object[] { Outlet<NSSegmentedControl>(Controller, "MergeMethodControl") });
-            Check(Outlet<NSButton>(Controller, "MergeButtonControl").Enabled, "raw sources were not admitted by merger");
+            Check(Outlet<NSButton>(Controller, "MergeButtonControl").Enabled == baselineCorrected,
+                "merger eligibility did not match source baseline completion");
             Presenter = new NSViewController { View = new NSView(new CGRect(0, 0, 800, 600)) };
             Window = new NSWindow(new CGRect(100, 100, 800, 600), NSWindowStyle.Titled, NSBackingStore.Buffered, false);
             Window.ContentViewController = Presenter;

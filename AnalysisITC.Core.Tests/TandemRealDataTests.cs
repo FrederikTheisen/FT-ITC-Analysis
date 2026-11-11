@@ -10,6 +10,7 @@ using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
@@ -50,6 +51,60 @@ namespace AnalysisITC.Core.Tests
             package.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
             AssertTandemStateEqual(saved, restored);
+        }
+
+        [Fact]
+        public async Task MergerIntegratesCorrectedTracesWithAZeroBaselineAndSavesTheLock()
+        {
+            var sources = new List<ExperimentData>
+            {
+                CreateBaselineCorrectedSource(1, 8e-6f, 4e-6f),
+                CreateBaselineCorrectedSource(2, 16e-6f, -6e-6f),
+            };
+            TandemConcatenation.ValidateSourceBaselines(sources);
+            var merged = TandemConcatenation.ConcatTandem(sources);
+
+            await merged.Processor.ProcessTandemMergeAsync(showProgress: false);
+            AssertProcessedMerge(merged);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { merged });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+            await restored.Processor.ProcessData(showProgress: false);
+            AssertProcessedMerge(restored);
+
+            static void AssertProcessedMerge(ExperimentData data)
+            {
+                Assert.True(data.Processor.BaselineCompleted);
+                Assert.True(data.Processor.IntegrationCompleted);
+                Assert.True(data.Processor.IsLocked);
+                var polynomial = Assert.IsType<PolynomialLeastSquaresInterpolator>(data.Processor.Interpolator);
+                Assert.Equal(0, polynomial.Degree);
+                Assert.Equal(data.DataPoints.Count, polynomial.Baseline.Count);
+                Assert.All(polynomial.Baseline, sample => Assert.Equal(0d, sample.Value));
+                Assert.Equal(new[] { 5f, 30f }, data.Injections.Select(injection => injection.IntegrationStartTime));
+                Assert.Equal(new[] { 8f, 33f }, data.Injections.Select(injection => injection.IntegrationEndTime));
+                // The copied windows each cover three seconds at their respective pulse power.
+                AssertClose(12e-6, data.Injections[0].RawPeakArea.Value, 1e-11);
+                AssertClose(-18e-6, data.Injections[1].RawPeakArea.Value, 1e-11);
+            }
+        }
+
+        static ExperimentData CreateBaselineCorrectedSource(int index, float baseline, float pulse)
+        {
+            var data = CreateTandemSource(index);
+            data.DataPoints = Enumerable.Range(0, 25)
+                .Select(time => new DataPoint(time, baseline + (time > 5 && time <= 8 ? pulse : 2e-6f), 25))
+                .ToList();
+            var injection = InjectionData.FromPEAQFile(data, 0, true, 5, 1e-6, 19, 1, 25);
+            injection.SetIntegrationLengthByTime(3);
+            data.Injections = new List<InjectionData> { injection };
+            data.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);
+            data.Processor.Interpolator.Baseline = Enumerable.Repeat(new Energy(baseline), data.DataPoints.Count).ToList();
+            data.Processor.SubtractBaseline();
+            data.Processor.BaselineCompleted = true;
+            return data;
         }
 
         [Fact]

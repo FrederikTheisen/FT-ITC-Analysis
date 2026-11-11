@@ -516,7 +516,7 @@ Matched subtraction uses the reference injection SD, or combines SDs when nearby
 
 ## Tandem experiments
 Tandem experiments can be collected by refilling the syringe while leaving the current cell content, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
-The standard merge concatenates thermograms and recomputes injection concentrations and ratios across the combined titration. If an input experiment has already been baseline processed, the merger uses its baseline-corrected trace for that segment.
+Complete baseline correction on each source before opening the merger. The merger joins the corrected traces, applies a zero baseline, integrates the copied windows, and locks processing. To recalculate Auto back-mixing after changing an integration window, edit the source experiment and rerun the merge.
 Source experiments must have no buffer subtraction. Remove any buffer-subtraction attribute in **Experiment Details** before merging or scanning, in every merger mode.
 Back-mixing mode adds a simple overflow/dead-volume model between syringe loads. You can set the dead volume, choose whether displaced titrated solution was removed between segments, and adjust the fraction of the dead volume that mixes back into the active cell. The merged experiment stores segment start concentrations so processing, fitting, and project saving treat it as one tandem dataset. Its comments retain the first source’s notes and append the merge method, auto criterion when used, settings, and selected fractions in reload order.
 

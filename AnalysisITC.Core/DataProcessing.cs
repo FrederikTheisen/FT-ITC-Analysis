@@ -100,7 +100,13 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
-        public async Task ProcessData(bool replace = true, bool invalidate = true, bool showProgress = true)
+        public Task ProcessData(bool replace = true, bool invalidate = true, bool showProgress = true)
+            => ProcessDataAsync(replace, invalidate, showProgress, lockWithZeroBaseline: false);
+
+        internal Task ProcessTandemMergeAsync(bool showProgress = true)
+            => ProcessDataAsync(replace: true, invalidate: true, showProgress, lockWithZeroBaseline: true);
+
+        async Task ProcessDataAsync(bool replace, bool invalidate, bool showProgress, bool lockWithZeroBaseline)
         {
             using var activity = await ProcessingActivity.BeginAsync();
             using var ownership = activity.Enter();
@@ -111,7 +117,8 @@ namespace AnalysisITC.Core.Processing
             {
                 if (IsLocked) return;
                 using var admission = BeginProcessingAdmission();
-                await ProcessDataCore(replace, invalidate, showProgress);
+                await ProcessDataCore(replace, invalidate, showProgress, lockWithZeroBaseline);
+                if (lockWithZeroBaseline) Lock();
             }
             finally
             {
@@ -143,17 +150,21 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
-        async Task ProcessDataCore(bool replace, bool invalidate, bool showProgress)
+        async Task ProcessDataCore(bool replace, bool invalidate, bool showProgress, bool useZeroBaseline = false)
         {
-
             if (showProgress) StatusBarManager.StartInderminateProgress();
 
-            WillProcessDataCore(invalidate);
-            await InterpolateBaselineCore(replace, notify: true, throwOnError: false);
-            IntegratePeaksCore(invalidate, notify: true);
-            DidProcessDataCore(invalidate);
-
-            if (showProgress) StatusBarManager.StopIndeterminateProgress();
+            try
+            {
+                WillProcessDataCore(invalidate);
+                await InterpolateBaselineCore(replace, notify: true, throwOnError: useZeroBaseline, useZeroBaseline);
+                IntegratePeaksCore(invalidate, notify: true, throwOnError: useZeroBaseline);
+                DidProcessDataCore(invalidate);
+            }
+            finally
+            {
+                if (showProgress) StatusBarManager.StopIndeterminateProgress();
+            }
         }
 
         public async Task<PeakFitResult> FitIntegrationPeaksAsync(
@@ -820,7 +831,7 @@ namespace AnalysisITC.Core.Processing
             await InterpolateBaselineCore(replace, notify, throwOnError);
         }
 
-        async Task InterpolateBaselineCore(bool replace, bool notify, bool throwOnError)
+        async Task InterpolateBaselineCore(bool replace, bool notify, bool throwOnError, bool useZeroBaseline = false)
         {
             try
             {
@@ -829,7 +840,10 @@ namespace AnalysisITC.Core.Processing
                 csource = new CancellationTokenSource();
                 cToken = csource.Token;
 
-                await Task.Run(() => Interpolator.Interpolate(cToken, replace));
+                if (useZeroBaseline)
+                    Interpolator.Baseline = await Task.Run(() => Enumerable.Repeat(default(Energy), Data.DataPoints.Count).ToList());
+                else
+                    await Task.Run(() => Interpolator.Interpolate(cToken, replace));
 
                 SubtractBaselineCore();
 
@@ -888,7 +902,7 @@ namespace AnalysisITC.Core.Processing
             IntegratePeaksCore(invalidate, notify);
         }
 
-        void IntegratePeaksCore(bool invalidate, bool notify)
+        void IntegratePeaksCore(bool invalidate, bool notify, bool throwOnError = false)
         {
             if (Data.BaseLineCorrectedDataPoints == null || Data.BaseLineCorrectedDataPoints.Count == 0) return;
 
@@ -901,6 +915,7 @@ namespace AnalysisITC.Core.Processing
             }
             catch (Exception ex)
             {
+                if (throwOnError) throw;
                 AppEventHandler.DisplayHandledException(ex);
             }
 

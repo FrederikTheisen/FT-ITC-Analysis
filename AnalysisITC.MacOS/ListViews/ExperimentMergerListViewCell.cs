@@ -85,11 +85,13 @@ namespace AnalysisITC
 
         public override nint GetRowCount(NSTableView tableView) => Items.Count;
 
-        public void SetFromOpenExperiments(bool defaultActiveFromInclude = true, bool musthavethermogram = true)
+        public void SetFromOpenExperiments(bool defaultActiveFromInclude = true, bool musthavethermogram = true,
+            Func<ExperimentData, bool> sourceFilter = null)
         {
             // Open experiments are DataManager.Data
             Items = DataManager.Data
                 .Where(d => (d.HasThermogram || !musthavethermogram) && !d.IsTandemExperiment)
+                .Where(d => sourceFilter?.Invoke(d) ?? true)
                 .Select(d => new MergeExperimentItem(d, active: defaultActiveFromInclude ? d.Include : true))
                 .ToList();
 

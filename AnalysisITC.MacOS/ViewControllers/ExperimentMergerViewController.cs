@@ -81,7 +81,8 @@ namespace AnalysisITC
             MergeSettings = new BackMixingSettings();
 
             mergeSource = new ExperimentMergeQueueDataSource();
-            mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false); // uses DataManager.Data / Include :contentReference[oaicite:5]{index=5}
+            mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false,
+                sourceFilter: TandemConcatenation.HasCompletedSourceBaseline);
 
             mergeDelegate = new ExperimentMergeQueueDelegate(mergeSource);
             mergeDelegate.QueueChanged += (_, __) =>
@@ -107,7 +108,8 @@ namespace AnalysisITC
 
             SetMixingSliderValue(MergeSettings.MixingFraction);
             SetAdditionalMixingSliderValues(MergeSettings.MixingFraction);
-            DeadVolumeTextField.DoubleValue = 1000000 * GetFirstSelectedExperimentOrDefault().Instrument.GetProperties().DeadVolume;
+            var firstSource = mergeSource.Items.FirstOrDefault()?.Data;
+            DeadVolumeTextField.DoubleValue = 1000000 * (firstSource?.Instrument.GetProperties().DeadVolume ?? MergeSettings.DeadVolume);
             SetupMethodControls();
 
             ValidateMergeButton();
@@ -176,18 +178,20 @@ namespace AnalysisITC
             var selected = mergeDelegate.GetSelectedExperiments(MergeTableView);
             var n = selected.Count;
             var hasCorrectedSource = BufferSubtractionPolicy.HasCorrectedSource(selected);
+            var needsBaseline = n < 2 || selected.Any(source => !TandemConcatenation.HasCompletedSourceBaseline(source));
 
             MergeButtonControl.Enabled = !IsCreatingMergedExperiment
                 && !ProcessingActivity.IsBusy
                 && !hasCorrectedSource
-                && n > 1
+                && !needsBaseline
                 && (!IsAutoBackMixingEnabled || n <= 5);
             calculationControls?.Refresh();
             if (!ProcessingActivity.IsBusy && !IsCreatingMergedExperiment)
             {
                 MergeButtonControl.ToolTip = hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason : mergeButtonTooltip;
-                StatusBarManager.SetStatus(hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason
-                    : StateManager.ProgramSubStateString(ProgramSubState.MergeTool), -1);
+                var status = needsBaseline ? TandemConcatenation.SourceBaselineRequired
+                    : StateManager.ProgramSubStateString(ProgramSubState.MergeTool);
+                StatusBarManager.SetStatus(hasCorrectedSource ? BufferSubtractionPolicy.CorrectedSourceReason : status, -1);
             }
         }
 
@@ -221,18 +225,6 @@ namespace AnalysisITC
                 foreach (var nestedControl in FindControls(subview))
                     yield return nestedControl;
             }
-        }
-
-        ExperimentData GetFirstSelectedExperimentOrDefault()
-        {
-            var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
-
-            if (exps.Count == 0)
-            {
-                exps.Add(mergeSource.Items.First().Data);
-            }
-
-            return exps[0];
         }
 
         HashSet<string> CaptureSelectedIDs(NSTableView tableView, ExperimentMergeQueueDataSource source)
@@ -288,6 +280,7 @@ namespace AnalysisITC
 
             try
             {
+                TandemConcatenation.ValidateSourceBaselines(exps);
                 if (MergeSettings.UseBackMixingMethod)
                 {
                     var text = DeadVolumeTextField.StringValue;
@@ -357,7 +350,7 @@ namespace AnalysisITC
                     mergeddata = TandemConcatenation.ConcatTandem(exps);
                 }
 
-                await mergeddata.Processor.ProcessData();
+                await mergeddata.Processor.ProcessTandemMergeAsync();
                 DataManager.AddData(mergeddata);
 
                 PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(

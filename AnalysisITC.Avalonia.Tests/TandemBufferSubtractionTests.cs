@@ -30,6 +30,11 @@ public sealed class TandemBufferSubtractionTests : IDisposable
     {
         var first = Experiment("first");
         var second = Experiment("second");
+        foreach (var source in new[] { first, second })
+        {
+            source.BaseLineCorrectedDataPoints = source.DataPoints.ToList();
+            source.Processor.BaselineCompleted = true;
+        }
         DataManager.AddData(new[] { first, second });
         Correct(second);
         var window = new TandemMergerWindow();

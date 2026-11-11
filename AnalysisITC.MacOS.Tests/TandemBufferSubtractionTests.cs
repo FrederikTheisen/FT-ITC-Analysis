@@ -41,6 +41,11 @@ static class TandemBufferSubtractionTests
         DataManager.Clear(DataClearMode.ResetSession);
         var first = Experiment("first");
         var second = Experiment("second");
+        foreach (var source in new[] { first, second })
+        {
+            source.BaseLineCorrectedDataPoints = source.DataPoints.ToList();
+            typeof(DataProcessor).GetProperty("BaselineCompleted").SetValue(source.Processor, true);
+        }
         Correct(second);
         DataManager.AddData(new[] { first, second });
         using (var controller = MakeController<ExperimentMergerViewController>())

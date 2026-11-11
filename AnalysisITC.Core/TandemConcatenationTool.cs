@@ -26,6 +26,18 @@ namespace AnalysisITC.Core.Processing
 {
     public static class TandemConcatenation
     {
+        internal const string SourceBaselineRequired = "Select at least two baseline-corrected experiments.";
+
+        internal static bool HasCompletedSourceBaseline(ExperimentData source) =>
+            source.HasThermogram && source.Processor.BaselineCompleted &&
+            source.BaseLineCorrectedDataPoints?.Count == source.DataPoints.Count;
+
+        internal static void ValidateSourceBaselines(IReadOnlyList<ExperimentData> sources)
+        {
+            if (sources.Count < 2 || sources.Any(source => !HasCompletedSourceBaseline(source)))
+                throw new InvalidOperationException(SourceBaselineRequired);
+        }
+
         internal static bool IsValidDeadVolume(double volume) =>
             !double.IsNaN(volume) && !double.IsInfinity(volume) && volume >= 0;
 
