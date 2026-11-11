@@ -79,9 +79,17 @@ namespace AnalysisITC.Core.Processing
             TandemConcatenation.BackMixingSettings settings, TandemMixingScanPoint best, DilutionMethod method,
             Action<int, int> progress, Random random = null, double? noiseOverrideForTesting = null)
         {
+            var (experiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
+            return MonteCarlo(experiment, segments, settings, best, method, progress, random, noiseOverrideForTesting);
+        }
+
+        internal static TandemMixingUncertainty MonteCarlo(ExperimentData experiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            TandemConcatenation.BackMixingSettings settings, TandemMixingScanPoint best, DilutionMethod method,
+            Action<int, int> progress, Random random = null, double? noiseOverrideForTesting = null)
+        {
             var unavailable = Enumerable.Range(0, best.TransitionMixingFractions.Count)
                 .Select(_ => TandemMixingInterval.Unavailable()).ToArray();
-            var (experiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
             TandemConcatenation.ProcessInjectionsWithBackMixingModel(experiment, segments, settings, best.TransitionMixingFractions, method);
             var noise = noiseOverrideForTesting ?? EstimateHeatNoise(experiment, segments);
             var savedNoise = TandemMixingUncertainty.Finite(noise) && noise >= 0 ? (double?)noise : null;

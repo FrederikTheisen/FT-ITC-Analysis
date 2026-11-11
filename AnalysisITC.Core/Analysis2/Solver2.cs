@@ -18,6 +18,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -1291,6 +1292,7 @@ namespace AnalysisITC.Core.Analysis
             try
             {
                 Model.ResidualBootstrapScale(Model.NumberOfPoints, null, 0);
+                TandemMixingBootstrap.Prepare(Model.Data, Model.ModelCloneOptions);
             }
             catch (InvalidOperationException ex)
             {
@@ -1894,6 +1896,8 @@ namespace AnalysisITC.Core.Analysis
                     foreach (var member in Model.Models)
                         member.ResidualBootstrapScale(member.NumberOfPoints, jointParameters, totalPoints);
                 }
+                foreach (var member in Model.Models)
+                    TandemMixingBootstrap.Prepare(member.Data, member.ModelCloneOptions);
             }
             catch (InvalidOperationException ex)
             {

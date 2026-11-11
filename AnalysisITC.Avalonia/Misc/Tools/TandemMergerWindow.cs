@@ -317,27 +317,15 @@ namespace AnalysisITC.Avalonia.Tools
 
                 if (IsAutomatic(mode))
                 {
-                    SetStatus("Scanning tandem back-mixing...");
-                    var criterion = AutomaticCriterion();
-                    var bestPoint = await Task.Run(() => TandemMixingScanner.FindBestAdaptive(
-                        selected,
-                        settings.Copy(),
+                    SetStatus("Creating merged experiment...");
+                    merged = await TandemConcatenation.ConcatAutomaticAsync(
+                        selected, settings, AutomaticCriterion(),
                         (completed, total) => Dispatcher.UIThread.Post(() =>
                         {
                             if (!ProcessingActivity.IsCurrentOperation(lease.Operation.Id)) return;
                             progressBar.Value = total <= 0 ? 0 : completed / (double)total;
                             SetStatus($"Scanning tandem back-mixing... {100 * progressBar.Value:0}%");
-                        }),
-                        criterion, estimateUncertainty: true));
-
-                    if (bestPoint == null)
-                        throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
-
-                    SetStatus("Creating merged experiment...");
-                    progressBar.Value = 1;
-                    merged = TandemConcatenation.ConcatTandemWithBackMixing(
-                        selected, settings, bestPoint.TransitionMixingFractions,
-                        automaticCriterion: criterion, uncertainty: bestPoint.Uncertainty, bookkeeping: bestPoint.UncertaintyBookkeeping);
+                        }));
                 }
                 else if (mode == MergeMode.FixedBackMixing)
                 {
@@ -353,7 +341,7 @@ namespace AnalysisITC.Avalonia.Tools
                     merged = TandemConcatenation.ConcatTandem(selected);
                 }
 
-                await merged.Processor.ProcessTandemMergeAsync();
+                if (!IsAutomatic(mode)) await merged.Processor.ProcessTandemMergeAsync();
                 DataManager.AddData(merged);
                 PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
                     "Tandem mixing finished", "The merged experiment is ready.");

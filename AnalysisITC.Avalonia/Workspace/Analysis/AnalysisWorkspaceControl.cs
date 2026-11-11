@@ -50,6 +50,8 @@ namespace AnalysisITC.Avalonia.Analysis
             "Include cell and syringe concentration uncertainty during residual-bootstrap error estimation.");
         readonly CheckBox poolResidualsCheck = Check("Pool residuals across experiments", false,
             UncertaintyEstimationPresentation.PoolResidualsTooltip);
+        readonly CheckBox tandemMixingCheck = Check("Propagate tandem mixing uncertainty", false,
+            UncertaintyEstimationPresentation.TandemMixingTooltip);
         readonly CheckBox unlockParametersCheck = Check("Unlock parameters", false, "Unlock locked parameters during the error estimation pass.");
         readonly ComboBox parameterLimitsCombo = Combo(new[] { "Standard", "Expanded", "No limits" }, 190);
         readonly CheckBox createResultCheck = Check("Create analysis result", true, "Save the fit as an analysis result when fitting completes.");
@@ -100,6 +102,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
         internal CheckBox PoolResidualsCheck => poolResidualsCheck;
+        internal CheckBox TandemMixingCheck => tandemMixingCheck;
         internal CheckBox ConcentrationUncertaintyCheck => concentrationUncertaintyCheck;
         internal CheckBox WeightedFitCheckForTesting => weightedFitCheck;
         internal ComboBox ErrorMethodComboForTesting => errorMethodCombo;
@@ -260,7 +263,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 weightedFitCheck,
                 concentrationUncertaintyCheck,
                 unlockParametersCheck,
-                poolResidualsCheck
+                poolResidualsCheck,
+                tandemMixingCheck
             }));
             panel.Children.Add(Section("Result", new Control[]
             {
@@ -324,6 +328,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (isUpdatingControls) return;
                 ClearPreservedFitCompletionStatus();
                 FittingOptionsController.PoolBootstrapResiduals = poolResidualsCheck.IsChecked == true;
+            };
+            tandemMixingCheck.IsCheckedChanged += (_, _) =>
+            {
+                if (isUpdatingControls) return;
+                ClearPreservedFitCompletionStatus();
+                workspace.ReestimateTandemMixing = tandemMixingCheck.IsChecked == true;
             };
             createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
             autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
@@ -459,6 +469,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 concentrationUncertaintyCheck.IsChecked = FittingOptionsController.IncludeConcentrationVariance;
                 unlockParametersCheck.IsChecked = FittingOptionsController.UnlockBootstrapParameters;
                 poolResidualsCheck.IsChecked = FittingOptionsController.PoolBootstrapResiduals;
+                tandemMixingCheck.IsChecked = workspace.ReestimateTandemMixing;
                 bootstrapIterationsBox.Text =
                     FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
             }
@@ -851,6 +862,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 }
                 FittingOptionsController.PoolBootstrapResiduals = poolResidualsCheck.IsChecked == true;
                 FittingOptionsController.ErrorEstimationMethod = SelectedErrorMethod();
+                workspace.ReestimateTandemMixing = tandemMixingCheck.IsChecked == true;
                 var solver = workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
@@ -1430,6 +1442,7 @@ namespace AnalysisITC.Avalonia.Analysis
             concentrationUncertaintyCheck.IsEnabled = canConfigureBootstrap;
             unlockParametersCheck.IsEnabled = canConfigureBootstrap;
             poolResidualsCheck.IsEnabled = canConfigureBootstrap && workspace.Context?.WillFitGlobally == true;
+            tandemMixingCheck.IsEnabled = canConfigureBootstrap && workspace.CanReestimateTandemMixing;
         }
 
         void ChangeConcentrationUncertainty()

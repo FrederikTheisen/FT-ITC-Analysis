@@ -5,6 +5,7 @@ using AnalysisITC.Core.Analysis.Models;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
@@ -37,6 +38,11 @@ namespace AnalysisITC.Core.Analysis
         bool reuseAttachedSolutionInitialValues = true;
 
         public bool IsReady => Context != null;
+        public bool ReestimateTandemMixing { get; set; }
+        public bool CanReestimateTandemMixing =>
+            Context != null && (Context.IsMultiExperiment
+                ? Context.GlobalModel.Models.Any(model => TandemMixingBootstrap.IsEligible(model.Data))
+                : TandemMixingBootstrap.IsEligible(Context.SingleModel.Data));
         internal bool ReuseAttachedSolutionInitialValues => reuseAttachedSolutionInitialValues;
 
         /// <summary>Returns editable model options even when no analysis context can be built.</summary>
@@ -221,6 +227,7 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public void ResetStoredAnalysisState()
         {
+            ReestimateTandemMixing = false;
             ClearStoredState(Session.Single);
             ClearStoredState(Session.Global);
 
@@ -402,6 +409,12 @@ namespace AnalysisITC.Core.Analysis
             IEnumerable<Model> fitModels = prepared.IsMultiExperiment
                 ? prepared.GlobalModel.Models
                 : new[] { prepared.SingleModel };
+            bool reestimateMixing = ReestimateTandemMixing && CanReestimateTandemMixing
+                && FittingOptionsController.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals;
+            if (prepared.IsMultiExperiment)
+                prepared.GlobalModel.ModelCloneOptions.ReestimateTandemMixing = reestimateMixing;
+            foreach (var model in fitModels)
+                model.ModelCloneOptions.ReestimateTandemMixing = reestimateMixing && TandemMixingBootstrap.IsEligible(model.Data);
             ModelOptionAttributeApplier.Prepare(fitModels, prepared.ExposedModelOptions);
             var solver = prepared.CreateSolver();
             solver.UseErrorWeightedFitting = useErrorWeightedFitting;

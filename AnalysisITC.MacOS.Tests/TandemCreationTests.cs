@@ -12,8 +12,10 @@ using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Platform;
@@ -53,6 +55,8 @@ static class TandemCreationTests
             CreationFailure(mode: 1, criterion: 0);
             SuccessfulCreation(0);
             SuccessfulCreation(1);
+            SuccessfulAutomaticCreation(0, TandemMixingCriterion.OneSiteFit, args[1]);
+            SuccessfulAutomaticCreation(1, TandemMixingCriterion.ModelFree, args[1]);
             InvalidDeadVolume();
             SuccessfulCreation(0, "NaN");
             SuccessfulCreation(1, "0", 0);
@@ -68,7 +72,7 @@ static class TandemCreationTests
             foreach (var error in escaped) failures.Add("Exception escaped native action: " + error);
             foreach (var failure in failures) Console.Error.WriteLine("FAIL: " + failure);
             if (failures.Count != 0) return 1;
-            Console.WriteLine("PASS: native tandem validation/processing failures retain admission through handled errors, preserve drafts and allow retry; simple/fixed creation publishes, notifies and dismisses");
+            Console.WriteLine("PASS: native tandem creation, automatic mixing and bootstrap controls");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine("FAIL: " + error); return 1; }
@@ -271,6 +275,110 @@ static class TandemCreationTests
         }
     }
 
+    static void SuccessfulAutomaticCreation(int criterionIndex, TandemMixingCriterion criterion, string storyboardPath)
+    {
+        var read = FTXTCReader.ReadPath("AnalysisITC.Tests/Tandem/280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc");
+        PumpUntil(() => read.IsCompleted, "automatic merge sources did not load");
+        var sources = read.GetAwaiter().GetResult().OfType<ExperimentData>().Take(2).ToArray();
+        foreach (var source in sources)
+            foreach (var injection in source.Injections)
+                injection.SetPeakArea(new FloatWithError(1e-6));
+        var previousMethod = AppSettings.DilutionCalculationMethod;
+        AppSettings.DilutionCalculationMethod = DilutionMethod.DiscreteDisplacement;
+        try
+        {
+            using (var fixture = new Fixture(2, criterionIndex, sources: sources))
+            {
+                AppEventHandler.ShowAppMessage = (_, error) => failures.Add("Automatic creation error: " + error.Message);
+                fixture.Create();
+                PumpUntil(() => !ProcessingActivity.IsBusy && !IsCreating(fixture.Controller), "automatic creation did not finish");
+                var merged = DataManager.Data.Except(fixture.Sources).Single();
+                Expect(merged.TandemMergeInfo?.Criterion == criterion && merged.Processor.IsLocked,
+                    "automatic creation must publish the chosen criterion with integrated data");
+                Expect(merged.Injections[1].PeakArea.Value != 1e-6,
+                    "automatic creation must integrate the stitched trace");
+                CheckTandemMixingFitControl(merged, storyboardPath);
+            }
+        }
+        finally { AppSettings.DilutionCalculationMethod = previousMethod; }
+    }
+
+    static void CheckTandemMixingFitControl(ExperimentData merged, string storyboardPath)
+    {
+        var type = typeof(DataAnalysisViewController);
+        new Class(type);
+        new Class(typeof(AnalysisGraphView));
+        new Class(typeof(WorkspaceTabControl));
+        new Class(type.Assembly.GetType("AnalysisITC.UI.MacOS.CustomViews.AnalysisFitSummaryView", true));
+        using (var resources = NSBundle.FromPath(System.IO.Path.GetDirectoryName(storyboardPath)))
+        using (var storyboard = NSStoryboard.FromName("Main", resources))
+        using (var controller = (DataAnalysisViewController)storyboard.InstantiateControllerWithIdentifier("DataAnalysisViewController"))
+        {
+            DataManager.SelectIndex(DataManager.SourceItems.ToList().IndexOf(merged));
+            controller.View.LayoutSubtreeIfNeeded();
+            var error = (NSPopUpButton)type.GetProperty("ErrorMethodControl", Instance).GetValue(controller);
+            var mixing = (NSButton)type.GetProperty("TandemMixingControl", Instance).GetValue(controller);
+            var pooling = (NSButton)type.GetProperty("PoolResidualsControl", Instance).GetValue(controller);
+            foreach (var button in new[] { pooling, mixing })
+            {
+                var row = button.Superview;
+                var inspector = row.Superview;
+                var image = ((NSButtonCell)button.Cell).ImageRectForBounds(button.Bounds);
+                var imageInInspector = button.ConvertRectToView(image, inspector);
+                var buttonInInspector = button.ConvertRectToView(button.Bounds, inspector);
+                Check(Math.Abs((double)(row.Frame.Width - inspector.Bounds.Width)) < 1
+                    && buttonInInspector.Left <= inspector.Bounds.Left
+                    && buttonInInspector.Right >= inspector.Bounds.Right,
+                    button.Title + " must fill the inspector width");
+                Check(Math.Abs((double)(imageInInspector.Right - inspector.Bounds.Right)) <= 4,
+                    button.Title + " must place its checkbox at the right edge");
+            }
+
+            var previousMethod = FittingOptionsController.ErrorEstimationMethod;
+            var previousIterations = FittingOptionsController.BootstrapIterations;
+            var previousConcentration = FittingOptionsController.IncludeConcentrationVariance;
+            var previousAlgorithm = FittingOptionsController.Algorithm;
+            var previousWeights = FittingOptionsController.UseErrorWeightedFitting;
+            var previousUnlock = FittingOptionsController.UnlockBootstrapParameters;
+            var previousPooling = FittingOptionsController.PoolBootstrapResiduals;
+            try
+            {
+                Check(controller.Workspace.TryRebuild(), "automatic tandem must be ready to fit");
+                error.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
+                Check(error.SendAction(error.Action, error.Target), "bootstrap method action must dispatch");
+                Check(mixing.Enabled && mixing.State == NSCellStateValue.Off, "eligible tandem checkbox must default off");
+
+                var apply = type.GetMethod("ApplyInspectorSettings", Instance);
+                foreach (var requested in new[] { true, false })
+                {
+                    mixing.PerformClick(mixing);
+                    Check(controller.Workspace.ReestimateTandemMixing == requested,
+                        "clicking the tandem checkbox must update the workspace");
+                    Check(controller.Workspace.TryRebuild() && controller.Workspace.ReestimateTandemMixing == requested,
+                        "tandem checkbox choice must survive a fit setup rebuild");
+                    Check((bool)apply.Invoke(controller, null), "fit settings must be valid");
+                    var solver = (Solver)controller.Workspace.PrepareForSolve(false);
+                    Check(solver.Model.ModelCloneOptions.ReestimateTandemMixing == requested,
+                        "prepared fit did not capture the current tandem checkbox");
+                }
+
+                error.SelectItem((int)ErrorEstimationMethod.LeaveOneOut);
+                Check(error.SendAction(error.Action, error.Target), "leave-one-out method action must dispatch");
+                Check(!mixing.Enabled, "leave-one-out must disable tandem propagation");
+            }
+            finally
+            {
+                FittingOptionsController.ErrorEstimationMethod = previousMethod;
+                FittingOptionsController.BootstrapIterations = previousIterations;
+                FittingOptionsController.IncludeConcentrationVariance = previousConcentration;
+                FittingOptionsController.Algorithm = previousAlgorithm;
+                FittingOptionsController.UseErrorWeightedFitting = previousWeights;
+                FittingOptionsController.UnlockBootstrapParameters = previousUnlock;
+                FittingOptionsController.PoolBootstrapResiduals = previousPooling;
+            }
+        }
+    }
+
     sealed class Fixture : IDisposable
     {
         public readonly ExperimentData[] Sources;
@@ -279,11 +387,11 @@ static class TandemCreationTests
         public readonly NSWindow Window;
         public readonly int InitialNotifications = notifications.Count;
 
-        public Fixture(int mode, int criterion, bool baselineCorrected = true)
+        public Fixture(int mode, int criterion, bool baselineCorrected = true, ExperimentData[] sources = null)
         {
             DataManager.Clear(DataClearMode.ResetSession);
-            Sources = new[] { Experiment("source A"), Experiment("source B") };
-            if (baselineCorrected)
+            Sources = sources ?? new[] { Experiment("source A"), Experiment("source B") };
+            if (baselineCorrected && sources == null)
                 foreach (var source in Sources)
                 {
                     source.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);

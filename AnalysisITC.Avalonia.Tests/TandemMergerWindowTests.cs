@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -11,9 +12,12 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
 using AnalysisITC.Avalonia.Tools;
+using AnalysisITC.Avalonia.Analysis;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
@@ -25,6 +29,84 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class TandemMergerWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(0, TandemMixingCriterion.OneSiteFit)]
+    [InlineData(1, TandemMixingCriterion.ModelFree)]
+    public async Task AutomaticMergePublishesAnEligibleTandem(int index, TandemMixingCriterion criterion)
+    {
+        var previousMethod = AppSettings.DilutionCalculationMethod;
+        var previousError = FittingOptionsController.ErrorEstimationMethod;
+        var previousIterations = FittingOptionsController.BootstrapIterations;
+        var previousCreateResult = AppSettings.CreateSingleAnalysisResult;
+        DataManager.Clear(DataClearMode.ResetSession);
+        AppSettings.DilutionCalculationMethod = DilutionMethod.DiscreteDisplacement;
+        try
+        {
+            using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tandem",
+                "280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc"));
+            var sources = (await FTXTCReader.ReadStream(stream)).OfType<ExperimentData>().Take(2).ToArray();
+            foreach (var source in sources)
+                foreach (var injection in source.Injections)
+                    injection.SetPeakArea(new FloatWithError(1e-6));
+            DataManager.AddData(sources);
+            var merger = new TandemMergerWindow();
+            try
+            {
+                merger.ModeComboForTesting.SelectedIndex = 2;
+                merger.AutoCriterionComboForTesting.SelectedIndex = index;
+                var create = typeof(TandemMergerWindow).GetMethod("CreateMergedExperimentAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                await Assert.IsAssignableFrom<Task>(create.Invoke(merger, null));
+                var merged = Assert.Single(DataManager.Data, data => data.IsTandemExperiment);
+                Assert.Equal(criterion, merged.TandemMergeInfo.Criterion);
+                Assert.True(merged.Processor.IsLocked);
+                Assert.NotEqual(1e-6, merged.Injections[1].PeakArea.Value);
+
+                var fit = new AnalysisWorkspaceControl { Experiment = merged };
+                var window = new Window { Content = fit };
+                window.Show();
+                try
+                {
+                    fit.ErrorMethodComboForTesting.SelectedIndex = 1;
+                    Assert.True(fit.TandemMixingCheck.IsEnabled);
+                    Assert.False(fit.TandemMixingCheck.IsChecked);
+                    fit.TandemMixingCheck.IsChecked = true;
+                    fit.RefreshIncludedDataState();
+                    Assert.True(fit.TandemMixingCheck.IsChecked);
+                    fit.BootstrapIterationsBoxForTesting.Text = "10";
+                    AppSettings.CreateSingleAnalysisResult = false;
+                    var workspace = (AnalysisWorkspace)typeof(AnalysisWorkspaceControl)
+                        .GetField("workspace", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(fit)!;
+                    foreach (var requested in new[] { true, false })
+                    {
+                        fit.TandemMixingCheck.IsChecked = requested;
+                        workspace.ReestimateTandemMixing = !requested;
+
+                        fit.RunFit();
+                        var prepared = fit.ContextForTesting!.SingleModel;
+                        var deadline = DateTime.UtcNow.AddSeconds(15);
+                        while (ProcessingActivity.IsBusy && DateTime.UtcNow < deadline)
+                            await Task.Delay(10);
+                        Assert.False(ProcessingActivity.IsBusy);
+                        Assert.NotNull(prepared.Solution);
+                        Assert.Equal(requested, prepared.ModelCloneOptions.ReestimateTandemMixing);
+                    }
+                    fit.ErrorMethodComboForTesting.SelectedIndex = 2;
+                    Assert.False(fit.TandemMixingCheck.IsEnabled);
+                }
+                finally { window.Close(); }
+            }
+            finally { if (merger.IsVisible) merger.Close(); }
+        }
+        finally
+        {
+            AppSettings.DilutionCalculationMethod = previousMethod;
+            FittingOptionsController.ErrorEstimationMethod = previousError;
+            FittingOptionsController.BootstrapIterations = previousIterations;
+            AppSettings.CreateSingleAnalysisResult = previousCreateResult;
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("en-US", "80.5")]
     [InlineData("da-DK", "80,5")]

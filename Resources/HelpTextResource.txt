@@ -331,6 +331,8 @@ Included best-fit residuals are sampled with replacement and added to best-fit p
 
 To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-observation count and *p* fitted-parameter count. Shared global fits use pooled counts; independent members use their own. In either case, *n* must exceed *p*.
 
+**Propagate tandem mixing uncertainty** uses each bootstrap heat sample to re-estimate back-mixing and rebuild the concentration history for eligible automatic tandems. The binding refit uses the same heat sample. The reported binding parameters come from the original-data fit.
+
 When **Unlock parameters** applies to a locked shared parameter, the analysis runs jointly. The shared value stays fixed in the primary fit and can vary between bootstrap refits.
 
 The reported SD is the root-mean-square deviation of retained refit values from the original best fit. Each 95% limit is the innermost refit value with fewer than 2.5% of the refits beyond it, without interpolation; with 100 refits, the limits are the 3rd and 98th smallest values. With fewer than 50 retained refits, the status reads incomplete even if no refit failed; the SD and 95% interval are still shown but rest on few refits. See **Uncertainty in derived values** for how this applies to values calculated from fitted parameters.

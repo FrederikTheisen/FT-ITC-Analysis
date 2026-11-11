@@ -319,6 +319,7 @@ namespace AnalysisITC.Core.Interpretation
                 BlankReferenceExperimentId = data.BufferSubtractionSettings?.ReferenceExperimentId,
                 TandemSourceExperimentIds = data.TandemSourceExperimentIds.Count == 0
                     ? null : data.TandemSourceExperimentIds.ToList(),
+                TandemMixing = TandemMixing(data.TandemMergeInfo),
                 BlankSubtractionMethod = data.BufferSubtractionSettings?.MethodDisplayName,
                 TargetTemperatureKelvin = Finite(data.TargetTemperature + 273.15),
                 MeasuredTemperatureKelvin = Finite(data.MeasuredTemperatureKelvin),
@@ -340,6 +341,11 @@ namespace AnalysisITC.Core.Interpretation
                 Attributes = NamedValues(data.Attributes, data),
                 ModelOptions = suppressBinding ? new List<InterpretationNamedValue>() : NamedValues(solution?.ModelOptions, data),
             };
+            // Only automatic merges can have their mixing re-estimated; older tandems keep their fingerprints.
+            if (output.Solver != null && data.TandemMergeInfo != null
+                && TandemOriginPresentation.BootstrapStatus(global, solution) is { } mixing)
+                output.Solver.TandemMixingInBootstrap = mixing == TandemMixingBootstrapStatus.Included ? "included"
+                    : mixing == TandemMixingBootstrapStatus.FixedFractions ? "fixed-fractions" : "unavailable";
             if (thermogramOmissionReason != null)
             {
                 var omission = $"Experiment {output.ReportReference}: {thermogramOmissionReason}";
@@ -598,6 +604,23 @@ namespace AnalysisITC.Core.Interpretation
 
         static double? AvailableAicc(FitInformationCriteria criteria)
             => criteria?.IsAiccAvailable == true ? Finite(criteria.Aicc) : null;
+
+        static InterpretationTandemMixingEvidence TandemMixing(AnalysisITC.Core.Processing.TandemMergeInfo info)
+        {
+            var saved = FtxtcTandemMergeInfo.Capture(info);
+            if (saved == null) return null;
+            return new InterpretationTandemMixingEvidence
+            {
+                Criterion = saved.Criterion, LimitMethod = saved.Method, ConfidenceLevel = saved.ConfidenceLevel,
+                MonteCarloDraws = saved.Method == "monte-carlo-95" ? saved.MonteCarloDraws : (int?)null,
+                Refills = saved.Fractions.Select((fraction, index) => new InterpretationTandemRefillEvidence
+                {
+                    Refill = index + 1, MixingFraction = fraction,
+                    LowerLimit = saved.Intervals[index].Lower, LowerStatus = saved.Intervals[index].LowerStatus,
+                    UpperLimit = saved.Intervals[index].Upper, UpperStatus = saved.Intervals[index].UpperStatus,
+                }).ToList(),
+            };
+        }
 
         static InterpretationSolverEvidence MemberSolver(SolutionInterface solution)
         {

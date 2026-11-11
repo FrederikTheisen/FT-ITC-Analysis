@@ -1,5 +1,7 @@
 ﻿using AnalysisITC.Core.Application;
 
+using AnalysisITC.Core.Processing;
+
 namespace AnalysisITC.Core.Analysis
 {
     public class ModelCloneOptions
@@ -14,6 +16,12 @@ namespace AnalysisITC.Core.Analysis
         public bool UnlockBootstrapParameters { get; set; } = false;
 
         public bool PoolBootstrapResiduals { get; set; }
+        public bool ReestimateTandemMixing { get; set; }
+
+        internal TandemMixingBootstrap.OneSiteSeed OneSiteMixingSeed { get; set; }
+
+        internal bool EffectiveReestimateTandemMixing =>
+            ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals && ReestimateTandemMixing;
 
         internal PooledBootstrapResiduals PooledResiduals { get; private set; }
 
@@ -51,7 +59,11 @@ namespace AnalysisITC.Core.Analysis
         {
             ErrorEstimationMethod = method;
             if (method != ErrorEstimationMethod.BootstrapResiduals)
+            {
                 PoolBootstrapResiduals = false;
+                ReestimateTandemMixing = false;
+                OneSiteMixingSeed = null;
+            }
             // Retain historical automatic-concentration metadata on loaded results,
             // but do not carry it into a new fit or uncertainty calculation.
             EnableAutoConcentrationVariance = false;

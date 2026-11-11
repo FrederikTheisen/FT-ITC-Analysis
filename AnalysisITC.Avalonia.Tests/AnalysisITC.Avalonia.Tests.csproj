@@ -26,5 +26,6 @@
     <ProjectReference Include="..\AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>
     </ProjectReference>
+    <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

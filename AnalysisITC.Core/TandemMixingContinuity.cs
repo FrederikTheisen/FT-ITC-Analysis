@@ -46,16 +46,6 @@ namespace AnalysisITC.Core.Processing
         // Coarse scan plus an estimate of the medium and fine neighbour searches.
         static int EvaluationsPerTransition => ScanFractions.Count + 4 + 8;
 
-        public static TandemMixingScanPoint FindBest(
-            IReadOnlyList<ExperimentData> sources,
-            TandemConcatenation.BackMixingSettings settings,
-            Action<int, int> reportProgress,
-            DilutionMethod dilutionMethod)
-        {
-            var (scanExperiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
-            return FindBest(scanExperiment, segments, settings, reportProgress, dilutionMethod);
-        }
-
         internal static TandemMixingScanPoint FindBest(
             ExperimentData scanExperiment,
             IList<TandemConcatenation.TandemInjectionSegment> segments,

@@ -43,13 +43,11 @@ namespace AnalysisITC.Core.Processing
         public string Termination { get; }
         public int Iterations { get; }
         public TandemMixingUncertainty Uncertainty { get; private set; }
-        public DilutionMethod? UncertaintyBookkeeping { get; private set; }
 
-        internal TandemMixingScanPoint WithUncertainty(TandemMixingUncertainty uncertainty, DilutionMethod bookkeeping)
+        internal TandemMixingScanPoint WithUncertainty(TandemMixingUncertainty uncertainty)
         {
             var result = new TandemMixingScanPoint(TransitionMixingFractions, Rmsd, N, LogK, Enthalpy, Offset, Termination, Iterations);
             result.Uncertainty = uncertainty;
-            result.UncertaintyBookkeeping = bookkeeping;
             return result;
         }
 
@@ -392,25 +390,51 @@ namespace AnalysisITC.Core.Processing
             if (criterion == TandemMixingCriterion.ModelFree)
             {
                 if (estimateUncertainty) SolverInterface.TerminateAnalysisFlag.Lower();
-                var primary = TandemContinuityScanner.FindBest(sources, settings,
-                    estimateUncertainty ? null : reportProgress, dilutionMethod);
-                if (primary == null || !estimateUncertainty) return primary;
-                TandemMixingUncertainty uncertainty;
-                try
-                {
-                    uncertainty = TandemMixingUncertaintyEstimator.MonteCarlo(sources, settings, primary, dilutionMethod, reportProgress);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.PrintAndLog($"Mixing uncertainty unavailable: {ex.Message}");
-                    uncertainty = new TandemMixingUncertainty(MixingUncertaintyMethod.MonteCarlo95,
-                        primary.TransitionMixingFractions.Select(_ => TandemMixingInterval.Unavailable()), monteCarloDraws: 200);
-                }
-                return primary.WithUncertainty(uncertainty, dilutionMethod);
+                var (experiment, ranges) = BuildScanExperiment(sources);
+                return FindBestModelFree(experiment, ranges, settings, dilutionMethod, reportProgress, estimateUncertainty);
             }
 
-            var transitionCount = sources.Count - 1;
-            var broadStep = AdaptiveBroadStepForExperimentCount(sources.Count);
+            SolverInterface.TerminateAnalysisFlag.Lower();
+            var (scanExperiment, segments) = BuildScanExperiment(sources);
+            return FindBestOneSite(scanExperiment, segments, settings, dilutionMethod, reportProgress, estimateUncertainty);
+        }
+
+        internal static TandemMixingScanPoint FindBestModelFree(
+            ExperimentData experiment,
+            IList<TandemConcatenation.TandemInjectionSegment> ranges,
+            TandemConcatenation.BackMixingSettings settings,
+            DilutionMethod method,
+            Action<int, int> reportProgress = null,
+            bool estimateUncertainty = false)
+        {
+            var primary = TandemContinuityScanner.FindBest(experiment, ranges, settings,
+                estimateUncertainty ? null : reportProgress, method);
+            if (primary == null || !estimateUncertainty) return primary;
+            TandemMixingUncertainty uncertainty;
+            try
+            {
+                uncertainty = TandemMixingUncertaintyEstimator.MonteCarlo(experiment, ranges, settings, primary, method, reportProgress);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.PrintAndLog($"Mixing uncertainty unavailable: {ex.Message}");
+                uncertainty = new TandemMixingUncertainty(MixingUncertaintyMethod.MonteCarlo95,
+                    primary.TransitionMixingFractions.Select(_ => TandemMixingInterval.Unavailable()),
+                    monteCarloDraws: TandemMixingUncertaintyEstimator.MonteCarloDraws);
+            }
+            return primary.WithUncertainty(uncertainty);
+        }
+
+        internal static TandemMixingScanPoint FindBestOneSite(
+            ExperimentData scanExperiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            TandemConcatenation.BackMixingSettings settings,
+            DilutionMethod dilutionMethod,
+            Action<int, int> reportProgress = null,
+            bool estimateUncertainty = false)
+        {
+            var transitionCount = segments.Count - 1;
+            var broadStep = AdaptiveBroadStepForExperimentCount(segments.Count);
             var broadFractions = MixingFractionsForStep(
                 DefaultMinimumMixingFraction,
                 AdaptiveMaximumMixingFraction,
@@ -425,10 +449,6 @@ namespace AnalysisITC.Core.Processing
                 $"mediumPatternStep={FormatMixingFraction(AdaptiveMediumRefinementStep)}, " +
                 $"finePatternStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
                 $"points={progressTotal}");
-            LogScanStart("adaptive broad", sources, settings, broadFractions, broadPointCount);
-            SolverInterface.TerminateAnalysisFlag.Lower();
-
-            var (scanExperiment, segments) = BuildScanExperiment(sources);
             var broadPoints = estimateUncertainty ? new List<TandemMixingScanPoint>() : null;
             var completed = 0;
             var bestPoint = EvaluateGrid(
@@ -441,7 +461,7 @@ namespace AnalysisITC.Core.Processing
                 progressTotal,
                 reportProgress,
                 broadPoints);
-            if (bestPoint == null) return null;
+            if (bestPoint == null || SolverInterface.TerminateAnalysisFlag.Up) return null;
 
             var broadBestPoint = bestPoint;
             AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan broad best: {FormatPoint(broadBestPoint)}", 1);
@@ -471,6 +491,7 @@ namespace AnalysisITC.Core.Processing
                 reportProgress,
                 dilutionMethod);
 
+            if (SolverInterface.TerminateAnalysisFlag.Up) return null;
             reportProgress?.Invoke(progressTotal, progressTotal);
             AppEventHandler.PrintAndLog(
                 $"Adaptive tandem mixing scan final best: {FormatPoint(bestPoint)} " +
@@ -481,7 +502,7 @@ namespace AnalysisITC.Core.Processing
             {
                 var uncertainty = TandemMixingUncertaintyEstimator.FromGrid(broadPoints, broadFractions, bestPoint,
                     scanExperiment.Injections.Count(injection => injection.Include));
-                return bestPoint.WithUncertainty(uncertainty, dilutionMethod);
+                return bestPoint.WithUncertainty(uncertainty);
             }
             return bestPoint;
         }
@@ -532,6 +553,7 @@ namespace AnalysisITC.Core.Processing
                     var coordinateBest = bestPoint;
                     foreach (var direction in new[] { -1.0, 1.0 })
                     {
+                        if (SolverInterface.TerminateAnalysisFlag.Up) return bestPoint;
                         var candidateFractions = bestPoint.TransitionMixingFractions.ToArray();
                         var candidate = Math.Round(candidateFractions[transitionIndex] + direction * step, 10);
                         if (candidate < DefaultMinimumMixingFraction || candidate > AdaptiveMaximumMixingFraction) continue;
@@ -572,6 +594,7 @@ namespace AnalysisITC.Core.Processing
             TandemMixingScanPoint bestPoint = null;
             foreach (var fractions in EnumerateTransitionFractionGrid(transitionFractions))
             {
+                if (SolverInterface.TerminateAnalysisFlag.Up) break;
                 var point = TryFitPoint(scanExperiment, segments, settings, fractions, dilutionMethod, "broad");
                 points?.Add(point);
                 if (point.IsValid && (bestPoint == null || point.Rmsd < bestPoint.Rmsd)) bestPoint = point;
@@ -602,7 +625,7 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
-        static void ValidateAdaptiveSources(
+        internal static void ValidateAdaptiveSources(
             IReadOnlyList<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings)
         {
@@ -618,7 +641,7 @@ namespace AnalysisITC.Core.Processing
             BufferSubtractionPolicy.ValidateTandemSources(sources);
             if (sources.Any(source => source.Injections == null || source.Injections.Count == 0))
                 throw new ArgumentException("Every tandem mixing scan source must contain injections.", nameof(sources));
-            if (sources.Any(source => source.Injections.Where(injection => injection.Include).Any(injection => !injection.IsIntegrated)))
+            if (sources.Any(source => source.Injections.Any(injection => injection.Include && !injection.IsIntegrated)))
                 throw new ArgumentException("All included injections must be integrated before running a tandem mixing scan.", nameof(sources));
         }
 
@@ -724,21 +747,8 @@ namespace AnalysisITC.Core.Processing
             if (!AnalysisBuilder.IsAnalysisReady(experiment))
                 throw new InvalidOperationException("The temporary tandem scan experiment is not ready for one-site analysis.");
 
-            var model = AnalysisBuilder.ConstructModel(AnalysisModel.OneSetOfSites, experiment);
-            model.ReuseAttachedSolutionInitialValues = true;
-            model.InitializeParameters(experiment);
-            model.Parameters.Table[ParameterType.Nvalue1].Update(1.0);
-            model.SetModelOptions();
-            model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
-
-            var solver = SolverInterface.Initialize(model);
-            solver.Silent = true;
-            solver.CanCreateAnalysisResult = false;
-            solver.CanReportAnalysisStepFinished = false;
-            solver.ErrorEstimationMethod = ErrorEstimationMethod.None;
-            solver.UseErrorWeightedFitting = false;
-
-            var convergence = solver.Solve();
+            var model = CreateOneSiteMergeModel(experiment);
+            var convergence = SolveOneSiteMergeModel(model);
             if (convergence == null || convergence.Failed || convergence.Stopped || !TandemMixingScanPoint.IsFinite(convergence.UnweightedRmsd))
             {
                 return TandemMixingScanPoint.Failed(
@@ -755,6 +765,28 @@ namespace AnalysisITC.Core.Processing
                 ParameterValue(model, ParameterType.Offset),
                 convergence.Termination.ToString(),
                 convergence.Iterations);
+        }
+
+        internal static Model CreateOneSiteMergeModel(ExperimentData experiment)
+        {
+            var model = AnalysisBuilder.ConstructModel(AnalysisModel.OneSetOfSites, experiment);
+            model.ReuseAttachedSolutionInitialValues = true;
+            model.InitializeParameters(experiment);
+            model.Parameters.Table[ParameterType.Nvalue1].Update(1.0);
+            model.SetModelOptions();
+            model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
+            return model;
+        }
+
+        internal static SolverConvergence SolveOneSiteMergeModel(Model model)
+        {
+            var solver = SolverInterface.Initialize(model);
+            solver.Silent = true;
+            solver.CanCreateAnalysisResult = false;
+            solver.CanReportAnalysisStepFinished = false;
+            solver.ErrorEstimationMethod = ErrorEstimationMethod.None;
+            solver.UseErrorWeightedFitting = false;
+            return solver.Solve();
         }
 
         static double ParameterValue(Model model, ParameterType key)

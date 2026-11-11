@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Utilities;
 
@@ -175,30 +176,82 @@ namespace AnalysisITC.Core.Processing
             var dilutionMethod = bookkeeping ?? AppSettings.DilutionCalculationMethod;
             if (!settings.UseBackMixingMethod) return ConcatTandem(experiments, dilutionMethod, fileName);
 
-            var formattedFractions = string.Join(
-                " / ",
-                transitionMixingFractions.Select(fraction => $"{(100 * fraction).ToString("0.0###", CultureInfo.InvariantCulture)}%"));
-            var method = automaticCriterion.HasValue
-                ? $"auto back-mixing; {automaticCriterion.GetDescription()}"
-                : "fixed per-transition back-mixing";
-            var tag = $"Tandem concatenation ({method}): " +
-                      $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
-                      $"RemoveOverflow={settings.DidRemoveOverflow}, " +
-                      $"MixFrac={formattedFractions}, " +
-                      $"{dilutionMethod.DisplayName()} bookkeeping";
-
+            var tag = DescribeBackMixing(settings, transitionMixingFractions, dilutionMethod, automaticCriterion);
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
             if (automaticCriterion.HasValue && uncertainty != null)
-                merged.TandemMergeInfo = new TandemMergeInfo(transitionMixingFractions, automaticCriterion.Value,
-                    dilutionMethod, settings.DeadVolume, settings.DidRemoveOverflow, settings.RemoveOverflowVolume,
-                    automaticCriterion.Value == TandemMixingCriterion.ModelFree ? TandemContinuityScanner.PointsPerSide : 0, uncertainty);
+                merged.TandemMergeInfo = CreateMergeInfo(settings, transitionMixingFractions, dilutionMethod, automaticCriterion.Value, uncertainty);
 
             ProcessInjectionsWithBackMixing(merged, segments, settings, transitionMixingFractions, dilutionMethod);
             RawDataReader.ProcessExperiment(merged);
 
             return merged;
         }
+
+        internal static async Task<ExperimentData> ConcatAutomaticAsync(
+            List<ExperimentData> sources,
+            BackMixingSettings settings,
+            TandemMixingCriterion criterion,
+            Action<int, int> reportProgress = null,
+            bool showProgress = true)
+        {
+            using var activity = await ProcessingActivity.BeginAsync();
+            using var ownership = activity.Enter();
+            var experiments = sources.ToList();
+            settings = settings.Copy();
+            var method = AppSettings.DilutionCalculationMethod;
+            ValidateSourceBaselines(experiments);
+            SolverInterface.TerminateAnalysisFlag.Lower();
+            var (merged, segments) = await Task.Run(() =>
+            {
+                TandemMixingScanner.ValidateAdaptiveSources(experiments, settings);
+                return ConcatCore(experiments, fileName: null, modeTag: null);
+            });
+            ProcessInjectionsWithBackMixingModel(merged, segments, settings, new double[segments.Count - 1], method);
+            RawDataReader.ProcessExperiment(merged);
+            await merged.Processor.ProcessTandemMergeAsync(showProgress);
+            if (SolverInterface.TerminateAnalysisFlag.Up) throw new OperationCanceledException();
+
+            var scratch = merged.GetSynthClone(new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None }, new Random(0));
+            var best = await Task.Run(() => criterion == TandemMixingCriterion.ModelFree
+                ? TandemMixingScanner.FindBestModelFree(scratch, segments, settings, method, reportProgress, estimateUncertainty: true)
+                : TandemMixingScanner.FindBestOneSite(scratch, segments, settings, method, reportProgress, estimateUncertainty: true));
+            if (SolverInterface.TerminateAnalysisFlag.Up) throw new OperationCanceledException();
+            if (best == null)
+                throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
+
+            ProcessInjectionsWithBackMixingModel(merged, segments, settings, best.TransitionMixingFractions, method);
+            merged.TandemMergeInfo = CreateMergeInfo(settings, best.TransitionMixingFractions, method, criterion, best.Uncertainty);
+            var tag = DescribeBackMixing(settings, best.TransitionMixingFractions, method, criterion);
+            merged.Comments = MergeComments(experiments[0].Comments, tag);
+            merged.TandemMergeDescription = BuildConcatOrigin(experiments, tag);
+            return merged;
+        }
+
+        static TandemMergeInfo CreateMergeInfo(BackMixingSettings settings, IReadOnlyList<double> fractions,
+            DilutionMethod method, TandemMixingCriterion criterion, TandemMixingUncertainty uncertainty) =>
+            new TandemMergeInfo(fractions, criterion, method, settings.DeadVolume, settings.DidRemoveOverflow,
+                settings.RemoveOverflowVolume, criterion == TandemMixingCriterion.ModelFree ? TandemContinuityScanner.PointsPerSide : 0, uncertainty);
+
+        static string DescribeBackMixing(BackMixingSettings settings, IReadOnlyList<double> fractions,
+            DilutionMethod dilutionMethod, TandemMixingCriterion? automaticCriterion)
+        {
+            var formattedFractions = string.Join(
+                " / ",
+                fractions.Select(fraction => $"{(100 * fraction).ToString("0.0###", CultureInfo.InvariantCulture)}%"));
+            var method = automaticCriterion.HasValue
+                ? $"auto back-mixing; {automaticCriterion.GetDescription()}"
+                : "fixed per-transition back-mixing";
+            return $"Tandem concatenation ({method}): " +
+                      $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
+                      $"RemoveOverflow={settings.DidRemoveOverflow}, " +
+                      $"MixFrac={formattedFractions}, " +
+                      $"{dilutionMethod.DisplayName()} bookkeeping";
+        }
+
+        static string MergeComments(string sourceComments, string modeTag) =>
+            modeTag == null ? sourceComments : string.IsNullOrWhiteSpace(sourceComments)
+                ? modeTag : sourceComments + Environment.NewLine + Environment.NewLine + modeTag;
 
         static (ExperimentData result, List<TandemInjectionSegment> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
@@ -238,10 +291,8 @@ namespace AnalysisITC.Core.Processing
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-                Comments = string.IsNullOrWhiteSpace(first.Comments)
-                    ? modeTag
-                    : first.Comments + Environment.NewLine + Environment.NewLine + modeTag,
-                TandemMergeDescription = BuildConcatOrigin(experiments, modeTag),
+                Comments = MergeComments(first.Comments, modeTag),
+                TandemMergeDescription = modeTag == null ? null : BuildConcatOrigin(experiments, modeTag),
             };
             merged.SetTandemSourceExperimentIds(experiments.Select(experiment => experiment.UniqueID));
 

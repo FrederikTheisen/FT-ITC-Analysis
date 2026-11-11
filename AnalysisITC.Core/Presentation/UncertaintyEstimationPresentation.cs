@@ -224,6 +224,7 @@ namespace AnalysisITC.Core.Presentation
         }
 
         public const string PoolResidualsTooltip = "Draw standardized noise from all fitted experiments";
+        public const string TandemMixingTooltip = "Re-estimate tandem mixing for each bootstrap refit";
 
         internal static string PooledSamplingText(GlobalSolution solution)
         {
@@ -285,6 +286,19 @@ namespace AnalysisITC.Core.Presentation
                     : options.UnlockBootstrapParameters ? "Enabled" : "Disabled",
                     historical ? "Saved parameter unlocking in historical combined leave-one-out calculation"
                         : "Saved setting for varying primary-fit locked parameters"));
+            }
+            if (method == ErrorEstimationMethod.BootstrapResiduals)
+            {
+                foreach (var (member, index) in solution.Solutions.Select((member, index) => (member, index)))
+                {
+                    var mixingStatus = TandemOriginPresentation.BootstrapStatus(solution, member);
+                    if (!mixingStatus.HasValue) continue;
+                    var label = solution.Solutions.Count == 1 ? TandemOriginPresentation.BootstrapStatusLabel
+                        : $"Experiment {index + 1} mixing";
+                    rows.Add(new UncertaintyPresentationRow(label,
+                        mixingStatus == TandemMixingBootstrapStatus.Included ? "Included" : "Not included",
+                        $"Mixing uncertainty for {member.Data.Name}"));
+                }
             }
             return new UncertaintyPresentationSection(method == ErrorEstimationMethod.BootstrapResiduals ? "Bootstrap"
                 : method == ErrorEstimationMethod.LeaveOneOut ? "Leave-one-out" : "Profile likelihood", rows);

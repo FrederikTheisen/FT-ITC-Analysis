@@ -2010,7 +2010,7 @@ namespace AnalysisITC.Core.Presentation
             if (IsFinite(data.InitialDelay) && data.InitialDelay > 0)
                 items.Add(Item("Initial delay", FormatFinite(data.InitialDelay, "G5") + " s", 1));
             AddExperimentAttributes(items, data, options, result);
-            AddTandemProvenance(items, data, options);
+            AddTandemProvenance(items, data, options, result);
             return items;
         }
 
@@ -2036,7 +2036,7 @@ namespace AnalysisITC.Core.Presentation
             });
             AddExperimentDateItems(items, data, 0, options);
             AddExperimentAttributes(items, data, options, result);
-            AddTandemProvenance(items, data, options);
+            AddTandemProvenance(items, data, options, result);
 
             return items;
         }
@@ -2076,10 +2076,13 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static void AddTandemProvenance(List<AnalysisReportKeyValueItem> items,
-            ExperimentData data, AnalysisReportOptions options)
+            ExperimentData data, AnalysisReportOptions options, AnalysisResult result = null)
         {
             if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
                 items.Add(Item("Tandem merge origin", TandemOriginPresentation.FormatDescription(data.TandemMergeDescription, data.TandemMergeInfo)));
+            var member = result?.Solution?.Solutions?.FirstOrDefault(item => item?.Data?.UniqueID == data.UniqueID);
+            if (TandemOriginPresentation.BootstrapStatus(result?.Solution, member) is { } mixing)
+                items.Add(Item(TandemOriginPresentation.BootstrapStatusLabel, TandemOriginPresentation.FormatBootstrapStatus(mixing)));
             var ids = data.TandemSourceExperimentIds;
             var missing = ids.Count(id => (options?.ExperimentResolver != null
                 ? options.ExperimentResolver(id)

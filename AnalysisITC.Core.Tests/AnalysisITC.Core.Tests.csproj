@@ -85,5 +85,6 @@
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h9a-hsa-co-figure6.DH" Link="Fixtures\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h9a-hsa-co-figure6.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h67a-hsa-co-figure6.DH" Link="Fixtures\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h67a-hsa-co-figure6.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

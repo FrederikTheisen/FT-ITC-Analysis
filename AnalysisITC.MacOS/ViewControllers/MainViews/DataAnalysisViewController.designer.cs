@@ -93,6 +93,9 @@ namespace AnalysisITC
         AppKit.NSButton PoolResidualsControl { get; set; }
 
         [Outlet]
+        AppKit.NSButton TandemMixingControl { get; set; }
+
+        [Outlet]
         AppKit.NSButton UseWeightedControl { get; set; }
 
         [Action("AnalysisInspectorTabChanged:")]
@@ -172,6 +175,8 @@ namespace AnalysisITC
             UnlockParametersForErrorEstimationControl = null;
             PoolResidualsControl?.Dispose();
             PoolResidualsControl = null;
+            TandemMixingControl?.Dispose();
+            TandemMixingControl = null;
             UseWeightedControl?.Dispose();
             UseWeightedControl = null;
         }

@@ -454,6 +454,8 @@ The reported value is the best fit to the original data. Choose **Errors** to es
 
 Correlation diagnostics distinguish all attempted refits, those with usable optimizer results, and complete refits with finite values for every displayed parameter. If many refits fail, the retained set may not represent the full range of resampled outcomes. Increasing the requested count improves Monte Carlo precision but does not resolve systematic refit failures.
 
+**Propagate tandem mixing uncertainty** is off by default. When enabled, residual bootstrap re-estimates back-mixing for each eligible automatic tandem using the same synthetic heats as the binding refit. The refit uses the resulting concentration history, so the uncertainty includes variation in mixing estimated from the heats. The reported binding parameters still come from the original-data fit. The result’s uncertainty details identify the tandems that included this variation.
+
 Rerunning a bootstrap can give slightly different uncertainty estimates because it draws a new random sample.
 
 For a stored bootstrap result, **Update Result** offers the stored request or another supported count. It creates a fresh fit and bootstrap rather than appending samples. Canceling or retaining no usable refits preserves the previous result.

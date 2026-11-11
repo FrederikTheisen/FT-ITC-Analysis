@@ -231,6 +231,33 @@ namespace AnalysisITC.Core.Interpretation
         public int? FailedUncertaintyRefits { get; set; }
         public int ExcludedLimitTerminations { get; set; }
         public InterpretationProfileLikelihoodEvidence ProfileLikelihood { get; set; }
+        /// <summary>
+        /// Member solver only, for residual-bootstrap fits of automatically merged tandems:
+        /// "included", "fixed-fractions" or "unavailable".
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string TandemMixingInBootstrap { get; set; }
+    }
+
+    /// <summary>Back-mixing fractions and saved 95% limits recorded when a tandem was merged automatically.</summary>
+    public sealed class InterpretationTandemMixingEvidence
+    {
+        public string Criterion { get; set; }
+        public string LimitMethod { get; set; }
+        public double ConfidenceLevel { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? MonteCarloDraws { get; set; }
+        public List<InterpretationTandemRefillEvidence> Refills { get; set; } = new List<InterpretationTandemRefillEvidence>();
+    }
+
+    public sealed class InterpretationTandemRefillEvidence
+    {
+        public int Refill { get; set; }
+        public double MixingFraction { get; set; }
+        public double? LowerLimit { get; set; }
+        public string LowerStatus { get; set; }
+        public double? UpperLimit { get; set; }
+        public string UpperStatus { get; set; }
     }
 
     public sealed class InterpretationInformationCriteriaEvidence
@@ -276,6 +303,8 @@ namespace AnalysisITC.Core.Interpretation
         public List<InterpretationTandemSegmentEvidence> TandemSegments { get; set; } = new List<InterpretationTandemSegmentEvidence>();
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string> TandemSourceExperimentIds { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public InterpretationTandemMixingEvidence TandemMixing { get; set; }
         public string BlankReferenceExperimentId { get; set; }
         public string BlankSubtractionMethod { get; set; }
         public string DateUtc { get; set; }

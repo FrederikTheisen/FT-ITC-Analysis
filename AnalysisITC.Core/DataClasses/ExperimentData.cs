@@ -884,6 +884,9 @@ namespace AnalysisITC.Core.Data
                AddConcentrationVariance(clone, random);
             }
 
+            if (options.EffectiveReestimateTandemMixing)
+                TandemMixingBootstrap.Reestimate(clone, options.OneSiteMixingSeed);
+
             clone.InvalidateSegmentLookup();
 
             foreach (var opt in Attributes) clone.Attributes.Add(opt);

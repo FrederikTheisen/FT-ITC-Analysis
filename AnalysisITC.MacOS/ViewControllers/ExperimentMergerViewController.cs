@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using static AnalysisITC.Core.Processing.TandemConcatenation;
 using System.Linq;
-using System.Threading.Tasks;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
@@ -298,32 +297,19 @@ namespace AnalysisITC
                 ExperimentData mergeddata;
                 if (autoBackMixingEnabled)
                 {
-                    StatusBarManager.SetStatus("Scanning tandem back-mixing degrees...", 0, priority: 1);
+                    StatusBarManager.SetStatus("Creating merged experiment...", 0, priority: 1);
                     StatusBarManager.SetSecondaryStatus("", 0);
                     StatusBarManager.SetProgress(0);
 
-                    var bestPoint = await Task.Run(() => TandemMixingScanner.FindBestAdaptive(
-                        exps,
-                        MergeSettings.Copy(),
+                    mergeddata = await TandemConcatenation.ConcatAutomaticAsync(
+                        exps, MergeSettings, autoBackMixingCriterion,
                         (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
                         {
                             if (!ProcessingActivity.IsCurrentOperation(activity.Operation.Id) || !IsCreatingMergedExperiment) return;
-                            var progress = completed / (double)total;
+                            var progress = total <= 0 ? 0 : completed / (double)total;
                             StatusBarManager.SetProgress(progress);
-                            StatusBarManager.SetSecondaryStatus($"{100 * progress:0}%", 0);
-                        }),
-                        autoBackMixingCriterion, estimateUncertainty: true));
-                    if (bestPoint == null)
-                        throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
-
-                    StatusBarManager.SetStatus("Creating merged experiment...", 0, priority: 1);
-                    StatusBarManager.SetSecondaryStatus("", 0);
-                    StatusBarManager.SetProgress(1);
-                    mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(
-                        exps,
-                        MergeSettings,
-                        bestPoint.TransitionMixingFractions,
-                        automaticCriterion: autoBackMixingCriterion, uncertainty: bestPoint.Uncertainty, bookkeeping: bestPoint.UncertaintyBookkeeping);
+                            StatusBarManager.SetSecondaryStatus($"Scanning tandem back-mixing... {100 * progress:0}%", 0);
+                        }));
                 }
                 else if (MergeSettings.UseBackMixingMethod)
                 {
@@ -350,7 +336,7 @@ namespace AnalysisITC
                     mergeddata = TandemConcatenation.ConcatTandem(exps);
                 }
 
-                await mergeddata.Processor.ProcessTandemMergeAsync();
+                if (!autoBackMixingEnabled) await mergeddata.Processor.ProcessTandemMergeAsync();
                 DataManager.AddData(mergeddata);
 
                 PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(

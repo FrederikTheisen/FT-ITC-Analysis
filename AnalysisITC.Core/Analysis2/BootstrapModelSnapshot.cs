@@ -158,6 +158,7 @@ namespace AnalysisITC.Core.Analysis
                 DiscardedDataPoint = source.DiscardedDataPoint,
                 UnlockBootstrapParameters = source.UnlockBootstrapParameters,
                 PoolBootstrapResiduals = source.PoolBootstrapResiduals,
+                ReestimateTandemMixing = source.ReestimateTandemMixing,
             };
         }
     }

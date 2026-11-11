@@ -107,6 +107,11 @@ namespace AnalysisITC
             UnlockParametersForErrorEstimationControl.Activated += OnUnlockParametersActivated;
             PoolResidualsControl.Activated += (_, _) => FittingOptionsController.PoolBootstrapResiduals =
                 PoolResidualsControl.State == NSCellStateValue.On;
+            if (TandemMixingControl != null)
+            {
+                TandemMixingControl.Activated += OnTandemMixingActivated;
+                TandemMixingControl.ToolTip = UncertaintyEstimationPresentation.TandemMixingTooltip;
+            }
 
             ShowParameterBoxButton.ToolTip = AnalysisParameterSummaryPresentation.ParameterBoxToolTip;
             ErrorIterationsControl.ToolTip = UncertaintyEstimationPresentation.BootstrapIterationsTooltip;
@@ -354,6 +359,8 @@ namespace AnalysisITC
             PoolResidualsControl.State = FittingOptionsController.PoolBootstrapResiduals
                 ? NSCellStateValue.On : NSCellStateValue.Off;
             PoolResidualsControl.ToolTip = UncertaintyEstimationPresentation.PoolResidualsTooltip;
+            if (TandemMixingControl != null)
+                TandemMixingControl.State = Workspace.ReestimateTandemMixing ? NSCellStateValue.On : NSCellStateValue.Off;
             UnlockParametersForErrorEstimationControl.State =
                 FittingOptionsController.UnlockBootstrapParameters
                     ? NSCellStateValue.On
@@ -373,16 +380,22 @@ namespace AnalysisITC
             ErrorIterationLabel.Enabled = isBootstrap;
             IncludeConcErrorControl.Enabled = isBootstrap;
             UnlockParametersForErrorEstimationControl.Enabled = isBootstrap;
-            RefreshPooledResidualsAvailability();
+            RefreshBootstrapOptionAvailability();
         }
 
-        void RefreshPooledResidualsAvailability()
+        void RefreshBootstrapOptionAvailability()
         {
             if (PoolResidualsControl == null || ErrorMethodControl == null) return;
             PoolResidualsControl.Enabled = !isFitting && Workspace.IsReady
                 && (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem == ErrorEstimationMethod.BootstrapResiduals
                 && (inspectorPreviewContext ?? Workspace.Context)?.WillFitGlobally == true;
+            if (TandemMixingControl != null)
+                TandemMixingControl.Enabled = !isFitting && Workspace.CanReestimateTandemMixing
+                    && (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem == ErrorEstimationMethod.BootstrapResiduals;
         }
+
+        void OnTandemMixingActivated(object sender, EventArgs e) =>
+            Workspace.ReestimateTandemMixing = TandemMixingControl.State == NSCellStateValue.On;
 
         void SubscribeFitSummaryExperiment(ExperimentData experiment)
         {
@@ -446,7 +459,7 @@ namespace AnalysisITC
 
         void RefreshAnalysisSummaryOnMainThread()
         {
-            RefreshPooledResidualsAvailability();
+            RefreshBootstrapOptionAvailability();
             if (DataAnalysisSummaryLabel == null) return;
             RefreshNullHypothesisTestPresentation();
 
@@ -1038,6 +1051,8 @@ namespace AnalysisITC
             FittingOptionsController.UnlockBootstrapParameters =
                 UnlockParametersForErrorEstimationControl.State == NSCellStateValue.On;
             FittingOptionsController.PoolBootstrapResiduals = PoolResidualsControl.State == NSCellStateValue.On;
+            if (TandemMixingControl != null)
+                Workspace.ReestimateTandemMixing = TandemMixingControl.State == NSCellStateValue.On;
 
             if (inspectorDraft == null) return true;
 
@@ -1239,7 +1254,7 @@ namespace AnalysisITC
 
         void RefreshGlobalModeControls()
         {
-            RefreshPooledResidualsAvailability();
+            RefreshBootstrapOptionAvailability();
             AnalysisModeControl.SetEnabled(!isFitting, 0);
             AnalysisModeControl.SetEnabled(!isFitting, 1);
             PublishAnalysisMode();
@@ -1372,8 +1387,10 @@ namespace AnalysisITC
             DataManager.SelectionDidChange -= OnSelectionChanged;
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;
-            ErrorMethodControl.Activated -= OnErrorMethodActivated;
-            UnlockParametersForErrorEstimationControl.Activated -= OnUnlockParametersActivated;
+            if (ErrorMethodControl != null) ErrorMethodControl.Activated -= OnErrorMethodActivated;
+            if (UnlockParametersForErrorEstimationControl != null)
+                UnlockParametersForErrorEstimationControl.Activated -= OnUnlockParametersActivated;
+            if (TandemMixingControl != null) TandemMixingControl.Activated -= OnTandemMixingActivated;
             if (summaryExperiment != null)
             {
                 summaryExperiment.SolutionChanged -= OnSummaryExperimentSolutionChanged;

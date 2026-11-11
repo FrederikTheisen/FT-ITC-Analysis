@@ -6239,7 +6239,7 @@ Gw
         <!--Data Analyzer-->
         <scene sceneID="XWv-on-cR3">
             <objects>
-                <viewController title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="DataAnalysisViewController" title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
                     <customView key="view" verticalCompressionResistancePriority="250" id="Xsa-sz-SoY">
                         <rect key="frame" x="0.0" y="0.0" width="872" height="791"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -6658,12 +6658,33 @@ Gw
                                                                                                 <subviews>
                                                                                                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-pool-residuals-control">
                                                                                                         <rect key="frame" x="0.0" y="-3" width="283" height="24"/>
-                                                                                                        <buttonCell key="cell" type="check" title="Pool residuals across experiments" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" inset="2" id="analysis-pool-residuals-cell">
+                                                                                                        <buttonCell key="cell" type="check" title="Pool residuals across experiments" bezelStyle="regularSquare" imagePosition="trailing" alignment="left" controlSize="large" inset="2" id="analysis-pool-residuals-cell">
                                                                                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                                                             <font key="font" metaFont="system"/>
                                                                                                         </buttonCell>
                                                                                                         <constraints>
                                                                                                             <constraint firstAttribute="height" constant="18" id="analysis-pool-residuals-height"/>
+                                                                                                        </constraints>
+                                                                                                    </button>
+                                                                                                </subviews>
+                                                                                                <visibilityPriorities>
+                                                                                                    <integer value="1000"/>
+                                                                                                </visibilityPriorities>
+                                                                                                <customSpacing>
+                                                                                                    <real value="3.4028234663852886e+38"/>
+                                                                                                </customSpacing>
+                                                                                            </stackView>
+                                                                                            <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-tandem-mixing-row">
+                                                                                                <rect key="frame" x="0.0" y="401" width="280" height="18"/>
+                                                                                                <subviews>
+                                                                                                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-tandem-mixing-control">
+                                                                                                        <rect key="frame" x="0.0" y="-3" width="283" height="24"/>
+                                                                                                        <buttonCell key="cell" type="check" title="Propagate tandem mixing uncertainty" bezelStyle="regularSquare" imagePosition="trailing" alignment="left" controlSize="large" inset="2" id="analysis-tandem-mixing-cell">
+                                                                                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                                                            <font key="font" metaFont="system"/>
+                                                                                                        </buttonCell>
+                                                                                                        <constraints>
+                                                                                                            <constraint firstAttribute="height" constant="18" id="analysis-tandem-mixing-height"/>
                                                                                                         </constraints>
                                                                                                     </button>
                                                                                                 </subviews>
@@ -6701,6 +6722,8 @@ Gw
                                                                                             <constraint firstItem="Z5M-FT-aNZ" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-header-width"/>
                                                                                             <constraint firstItem="analysis-error-iterations-row" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-iterations-row-width"/>
                                                                                             <constraint firstItem="analysis-parameter-locks-row" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-locks-row-width"/>
+                                                                                            <constraint firstItem="analysis-pool-residuals-row" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-pool-residuals-row-width"/>
+                                                                                            <constraint firstItem="analysis-tandem-mixing-row" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-tandem-mixing-row-width"/>
                                                                                             <constraint firstItem="5NN-nb-2q3" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-mode-row-width"/>
                                                                                             <constraint firstItem="3ZJ-yD-xi8" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-model-row-width"/>
                                                                                             <constraint firstItem="analysis-fit-summary-header" firstAttribute="width" secondItem="dhw-Eq-SuD" secondAttribute="width" id="analysis-fit-summary-header-width"/>
@@ -6724,8 +6747,10 @@ Gw
                                                                                             <integer value="1000"/>
                                                                                             <integer value="1000"/>
                                                                                             <integer value="1000"/>
+                                                                                            <integer value="1000"/>
                                                                                         </visibilityPriorities>
                                                                                         <customSpacing>
+                                                                                            <real value="3.4028234663852886e+38"/>
                                                                                             <real value="3.4028234663852886e+38"/>
                                                                                             <real value="3.4028234663852886e+38"/>
                                                                                             <real value="3.4028234663852886e+38"/>
@@ -7101,6 +7126,7 @@ Gw
                         <outlet property="ShowResidualGraphButton" destination="4t0-JE-A0w" id="Hw3-4d-Lq3"/>
                         <outlet property="SolverAlgorithmControl" destination="analysis-solver-algorithm-control" id="analysis-solver-algorithm-outlet"/>
                         <outlet property="PoolResidualsControl" destination="analysis-pool-residuals-control" id="analysis-pool-residuals-outlet"/>
+                        <outlet property="TandemMixingControl" destination="analysis-tandem-mixing-control" id="analysis-tandem-mixing-outlet"/>
                         <outlet property="UnlockParametersForErrorEstimationControl" destination="analysis-unlock-parameters-control" id="analysis-unlock-parameters-outlet"/>
                         <outlet property="UseWeightedControl" destination="analysis-use-weighted-control" id="analysis-use-weighted-outlet"/>
                     </connections>

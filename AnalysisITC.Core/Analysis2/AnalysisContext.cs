@@ -180,6 +180,21 @@ namespace AnalysisITC.Core.Analysis
         public void FinalizeForSolver(bool attachToExperiments = true)
         {
             PrepareSolverGraph(attachToExperiments);
+
+            if (!IsMultiExperiment)
+            {
+                SingleModel.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
+                return;
+            }
+
+            var joint = WillFitGlobally;
+            GlobalModel.ModelCloneOptions = joint
+                ? ModelCloneOptions.DefaultGlobalOptions
+                : ModelCloneOptions.DefaultOptions;
+            GlobalModel.ModelCloneOptions.PoolBootstrapResiduals =
+                joint && FittingOptionsController.PoolBootstrapResiduals;
+            foreach (var member in GlobalModel.Models)
+                member.ModelCloneOptions = joint ? ModelCloneOptions.DefaultGlobalOptions : ModelCloneOptions.DefaultOptions;
         }
 
         /// <summary>Replaces experiment attachments after all fit-start checks succeed.</summary>
@@ -207,7 +222,6 @@ namespace AnalysisITC.Core.Analysis
                 if (attachToExperiments)
                     SingleModel.Data.Model = SingleModel;
                 SingleModel.SetModelOptions();
-                SingleModel.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
             }
             else
             {
@@ -225,15 +239,6 @@ namespace AnalysisITC.Core.Analysis
                 GlobalModelParameters.InitializeReferenceTemperature();
 
                 GlobalModelParameters.SetIndividualFromGlobal();
-
-                var joint = WillFitGlobally;
-                GlobalModel.ModelCloneOptions = joint
-                    ? ModelCloneOptions.DefaultGlobalOptions
-                    : ModelCloneOptions.DefaultOptions;
-                GlobalModel.ModelCloneOptions.PoolBootstrapResiduals =
-                    joint && FittingOptionsController.PoolBootstrapResiduals;
-                foreach (var member in GlobalModel.Models)
-                    member.ModelCloneOptions = joint ? ModelCloneOptions.DefaultGlobalOptions : ModelCloneOptions.DefaultOptions;
             }
         }
 

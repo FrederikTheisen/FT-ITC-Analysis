@@ -415,6 +415,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | ·· Buffer subtraction: "<ref> (Experiment S1; <method>)" (current setting) | report label only when the reference is in the report |
 | | ·· Competitor properties: From result "…", Kd = …, ΔH = … on separate lines, or reason not captured | competitor attribute; result chapters use fit-time captures only, never later live-attribute values |
 | | · Tandem merge origin: mode, mixing settings, source files, and saved mixing uncertainty on separate lines | recorded tandem provenance, including single-file concatenated imports |
+| | · Tandem mixing uncertainty: "Included in bootstrap" / "Fixed fractions" / "Unavailable" | tandem member of a residual-bootstrap result; omitted for other methods, supporting experiments, and estimation skipped for no binding. "Included" requires the saved request and at least one retained refit; "Unavailable" is a request with no retained refits. Shared status from `TandemOriginPresentation.BootstrapStatus` |
 | | · Tandem sources: "n of m recorded source experiments … not in this project." | only when sources are missing |
 | **E03** | **Experiment details — condensed** | repeat appearance + condense on |
 | | · Experiment date | as E02 |
@@ -623,3 +624,4 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-11-09: A12a "Reading uncertainty" added under Expanded explanations for residual-bootstrap results: a citable methods summary of the bootstrap and its scope. Other blocks unchanged.
 
 - Automatic tandem merge uncertainty is displayed in the existing merge-origin row through the shared formatter. One-site uses approximate grid-based 95% limits; model-free shows 95% Monte Carlo ranges. Bound-reached and unavailable sides are explicit. The recorded original-data fractions remain the displayed estimates.
+- 2026-11-11: E02/E03 add a "Tandem mixing uncertainty" row below the merge origin for tandem members of residual-bootstrap results, stating whether refits re-estimated back-mixing (Included in bootstrap), kept the saved fractions (Fixed fractions), or retained no refits (Unavailable). The interpretation package gains optional per-experiment `tandemMixing` (criterion, fractions, saved 95% limits) and member `solver.tandemMixingInBootstrap`; both are omitted for tandems without saved merge evidence, so their fingerprints are unchanged. Other blocks unchanged.

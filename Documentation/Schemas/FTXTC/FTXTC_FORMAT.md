@@ -4,7 +4,7 @@ FTXTC is the native FT-ITC Analysis project format. An `.ftxtc` file is a ZIP pa
 
 Legacy `.ftitc` files are read-only imports; saving an imported document creates a new `.ftxtc` file.
 
-Fit clone options may include `poolBootstrapResiduals` (default false). Files without the field retain within-experiment sampling. The prepared pool is transient; its scaling follows from the saved weighting choice and is not stored.
+Fit clone options may include `poolBootstrapResiduals` (default false) and `reestimateTandemMixing` (default false). The latter re-estimates saved tandem back-mixing fractions for residual-bootstrap refits when the tandem metadata supports it. Files without either field retain the corresponding default behavior. Prepared residual pools and one-site mixing seeds are transient; pool scaling follows from the saved weighting choice and is not stored.
 
 When residual bootstrap unlocks a locked shared parameter, the existing `isGlobalClone` flag records that the primary fit and refits ran jointly. An independent fit with the unlock option enabled retains its saved independent classification.
 

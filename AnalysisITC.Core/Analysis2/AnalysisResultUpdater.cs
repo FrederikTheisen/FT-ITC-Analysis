@@ -6,6 +6,7 @@ using AnalysisITC.Core.Analysis.Models;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Processing;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -415,6 +416,7 @@ namespace AnalysisITC.Core.Analysis
                 DiscardedDataPoint = source.DiscardedDataPoint,
                 UnlockBootstrapParameters = source.UnlockBootstrapParameters,
                 PoolBootstrapResiduals = source.PoolBootstrapResiduals,
+                ReestimateTandemMixing = source.ReestimateTandemMixing,
             };
         }
 
@@ -441,8 +443,11 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var child in model.Models)
             {
-                if (child.ModelCloneOptions != null)
-                    child.ModelCloneOptions.ErrorEstimationMethod = method;
+                if (child.ModelCloneOptions == null) continue;
+                child.ModelCloneOptions.ErrorEstimationMethod = method;
+                child.ModelCloneOptions.ReestimateTandemMixing = method == ErrorEstimationMethod.BootstrapResiduals
+                    && model.ModelCloneOptions?.ReestimateTandemMixing == true
+                    && TandemMixingBootstrap.IsEligible(child.Data);
             }
         }
 

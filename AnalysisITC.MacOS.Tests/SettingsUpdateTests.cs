@@ -177,7 +177,7 @@ static class SettingsUpdateTests
         var checkbox = Outlet<NSButton>(controller, "PoolResidualsControl");
         var errors = Outlet<NSPopUpButton>(controller, "ErrorMethodControl");
         var weighted = Outlet<NSButton>(controller, "UseWeightedControl");
-        var refresh = typeof(DataAnalysisViewController).GetMethod("RefreshPooledResidualsAvailability", Instance);
+        var refresh = typeof(DataAnalysisViewController).GetMethod("RefreshBootstrapOptionAvailability", Instance);
         var preview = typeof(DataAnalysisViewController).GetField("inspectorPreviewContext", Instance);
         preview.SetValue(controller, null);
         errors.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);

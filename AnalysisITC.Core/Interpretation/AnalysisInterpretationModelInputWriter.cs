@@ -27,7 +27,7 @@ namespace AnalysisITC.Core.Interpretation
         static readonly string[] SourceFields =
         {
             "experimentId", "name", "sourceFileBasename", "dateProvenance", "sourceStateFingerprint", "traceability",
-            "thermogram", "tandemSegments", "tandemSourceExperimentIds", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
+            "thermogram", "tandemSegments", "tandemSourceExperimentIds", "tandemMixing", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
             "comments", "instrument", "targetTemperatureKelvin", "measuredTemperatureKelvin",
             "targetTemperatureCelsius", "measuredTemperatureCelsius", "cellConcentrationMolar",
             "cellConcentrationSdMolar", "syringeConcentrationMolar", "syringeConcentrationSdMolar",
@@ -150,6 +150,8 @@ namespace AnalysisITC.Core.Interpretation
                 ["precision"] = PrecisionPolicyDescription,
                 ["sourceDataFingerprint"] = "traceability.sourceDataFingerprint is a SHA-256 fingerprint of ordered raw time/power samples when sourceDataKind is rawThermogram, or ordered injection IDs, volumes, integration availability, raw integrated heats and reported uncertainties when sourceDataKind is integratedHeats. Compare only equal fingerprints with the same sourceDataKind; equality means the same numerical source observations, not independent replication.",
             };
+            if (AllExperiments(root).Concat(Objects(root["supportingExperiments"])).Any(experiment => experiment["tandemMixing"] != null))
+                ((JsonObject)root["modelInputDefinitions"])["tandemMixing"] = "tandemMixing lists, for each syringe refill of an automatically merged tandem, the back-mixing fraction (0 to 1) estimated from the integrated heats and its saved approximate 95% limits. A limit status of bound-reached means the limit sits at 0 or 1; unavailable means no limit was found. solver.tandemMixingInBootstrap states whether residual-bootstrap refits re-estimated these fractions (included) or kept them at the saved values (fixed-fractions); with fixed fractions the parameter uncertainties do not include mixing uncertainty.";
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);
             ApplyEvidenceSelection(root);
@@ -868,6 +870,7 @@ namespace AnalysisITC.Core.Interpretation
             RoundThermogram(experiment["thermogram"] as JsonObject);
             RoundTableRows(experiment["injections"] as JsonObject);
             foreach (var segment in Objects(experiment["tandemSegments"])) RoundFields(segment, "startTimeSeconds", "endTimeSeconds", "initialActiveCellConcentrationMolar", "initialActiveTitrantConcentrationMolar");
+            foreach (var refill in Objects(experiment["tandemMixing"]?["refills"])) RoundFields(refill, "mixingFraction", "lowerLimit", "upperLimit");
         }
 
         static void RoundSolver(JsonObject solver)

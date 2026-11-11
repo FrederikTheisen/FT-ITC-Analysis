@@ -2,13 +2,38 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Presentation
 {
+    /// <summary>How a residual-bootstrap result treated one tandem's back-mixing fractions.</summary>
+    public enum TandemMixingBootstrapStatus { Included, FixedFractions, Unavailable }
+
     public static class TandemOriginPresentation
     {
+        public const string BootstrapStatusLabel = "Tandem mixing uncertainty";
+
+        /// <summary>Returns null when the member is not a tandem or no residual bootstrap ran for it.</summary>
+        public static TandemMixingBootstrapStatus? BootstrapStatus(GlobalSolution result, SolutionInterface member)
+        {
+            if (member?.Data?.IsTandemExperiment != true
+                || result?.ErrorEstimationMethod != ErrorEstimationMethod.BootstrapResiduals
+                || result.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding
+                || member.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding)
+                return null;
+            if (member.Model?.ModelCloneOptions?.ReestimateTandemMixing != true)
+                return TandemMixingBootstrapStatus.FixedFractions;
+            return member.BootstrapSolutions?.Count > 0
+                ? TandemMixingBootstrapStatus.Included : TandemMixingBootstrapStatus.Unavailable;
+        }
+
+        public static string FormatBootstrapStatus(TandemMixingBootstrapStatus status) =>
+            status == TandemMixingBootstrapStatus.Included ? "Included in bootstrap"
+            : status == TandemMixingBootstrapStatus.FixedFractions ? "Fixed fractions" : "Unavailable";
+
         static readonly Regex BackMixingDescription = new Regex(
             @"^Tandem concatenation \((?<mode>[^\r\n]+)\): DeadVolume=(?<volume>[^,\r\n]+), RemoveOverflow=(?<overflow>True|False), MixFrac=(?<fractions>[^,\r\n]+), (?<method>[^\r\n]+) bookkeeping$");
         static readonly Regex WithoutBackMixingDescription = new Regex(

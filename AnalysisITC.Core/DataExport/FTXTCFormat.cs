@@ -466,6 +466,8 @@ namespace AnalysisITC.Core.Export
         public bool UnlockParameters { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public bool PoolBootstrapResiduals { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool ReestimateTandemMixing { get; set; }
     }
 
     internal sealed class FtxtcConvergenceState
@@ -2059,6 +2061,7 @@ namespace AnalysisITC.Core.Export
                 AutoConcentrationVariance = options.AutoConcentrationVariance, DiscardedDataPoint = options.DiscardedDataPoint,
                 UnlockParameters = options.UnlockBootstrapParameters,
                 PoolBootstrapResiduals = options.PoolBootstrapResiduals,
+                ReestimateTandemMixing = options.ReestimateTandemMixing,
             };
         }
 

@@ -49,6 +49,21 @@ were recorded, preserving canonical evidence fingerprints for older tandems and
 single-file concatenated imports. This additive field changes neither the
 evidence package schema version nor the relay version.
 
+Experiment evidence for an automatically merged tandem may contain the optional
+`tandemMixing` object: the merge `criterion` (`model-free` or `one-site`), the
+`limitMethod` (`monte-carlo-95` or `grid-95`), `confidenceLevel`, optional
+`monteCarloDraws`, and one `refills` entry per syringe refill with the
+`mixingFraction` (0 to 1), `lowerLimit`, `upperLimit` and their statuses
+(`crossing`, `bound-reached` or `unavailable`). For a residual-bootstrap fit of
+such a tandem, the member `solver` also carries `tandemMixingInBootstrap`:
+`included` when refits re-estimated the fractions, `fixed-fractions` when they
+kept the saved values, and `unavailable` when re-estimation was requested but no
+refit was retained. Both fields are omitted for tandems without saved merge
+evidence, preserving their canonical evidence fingerprints. The model input
+defines them in `modelInputDefinitions.tandemMixing` when present. These
+additive fields change neither the evidence package schema version nor the
+relay version.
+
 The model input labels each result member's enthalpy, entropy and −TΔS
 parameters with `bindingContribution` (`favorable` or `unfavorable`), following
 ΔG = ΔH − TΔS, and defines the label in `modelInputDefinitions`. The label
@@ -358,7 +373,7 @@ scientific output restrictions still apply.
 | Result-member `E.{solver,informationCriteria,evidenceBasis,matchedFitDiagnosticsUnavailableReason,unavailableDerivedParameterReason}` | Results |
 | `E.{concentrationMethod,heatMethod,fittedHeatMethod,analysisAxis,instrument}` | Results |
 | `E.{targetTemperatureKelvin,measuredTemperatureKelvin,targetTemperatureCelsius,measuredTemperatureCelsius,cellConcentrationMolar,cellConcentrationSdMolar,syringeConcentrationMolar,syringeConcentrationSdMolar}` | Results |
-| `E.{attributes,tandemSegments,tandemSourceExperimentIds,blankReferenceExperimentId,blankSubtractionMethod}`; all records' processing completion flags | Results |
+| `E.{attributes,tandemSegments,tandemSourceExperimentIds,tandemMixing,blankReferenceExperimentId,blankSubtractionMethod}`; all records' processing completion flags | Results |
 | Result-member `E.{initialDelaySeconds,modelOptions,parameters,cValues,residualDiagnostics}` | Results |
 | Result-member `E.injections.{acquisition,heatObservations,fit}`; `results[].bindingAssessment.{members,nullMembers}[].points` | Injection data |
 | Result-member `E.injections.{integration,baseline}` | Processing details |

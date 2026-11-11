@@ -1795,6 +1795,7 @@ namespace AnalysisITC.Core.DataReaders
             AutoConcentrationVariance = value.AutoConcentrationVariance, DiscardedDataPoint = value.DiscardedDataPoint,
             UnlockBootstrapParameters = value.UnlockParameters,
             PoolBootstrapResiduals = value.PoolBootstrapResiduals,
+            ReestimateTandemMixing = value.ReestimateTandemMixing,
         };
         static SolverConvergence RestoreConvergence(FtxtcConvergenceState value) => value == null ? null : SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
         {
