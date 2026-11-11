@@ -258,7 +258,7 @@
     "cloneOptions": {
       "type": "object", "additionalProperties": false,
       "required": ["isGlobalClone", "errorMethod", "includeConcentrationErrors", "enableAutoConcentrationVariance", "autoConcentrationVariance", "discardedDataPoint", "unlockParameters"],
-      "properties": { "isGlobalClone": { "type": "boolean" }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "includeConcentrationErrors": { "type": "boolean" }, "enableAutoConcentrationVariance": { "type": "boolean" }, "autoConcentrationVariance": { "$ref": "#/$defs/number" }, "discardedDataPoint": { "type": "integer" }, "unlockParameters": { "type": "boolean" }, "poolBootstrapResiduals": { "type": "boolean" }, "bootstrapScaleSource": { "enum": ["injection-heat-sd", "experiment-residual-sd", "zero-residuals"] } }
+      "properties": { "isGlobalClone": { "type": "boolean" }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "includeConcentrationErrors": { "type": "boolean" }, "enableAutoConcentrationVariance": { "type": "boolean" }, "autoConcentrationVariance": { "$ref": "#/$defs/number" }, "discardedDataPoint": { "type": "integer" }, "unlockParameters": { "type": "boolean" }, "poolBootstrapResiduals": { "type": "boolean" } }
     },
     "convergence": {
       "type": "object", "additionalProperties": false,

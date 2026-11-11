@@ -231,13 +231,7 @@ namespace AnalysisITC.Core.Presentation
                 || solution.Model.ShouldFitIndividually
                 || solution.ModelCloneOptions?.PoolBootstrapResiduals != true)
                 return null;
-            return solution.ModelCloneOptions.BootstrapScaleSource switch
-            {
-                PooledBootstrapScale.InjectionHeatSd => "Pooled residuals scaled by injection heat SDs",
-                PooledBootstrapScale.ExperimentResidualSd => "Pooled residuals scaled by experiment residual SDs",
-                PooledBootstrapScale.ZeroResiduals => "Pooled residuals with zero residual noise",
-                _ => "Pooled residuals selected",
-            };
+            return "Pooled across experiments";
         }
 
         public static UncertaintyPresentationSection Section(GlobalSolution solution)
@@ -262,10 +256,14 @@ namespace AnalysisITC.Core.Presentation
                     var pooledSampling = PooledSamplingText(solution);
                     rows.Add(new UncertaintyPresentationRow("Residual sampling", pooledSampling ?? "Within each experiment",
                         "Saved bootstrap noise model"));
-                    if (pooledSampling != null && solution.ModelCloneOptions.BootstrapScaleSource == null
-                        && outcome == ErrorEstimationOutcome.CompleteFailure)
-                        rows.Add(new UncertaintyPresentationRow("Reason", solution.Convergence.ErrorEstimationSummary,
-                            "Reason pooled residual uncertainty is unavailable"));
+                    var convergence = solution.Convergence;
+                    var reason = convergence?.ErrorEstimationSummary;
+                    if (outcome == ErrorEstimationOutcome.CompleteFailure
+                        && convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.CompleteFailure
+                        && convergence.ErrorEstimationAttemptedRefits.GetValueOrDefault() == 0
+                        && !string.IsNullOrWhiteSpace(reason))
+                        rows.Add(new UncertaintyPresentationRow("Reason", reason,
+                            "Why bootstrap uncertainty is unavailable"));
                 }
                 if (profile != null)
                     rows.Add(new UncertaintyPresentationRow("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile), "Found limits of the model-estimated confidence intervals"));

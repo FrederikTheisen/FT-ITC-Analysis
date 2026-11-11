@@ -5,6 +5,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
@@ -133,6 +134,38 @@ namespace AnalysisITC.Core.Tests
                 new Random(1)));
         }
 
+        [Fact]
+        public void SingleExperimentBootstrapChecksIncludedInjectionsBeforeRefits()
+        {
+            // The included heat is 11 with a prediction of 10 plus the fitted offset.
+            // One injection identifies the offset, leaving no degrees of freedom for bootstrap.
+            CreateProbeExperiment(out var model, out _, includedInjectionCount: 1);
+            ConfigureFittedProbe(model);
+            var solver = new Solver
+            {
+                Model = model,
+                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+                BootstrapIterations = 10,
+                MaxOptimizerIterations = 300,
+                Silent = true,
+            };
+
+            var convergence = solver.Solve();
+
+            Assert.True(convergence.Success, convergence.Message);
+            Assert.Equal(1, model.Solution.Parameters[ParameterType.Offset].Value, 6);
+            Assert.Equal(ErrorEstimationOutcome.CompleteFailure, convergence.ErrorEstimationOutcome);
+            Assert.Equal(10, convergence.RequestedBootstrapIterations);
+            Assert.Null(convergence.ErrorEstimationAttemptedRefits);
+            Assert.Empty(model.Solution.BootstrapSolutions);
+            var rows = UncertaintyEstimationPresentation.Section(GlobalSolution.FromSingleExperimentSolver(solver)).Rows;
+            Assert.Equal("Unavailable", Assert.Single(rows, row => row.Label == "Status").Value);
+            var reason = Assert.Single(rows, row => row.Label == "Reason").Value;
+            Assert.Contains("Included injections (1)", reason);
+            Assert.Contains("effective fitted parameter count (1)", reason);
+        }
+
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
@@ -150,37 +183,95 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(true, 8.0 / 5.0)]
-        [InlineData(false, 3.0 / 2.0)]
-        public void GlobalResidualBootstrapPoolsCountsOnlyForSharedParameters(bool shared, double varianceRatio)
+        [InlineData(true, 24.0 / 13.0, 40.0 / 27.0)]
+        [InlineData(false, 3.0 / 2.0, 5.0 / 4.0)]
+        public void GlobalResidualBootstrapUsesEachMembersCountsAndShareOfSharedParameters(
+            bool shared, double firstVarianceRatio, double secondVarianceRatio)
         {
             var first = CreateProbeExperiment(out var firstModel, out _);
-            CreateProbeExperiment(out var secondModel, out _, includedInjectionCount: 5);
+            var second = CreateProbeExperiment(out var secondModel, out _, includedInjectionCount: 5);
             ConfigureFittedProbe(firstModel);
             ConfigureFittedProbe(secondModel);
-            var global = new GlobalModel();
-            global.AddModel(firstModel);
-            global.AddModel(secondModel);
-            global.Parameters.AddIndivdualParameter(firstModel.Parameters);
-            global.Parameters.AddIndivdualParameter(secondModel.Parameters);
-            if (shared)
-            {
-                global.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
-                global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
-            }
-            var convergence = SolverConvergence.FromFixedFit(0, 0);
-            var solutions = new List<SolutionInterface>
-            {
-                SolutionInterface.FromModel(firstModel, convergence),
-                SolutionInterface.FromModel(secondModel, convergence),
-            };
-            firstModel.Solution = solutions[0];
-            secondModel.Solution = solutions[1];
-            global.Solution = new GlobalSolution(new GlobalSolver { Model = global }, solutions, convergence, reconstructBootstrap: false);
+            CreateSharedEnthalpyJoint(firstModel, secondModel, shared);
 
-            // Shared: N = 3 + 5 included injections and P = 1 shared enthalpy + 2 local
-            // offsets. Individual: the first member keeps its own n = 3 and p = 1.
-            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted: false, seed: 31, residualScale: Math.Sqrt(varianceRatio));
+            // Shared: 3 + 5 = 8 included injections, one local offset per member and one
+            // shared enthalpy. Each member is charged its offset plus the enthalpy in
+            // proportion to its injections: p = 1 + 3/8 gives 3 / (3 - 11/8) = 24/13 and
+            // p = 1 + 5/8 gives 5 / (5 - 13/8) = 40/27. Individual: each member keeps its
+            // own n and p = 1.
+            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted: false, seed: 31, residualScale: Math.Sqrt(firstVarianceRatio));
+            AssertSyntheticSampleMatchesPrimaryFit(second, secondModel, weighted: false, seed: 37, residualScale: Math.Sqrt(secondVarianceRatio));
+        }
+
+        [Fact]
+        public void PooledBootstrapScalesEachExperimentByItsOwnCountsAndShareOfSharedParameters()
+        {
+            // A: centred residuals {-1, 0, 1}, RMS sqrt(2/3), unit values {-sqrt(1.5), 0, sqrt(1.5)}.
+            // B: centred residuals {-2, -1, 0, 1, 2}, RMS sqrt(2), unit values
+            // {-sqrt(2), -1/sqrt(2), 0, 1/sqrt(2), sqrt(2)}. With a local offset each and one
+            // shared enthalpy, A is corrected by 24/13 and B by 40/27 in variance, so the
+            // target scales are sqrt(2/3 * 24/13) = 4/sqrt(13) and sqrt(2 * 40/27).
+            var a = CreatePooledMember("A", new[] { -1.0, 0.0, 1.0 }, new[] { 1.0, 1.0, 1.0 });
+            var b = CreatePooledMember("B", new[] { -2.0, -1.0, 0.0, 1.0, 2.0 }, new[] { 1.0, 1.0, 1.0, 1.0, 1.0 });
+            var model = CreateSharedEnthalpyJoint(a, b);
+            var pool = PooledBootstrapResiduals.Prepare(model, weighted: false);
+            var clone = model.GenerateSyntheticModel(new PoolDraws(8, 2, 3, 0, 7, 1, 4, 5, 6), model.ModelCloneOptions, pool);
+
+            var expected = new[]
+            {
+                10 + Math.Sqrt(24.0 / 13), 20 - Math.Sqrt(32.0 / 13), 30 - Math.Sqrt(24.0 / 13),
+                10 + Math.Sqrt(160.0 / 27), 20, 30 - Math.Sqrt(40.0 / 27), 40, 50 + Math.Sqrt(40.0 / 27),
+            };
+            var heats = clone.Models.SelectMany(member => member.Data.Injections.Where(injection => injection.Include)
+                .Select(injection => injection.PeakArea.Value)).ToArray();
+            for (int i = 0; i < expected.Length; i++) Assert.Equal(expected[i], heats[i], 12);
+        }
+
+        [Fact]
+        public void ResidualBootstrapRequiresMoreInjectionsThanFittedParametersInEachJointMember()
+        {
+            // 1 + 5 = 6 included injections exceed the 3 fitted values (two local offsets and a
+            // shared enthalpy), but the one-injection member is charged 1 + 1/6 values.
+            var single = CreatePooledMember("Single", new[] { 1.0 }, new[] { 1.0 });
+            var other = CreatePooledMember("Other", new[] { -2.0, -1.0, 0.0, 1.0, 2.0 }, new[] { 1.0, 1.0, 1.0, 1.0, 1.0 });
+            var model = CreateSharedEnthalpyJoint(single, other);
+
+            var pooled = Assert.Throws<InvalidOperationException>(() => PooledBootstrapResiduals.Prepare(model, weighted: false));
+            Assert.Contains("more included injections than fitted parameters", pooled.Message);
+            var local = Assert.Throws<InvalidOperationException>(() => single.Data.GetSynthClone(
+                new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                new Random(1)));
+            Assert.Contains("more included injections than fitted parameters", local.Message);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void ResidualBootstrapReportsAnIneligibleJointMemberBeforeRefits(bool pooled)
+        {
+            var single = CreatePooledMember("Single", new[] { 1.0 }, new[] { 1.0 });
+            single.Data.Name = "One included injection";
+            var other = CreatePooledMember("Other", new[] { -2.0, -1.0, 0.0, 1.0, 2.0 }, new[] { 1.0, 1.0, 1.0, 1.0, 1.0 });
+            var model = CreateSharedEnthalpyJoint(single, other);
+            model.ModelCloneOptions.PoolBootstrapResiduals = pooled;
+            var solution = model.Solution;
+            var solver = CreatePooledSolver(model, weighted: false);
+            solver.ApplyErrorEstimationPolicy();
+            var convergence = solution.Convergence;
+            convergence.CaptureBootstrapRequest(ErrorEstimationMethod.BootstrapResiduals, solver.BootstrapIterations);
+            solver.EstimateUncertainty(convergence);
+
+            Assert.Same(solution, model.Solution);
+            Assert.True(convergence.Success);
+            Assert.Equal(ErrorEstimationOutcome.CompleteFailure, convergence.ErrorEstimationOutcome);
+            Assert.Equal(solver.BootstrapIterations, convergence.RequestedBootstrapIterations);
+            Assert.Null(convergence.ErrorEstimationAttemptedRefits);
+            Assert.Empty(solution.BootstrapSolutions);
+            Assert.Contains("'One included injection'", convergence.ErrorEstimationSummary);
+            Assert.Contains("Included injections (1)", convergence.ErrorEstimationSummary);
+            var rows = UncertaintyEstimationPresentation.Section(solution).Rows;
+            Assert.Equal("Unavailable", Assert.Single(rows, row => row.Label == "Status").Value);
+            Assert.Equal(convergence.ErrorEstimationSummary, Assert.Single(rows, row => row.Label == "Reason").Value);
         }
 
         [Fact]
@@ -400,6 +491,69 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
+        public void BootstrapRefitUsesPrimaryOptimizerSettings(bool joint)
+        {
+            const double originalOffset = 10000;
+            const int primaryBudget = 60;
+            const double toleranceModifier = 0.01;
+            var a = CreateMember("A");
+            var b = joint ? CreateMember("B") : null;
+            var primary = CreateSolver(a, b);
+            primary.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            primary.BootstrapIterations = 1;
+
+            var convergence = primary.Solve();
+            Assert.True(convergence.Success);
+            Assert.Equal(originalOffset, a.Solution.Parameters[ParameterType.Offset].Value, 5);
+            var retained = Assert.Single(a.Solution.BootstrapSolutions);
+
+            // Every synthetic injection gets the same positive residual. The
+            // resulting least-squares offset is the original offset plus that draw.
+            double shift = 1000 * (joint ? Math.Sqrt(6.0 / 5) : Math.Sqrt(3.0 / 2));
+            var reference = CreateSolver(CreateMember("Reference A", shift),
+                joint ? CreateMember("Reference B", shift) : null);
+            var referenceConvergence = reference.Solve();
+            Assert.True(referenceConvergence.Success);
+            Assert.InRange(retained.Parameters[ParameterType.Offset].Value, originalOffset + shift - 0.05,
+                originalOffset + shift + 0.05);
+            Assert.Equal(referenceConvergence.Iterations, retained.Convergence.Iterations);
+            Assert.InRange(retained.Convergence.Iterations, primaryBudget / 3 + 1, primaryBudget);
+
+            ProbeModel CreateMember(string name, double? constantShift = null)
+            {
+                var residuals = constantShift.HasValue
+                    ? Enumerable.Repeat(originalOffset + constantShift.Value, 3).ToArray()
+                    : new[] { originalOffset - 1000, originalOffset, originalOffset + 1000 };
+                var member = CreatePooledMember(name, residuals, new[] { 1.0, 1.0, 1.0 });
+                member.Parameters.AddOrUpdateParameter(ParameterType.Offset, originalOffset);
+                member.FixedBootstrapDraw = 2;
+                return member;
+            }
+
+            SolverInterface CreateSolver(ProbeModel first, ProbeModel second)
+            {
+                SolverInterface solver;
+                if (second == null)
+                    solver = new Solver { Model = first };
+                else
+                {
+                    var global = CreateJointProbe(first, second);
+                    global.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, originalOffset);
+                    global.Parameters.SetIndividualFromGlobal();
+                    global.ModelCloneOptions.PoolBootstrapResiduals = false;
+                    solver = new GlobalSolver { Model = global };
+                }
+                solver.SolverAlgorithm = SolverAlgorithm.NelderMead;
+                solver.MaxOptimizerIterations = primaryBudget;
+                solver.SolverToleranceModifier = toleranceModifier;
+                solver.Silent = true;
+                return solver;
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
         public void GlobalSolverBootstrapKeepsMemberOrderAndReplicatePairing(bool weighted)
         {
             var first = CreateProbeExperiment(out var firstModel, out _);
@@ -460,75 +614,147 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void PooledBootstrapCentersAcrossUnequalExperimentsAndRestoresTargetSd()
+        public void PooledBootstrapKeepsEachExperimentsNoiseSizeAndIgnoresSdsWhenUnweighted()
         {
-            var a = CreatePooledMember("A", new[] { 2.0, 4.0 }, new[] { 2.0, 2.0 });
-            var b = CreatePooledMember("B", new[] { -8.0, 0.0, 12.0 }, new[] { 4.0, 4.0, 4.0 });
-            var model = CreateJointProbe(a, b);
-            Assert.True(model.HasCompleteInjectionHeatSds);
-            var pool = PooledBootstrapResiduals.Prepare(model);
-            Assert.Equal(PooledBootstrapScale.InjectionHeatSd, pool.ScaleSource);
+            // Centred residuals A = {-4, 0, 4} and B = {-1, 0, 1} have RMS sqrt(32/3) and sqrt(2/3).
+            // Both scale to the unit values {-sqrt(1.5), 0, sqrt(1.5)}. Six observations and one
+            // shared parameter give the correction f = sqrt(6/5).
+            var f = Math.Sqrt(6.0 / 5);
+            double[] Heats(double[] sdsA, double[] sdsB)
+            {
+                var model = CreateJointProbe(
+                    CreatePooledMember("A", new[] { -4.0, 0.0, 4.0 }, sdsA),
+                    CreatePooledMember("B", new[] { -1.0, 0.0, 1.0 }, sdsB));
+                var pool = PooledBootstrapResiduals.Prepare(model, weighted: false);
+                var clone = model.GenerateSyntheticModel(new PoolDraws(6, 0, 1, 2, 2, 0, 1), model.ModelCloneOptions, pool);
+                return clone.Models.SelectMany(member => member.Data.Injections.Where(injection => injection.Include)
+                    .Select(injection => injection.PeakArea.Value)).ToArray();
+            }
 
-            // Pool [1, 2, -2, 0, 3] has mean 0.8 and one shared fitted parameter.
-            var clone = model.GenerateSyntheticModel(new PoolDraws(5, 2, 4, 0, 1, 3), model.ModelCloneOptions, pool);
-            var correction = Math.Sqrt(5.0 / 4);
-            Assert.Equal(10 - 2 * 2.8 * correction, clone.Models[0].Data.Injections[1].PeakArea.Value, 12);
-            Assert.Equal(20 + 2 * 2.2 * correction, clone.Models[0].Data.Injections[2].PeakArea.Value, 12);
-            Assert.Equal(10 + 4 * 0.2 * correction, clone.Models[1].Data.Injections[1].PeakArea.Value, 12);
-            Assert.Equal(4, clone.Models[1].Data.Injections[1].PeakAreaError);
+            var heats = Heats(new[] { 1.0, 5.0, 2.0 }, new[] { 3.0, 1.0, 7.0 });
+            var expected = new[] { 10 - 4 * f, 20, 30 + 4 * f, 10 + f, 20 - f, 30 };
+            for (int i = 0; i < expected.Length; i++) Assert.Equal(expected[i], heats[i], 12);
+            Assert.Equal(heats, Heats(new[] { 1.0, 1.0, 1.0 }, new[] { 0.0, 1.0, 1.0 }));
+        }
+
+        [Fact]
+        public void PooledNoiseVarianceMatchesTheWithinExperimentBootstrap()
+        {
+            var a = CreatePooledMember("A", new[] { -4.0, 0.0, 4.0 }, new[] { 1.0, 1.0, 1.0 });
+            var b = CreatePooledMember("B", new[] { -1.0, 0.0, 1.0 }, new[] { 1.0, 1.0, 1.0 });
+            var model = CreateJointProbe(a, b);
+            var pool = PooledBootstrapResiduals.Prepare(model, weighted: false);
+
+            // Over every pool value, the mean squared noise equals the within-experiment
+            // bootstrap variance: mean centred residual squared times n / (n - p).
+            double MeanSquare(ProbeModel member)
+            {
+                var injection = member.Data.Injections[1];
+                var draws = Enumerable.Range(0, 6).Select(index => pool.SampleHeat(injection, new PoolDraws(6, index)) - 10);
+                return draws.Average(noise => noise * noise);
+            }
+
+            Assert.Equal(32.0 / 3 * 6 / 5, MeanSquare(a), 12);
+            Assert.Equal(2.0 / 3 * 6 / 5, MeanSquare(b), 12);
+        }
+
+        [Fact]
+        public void WeightedPooledBootstrapKeepsSdShapeAndCentresEachExperiment()
+        {
+            // A: residuals {-2, 0, 4} over SDs {1, 1, 2} give r/SD = {-2, 0, 2}, RMS sqrt(8/3).
+            // B: residuals {4, 5, 6} carry an offset of 5 that per-experiment centring removes,
+            // leaving {-1, 0, 1} with RMS sqrt(2/3). Pool values are {-sqrt(1.5), 0, sqrt(1.5)} * f.
+            var a = CreatePooledMember("A", new[] { -2.0, 0.0, 4.0 }, new[] { 1.0, 1.0, 2.0 });
+            var b = CreatePooledMember("B", new[] { 4.0, 5.0, 6.0 }, new[] { 1.0, 1.0, 1.0 });
+            var model = CreateJointProbe(a, b);
+            var pool = PooledBootstrapResiduals.Prepare(model, weighted: true);
+            var clone = model.GenerateSyntheticModel(new PoolDraws(6, 0, 1, 2, 3, 5, 4), model.ModelCloneOptions, pool);
+
+            var f = Math.Sqrt(6.0 / 5);
+            Assert.Equal(10 - 2 * f, clone.Models[0].Data.Injections[1].PeakArea.Value, 12);
+            Assert.Equal(20, clone.Models[0].Data.Injections[2].PeakArea.Value, 12);
+            Assert.Equal(30 + 4 * f, clone.Models[0].Data.Injections[3].PeakArea.Value, 12);
+            Assert.Equal(10 - f, clone.Models[1].Data.Injections[1].PeakArea.Value, 12);
+            Assert.Equal(20 + f, clone.Models[1].Data.Injections[2].PeakArea.Value, 12);
+            Assert.Equal(30, clone.Models[1].Data.Injections[3].PeakArea.Value, 12);
+            Assert.Equal(2, clone.Models[0].Data.Injections[3].PeakAreaError);
             Assert.Equal(77, clone.Models[0].Data.Injections[0].PeakArea.Value);
         }
 
         [Fact]
-        public void PooledBootstrapUsesResidualSdsForEveryoneWhenOneHeatSdIsMissing()
+        public void PooledBootstrapGivesAnExperimentWithoutSpreadNoNoiseAndKeepsTheRun()
         {
-            var a = CreatePooledMember("A", new[] { 2.0, 4.0 }, new[] { 20.0, 40.0 });
-            var b = CreatePooledMember("B", new[] { -5.0, -1.0 }, new[] { 0.0, 1.0 });
-            var exact = CreatePooledMember("Exact", new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 });
-            var model = CreateJointProbe(a, b, exact);
-            Assert.False(model.HasCompleteInjectionHeatSds);
-            var pool = PooledBootstrapResiduals.Prepare(model);
-            Assert.Equal(PooledBootstrapScale.ExperimentResidualSd, pool.ScaleSource);
+            var flat = CreatePooledMember("Constant residual", new[] { 2.0, 2.0, 2.0 }, new[] { 1.0, 1.0, 1.0 });
+            var b = CreatePooledMember("B", new[] { -1.0, 0.0, 1.0 }, new[] { 1.0, 1.0, 1.0 });
+            var model = CreateJointProbe(flat, b);
+            var pool = PooledBootstrapResiduals.Prepare(model, weighted: false);
+            var clone = model.GenerateSyntheticModel(new PoolDraws(3, 0, 2, 1), model.ModelCloneOptions, pool);
 
-            // Member SDs are sqrt(2) and sqrt(8). The pool is [2, 4, -2.5, -0.5] / sqrt(2).
-            // Its mean is 0.75 / sqrt(2). The exact member contributes no draws.
-            var clone = model.GenerateSyntheticModel(new PoolDraws(4, 2, 3, 0, 1), model.ModelCloneOptions, pool);
-            var correction = Math.Sqrt(6.0 / 5);
-            Assert.Equal(10 - 3.25 * correction, clone.Models[0].Data.Injections[1].PeakArea.Value, 12);
-            Assert.Equal(10 + 2.5 * correction, clone.Models[1].Data.Injections[1].PeakArea.Value, 12);
-            Assert.Equal(10, clone.Models[2].Data.Injections[1].PeakArea.Value);
-            Assert.Equal(20, clone.Models[2].Data.Injections[2].PeakArea.Value);
+            var f = Math.Sqrt(6.0 / 5);
+            Assert.Equal(new[] { 10.0, 20.0, 30.0 },
+                clone.Models[0].Data.Injections.Where(injection => injection.Include).Select(injection => injection.PeakArea.Value));
+            Assert.Equal(10 - f, clone.Models[1].Data.Injections[1].PeakArea.Value, 12);
+            Assert.Equal(20 + f, clone.Models[1].Data.Injections[2].PeakArea.Value, 12);
+            Assert.Equal(30, clone.Models[1].Data.Injections[3].PeakArea.Value, 12);
+
+            var run = CreateJointProbe(
+                CreatePooledMember("Constant residual", new[] { 2.0, 2.0, 2.0 }, new[] { 1.0, 1.0, 1.0 }),
+                CreatePooledMember("B", new[] { -1.0, 0.0, 1.0 }, new[] { 1.0, 1.0, 1.0 }));
+            var convergence = CreatePooledSolver(run, weighted: false).Solve();
+            Assert.True(convergence.Success);
+            Assert.NotEqual(ErrorEstimationOutcome.CompleteFailure, convergence.ErrorEstimationOutcome);
+            Assert.NotEmpty(run.Solution.BootstrapSolutions);
         }
 
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void PooledBootstrapHandlesZeroResidualsWithOrWithoutHeatSds(bool completeSds)
+        public void PooledBootstrapDistinguishesConstantResidualsFromSmallSpread(bool hasSpread)
+        {
+            var data = CreateProbeExperiment(out _, out _);
+            var member = new ProbeModel(data, new Dictionary<int, double>());
+            data.Model = member;
+            ConfigureFittedProbe(member);
+            const double small = 1e-12;
+            var residuals = hasSpread ? new[] { -small, 0, small } : new[] { 0.1, 0.1, 0.1 };
+            for (int i = 0; i < residuals.Length; i++)
+                data.Injections[i + 1].SetPeakArea(new FloatWithError(residuals[i], 1));
+            var other = CreatePooledMember("Other", new[] { -1.0, 0.0, 1.0 }, new[] { 1.0, 1.0, 1.0 });
+            var pool = PooledBootstrapResiduals.Prepare(CreateJointProbe(member, other), weighted: false);
+
+            var factor = Math.Sqrt(6.0 / 5);
+            if (hasSpread)
+                Assert.InRange(pool.SampleHeat(data.Injections[1], new PoolDraws(6, 5)),
+                    small * factor - 1e-24, small * factor + 1e-24);
+            else
+                Assert.Equal(0, pool.SampleHeat(data.Injections[1], new PoolDraws(0)));
+            var poolSize = hasSpread ? 6 : 3;
+            var target = other.Data.Injections[1];
+            var mean = Enumerable.Range(0, poolSize)
+                .Average(index => pool.SampleHeat(target, new PoolDraws(poolSize, index)));
+            Assert.Equal(10, mean, 12);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void PooledBootstrapWithoutAnyResidualSpreadReturnsPredictions(bool weighted)
         {
             var a = CreatePooledMember("A", new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 });
-            var b = CreatePooledMember("B", new[] { 0.0, 0.0 }, new[] { 1.0, completeSds ? 1.0 : 0.0 });
+            var b = CreatePooledMember("B", new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 });
             var model = CreateJointProbe(a, b);
-            var pool = PooledBootstrapResiduals.Prepare(model);
-            Assert.Equal(PooledBootstrapScale.ZeroResiduals, pool.ScaleSource);
+            var pool = PooledBootstrapResiduals.Prepare(model, weighted);
             var clone = model.GenerateSyntheticModel(new PoolDraws(0), model.ModelCloneOptions, pool);
             Assert.All(clone.Models, member => Assert.Equal(new[] { 10.0, 20.0 },
                 member.Data.Injections.Where(injection => injection.Include).Select(injection => injection.PeakArea.Value)));
         }
 
         [Fact]
-        public void PooledBootstrapReportsAnUnavailableScaleWithoutDiscardingTheFit()
+        public void PooledBootstrapNeedsMoreObservationsThanParameters()
         {
-            var a = CreatePooledMember("Constant residual", new[] { 2.0, 2.0 }, new[] { 1.0, 0.0 });
-            var b = CreatePooledMember("B", new[] { -4.0, 0.0 }, new[] { 1.0, 1.0 });
-            var model = CreateJointProbe(a, b);
-            var solver = CreatePooledSolver(model, weighted: false);
-            var convergence = solver.Solve();
-            Assert.True(convergence.Success);
-            Assert.Equal(ErrorEstimationOutcome.CompleteFailure, convergence.ErrorEstimationOutcome);
-            Assert.Contains("Constant residual", convergence.ErrorEstimationSummary);
-            Assert.Empty(model.Solution.BootstrapSolutions);
-            Assert.Null(model.ModelCloneOptions.BootstrapScaleSource);
-            Assert.Equal(0, model.Solution.Solutions[0].Parameters[ParameterType.Offset].Value, 8);
+            var model = CreateJointProbe(CreatePooledMember("Single", new[] { 1.0 }, new[] { 1.0 }));
+            var exception = Assert.Throws<InvalidOperationException>(() => PooledBootstrapResiduals.Prepare(model, weighted: false));
+            Assert.Contains("more included injections than fitted parameters", exception.Message);
         }
 
         [Theory]
@@ -541,7 +767,6 @@ namespace AnalysisITC.Core.Tests
             var model = CreateJointProbe(a, b);
             var solver = CreatePooledSolver(model, weighted);
             Assert.True(solver.Solve().Success);
-            Assert.Equal(PooledBootstrapScale.InjectionHeatSd, model.ModelCloneOptions.BootstrapScaleSource);
             Assert.NotEmpty(model.Solution.BootstrapSolutions);
             Assert.Equal(expected, model.Solution.Solutions[0].Parameters[ParameterType.Offset].Value, 6);
             foreach (var replicate in model.Solution.BootstrapSolutions)
@@ -593,6 +818,43 @@ namespace AnalysisITC.Core.Tests
             model.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0);
             model.Parameters.SetIndividualFromGlobal();
             return model;
+        }
+
+        // Two members with their own fitted offsets; the enthalpy, locked in each member, is
+        // shared and fitted when requested. Primary solutions are attached so both bootstrap
+        // modes can read the joint fit.
+        static GlobalModel CreateSharedEnthalpyJoint(ProbeModel first, ProbeModel second, bool shared = true)
+        {
+            var global = new GlobalModel
+            {
+                ModelCloneOptions = new ModelCloneOptions
+                {
+                    ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+                    IsGlobalClone = true,
+                    PoolBootstrapResiduals = true,
+                    UnlockBootstrapParameters = false,
+                },
+            };
+            foreach (var member in new[] { first, second })
+            {
+                global.AddModel(member);
+                global.Parameters.AddIndivdualParameter(member.Parameters);
+            }
+            if (shared)
+            {
+                global.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
+                global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
+            }
+            var convergence = SolverConvergence.FromFixedFit(0, 0);
+            var solutions = new List<SolutionInterface>
+            {
+                SolutionInterface.FromModel(first, convergence),
+                SolutionInterface.FromModel(second, convergence),
+            };
+            first.Solution = solutions[0];
+            second.Solution = solutions[1];
+            global.Solution = new GlobalSolution(new GlobalSolver { Model = global }, solutions, convergence, reconstructBootstrap: false);
+            return global;
         }
 
         static GlobalSolver CreatePooledSolver(GlobalModel model, bool weighted) => new GlobalSolver
@@ -786,6 +1048,7 @@ namespace AnalysisITC.Core.Tests
         sealed class ProbeModel : Model
         {
             readonly IReadOnlyDictionary<int, double> predictions;
+            internal int? FixedBootstrapDraw { get; set; }
 
             public ProbeModel(ExperimentData data, IReadOnlyDictionary<int, double> predictions) : base(data)
             {
@@ -802,6 +1065,8 @@ namespace AnalysisITC.Core.Tests
 
             internal override Model GenerateSyntheticModel(Random random, ModelCloneOptions options)
             {
+                if (FixedBootstrapDraw is int draw)
+                    random = new PoolDraws(predictions.Count, Enumerable.Repeat(draw, predictions.Count).ToArray());
                 var synthetic = new ProbeModel(Data.GetSynthClone(options, random), predictions);
                 SetSynthModelParameters(synthetic, random, options);
                 return synthetic;

@@ -1222,6 +1222,21 @@ public sealed partial class AnalysisReportBuilderTests
                 || item.Value.Contains("weighted by injection SDs", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void ExpandedExplanationsDescribeResidualBootstrapMethod()
+    {
+        static bool HasNotice(AnalysisReportDocument document) => document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>().Any(block => block.Title == "Reading uncertainty"
+                && block.Message.Contains("resampled with replacement", StringComparison.Ordinal)
+                && block.Message.Contains("√(n/(n−p))", StringComparison.Ordinal));
+
+        Assert.True(HasNotice(AnalysisReportBuilder.Build(CreateResult(2, includeSkewedBootstrap: true),
+            new AnalysisReportOptions { ExpandedExplanations = true })));
+        Assert.False(HasNotice(AnalysisReportBuilder.Build(CreateResult(2, includeSkewedBootstrap: true))));
+        Assert.False(HasNotice(AnalysisReportBuilder.Build(CreateResult(2),
+            new AnalysisReportOptions { ExpandedExplanations = true })));
+    }
+
     [Theory]
     [InlineData(false, "one estimated common residual variance", "one common estimated residual variance")]
     [InlineData(true, "injection errors as relative uncertainties", "one common estimated variance multiplier")]

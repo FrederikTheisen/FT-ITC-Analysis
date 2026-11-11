@@ -3,90 +3,67 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
-using MathNet.Numerics.Statistics;
 
 namespace AnalysisITC.Core.Analysis
 {
-    public enum PooledBootstrapScale
-    {
-        InjectionHeatSd,
-        ExperimentResidualSd,
-        ZeroResiduals,
-    }
-
     // Prepared from the primary fit before starting any parallel refits.
+    // Each experiment's residuals are standardized as in the within-experiment bootstrap
+    // (divided by the heat SD only for weighted fits), centred on the experiment's own mean
+    // and scaled to unit RMS before pooling. The pool therefore shares only the shape of the
+    // noise; each target keeps its own experiment's noise size, its fitted-parameter
+    // correction and, for weighted fits, its SD.
     internal sealed class PooledBootstrapResiduals
     {
         readonly Dictionary<InjectionData, (double Prediction, double Scale)> targets;
         readonly double[] pool;
 
-        internal PooledBootstrapScale ScaleSource { get; }
-
-        PooledBootstrapResiduals(PooledBootstrapScale source,
-            Dictionary<InjectionData, (double Prediction, double Scale)> targets, double[] pool)
+        PooledBootstrapResiduals(Dictionary<InjectionData, (double Prediction, double Scale)> targets, double[] pool)
         {
-            ScaleSource = source;
             this.targets = targets;
             this.pool = pool;
         }
 
-        internal static PooledBootstrapResiduals Prepare(GlobalModel model)
+        internal static PooledBootstrapResiduals Prepare(GlobalModel model, bool weighted)
         {
-            var source = model.HasCompleteInjectionHeatSds
-                ? PooledBootstrapScale.InjectionHeatSd : PooledBootstrapScale.ExperimentResidualSd;
             var targets = new Dictionary<InjectionData, (double Prediction, double Scale)>();
-            var standardized = new List<double>();
-            bool allZero = true;
+            var unitResiduals = new List<double>();
+            int totalPoints = model.GetNumberOfPoints();
 
             foreach (var member in model.Models)
             {
-                var points = member.Data.Injections.Where(injection => injection.Include)
-                    .Select(injection =>
-                    {
-                        var prediction = member.Evaluate(injection.ID, withoffset: true);
-                        return (Injection: injection, Prediction: prediction, Residual: injection.PeakArea.Value - prediction);
-                    }).ToArray();
-                if (points.Length == 0 || points.Any(point => !FWEMath.IsFinite(point.Residual)))
+                var included = member.Data.Injections.Where(injection => injection.Include).ToList();
+                double correction = member.ResidualBootstrapScale(included.Count, model.Parameters, totalPoints);
+
+                var points = included.Select(injection =>
+                {
+                    var prediction = member.Evaluate(injection.ID, withoffset: true);
+                    var weight = weighted ? Models.Model.GetSigmaForWeighting(injection, included) : 1.0;
+                    return (Injection: injection, Prediction: prediction, Weight: weight,
+                        Standardized: (injection.PeakArea.Value - prediction) / weight);
+                }).ToArray();
+                if (points.Any(point => !FWEMath.IsFinite(point.Prediction) || !FWEMath.IsFinite(point.Standardized)))
                     throw new InvalidOperationException($"'{member.Data.FileName}' needs finite residuals at included injections.");
 
-                bool zeroMember = points.All(point => point.Residual == 0);
-                allZero &= zeroMember;
-                double experimentScale = 0;
-                if (source == PooledBootstrapScale.ExperimentResidualSd && !zeroMember)
-                {
-                    experimentScale = points.Select(point => point.Residual).StandardDeviation();
-                    if (!FWEMath.IsFinite(experimentScale) || experimentScale <= 0)
-                        throw new InvalidOperationException($"Cannot estimate a positive residual SD for '{member.Data.FileName}'.");
-                }
+                // Subtract a reference first so identical residuals stay exactly zero.
+                var reference = points[0].Standardized;
+                var centred = points.Select(point => point.Standardized - reference).ToArray();
+                var centre = centred.Average();
+                for (int i = 0; i < centred.Length; i++)
+                    centred[i] -= centre;
+                var rms = Math.Sqrt(centred.Sum(value => value * value) / centred.Length);
+                if (!FWEMath.IsFinite(rms))
+                    throw new InvalidOperationException($"Cannot scale residuals for '{member.Data.FileName}'.");
 
-                foreach (var point in points)
+                // An experiment without residual spread receives no synthetic noise, as in the
+                // within-experiment bootstrap, and contributes nothing to the shared pool.
+                for (int i = 0; i < points.Length; i++)
                 {
-                    double scale = source == PooledBootstrapScale.InjectionHeatSd
-                        ? point.Injection.PeakAreaError : experimentScale;
-                    targets.Add(point.Injection, (point.Prediction, scale));
-                    if (scale > 0)
-                    {
-                        double residual = point.Residual / scale;
-                        if (!FWEMath.IsFinite(residual))
-                            throw new InvalidOperationException($"Cannot standardize residuals for '{member.Data.FileName}'.");
-                        standardized.Add(residual);
-                    }
+                    targets.Add(points[i].Injection, (points[i].Prediction, rms > 0 ? points[i].Weight * rms * correction : 0));
+                    if (rms > 0) unitResiduals.Add(centred[i] / rms);
                 }
             }
 
-            int n = targets.Count;
-            int p = model.NumberOfParameters;
-            if (n <= p)
-                throw new InvalidOperationException("Residual bootstrap requires more included injections than fitted parameters.");
-            if (allZero)
-                return new PooledBootstrapResiduals(PooledBootstrapScale.ZeroResiduals, targets, Array.Empty<double>());
-
-            double mean = standardized.Average();
-            double correction = Math.Sqrt((double)n / (n - p));
-            var pool = standardized.Select(residual => (residual - mean) * correction).ToArray();
-            if (pool.Any(residual => !FWEMath.IsFinite(residual)))
-                throw new InvalidOperationException("The centered pooled residuals are not finite.");
-            return new PooledBootstrapResiduals(source, targets, pool);
+            return new PooledBootstrapResiduals(targets, unitResiduals.ToArray());
         }
 
         internal double SampleHeat(InjectionData injection, Random random)

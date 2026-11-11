@@ -1288,6 +1288,18 @@ namespace AnalysisITC.Core.Analysis
 
         protected override void BoostrapResiduals()
         {
+            try
+            {
+                Model.ResidualBootstrapScale(Model.NumberOfPoints, null, 0);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Solution.SetBootstrapSolutions(new List<SolutionInterface>());
+                Solution.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.CompleteFailure);
+                Solution.Convergence.AppendErrorEstimationSummary("Bootstrap unavailable. " + ex.Message);
+                return;
+            }
+
             base.BoostrapResiduals();
 
             int counter = 0;
@@ -1312,8 +1324,8 @@ namespace AnalysisITC.Core.Analysis
                         {
                             SolverAlgorithm = this.SolverAlgorithm,
                             Model = Model.GenerateSyntheticModel(randomStreams[i]),
-                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            SolverToleranceModifier = SolverToleranceModifier,
+                            MaxOptimizerIterations = MaxOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
                             Silent = true,
@@ -1869,27 +1881,29 @@ namespace AnalysisITC.Core.Analysis
 
         protected override void BoostrapResiduals()
         {
-            base.BoostrapResiduals();
-
             var options = Model.ModelCloneOptions;
+            var jointParameters = Model.ShouldFitIndividually ? null : Model.Parameters;
             PooledBootstrapResiduals pool = null;
-            if (!Model.ShouldFitIndividually && options?.PoolBootstrapResiduals == true)
+            try
             {
-                options.BootstrapScaleSource = null;
-                try
+                if (jointParameters != null && options?.PoolBootstrapResiduals == true)
+                    pool = PooledBootstrapResiduals.Prepare(Model, UseErrorWeightedFitting);
+                else
                 {
-                    pool = PooledBootstrapResiduals.Prepare(Model);
-                    options.BootstrapScaleSource = pool.ScaleSource;
-                }
-                catch (InvalidOperationException ex)
-                {
-                    Solution.SetBootstrapSolutions(new List<GlobalSolution>());
-                    Solution.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.CompleteFailure);
-                    Solution.Convergence.AppendErrorEstimationSummary("Pooled residual bootstrap unavailable. " + ex.Message);
-                    return;
+                    int totalPoints = Model.GetNumberOfPoints();
+                    foreach (var member in Model.Models)
+                        member.ResidualBootstrapScale(member.NumberOfPoints, jointParameters, totalPoints);
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                Solution.SetBootstrapSolutions(new List<GlobalSolution>());
+                Solution.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.CompleteFailure);
+                Solution.Convergence.AppendErrorEstimationSummary("Bootstrap unavailable. " + ex.Message);
+                return;
+            }
 
+            base.BoostrapResiduals();
             var solutionsByReplicate = new GlobalSolution[BootstrapIterations];
             var randomStreams = BootstrapRandomStreams.Create(BootstrapIterations);
             int counter = 0;
@@ -1913,8 +1927,8 @@ namespace AnalysisITC.Core.Analysis
                         {
                             Model = globalmodel,
                             SolverAlgorithm = SolverAlgorithm,
-                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            SolverToleranceModifier = SolverToleranceModifier,
+                            MaxOptimizerIterations = MaxOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
                             Silent = true,

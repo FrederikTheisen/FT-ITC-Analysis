@@ -1795,14 +1795,6 @@ namespace AnalysisITC.Core.DataReaders
             AutoConcentrationVariance = value.AutoConcentrationVariance, DiscardedDataPoint = value.DiscardedDataPoint,
             UnlockBootstrapParameters = value.UnlockParameters,
             PoolBootstrapResiduals = value.PoolBootstrapResiduals,
-            BootstrapScaleSource = value.BootstrapScaleSource switch
-            {
-                null => null,
-                "injection-heat-sd" => PooledBootstrapScale.InjectionHeatSd,
-                "experiment-residual-sd" => PooledBootstrapScale.ExperimentResidualSd,
-                "zero-residuals" => PooledBootstrapScale.ZeroResiduals,
-                _ => throw new NotSupportedException($"Unknown bootstrap scale source '{value.BootstrapScaleSource}'."),
-            },
         };
         static SolverConvergence RestoreConvergence(FtxtcConvergenceState value) => value == null ? null : SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
         {

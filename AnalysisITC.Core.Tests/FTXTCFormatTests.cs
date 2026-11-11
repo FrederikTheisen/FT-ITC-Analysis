@@ -774,20 +774,19 @@ namespace AnalysisITC.Core.Tests
                 candidate => !candidate.Solution.Model.ShouldFitIndividually);
             var options = result.Solution.ModelCloneOptions;
             Assert.False(options.PoolBootstrapResiduals);
-            Assert.Null(options.BootstrapScaleSource);
 
             options.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
             options.PoolBootstrapResiduals = true;
-            options.BootstrapScaleSource = PooledBootstrapScale.ExperimentResidualSd;
             result.Solution.UseWeightedFitting = false;
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package, result.Solution.Solutions.Select(member => member.Data), new[] { result });
             package.Position = 0;
+            Assert.DoesNotContain("bootstrapScaleSource", ReadAllEntryText(package.ToArray()));
+            package.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
 
             Assert.True(restored.Solution.ModelCloneOptions.PoolBootstrapResiduals);
-            Assert.Equal(PooledBootstrapScale.ExperimentResidualSd, restored.Solution.ModelCloneOptions.BootstrapScaleSource);
-            Assert.Equal("Pooled residuals scaled by experiment residual SDs",
+            Assert.Equal("Pooled across experiments",
                 UncertaintyEstimationPresentation.PooledSamplingText(restored.Solution));
             DataManager.Clear(DataClearMode.ResetSession);
             try
@@ -795,12 +794,57 @@ namespace AnalysisITC.Core.Tests
                 foreach (var member in restored.Solution.Solutions) DataManager.AddData(member.Data);
                 var updater = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
                 Assert.True(updater.Model.ModelCloneOptions.PoolBootstrapResiduals);
-                Assert.Null(updater.Model.ModelCloneOptions.BootstrapScaleSource);
             }
             finally
             {
                 DataManager.Clear(DataClearMode.ResetSession);
             }
+
+            static string ReadAllEntryText(byte[] bytes)
+            {
+                using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+                return string.Concat(archive.Entries.Select(entry =>
+                {
+                    using var reader = new StreamReader(entry.Open());
+                    return reader.ReadToEnd();
+                }));
+            }
+        }
+
+        [Theory]
+        [InlineData(null, null, null)]
+        [InlineData(ErrorEstimationOutcome.CompleteFailure, "", null)]
+        [InlineData(ErrorEstimationOutcome.CompleteFailure, "Pooled residual bootstrap unavailable.", "Pooled residual bootstrap unavailable.")]
+        [InlineData(ErrorEstimationOutcome.Completed, "BootstrapResiduals: succeeded=100, failed=0, total=100", null)]
+        public async Task PooledBootstrapInspectorShowsOnlyRecordedFailureReasonsAfterReopen(
+            ErrorEstimationOutcome? savedOutcome, string savedSummary, string expectedReason)
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var result = Assert.Single((await FTXTCReader.ReadStream(source)).OfType<AnalysisResult>(),
+                candidate => !candidate.Solution.Model.ShouldFitIndividually);
+            var solution = result.Solution;
+            solution.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            solution.ModelCloneOptions.PoolBootstrapResiduals = true;
+            solution.SetBootstrapSolutions(new List<GlobalSolution>());
+            solution.Convergence = savedOutcome.HasValue ? SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                Termination = SolverTermination.Converged,
+                ErrorEstimationOutcome = savedOutcome.Value,
+                ErrorEstimationSummary = savedSummary,
+            }) : null;
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, solution.Solutions.Select(member => member.Data), new[] { result });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+            Assert.Equal(savedOutcome, restored.Solution.Convergence?.ErrorEstimationOutcome);
+
+            var rows = UncertaintyEstimationPresentation.Section(restored.Solution).Rows;
+            Assert.Equal("Unavailable", Assert.Single(rows, row => row.Label == "Status").Value);
+            if (expectedReason == null)
+                Assert.DoesNotContain(rows, row => row.Label == "Reason");
+            else
+                Assert.Equal(expectedReason, Assert.Single(rows, row => row.Label == "Reason").Value);
         }
 
         [Fact]

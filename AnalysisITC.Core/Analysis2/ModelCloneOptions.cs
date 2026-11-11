@@ -14,7 +14,6 @@ namespace AnalysisITC.Core.Analysis
         public bool UnlockBootstrapParameters { get; set; } = false;
 
         public bool PoolBootstrapResiduals { get; set; }
-        public PooledBootstrapScale? BootstrapScaleSource { get; internal set; }
 
         internal PooledBootstrapResiduals PooledResiduals { get; private set; }
 
@@ -51,7 +50,6 @@ namespace AnalysisITC.Core.Analysis
         internal void ConfigureForRun(ErrorEstimationMethod method)
         {
             ErrorEstimationMethod = method;
-            BootstrapScaleSource = null;
             if (method != ErrorEstimationMethod.BootstrapResiduals)
                 PoolBootstrapResiduals = false;
             // Retain historical automatic-concentration metadata on loaded results,

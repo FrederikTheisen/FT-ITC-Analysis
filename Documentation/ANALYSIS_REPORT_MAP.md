@@ -297,7 +297,7 @@ Same structure in both modes. Rows, in order:
 | Constraint | <parameter>: <description>, one row per constraint. |
 | RMSD / Molar RMSD | µJ / kJ/mol. |
 | Reduced chi-square | Diag. only. Uses the whole fit or pools every independent member. Requires complete saved evidence and follows the combined binding-output policy. |
-| Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". A residual bootstrap that lost no refits but kept fewer than the shared minimum (`FittingOptionsController.MinimumRetainedBootstrapRefits`, 50) reads "incomplete" and ends with "at least 50 needed" ("… per experiment" on the aggregate row of an independent collection); results saved before this rule keep their recorded outcome (ITC-185). Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Pooled bootstrap results add the saved residual sampling and scale source to the joint summary. If pool preparation failed, the summary gives the reason. Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
+| Uncertainty | Method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)". A residual bootstrap that lost no refits but kept fewer than the shared minimum (`FittingOptionsController.MinimumRetainedBootstrapRefits`, 50) reads "incomplete" and ends with "at least 50 needed" ("… per experiment" on the aggregate row of an independent collection); results saved before this rule keep their recorded outcome (ITC-185). Omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052). Pooled bootstrap results add "Pooled across experiments" to the joint summary. If bootstrap preparation stops before refits, the summary gives the reason, including the experiment name when the included injection count is too low. Profile outcomes use this generic row; there is no separate profile-status section. Shared aggregation preserves cancellation and recorded profile failure, including absent runs (ITC-094). |
 | AIC / AICc | Omitted for independent collections. |
 | Solver | Algorithm; termination; iterations (time); weighting. Omitted without convergence info. |
 
@@ -314,6 +314,10 @@ Only when parameters are locked. Rows, in order:
 
 **[Info]** Expanded explanations + weighted fit. Explains the weighted fitting objective
 and displayed unweighted RMSD.
+
+### A12a. Reading uncertainty
+
+**[Info]** Expanded explanations + residual bootstrap. Methods summary: residuals resampled with replacement, scaled by √(n/(n−p)) (per experiment in joint fits, shared parameters divided by included injections), refitted; uncertainty is the refit spread around the best fit and reflects injection noise under the fitted model, plus concentration uncertainties when selected, not systematic disagreement between experiments.
 
 ### A13. Shared parameter correlation
 
@@ -616,5 +620,6 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 
 - 2026-10-18 (CR-025/CR-027): Both interpretation dialogs use cumulative Results, Injection data, Processing details and Thermograms evidence levels. Capability refresh preserves dialog intent; Thermograms needs a fresh opening opt-in. Full local canonical evidence is distinct from the selected transmitted evidence. Printed report content is unchanged; interpretation freshness continues to use full canonical evidence. No-binding observation restrictions survive trace removal.
 - 2026-11-02 (ITC-032): Application autosave recovery now restores report-only snapshots and valid empty native snapshots after deleting the final report. Restored report text, identity and Last saved metadata are preserved. Recovery creates a dirty, unnamed document for Save As; saved-report definitions and printed blocks are unchanged.
+- 2026-11-09: A12a "Reading uncertainty" added under Expanded explanations for residual-bootstrap results: a citable methods summary of the bootstrap and its scope. Other blocks unchanged.
 
 - Automatic tandem merge uncertainty is displayed in the existing merge-origin row through the shared formatter. One-site uses approximate grid-based 95% limits; model-free shows 95% Monte Carlo ranges. Bound-reached and unavailable sides are explicit. The recorded original-data fractions remain the displayed estimates.

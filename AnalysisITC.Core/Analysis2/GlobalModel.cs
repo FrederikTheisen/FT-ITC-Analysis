@@ -26,8 +26,6 @@ namespace AnalysisITC.Core.Analysis
 		public ModelCloneOptions ModelCloneOptions { get; set; }
 
         public int NumberOfParameters => Parameters.TotalFittingParameters;
-        public bool HasCompleteInjectionHeatSds =>
-            AnalysisBuilder.CanUseErrorWeightedFitting(Models.Select(model => model.Data));
         public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting
             && !(ModelCloneOptions?.IsGlobalClone == true
                 && Parameters.BootstrapRequiresJointFit(ModelCloneOptions.ErrorEstimationMethod,

@@ -273,6 +273,13 @@ namespace AnalysisITC.Core.Analysis
         int GlobalFittingParameterCount => GlobalTable.Count(p => p.Value.IsFitted);
         int IndividualModelParameterCount => IndividualModelParameterList.Sum(pars => pars.FittingParameterCount);
         public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
+
+        // Fitted values charged to one member by the residual-bootstrap correction: its own fitted
+        // values plus a share of the shared ones in proportion to its included injections.
+        // Summed over members this equals TotalFittingParameters.
+        internal double FittingParametersForMember(Model member, int totalPoints)
+            => member.NumberOfParameters + GlobalFittingParameterCount * (double)member.NumberOfPoints / totalPoints;
+
         double? referenceTemperatureKelvin;
         public double ReferenceTemperatureKelvin => referenceTemperatureKelvin
             ?? (IndividualModelParameterList.Count == 0

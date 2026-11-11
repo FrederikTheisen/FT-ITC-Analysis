@@ -4,7 +4,7 @@ FTXTC is the native FT-ITC Analysis project format. An `.ftxtc` file is a ZIP pa
 
 Legacy `.ftitc` files are read-only imports; saving an imported document creates a new `.ftxtc` file.
 
-Fit clone options may include `poolBootstrapResiduals` (default false) and `bootstrapScaleSource` (`injection-heat-sd`, `experiment-residual-sd`, or `zero-residuals`). The latter records the scale used in a prepared pooled run. Older files without these fields retain within-experiment sampling. The prepared pool is transient.
+Fit clone options may include `poolBootstrapResiduals` (default false). Files without the field retain within-experiment sampling. The prepared pool is transient; its scaling follows from the saved weighting choice and is not stored.
 
 When residual bootstrap unlocks a locked shared parameter, the existing `isGlobalClone` flag records that the primary fit and refits ran jointly. An independent fit with the unlock option enabled retains its saved independent classification.
 

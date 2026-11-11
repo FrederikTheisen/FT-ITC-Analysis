@@ -695,18 +695,10 @@ namespace AnalysisITC.Core.Data
             if (Solution == null)
                 throw new InvalidOperationException("Residual bootstrap requires a primary fitted solution.");
 
-            // Fitted residuals understate the measurement error because the fit
-            // absorbs p degrees of freedom. The resampled residuals are scaled by
-            // sqrt(n / (n - p)) as an approximate correction. A fit
-            // with shared parameters uses its pooled observation and fitted-
-            // parameter counts; individually fitted members use their own.
             var global = Solution.ParentSolution?.Model;
-            var pooled = global != null && !global.ShouldFitIndividually;
-            var observationCount = pooled ? global.GetNumberOfPoints() : included.Count;
-            var fittedParameterCount = pooled ? global.NumberOfParameters : Model.NumberOfParameters;
-            if (observationCount <= fittedParameterCount)
-                throw new InvalidOperationException("Residual bootstrap requires more included injections than fitted parameters.");
-            var residualScale = Math.Sqrt((double)observationCount / (observationCount - fittedParameterCount));
+            var residualScale = global != null && !global.ShouldFitIndividually
+                ? Model.ResidualBootstrapScale(included.Count, global.Parameters, global.GetNumberOfPoints())
+                : Model.ResidualBootstrapScale(included.Count, null, 0);
 
             var residuals = new List<double>(included.Count);
             foreach (var inj in included)

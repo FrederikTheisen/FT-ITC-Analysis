@@ -38,6 +38,21 @@ namespace AnalysisITC.Core.Analysis.Models
         bool DataHasSolution => Data.Solution != null;
         bool SolutionHasParameter(ParameterType key) => DataHasSolution && Data.Solution.Parameters.ContainsKey(key);
 
+        internal double ResidualBootstrapScale(int includedInjections, GlobalModelParameters jointParameters, int totalPoints)
+        {
+            if (includedInjections == 0)
+                throw new InvalidOperationException($"'{Data.Name}' has no included injections.");
+
+            // Correct for scatter absorbed by the fit. Charge each member its own fitted
+            // parameters and a share of the shared ones proportional to its included injections.
+            var fittedParameters = jointParameters?.FittingParametersForMember(this, totalPoints) ?? NumberOfParameters;
+            if (includedInjections <= fittedParameters)
+                throw new InvalidOperationException($"Residual bootstrap requires more included injections than fitted parameters in '{Data.Name}'. "
+                    + $"Included injections ({includedInjections}) must exceed the effective fitted parameter count ({fittedParameters:G4}).");
+
+            return Math.Sqrt(includedInjections / (includedInjections - fittedParameters));
+        }
+
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
         public virtual double EnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).Last().Enthalpy - GuessOffset();
         public virtual double GuessOffset()

@@ -1068,9 +1068,21 @@ namespace AnalysisITC.Core.Presentation
                 section.Add(new AnalysisReportNoticeBlock("Reading fit diagnostics",
                     "The fit uses injection uncertainties to weight its residuals. The RMSD shown here is unweighted, so it describes the typical heat residual but is not the score minimized during fitting.",
                     AnalysisReportNoticeLevel.Information));
+            if (options.ExpandedExplanations
+                && result.Solution.Solutions.Any(member => member?.ErrorMethod == ErrorEstimationMethod.BootstrapResiduals))
+                section.Add(new AnalysisReportNoticeBlock("Reading uncertainty", ResidualBootstrapExplanation,
+                    AnalysisReportNoticeLevel.Information));
             if (CorrelationRequested(options, null)) AddCorrelation(section, result, null, options);
             document.AddSection(section);
         }
+
+        internal const string ResidualBootstrapExplanation =
+            "Uncertainties come from a residual bootstrap. Residuals from the best fit were resampled with replacement, "
+            + "multiplied by √(n/(n−p)) to account for the fitted parameters, added to the best-fit curve and refitted. "
+            + "In a joint fit, n and p are counted per experiment, with shared parameters divided in proportion to included injections. "
+            + "The reported uncertainty is the spread of the refits around the best fit. It reflects injection-to-injection noise "
+            + "under the fitted model, plus concentration uncertainties when that option is selected. "
+            + "It does not capture systematic disagreement between experiments.";
 
         static void BuildExperimentSections(
             AnalysisReportDocument document,
