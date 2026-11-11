@@ -50,11 +50,14 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(TandemMixingCriterion.ModelFree)]
-        [InlineData(TandemMixingCriterion.OneSiteFit)]
-        public async Task AutomaticMergeSelectsFractionsFromItsIntegratedHeats(TandemMixingCriterion criterion)
+        [InlineData(TandemMixingCriterion.ModelFree, "")]
+        [InlineData(TandemMixingCriterion.ModelFree, "  Original sample note\r\n")]
+        [InlineData(TandemMixingCriterion.OneSiteFit, "")]
+        [InlineData(TandemMixingCriterion.OneSiteFit, "  Original sample note\r\n")]
+        public async Task AutomaticMergeSelectsFractionsFromItsIntegratedHeats(TandemMixingCriterion criterion, string comments)
         {
             var sources = await ReadSources();
+            sources[0].Comments = comments;
             // Deliberately replace the source peak areas without changing their corrected traces.
             foreach (var source in sources)
                 foreach (var injection in source.Injections)
@@ -64,6 +67,8 @@ namespace AnalysisITC.Core.Tests
             Assert.True(merged.Processor.IsLocked);
             Assert.True(merged.Processor.IntegrationCompleted);
             Assert.Equal(criterion, merged.TandemMergeInfo.Criterion);
+            Assert.Equal(comments, merged.Comments);
+            Assert.Equal(comments, sources[0].Comments);
             Assert.Equal(sources.Select(source => source.UniqueID), merged.TandemSourceExperimentIds);
             Assert.NotEqual(sources[0].Injections[1].PeakArea.Value, merged.Injections[1].PeakArea.Value);
 

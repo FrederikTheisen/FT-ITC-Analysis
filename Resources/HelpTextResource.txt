@@ -10,7 +10,7 @@ Load data, inspect the experiment details, and define baselines and integration 
 You can also fit multiple experiments together, explore temperature, salt, or buffer dependence, and use the Experiment Designer to test a titration layout before collecting data.
 
 ## Getting started
-Use **File > Open...** or drag compatible files into the window. At launch, **\enter** opens the file browser and **\space** loads the most recently used files. Inspect loaded experiments in **Overview**.
+Use **File > Open...** or drag compatible files into the window. At launch, **\enter** opens the file browser and **\space** loads the most recently used files. Inspect loaded experiments in **Overview**. For tandems, **Tandem merge** summarises the recorded method and back-mixing fractions.
 
 # Experiment details
 
@@ -18,7 +18,7 @@ Check cell and syringe concentrations, temperature, and conditions before proces
 
 Buffer pH entry requires a finite number from 0 to 14, inclusive.
 
-Dates recorded in data files are read-only. If only a filesystem date is available, enter a user-provided date when needed. Tandem provenance is listed under **Tandem merge origin**.
+Dates recorded in data files are read-only. If only a filesystem date is available, enter a user-provided date when needed. **Tandem merge** above **Comments** shows the saved merge method, settings, and source runs when available.
 
 # Compatible file formats
 

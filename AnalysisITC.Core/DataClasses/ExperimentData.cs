@@ -10,6 +10,7 @@ using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 
@@ -1037,6 +1038,9 @@ namespace AnalysisITC.Core.Data
                 .Where(att => !string.IsNullOrWhiteSpace(att.Value))
                 .ToList();
 
+            var tandemSummary = TandemOriginPresentation.OverviewSummary(this);
+            if (tandemSummary.Length > 0)
+                info.Add($"**{TandemOriginPresentation.DetailsTitle}:** {tandemSummary}");
             if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
 
             if (attributeInfo.Count > 0)

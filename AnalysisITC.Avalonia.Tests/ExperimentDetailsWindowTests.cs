@@ -5,12 +5,14 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AnalysisITC.Avalonia.Details;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
 using Xunit;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -33,6 +35,81 @@ public sealed class ExperimentDetailsWindowTests
             }
         });
     }
+
+    [AvaloniaFact]
+    public void TandemMergeDetailsAppearAboveEditableComments() => Run(() =>
+    {
+        var data = Data("tandem");
+        const string savedComments = "  Sample note\r\n\r\nTandem concatenation (previously generated)\r\n";
+        data.Comments = savedComments;
+        data.ReplaceSegments(new[] { new TandemExperimentSegment(0, 20e-6, 0),
+            new TandemExperimentSegment(2, 19e-6, 1e-6), new TandemExperimentSegment(3, 18e-6, 2e-6) });
+        var sources = new string('W', 190) + "–α + second run + third run";
+        data.TandemMergeDescription = "Source files: " + sources;
+        data.TandemMergeInfo = new TandemMergeInfo(new[] { .17, .4 }, TandemMixingCriterion.OneSiteFit,
+            DilutionMethod.DiscreteDisplacement, 80e-6, true, 0, 0,
+            new TandemMixingUncertainty(MixingUncertaintyMethod.Grid95, new[]
+            {
+                new TandemMixingInterval(null, .3, MixingLimitStatus.Unavailable, MixingLimitStatus.Crossing),
+                TandemMixingInterval.Unavailable()
+            }, gridStep: .05));
+        var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+        global::Avalonia.Application.Current!.Styles.Add(theme);
+        var window = new ExperimentDetailsWindow(data);
+        try
+        {
+            window.Show();
+            window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 0;
+            window.UpdateLayout();
+            var labels = window.GetVisualDescendants().OfType<TextBlock>().ToArray();
+            var mergeTitle = Assert.Single(labels, label => label.Text == "Tandem merge");
+            var commentsTitle = Assert.Single(labels, label => label.Text == "Comments");
+            var mergeSection = Assert.IsType<Border>(mergeTitle.Parent!.Parent);
+            var commentsSection = Assert.IsType<Border>(commentsTitle.Parent!.Parent);
+            var form = Assert.IsType<StackPanel>(mergeSection.Parent);
+            Assert.Same(commentsSection, form.Children[form.Children.IndexOf(mergeSection) + 1]);
+            Assert.Empty(mergeSection.GetLogicalDescendants().OfType<TextBox>());
+
+            var tableHeader = Assert.Single(labels, label => label.Text == "95% limits at merge");
+            var table = Assert.IsType<Grid>(tableHeader.Parent);
+            string Cell(int row, int column) => table.Children.OfType<TextBlock>()
+                .Single(cell => Grid.GetRow(cell) == row && Grid.GetColumn(cell) == column).Text!;
+            Assert.Equal("1", Cell(1, 0));
+            Assert.StartsWith("17", Cell(1, 1));
+            Assert.StartsWith("Lower unavailable, upper 30", Cell(1, 2));
+            Assert.Equal("2", Cell(2, 0));
+            Assert.StartsWith("40", Cell(2, 1));
+            Assert.Equal("Unavailable", Cell(2, 2));
+            var sourceLabel = Assert.Single(labels, label => label.Text == sources);
+            Assert.True(sourceLabel.Bounds.Height > mergeTitle.Bounds.Height * 2,
+                $"Long source names must wrap within the Details form. Source {sourceLabel.Bounds}, title {mergeTitle.Bounds}.");
+
+            Assert.Equal(savedComments, Field<TextBox>(window, "commentsBox").Text);
+            Apply(window);
+            Assert.True(window.Applied);
+            Assert.Equal(savedComments, data.Comments);
+        }
+        finally
+        {
+            window.Close();
+            global::Avalonia.Application.Current!.Styles.Remove(theme);
+        }
+    });
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DetailsOmitTandemMergeBlockWithoutSavedProvenance(bool tandem) => Run(() =>
+    {
+        var data = Data("no provenance");
+        if (tandem)
+            data.ReplaceSegments(new[] { new TandemExperimentSegment(0, 20e-6, 0), new TandemExperimentSegment(2, 19e-6, 1e-6) });
+        data.Comments = "Tandem concatenation (previously generated)";
+        var window = new ExperimentDetailsWindow(data);
+        Assert.DoesNotContain(window.GetLogicalDescendants().OfType<TextBlock>(), label => label.Text == "Tandem merge");
+        Assert.Equal(data.Comments, Field<TextBox>(window, "commentsBox").Text);
+        window.Close();
+    });
 
     [AvaloniaFact]
     public void ResizingDetailsRetainsTheRequestedSizeAndExpandsTheForm() => Run(() =>

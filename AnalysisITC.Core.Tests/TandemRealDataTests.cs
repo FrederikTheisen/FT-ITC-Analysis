@@ -237,7 +237,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(TandemMixingCriterion.OneSiteFit, "One-site")]
         [InlineData(TandemMixingCriterion.ModelFree, "Model-free")]
-        public void AutomaticMergeCommentsRecordCriterionSettingsAndSelectedFractions(
+        public void AutomaticMergeProvenanceRecordsCriterionSettingsAndSelectedFractions(
             TandemMixingCriterion criterion, string expectedCriterion)
         {
             var sources = Enumerable.Range(1, 3).Select(CreateTandemSource).ToList();
@@ -254,23 +254,27 @@ namespace AnalysisITC.Core.Tests
                 new[] { 0.043271, 0.208 },
                 automaticCriterion: criterion);
 
-            Assert.StartsWith("Original sample note" + Environment.NewLine + Environment.NewLine, merged.Comments);
-            Assert.Contains("DeadVolume=80 µL", merged.Comments);
-            Assert.Contains("RemoveOverflow=True", merged.Comments);
-            Assert.DoesNotContain("RemoveOverflowVolume=40", merged.Comments);
-            Assert.Contains("MixFrac=4.3271% / 20.8%", merged.Comments);
-            Assert.Contains("bookkeeping", merged.Comments);
+            Assert.Equal("Original sample note", merged.Comments);
+            var origin = merged.TandemMergeDescription;
+            Assert.Contains(expectedCriterion, origin);
+            Assert.Contains("DeadVolume=80 µL", origin);
+            Assert.Contains("RemoveOverflow=True", origin);
+            Assert.DoesNotContain("RemoveOverflowVolume=40", origin);
+            Assert.Contains("MixFrac=4.3271% / 20.8%", origin);
+            Assert.Contains("bookkeeping", origin);
             Assert.Equal("Original sample note", sources[0].Comments);
         }
 
-        [Fact]
-        public void ManualMergeCommentsRecordModeAndSettingsWithoutAnAutoCriterion()
+        [Theory]
+        [InlineData("")]
+        [InlineData("  Original sample note\r\n")]
+        public void ManualMergesKeepCommentsSeparateFromProvenance(string comments)
         {
             var sources = Enumerable.Range(1, 2).Select(CreateTandemSource).ToList();
-            sources[0].Comments = "";
+            sources[0].Comments = comments;
             var simple = TandemConcatenation.ConcatTandem(sources);
-            Assert.StartsWith("Tandem concatenation", simple.Comments);
-            Assert.Contains("no back-mixing", simple.Comments);
+            Assert.Equal(comments, simple.Comments);
+            Assert.Contains("no back-mixing", simple.TandemMergeDescription);
 
             var settings = new TandemConcatenation.BackMixingSettings
             {
@@ -279,17 +283,20 @@ namespace AnalysisITC.Core.Tests
                 MixingFraction = 0.25,
             };
             var fixedMerge = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
-            Assert.Contains("fixed back-mixing", fixedMerge.Comments);
-            Assert.Contains("RemoveOverflow=False", fixedMerge.Comments);
-            Assert.Contains("MixFrac=25.0%", fixedMerge.Comments);
-            Assert.DoesNotContain("RemoveOverflowVolume=", fixedMerge.Comments);
+            Assert.Equal(comments, fixedMerge.Comments);
+            Assert.Contains("fixed back-mixing", fixedMerge.TandemMergeDescription);
+            Assert.Contains("RemoveOverflow=False", fixedMerge.TandemMergeDescription);
+            Assert.Contains("MixFrac=25.0%", fixedMerge.TandemMergeDescription);
+            Assert.DoesNotContain("RemoveOverflowVolume=", fixedMerge.TandemMergeDescription);
             settings.DidRemoveOverflow = true;
             var withRemoval = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
-            Assert.DoesNotContain("RemoveOverflowVolume=0", withRemoval.Comments);
+            Assert.Equal(comments, withRemoval.Comments);
+            Assert.DoesNotContain("RemoveOverflowVolume=0", withRemoval.TandemMergeDescription);
 
             var individual = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings, new[] { 0.35 });
-            Assert.Contains("fixed per-transition back-mixing", individual.Comments);
-            Assert.Contains("MixFrac=35.0%", individual.Comments);
+            Assert.Equal(comments, individual.Comments);
+            Assert.Contains("fixed per-transition back-mixing", individual.TandemMergeDescription);
+            Assert.Contains("MixFrac=35.0%", individual.TandemMergeDescription);
         }
 
         static ExperimentData Merge(

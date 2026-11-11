@@ -223,7 +223,6 @@ namespace AnalysisITC.Core.Processing
             ProcessInjectionsWithBackMixingModel(merged, segments, settings, best.TransitionMixingFractions, method);
             merged.TandemMergeInfo = CreateMergeInfo(settings, best.TransitionMixingFractions, method, criterion, best.Uncertainty);
             var tag = DescribeBackMixing(settings, best.TransitionMixingFractions, method, criterion);
-            merged.Comments = MergeComments(experiments[0].Comments, tag);
             merged.TandemMergeDescription = BuildConcatOrigin(experiments, tag);
             return merged;
         }
@@ -248,10 +247,6 @@ namespace AnalysisITC.Core.Processing
                       $"MixFrac={formattedFractions}, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
         }
-
-        static string MergeComments(string sourceComments, string modeTag) =>
-            modeTag == null ? sourceComments : string.IsNullOrWhiteSpace(sourceComments)
-                ? modeTag : sourceComments + Environment.NewLine + Environment.NewLine + modeTag;
 
         static (ExperimentData result, List<TandemInjectionSegment> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
@@ -291,7 +286,7 @@ namespace AnalysisITC.Core.Processing
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-                Comments = MergeComments(first.Comments, modeTag),
+                Comments = first.Comments,
                 TandemMergeDescription = modeTag == null ? null : BuildConcatOrigin(experiments, modeTag),
             };
             merged.SetTandemSourceExperimentIds(experiments.Select(experiment => experiment.UniqueID));

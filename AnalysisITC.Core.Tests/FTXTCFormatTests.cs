@@ -145,7 +145,8 @@ namespace AnalysisITC.Core.Tests
             var sourceId = DumasInjectionHeatTests.ReadCases()[0].GetProperty("id").GetString();
             var experiment = InjectionProcessingMethodTests.FittedModel(
                 sourceId, bootstrap: false, method: DilutionMethod.MicroCal).Data;
-            experiment.Comments = "Editable note";
+            const string savedComments = "  Editable note\r\n\r\nTandem concatenation (back-mixing enabled)\r\n";
+            experiment.Comments = savedComments;
             experiment.TandemMergeDescription = "Tandem concatenation (back-mixing enabled)\nSource files: A + B";
 
             using var first = new MemoryStream();
@@ -161,7 +162,7 @@ namespace AnalysisITC.Core.Tests
             first.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(first)).OfType<ExperimentData>());
             Assert.Equal("Tandem concatenation (back-mixing enabled)\nSource files: A + B", restored.TandemMergeDescription);
-            Assert.Equal("Editable note", restored.Comments);
+            Assert.Equal(savedComments, restored.Comments);
 
             restored.Comments = "Edited after reopening";
             using var second = new MemoryStream();

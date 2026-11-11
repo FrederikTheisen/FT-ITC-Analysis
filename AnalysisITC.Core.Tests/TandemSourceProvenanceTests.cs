@@ -35,14 +35,15 @@ public sealed class TandemSourceProvenanceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("simple")]
-    [InlineData("fixed")]
-    [InlineData("per-transition")]
-    [InlineData("automatic")]
-    public async Task EveryMergeModeRecordsOrderedReadOnlySourceIdentities(string mode)
+    [InlineData("simple", "Simple (no back-mixing)")]
+    [InlineData("fixed", "Fixed back-mixing · Back-mixing by refill 20.0% / 20.0%")]
+    [InlineData("per-transition", "Fixed per-transition back-mixing · Back-mixing by refill 10.0% / 20.0%")]
+    [InlineData("automatic", "Auto back-mixing, Model-free · Back-mixing by refill 10.0% / 20.0%")]
+    public async Task EveryMergeModeRecordsOrderedReadOnlySourceIdentities(string mode, string summary)
     {
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         var sources = new List<ExperimentData> { Source("second"), Source("first"), Source("third") };
+        sources[0].Comments = "Sample note";
         var settings = new TandemConcatenation.BackMixingSettings
             { UseBackMixingMethod = true, DeadVolume = 60e-6, MixingFraction = .2 };
         var tandem = mode switch
@@ -60,6 +61,34 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         using var package = new MemoryStream();
         await FTXTCWriter.WriteStream(package, new[] { tandem });
         FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+        package.Position = 0;
+        var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+        var details = TandemOriginPresentation.BuildDetails(restored);
+        Assert.Equal("second + first + third", details.SourceRuns);
+        Assert.Equal(("Bookkeeping", "MicroCal"), details.Settings[1]);
+        var fractions = mode == "simple" ? Array.Empty<string>()
+            : mode == "fixed" ? new[] { "20.0%", "20.0%" } : new[] { "10.0%", "20.0%" };
+        Assert.Equal(fractions, details.Refills.Select(row => row.Fraction));
+        Assert.All(details.Refills, row => Assert.Null(row.Limits));
+        var overview = restored.GetInfoString();
+        var comment = overview.IndexOf("**Comment:** Sample note");
+        Assert.True(comment > 0);
+        Assert.Equal("**Tandem merge:** 3 runs · " + summary, overview[comment - 1]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OverviewOmitsMergeSummaryWithoutSavedProvenance(bool tandem)
+    {
+        var data = Source("legacy");
+        if (tandem)
+            data.ReplaceSegments(new[] { new TandemExperimentSegment(0, 10e-6, 0), new TandemExperimentSegment(2, 9e-6, 1e-6) });
+        data.Comments = "Tandem concatenation (previously generated)";
+
+        var overview = data.GetInfoString();
+        Assert.DoesNotContain(overview, line => line.StartsWith("**Tandem merge:**", StringComparison.Ordinal));
+        Assert.Contains("**Comment:** Tandem concatenation (previously generated)", overview);
     }
 
     [Fact]
@@ -80,6 +109,7 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
         Assert.Equal(new[] { "second", "first" }, restored.TandemSourceExperimentIds);
         Assert.Equal("Recorded merge", restored.TandemMergeDescription);
+        Assert.Equal("Recorded merge", TandemOriginPresentation.BuildDetails(restored).Description);
     }
 
     [Theory]
@@ -164,6 +194,10 @@ public sealed class TandemSourceProvenanceTests : IDisposable
         Assert.Equal(imported.TandemMergeDescription, restored.TandemMergeDescription);
         Assert.Empty(restored.TandemSourceExperimentIds);
         Assert.Equal(comments, restored.Comments);
+        var details = TandemOriginPresentation.BuildDetails(restored);
+        Assert.Equal("3 experiments concatenated in one data file", details.Description);
+        Assert.Equal(("Bookkeeping", interactive ? "Discrete displacement" : "MicroCal"), details.Settings[1]);
+        Assert.Null(details.SourceRuns);
     }
 
     [Fact]

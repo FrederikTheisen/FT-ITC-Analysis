@@ -198,9 +198,10 @@ namespace AnalysisITC.Avalonia.Details
                     ? "Rebuild through the tandem tool to change bookkeeping. " + data.BookkeepingDescription
                     : "Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged.")
             }));
+            var merge = TandemOriginPresentation.BuildDetails(data);
+            if (merge != null)
+                details.Children.Add(TandemMergeSection(merge));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
-            if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(TandemOriginPresentation.FormatDescription(data.TandemMergeDescription, data.TandemMergeInfo)) }));
 
             var addAttribute = Button("Add Attribute", 116);
             addAttribute.Click += (_, _) =>
@@ -468,6 +469,57 @@ namespace AnalysisITC.Avalonia.Details
         void SetStatus(string status)
         {
             statusText.Text = status;
+        }
+
+        static Control TandemMergeSection(TandemOriginPresentation.MergeDetails merge)
+        {
+            var controls = new List<Control>();
+            if (!string.IsNullOrEmpty(merge.Description))
+                controls.Add(Text(merge.Description));
+            if (merge.Settings.Count > 0)
+                controls.Add(MergeGrid("Auto,*", merge.Settings.Select(row => new[] { FormLabel(row.Label), Text(row.Value) })));
+            if (merge.Refills.Count > 0)
+            {
+                var header = new List<TextBlock> { Text("Refill"), Text("Back-mixing") };
+                var showLimits = merge.LimitsTooltip != null;
+                if (showLimits)
+                {
+                    var limits = Text(TandemOriginPresentation.MergeLimitsLabel);
+                    ToolTip.SetTip(limits, merge.LimitsTooltip);
+                    header.Add(limits);
+                }
+                foreach (var label in header) label.FontWeight = FontWeight.SemiBold;
+
+                var rows = merge.Refills.Select((row, i) => showLimits
+                    ? new[] { Text((i + 1).ToString()), Text(row.Fraction), Text(row.Limits) }
+                    : new[] { Text((i + 1).ToString()), Text(row.Fraction) });
+                controls.Add(MergeGrid(showLimits ? "Auto,Auto,*" : "Auto,*",
+                    new[] { header.ToArray() }.Concat(rows)));
+            }
+            if (!string.IsNullOrWhiteSpace(merge.SourceRuns))
+            {
+                var label = Text(TandemOriginPresentation.SourceRunsLabel);
+                label.FontWeight = FontWeight.SemiBold;
+                controls.Add(new StackPanel { Spacing = 3, Children = { label, Text(merge.SourceRuns) } });
+            }
+            return Section(TandemOriginPresentation.DetailsTitle, controls.ToArray());
+        }
+
+        static Grid MergeGrid(string columns, IEnumerable<TextBlock[]> rows)
+        {
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(columns), ColumnSpacing = 16, RowSpacing = 4 };
+            foreach (var row in rows)
+            {
+                var index = grid.RowDefinitions.Count;
+                grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+                for (var column = 0; column < row.Length; column++)
+                {
+                    Grid.SetRow(row[column], index);
+                    Grid.SetColumn(row[column], column);
+                    grid.Children.Add(row[column]);
+                }
+            }
+            return grid;
         }
 
         static Border Section(string title, Control[] controls)

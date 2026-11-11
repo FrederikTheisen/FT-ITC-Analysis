@@ -13,6 +13,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 static class DetailsValuePreservationTests
@@ -53,6 +54,9 @@ static class DetailsValuePreservationTests
         Run("missing parameter", MissingParameter);
         Run("asymmetric interval with exact display", ExactDisplayUncertainty);
         Run("main concentration uncertainty", MainConcentrationUncertainty);
+        Run("tandem merge block above comments", TandemMergeDetails);
+        Run("ordinary experiment omits merge block", () => NoTandemProvenance(false));
+        Run("older tandem without provenance omits merge block", () => NoTandemProvenance(true));
         foreach (var field in new[] { "parameterValueField", "parameterErrorField" })
             foreach (var text in new[] { "-1", "invalid" })
                 Run("invalid " + field + " " + text, () => InvalidCompetitorEdit(field, text));
@@ -88,6 +92,74 @@ static class DetailsValuePreservationTests
         ExperimentDetailsPopoverController.Data = Data();
         using (var row = Row(original.Copy()))
             Same(original.ParameterValue, ApplyRow(row).ParameterValue);
+    }
+
+    static void TandemMergeDetails()
+    {
+        var data = Data();
+        const string comments = "  Sample note\r\n\r\nTandem concatenation (previously generated)\r\n";
+        data.Comments = comments;
+        data.ReplaceSegments(new[] { new TandemExperimentSegment(0, 20e-6, 0),
+            new TandemExperimentSegment(2, 19e-6, 1e-6), new TandemExperimentSegment(3, 18e-6, 2e-6) });
+        var sources = new string('W', 190) + "–α + second run + third run";
+        typeof(ExperimentData).GetProperty("TandemMergeDescription").SetValue(data, "Source files: " + sources, null);
+        typeof(ExperimentData).GetProperty("TandemMergeInfo").SetValue(data,
+            new TandemMergeInfo(new[] { .17, .4 }, TandemMixingCriterion.ModelFree,
+                DilutionMethod.DiscreteDisplacement, 80e-6, true, 0, 8,
+                new TandemMixingUncertainty(MixingUncertaintyMethod.MonteCarlo95, new[]
+                {
+                    new TandemMixingInterval(.12, null, MixingLimitStatus.Crossing, MixingLimitStatus.Unavailable),
+                    TandemMixingInterval.Unavailable()
+                }, monteCarloDraws: 200)), null);
+
+        using (var controller = Controller(data))
+        {
+            controller.View.LayoutSubtreeIfNeeded();
+            var form = Field<NSStackView>(controller, "formStack");
+            var merge = form.Views.Single(view => Descendants(view).OfType<NSTextField>()
+                .Any(label => label.StringValue == "Tandem merge"));
+            var index = Array.IndexOf(form.Views, merge);
+            Check(Descendants(form.Views[index + 1]).OfType<NSTextField>().Any(label => label.StringValue == "Comments"),
+                "Tandem merge must sit immediately above Comments");
+            var labels = Descendants(merge).OfType<NSTextField>().ToArray();
+            Check(labels.All(label => !label.Editable), "Merge information must be read-only");
+            var table = Descendants(merge).OfType<NSGridView>().Single(grid => grid.ColumnCount == 3);
+            Check(MergeCell(table, 2, 0) == "95% limits at merge", "Missing automatic limits column");
+            Check(MergeCell(table, 0, 1) == "1" && MergeCell(table, 1, 1).StartsWith("17")
+                && MergeCell(table, 2, 1).EndsWith("upper unavailable"), "First refill is missing its partial limits");
+            Check(MergeCell(table, 0, 2) == "2" && MergeCell(table, 1, 2).StartsWith("40")
+                && MergeCell(table, 2, 2) == "Unavailable", "Second refill is missing its unavailable status");
+            var sourceLabel = labels.Single(label => label.StringValue == sources);
+            var title = labels.Single(label => label.StringValue == "Tandem merge");
+            Check(sourceLabel.Frame.Height > title.Frame.Height * 2, "Long source names must wrap");
+            Check(Field<NSTextView>(controller, "CommentTextField").String == comments, "Saved comments changed on display");
+            Apply(controller);
+            Check(data.Comments == comments, "Applying Details changed the saved comments");
+        }
+    }
+
+    static void NoTandemProvenance(bool tandem)
+    {
+        var data = Data();
+        if (tandem)
+            data.ReplaceSegments(new[] { new TandemExperimentSegment(0, 20e-6, 0), new TandemExperimentSegment(2, 19e-6, 1e-6) });
+        data.Comments = "Tandem concatenation (previously generated)";
+        using (var controller = Controller(data))
+        {
+            Check(!Descendants(controller.View).OfType<NSTextField>().Any(label => label.StringValue == "Tandem merge"),
+                "Tandem merge should be hidden without recorded provenance");
+            Check(Field<NSTextView>(controller, "CommentTextField").String == data.Comments, "Saved comments changed on display");
+        }
+    }
+
+    static string MergeCell(NSGridView grid, int column, int row) => ((NSTextField)grid.GetCell(column, row).ContentView).StringValue;
+
+    static IEnumerable<NSView> Descendants(NSView view)
+    {
+        yield return view;
+        foreach (var child in view.Subviews)
+            foreach (var descendant in Descendants(child))
+                yield return descendant;
     }
 
     static void CommentOnlyApply(AttributeKey key)

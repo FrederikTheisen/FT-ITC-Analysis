@@ -222,6 +222,15 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(uncertainty.HeatNoiseSd, restored.TandemMergeInfo.Uncertainty.HeatNoiseSd);
             Assert.Equal(MixingLimitStatus.BoundReached, restored.TandemMergeInfo.Uncertainty.Intervals[0].LowerStatus);
             Assert.Null(restored.TandemMergeInfo.Uncertainty.Intervals[1].Upper);
+            var details = TandemOriginPresentation.BuildDetails(restored);
+            Assert.Equal(("Method", monteCarlo ? "Automatic (model-free)" : "Automatic (one-site)"), details.Settings[0]);
+            Assert.Equal(("Bookkeeping", "Discrete displacement"), details.Settings[1]);
+            Assert.Equal(("Overflow removed", "Yes"), details.Settings[3]);
+            Assert.Contains("(bound reached)", details.Refills[0].Limits);
+            Assert.Equal("Unavailable", details.Refills[1].Limits);
+            var expectedMethod = monteCarlo ? "Automatic (model-free)" : "Automatic (one-site)";
+            Assert.Contains($"**Tandem merge:** 3 runs · {expectedMethod} · Back-mixing by refill 20% / 40%",
+                restored.GetInfoString());
             var text = TandemOriginPresentation.FormatDescription(restored.TandemMergeDescription, restored.TandemMergeInfo);
             Assert.Contains("bound reached", text);Assert.Contains("unavailable", text);
             Assert.Contains(monteCarlo ? "Monte Carlo" : "grid-based", text);

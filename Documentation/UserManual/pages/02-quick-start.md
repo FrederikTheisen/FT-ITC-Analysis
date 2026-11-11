@@ -25,13 +25,13 @@ Use a compatible raw thermogram, integrated-heats file, Origin project, or `.ftx
 
 Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and choose **Open**.
 
-Select the imported experiment in the data list and open **Overview**. See [Workspace](04-workspace-experiments.md) for selection, Active experiments, and list ordering.
+Select the imported experiment in the data list and open **Overview**. The **Tandem merge** row summarises the run count, merge method, and back-mixing fractions when recorded. See [Workspace](04-workspace-experiments.md) for selection, Active experiments, and list ordering.
 
 ## 2. Edit experiment details
 
 Open **Details...** for the selected experiment. Concentrations, conditions, comments, and attributes can be edited here. A date read from the data file is trusted and read-only. A filesystem timestamp does not establish the experiment date; entering a replacement marks it as **User provided**. The date source is shown beside the date controls.
 
-Tandem experiments keep their generated merge description under **Tandem merge origin**, separately from editable comments.
+In Experiment Details, **Tandem merge** shows the recorded method, settings, and source runs when available. For automatic merges, it also shows each refill’s estimated back-mixing fraction and its 95% limits at merge time. The block sits above **Comments**.
 
 > **Caution:** Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
 

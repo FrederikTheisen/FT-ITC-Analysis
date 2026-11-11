@@ -199,17 +199,10 @@ namespace AnalysisITC
                 note.LineBreakMode = NSLineBreakMode.ByWordWrapping;
                 formStack.AddArrangedSubview(note);
             }
+            var merge = TandemOriginPresentation.BuildDetails(Data);
+            if (merge != null)
+                formStack.AddArrangedSubview(TandemMergeSection(merge));
             formStack.AddArrangedSubview(Section("Comments", Comments()));
-            if (!string.IsNullOrWhiteSpace(Data?.TandemMergeDescription))
-            {
-                var origin = NSTextField.CreateLabel(TandemOriginPresentation.FormatDescription(Data.TandemMergeDescription, Data.TandemMergeInfo));
-                origin.LineBreakMode = NSLineBreakMode.ByWordWrapping;
-                origin.Cell.Wraps = true;
-                origin.Cell.UsesSingleLineMode = false;
-                origin.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-                origin.WidthAnchor.ConstraintEqualToConstant(560).Active = true;
-                formStack.AddArrangedSubview(Section("Tandem merge origin", origin));
-            }
             foreach (var c in formStack.Views) Fill(formStack, c);
 
             detailsPage = MakePage(Padded(formStack), out detailsScroll);
@@ -426,6 +419,67 @@ namespace AnalysisITC
             field.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             foreach (var child in row.Views) child.TranslatesAutoresizingMaskIntoConstraints = false;
             return row;
+        }
+
+        NSView TandemMergeSection(TandemOriginPresentation.MergeDetails merge)
+        {
+            var stack = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Alignment = NSLayoutAttribute.Leading,
+                Spacing = 8,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            if (!string.IsNullOrEmpty(merge.Description))
+                stack.AddArrangedSubview(MergeWrappingLabel(merge.Description));
+            if (merge.Settings.Count > 0)
+                stack.AddArrangedSubview(MergeGrid(merge.Settings.Select(row =>
+                    new NSView[] { NSTextField.CreateLabel(row.Label), NSTextField.CreateLabel(row.Value) }).ToArray()));
+            if (merge.Refills.Count > 0)
+            {
+                var header = new List<NSView> { SectionHeading("Refill"), SectionHeading("Back-mixing") };
+                var showLimits = merge.LimitsTooltip != null;
+                if (showLimits)
+                {
+                    var limits = SectionHeading(TandemOriginPresentation.MergeLimitsLabel);
+                    limits.ToolTip = merge.LimitsTooltip;
+                    header.Add(limits);
+                }
+                var rows = merge.Refills.Select((row, i) => showLimits
+                    ? new NSView[] { NSTextField.CreateLabel((i + 1).ToString()), NSTextField.CreateLabel(row.Fraction), NSTextField.CreateLabel(row.Limits) }
+                    : new NSView[] { NSTextField.CreateLabel((i + 1).ToString()), NSTextField.CreateLabel(row.Fraction) });
+                stack.AddArrangedSubview(MergeGrid(new[] { header.ToArray() }.Concat(rows).ToArray()));
+            }
+            if (!string.IsNullOrWhiteSpace(merge.SourceRuns))
+            {
+                var label = SectionHeading(TandemOriginPresentation.SourceRunsLabel);
+                stack.AddArrangedSubview(label);
+                stack.SetCustomSpacing(3, label);
+                stack.AddArrangedSubview(MergeWrappingLabel(merge.SourceRuns));
+            }
+            foreach (var child in stack.Views) Fill(stack, child);
+            return Section(TandemOriginPresentation.DetailsTitle, stack);
+        }
+
+        static NSGridView MergeGrid(NSView[][] rows)
+        {
+            var grid = NSGridView.Create(rows);
+            grid.ColumnSpacing = 16;
+            grid.RowSpacing = 4;
+            grid.RowAlignment = NSGridRowAlignment.FirstBaseline;
+            grid.X = NSGridCellPlacement.Leading;
+            grid.GetColumn(rows[0].Length - 1).X = NSGridCellPlacement.Fill;
+            return grid;
+        }
+
+        static NSTextField MergeWrappingLabel(string text)
+        {
+            var label = NSTextField.CreateWrappingLabel(text);
+            label.LineBreakMode = NSLineBreakMode.CharWrapping;
+            // Match the Details sheet's outer and section padding, allowing for a scroller.
+            label.PreferredMaxLayoutWidth = Width - 2 * (16 + 12) - 16;
+            label.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            return label;
         }
 
         NSView Comments()
