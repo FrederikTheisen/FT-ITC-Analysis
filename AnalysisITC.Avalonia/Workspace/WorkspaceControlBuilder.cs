@@ -33,9 +33,14 @@ namespace AnalysisITC.Avalonia.Workspace
         public static Thickness InspectorGapMargin => new Thickness(InspectorGap, 0, 0, 0);
         public static Thickness FooterGapMargin => new Thickness(0, InspectorGap, 0, 0);
 
-        public static Grid Workspace(Control mainContent, Control inspectorContent, Control? inspectorFooter = null, bool useOuterMargin = false)
+        public static Grid Workspace(
+            Control mainContent,
+            Control inspectorContent,
+            Control? inspectorFooter = null,
+            bool useOuterMargin = false,
+            double inspectorWidth = InspectorWidth)
         {
-            var root = WorkspaceGrid();
+            var root = WorkspaceGrid(inspectorWidth);
             root.Margin = useOuterMargin ? WorkspaceOuterMargin : new Thickness(0);
             mainContent.Margin = new Thickness(0);
             Grid.SetColumn(mainContent, 0);
@@ -65,11 +70,15 @@ namespace AnalysisITC.Avalonia.Workspace
             return host;
         }
 
-        static Grid WorkspaceGrid()
+        static Grid WorkspaceGrid(double inspectorWidth)
         {
             var grid = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions($"*,{InspectorWidth}")
+                ColumnDefinitions = new ColumnDefinitions
+                {
+                    new ColumnDefinition(1, GridUnitType.Star),
+                    new ColumnDefinition(inspectorWidth, GridUnitType.Pixel)
+                }
             };
             AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.WorkspaceBackground);
             return grid;

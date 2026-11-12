@@ -413,7 +413,7 @@ namespace AnalysisITC.Avalonia.Results
                 InspectorTab("Experiments", experimentsPanel),
                 InspectorTab("Model", modelPanel));
 
-            Content = WorkspaceControlBuilder.Workspace(main, inspector);
+            Content = WorkspaceControlBuilder.Workspace(main, inspector, inspectorWidth: 370);
         }
 
         void WireEvents()
