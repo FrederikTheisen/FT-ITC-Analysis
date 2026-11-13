@@ -362,6 +362,32 @@ public sealed class ViewerUploadTests : IClassFixture<ViewerUploadApplicationFac
     }
 
     [Fact]
+    public async Task UploadProjectsManualTandemDetailsWithoutInventingLimits()
+    {
+        using var source = File.OpenRead(Fixture("data.ftitc"));
+        var containers = await FTITCReader.ReadStream(source);
+        var target = containers.OfType<ExperimentData>().First();
+        target.AddSegment(new TandemExperimentSegment(0, target.CellConcentration, 0));
+        target.AddSegment(new TandemExperimentSegment(2, target.CellConcentration, 0));
+        target.TandemMergeDescription = "Tandem concatenation (fixed back-mixing): DeadVolume=80 µL, RemoveOverflow=True, MixFrac=20%, MicroCal bookkeeping\nSource files: <b>literal source</b> & second run";
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { target }, Array.Empty<AnalysisResult>());
+        package.Position = 0;
+        var token = await Token();
+        using var content = UploadContent("tandem.ftxtc", package);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var details = json.RootElement.GetProperty("experiments")[0].GetProperty("tandemDetails");
+        Assert.Equal("<b>literal source</b> & second run", details.GetProperty("sourceRuns").GetString());
+        var refill = Assert.Single(details.GetProperty("refills").EnumerateArray());
+        Assert.Equal("20%", refill.GetProperty("fraction").GetString());
+        Assert.True(!refill.TryGetProperty("limits", out var limits) || limits.ValueKind == JsonValueKind.Null);
+    }
+
+    [Fact]
     public async Task OpensNativeFtxtcProjectThroughUploadEndpoint()
     {
         using var source = File.OpenRead(Fixture("data.ftitc"));

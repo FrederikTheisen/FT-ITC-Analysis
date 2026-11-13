@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Threading.Tasks;
+using AnalysisITC.Core.Viewer;
+using AnalysisITC.Core.Export;
 using System.Text.Json.Nodes;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -120,6 +124,47 @@ public sealed class TandemMixingReportingTests
 
         Assert.DoesNotContain("tandemMixing", prompt.CanonicalPackageJson);
         Assert.DoesNotContain("tandemMixing", prompt.ModelPackageJson);
+    }
+
+    [Theory]
+    [InlineData(false, 0, "Fixed fractions", false)]
+    [InlineData(false, 0, "Fixed fractions", true)]
+    [InlineData(true, 3, "Included in bootstrap", false)]
+    [InlineData(true, 3, "Included in bootstrap", true)]
+    [InlineData(true, 0, "Unavailable", false)]
+    [InlineData(true, 0, "Unavailable", true)]
+    public async Task ViewerProjectsSavedTandemDetailsAndFitTreatment(bool requested, int retained, string expected, bool embedded)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var tandem = Tandem(automatic: true);
+        var result = Result(tandem, ErrorEstimationMethod.BootstrapResiduals, requested, retained);
+        tandem.Model = result.Solution.Solutions.Single().Model;
+        using var stream = new MemoryStream();
+        await FTXTCWriter.WriteStream(stream, new[] { tandem }, embedded ? Array.Empty<AnalysisResult>() : new[] { result });
+        stream.Position = 0;
+
+        var document = await new ViewerDocumentReader().ReadAsync(stream, "tandem.ftxtc", ViewerFileFormat.Ftxtc);
+
+        var experiment = Assert.Single(document.Experiments);
+        Assert.NotNull(experiment.TandemDetails);
+        var refill = Assert.Single(experiment.TandemDetails.Refills);
+        Assert.Equal("17%", refill.Fraction);
+        Assert.Contains("38%", refill.Limits);
+        Assert.NotEmpty(experiment.Fits);
+        Assert.All(experiment.Fits, fit => Assert.Equal(expected, fit.TandemMixingStatus));
+    }
+
+    [Theory]
+    [InlineData(false, 0, TandemMixingBootstrapStatus.FixedFractions)]
+    [InlineData(true, 3, TandemMixingBootstrapStatus.Included)]
+    [InlineData(true, 0, TandemMixingBootstrapStatus.Unavailable)]
+    public void EmbeddedFitUsesItsSavedErrorMethod(bool requested, int retained, TandemMixingBootstrapStatus expected)
+    {
+        var result = Result(Tandem(true), ErrorEstimationMethod.BootstrapResiduals, requested, retained);
+        var member = result.Solution.Solutions.Single();
+        Assert.Equal(expected, TandemOriginPresentation.BootstrapStatus(null, member));
+        member.ErrorMethod = ErrorEstimationMethod.None;
+        Assert.Null(TandemOriginPresentation.BootstrapStatus(null, member));
     }
 
     static AnalysisInterpretationPackage Package(AnalysisResult result, ExperimentData tandem)

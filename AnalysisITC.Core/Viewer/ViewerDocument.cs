@@ -270,11 +270,27 @@ namespace AnalysisITC.Core.Viewer
         public int InjectionCount { get; internal set; }
         public List<string> AvailableViews { get; } = new List<string>();
         public List<ViewerMetadataItem> Metadata { get; } = new List<ViewerMetadataItem>();
+        public ViewerTandemDetails TandemDetails { get; internal set; }
         public RawTraceDto Raw { get; internal set; }
         public IntegratedTraceDto Integrated { get; internal set; }
         public ProcessedTraceDto Processed { get; internal set; }
         public List<FitDto> Fits { get; } = new List<FitDto>();
         public string DefaultFitKey { get; internal set; }
+    }
+
+    public sealed class ViewerTandemDetails
+    {
+        public List<ViewerMetadataItem> Settings { get; } = new List<ViewerMetadataItem>();
+        public List<ViewerTandemRefill> Refills { get; } = new List<ViewerTandemRefill>();
+        public string SourceRuns { get; internal set; }
+        public string Description { get; internal set; }
+        public string LimitsTooltip { get; internal set; }
+    }
+
+    public sealed class ViewerTandemRefill
+    {
+        public string Fraction { get; internal set; }
+        public string Limits { get; internal set; }
     }
 
     public sealed class ViewerMetadataItem
@@ -328,6 +344,7 @@ namespace AnalysisITC.Core.Viewer
 
     public sealed class FitDto
     {
+        public string TandemMixingStatus { get; internal set; }
         public string Key { get; internal set; }
         public string ResultKey { get; internal set; }
         public string ResultName { get; internal set; }

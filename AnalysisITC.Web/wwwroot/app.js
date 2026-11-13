@@ -294,6 +294,7 @@ function renderView() {
   $("fit-warnings").hidden = true;
   $("fit-warnings").textContent = "";
   metadata.hidden = state.view !== "metadata";
+  $("tandem-details").hidden = true;
   processedControls.hidden = state.view !== "processed";
   processingDescription.hidden = state.view !== "processed";
   message.hidden = true;
@@ -1220,7 +1221,8 @@ function renderFitData(target, parameterBox, fit, summaryBox, warningBox) {
     definition("Model", fit.modelName || "Unavailable"),
     definition("RMSD (µJ)", formatNumber(fit.loss)),
     ...(fit.molarRmsdKilojoulesPerMole != null && Number.isFinite(Number(fit.molarRmsdKilojoulesPerMole)) ? [definition("Molar RMSD (kJ/mol)", formatNumber(fit.molarRmsdKilojoulesPerMole))] : []),
-    definition("Confidence band", confidenceBand.available ? bandLabel : "Confidence band unavailable")
+    definition("Confidence band", confidenceBand.available ? bandLabel : "Confidence band unavailable"),
+    ...(fit.tandemMixingStatus ? [definition("Tandem mixing uncertainty", fit.tandemMixingStatus)] : [])
   );
   const included = indices(fit.included, true);
   const excluded = indices(fit.included, false);
@@ -1307,9 +1309,49 @@ function parameterSection(titleText, parameters, showStatus) {
   return section;
 }
 
+function renderTandemDetails(target, details) {
+  target.replaceChildren();
+  target.hidden = !details;
+  if (!details) return;
+  const heading = document.createElement("h3");
+  heading.textContent = "Tandem merge";
+  const settings = document.createElement("dl");
+  settings.className = "metadata-grid";
+  settings.append(...details.settings.map(row => definition(row.label, row.value)));
+  if (details.sourceRuns) settings.append(definition("Source runs", details.sourceRuns));
+  target.append(heading, settings);
+  if (details.refills.length) {
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const row = document.createElement("tr");
+    const hasLimits = details.refills.some(refill => refill.limits != null);
+    for (const label of ["Refill", "Back-mixing fraction", ...(hasLimits ? ["95% limits at merge"] : [])]) {
+      const cell = document.createElement("th");
+      cell.textContent = label;
+      if (label === "95% limits at merge") cell.title = details.limitsTooltip || "";
+      row.append(cell);
+    }
+    head.append(row);
+    const body = document.createElement("tbody");
+    details.refills.forEach((refill, index) => {
+      const row = document.createElement("tr");
+      for (const value of [String(index + 1), refill.fraction, ...(hasLimits ? [refill.limits || "Unavailable"] : [])]) appendCell(row, value);
+      body.append(row);
+    });
+    table.append(head, body);
+    target.append(table);
+  }
+  if (details.description) {
+    const description = document.createElement("p");
+    description.textContent = details.description;
+    target.append(description);
+  }
+}
+
 function renderMetadata(target) {
   const experiment = currentExperiment();
   target.style.display = "grid";
+  renderTandemDetails($("tandem-details"), experiment.tandemDetails);
   target.replaceChildren(...experiment.metadata.map((item) =>
     definition(item.label, item.label === "Date" ? formatDate(experiment.date) : item.value)));
 }

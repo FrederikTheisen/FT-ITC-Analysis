@@ -1210,6 +1210,18 @@ namespace AnalysisITC.Core.Viewer
             };
 
             AddMetadata(viewer, experiment, resolveExperiment, resolveResult);
+            var tandem = TandemOriginPresentation.BuildDetails(experiment);
+            if (tandem != null)
+            {
+                viewer.TandemDetails = new ViewerTandemDetails
+                {
+                    SourceRuns = tandem.SourceRuns, Description = tandem.Description, LimitsTooltip = tandem.LimitsTooltip,
+                };
+                viewer.TandemDetails.Settings.AddRange(tandem.Settings.Select(row =>
+                    new ViewerMetadataItem { Label = row.Label, Value = row.Value }));
+                viewer.TandemDetails.Refills.AddRange(tandem.Refills.Select(row =>
+                    new ViewerTandemRefill { Fraction = row.Fraction, Limits = row.Limits }));
+            }
             viewer.Raw = BuildRaw(experiment);
             viewer.Integrated = BuildIntegrated(experiment);
             viewer.Processed = BuildProcessed(experiment);
@@ -1377,6 +1389,8 @@ namespace AnalysisITC.Core.Viewer
                 MolarRmsdKilojoulesPerMole = solution.Convergence?.MolarRMSD == null ? (double?)null : FiniteOrNull(solution.Convergence.MolarRMSD.Value / 1000.0),
                 Convergence = solution.Convergence?.Message,
             };
+            var mixing = TandemOriginPresentation.BootstrapStatus(solution.ParentSolution, solution);
+            if (mixing.HasValue) fit.TandemMixingStatus = TandemOriginPresentation.FormatBootstrapStatus(mixing.Value);
             fit.Warnings.AddRange(ParameterBoundaryWarningFormatter.MessagesFor(solution, solution.ErrorMethod));
 
             var lower = new double?[injections.Length];

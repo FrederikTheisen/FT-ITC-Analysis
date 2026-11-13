@@ -28,6 +28,7 @@ namespace AnalysisITC.Core.Tests
 
             var experiment = Assert.Single(document.Experiments);
             Assert.Equal(19, experiment.InjectionCount);
+            Assert.Null(experiment.TandemDetails);
             Assert.NotNull(experiment.Raw);
             Assert.True(experiment.Raw.TimeSeconds.Length > 2_900);
             Assert.Equal(experiment.Raw.TimeSeconds.Length, experiment.Raw.PowerMicrowatts.Length);

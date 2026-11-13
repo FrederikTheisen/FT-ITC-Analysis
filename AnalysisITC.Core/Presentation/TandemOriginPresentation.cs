@@ -44,8 +44,8 @@ namespace AnalysisITC.Core.Presentation
         public static TandemMixingBootstrapStatus? BootstrapStatus(GlobalSolution result, SolutionInterface member)
         {
             if (member?.Data?.IsTandemExperiment != true
-                || result?.ErrorEstimationMethod != ErrorEstimationMethod.BootstrapResiduals
-                || result.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding
+                || (result?.ErrorEstimationMethod ?? member.ErrorMethod) != ErrorEstimationMethod.BootstrapResiduals
+                || result?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding
                 || member.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding)
                 return null;
             if (member.Model?.ModelCloneOptions?.ReestimateTandemMixing != true)
