@@ -27,7 +27,7 @@ namespace AnalysisITC.Avalonia.Tools
     {
         readonly List<TandemMergeItem> items;
         readonly ListBox experimentList = new ListBox { SelectionMode = SelectionMode.Multiple };
-        readonly ComboBox modeCombo = Combo(new[] { "Simple tandem", "Fixed back-mixing", "Auto back-mixing" }, 190);
+        readonly ComboBox modeCombo = Combo(new[] { "MicroCal Concat", "Fixed back-mixing", "Auto back-mixing" }, 190);
         readonly ComboBox autoCriterionCombo = Combo(new[] { "One-site", "Model-free" }, 190);
         readonly TextBox deadVolumeBox = TextBox("80");
         readonly Slider mixingSlider = Slider(0, 1, 0.05, 190);
