@@ -51,7 +51,7 @@ The **Summary** tab contains the result identity, model, member count, RMSD, val
 
 **Bootstraps** shows the requested number of refits; its tooltip gives the retained count when it differs. Reports use complete retained replicates. Older results without a saved request show **Unknown**. For mixed independent results, eligible experiments retain their own uncertainty, but a complete combined set is unavailable. **Update Result** can rerun the stored request or use any offered count, including the same or a smaller count.
 
-In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
+In the web viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
 
 Competitor properties in viewer metadata show captures saved on the experiment; these may differ from the values used by a particular saved fit.
 

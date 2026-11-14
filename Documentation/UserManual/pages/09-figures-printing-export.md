@@ -110,7 +110,7 @@ The configured table is available through **Copy** and **Export...**. Copy place
 
 Summary rows use the same Parameter Evaluation calculation at its default evaluation temperature: the configured reference temperature for a temperature series, otherwise the mean experiment temperature. The exported temperature column labels that evaluation temperature. Local summary rows report **Combined SD** and an **Approximate propagated interval**, using the same calculation described under [Parameter Evaluation](08-results-advanced-analysis.md). Summary interval columns have neutral `_interval_lower` and `_interval_upper` suffixes; individual rows retain their CI95 columns. $K_{\mathrm{d}}$ is derived from the summarized Gibbs energy rather than averaged directly, and $\Delta C_{\mathrm{p}}$ columns are included for applicable temperature-dependent results. No results are pooled across separate analyses.
 
-Result tables, clipboard output, final-figure metadata, and viewer output create
+Result tables, clipboard output, final-figure metadata, and web viewer output create
 thermodynamic columns according to the fitted model. A sequential result therefore
 exports one $K_{\mathrm{d}}$, $\Delta H$, $\Delta G$, and $-T\Delta S$ value for every active step, including steps 3
 and 4 when present. The fixed step

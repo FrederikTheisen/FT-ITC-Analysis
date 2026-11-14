@@ -25,7 +25,7 @@ The workflow has two main questions: **How much heat did each injection produce?
 
 Start with [Quick start](02-quick-start.md): import data, check experiment details, process any thermogram, fit a model, review the result, then save and export. Use the task chapters below for setting choices, calculations, and interpretation limits.
 
-Raw input files are not modified. Ordinary desktop analysis runs locally. Optional online interpretation and the browser-based Project Viewer send data only through their respective workflows; review [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) before using them.
+Raw input files are not modified. Ordinary desktop analysis runs locally. Optional online interpretation and the web viewer send data only through their respective workflows; review [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) before using them.
 
 ## Product tour
 
@@ -76,4 +76,4 @@ Interface labels appear in **bold**. A path such as **File > Save As...** means 
 
 Click the version in **About** to see the build time as four digits at the end of the version number. For example, `1.5.2.0942` was built at 09:42 local time on the build machine.
 
-**Help and Guide** opens the topic-based in-app help, with practical guidance followed by scientific explanations and calculations. On native macOS, choose **FT-ITC Analysis Help** from the **Help** menu. **Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
+**Help and Guide** opens the topic-based in-app help, with practical guidance followed by scientific explanations and calculations. On native macOS, choose **FT-ITC Analysis Help** from the **Help** menu. **Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [web viewer](https://app.ft-itc.org), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).

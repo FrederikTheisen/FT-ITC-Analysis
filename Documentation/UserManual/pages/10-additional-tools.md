@@ -79,7 +79,7 @@ Source experiments must have no buffer subtraction. Remove any buffer-subtractio
 
 The merge **Mode** selector contains:
 
-- **Simple tandem**, which concatenates the segments using the standard concentration progression without a user-selected back-mixing correction.
+- **MicroCal Concat**, which joins the segments without back-mixing, using the selected injection bookkeeping method.
 - **Fixed back-mixing**, which applies one configured mixing fraction at every segment transition. With three or four selected experiments, you can instead set an individual fraction for each reload.
 - **Auto back-mixing**, which estimates the reload mixing fractions from the selected experiments and is available for up to five source experiments.
 

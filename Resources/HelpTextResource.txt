@@ -325,11 +325,13 @@ The uncertainty style preference selects SDs, intervals, or both when available;
 
 # Residual bootstrap
 
-Included best-fit residuals are sampled with replacement and added to best-fit predictions to create synthetic datasets for refitting. An unweighted fit centers and samples residuals in heat units. A weighted fit divides by each injection SD before centering and sampling, then multiplies each draw by the target injection's SD. Resampling assumes comparable residual spread after any weighting. Weighted fitting requires positive, finite SDs for all included injections.
+Included best-fit residuals are sampled with replacement and added to best-fit predictions to create synthetic datasets for refitting. An unweighted fit centers and samples residuals in heat units. A weighted fit divides by each injection SD before centering and sampling, then multiplies each draw by the target injection's SD. Resampling assumes comparable residual spread after any weighting. Weighted fitting requires positive, finite SDs for all included injections. Unless **Concentration uncertainty** is enabled, bootstrap uncertainties do not include errors in the entered concentrations, which can dominate the uncertainty of N and ΔH.
 
-**Pool residuals across experiments** is optional for joint fits with either fitting objective. Set its default in **Preferences > Fitting**. The pool uses injection heat SDs when complete, or an estimated residual SD per experiment when any injection SD is missing. Center the combined standardized residuals once and restore the target's scale for each draw. This estimates variation under a common distribution of standardized noise.
+**Pool residuals across experiments** is optional for joint fits. Set its default in **Preferences > Fitting**. Each experiment's residuals, divided by the peak-area SDs only for weighted fits, are centered and scaled to unit spread before pooling. Each draw uses the target experiment's noise level and, in weighted fits, the target injection's SD. Pooling assumes a similar noise shape across experiments. Check the original residual plots for systematic shifts or trends, even when the bootstrap errors are small.
 
-To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-observation count and *p* fitted-parameter count. Shared global fits use pooled counts; independent members use their own. In either case, *n* must exceed *p*.
+To compensate for noise absorbed by fitting, centered residuals are multiplied by √(*n* / (*n* − *p*)), where *n* is included-injection count and *p* fitted-parameter count. In a joint fit, each experiment uses its own *n*, and its *p* counts its own fitted parameters plus a share of the shared parameters in proportion to its included injections. In weighted fits and fits with a shared or fixed offset, centering can remove slightly more scatter than this restores, so uncertainties can be slightly too small.
+
+Bootstrap refits use the primary fit’s optimizer tolerance and iteration limit. Refits that hit the limit count as failed.
 
 **Propagate tandem mixing uncertainty** uses each bootstrap heat sample to re-estimate back-mixing and rebuild the concentration history for eligible automatic tandems. The binding refit uses the same heat sample. The reported binding parameters come from the original-data fit.
 
@@ -461,7 +463,7 @@ The dialog shows package size against your request limit and blocks oversized re
 
 # Privacy and local packages
 
-Generate sends selected names, comments, conditions, fits, injection evidence, and your context to the hosted interpretation service, which uses the selected OpenAI or Mistral provider. Mistral requests use Mistral's EU regional endpoint. This sets where the interpretation is generated, not where all account or operational records are kept. This is separate from the browser-based Project Viewer. Review https://app.ft-itc.org/privacy.html before sending sensitive material.
+Generate sends selected names, comments, conditions, fits, injection evidence, and your context to the hosted interpretation service, which uses the selected OpenAI or Mistral provider. Mistral requests use Mistral's EU regional endpoint. This sets where the interpretation is generated, not where all account or operational records are kept. This is separate from the web viewer. Review https://app.ft-itc.org/privacy.html before sending sensitive material.
 
 The service retains usage metadata without automatic expiry, excluding full scientific evidence and generated text. Provider and infrastructure retention are separate, with no guaranteed deletion deadline; see https://developers.openai.com/api/docs/guides/your-data and https://docs.mistral.ai/inference/regional-inference. Canceling does not retract sent data.
 
@@ -522,6 +524,7 @@ Matched subtraction uses the reference injection SD, or combines SDs when nearby
 Tandem experiments can be collected by refilling the syringe while leaving the current cell content, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
 Complete baseline correction on each source before opening the merger. The merger joins the corrected traces, applies a zero baseline, integrates the copied windows, and locks processing. To recalculate Auto back-mixing after changing an integration window, edit the source experiment and rerun the merge.
 Source experiments must have no buffer subtraction. Remove any buffer-subtraction attribute in **Experiment Details** before merging or scanning, in every merger mode.
+**MicroCal Concat** joins the segments without back-mixing, using the selected injection bookkeeping method.
 Back-mixing mode adds a simple overflow/dead-volume model between syringe loads. You can set the dead volume, choose whether displaced titrated solution was removed between segments, and adjust the fraction of the dead volume that mixes back into the active cell. The merged experiment stores segment start concentrations so processing, fitting, and project saving treat it as one tandem dataset. Its comments retain the first source’s notes and append the merge method, auto criterion when used, settings, and selected fractions in reload order.
 
 Select **Auto back-mixing** (**Auto** on macOS), then choose **One-site** or **Model-free** under **Auto criterion**. One-site uses a binding model; Model-free matches the two sides of each reload without specifying a binding model. Both infer corrections from the data rather than measuring liquid mixing.
@@ -544,6 +547,8 @@ The back-mixing factor is the fraction of a homogeneous dead-volume compartment 
 The cubic must keep rising or falling and retain one curvature direction across the window. This assumes the local isotherm neither turns nor forms an S-shaped curve near the reload. Fractions are selected solely by the residual sum of squares, without a preferred mixing fraction.
 
 Automatic merges save mixing uncertainty in the merge information. One-site uses approximate 95% limits from the existing grid. Model-free uses 200 Monte Carlo draws with heat noise estimated from the local cubic residuals and adjusted for the fitted curve coefficients and mixing fractions. The reported fractions remain the selections from the original data. Bound-reached limits extend to 0% or 100%; unresolved limits are unavailable. Monte Carlo ranges describe sensitivity to the assumed heat noise.
+
+In the web viewer, **95% limits at merge** describe uncertainty in the recorded back-mixing fractions. The fit’s **Tandem mixing uncertainty** status separately states whether back-mixing was included in its residual bootstrap; merge-time limits alone do not establish that it was propagated into binding-parameter uncertainty.
 
 ## Attribution and traceability
 Enable **Traceability Mode** to keep excluded injections visible in figures and add report attribution, interpretation source, and sign-off fields. Excluded points remain excluded from fitting. Traceability Mode requires a nonblank **User name** and can optionally ask for experiment and sample IDs after loading data.
