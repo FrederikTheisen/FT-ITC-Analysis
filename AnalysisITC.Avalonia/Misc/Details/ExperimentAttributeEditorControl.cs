@@ -327,10 +327,13 @@ namespace AnalysisITC.Avalonia.Details
             {
                 BufferSubtractionMethod.MatchedInjection,
                 BufferSubtractionMethod.Linear,
-                BufferSubtractionMethod.ExponentialDecay
+                BufferSubtractionMethod.ExponentialDecay,
+                BufferSubtractionMethod.Mean
             }.Select(method => new Choice<BufferSubtractionMethod>(method, method.GetDisplayName())).ToList();
             methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88, 180);
             editorPanel.Children.Add(methodCombo);
+            methodCombo.SelectionChanged += (_, _) => UpdateBufferMethodToolTip();
+            UpdateBufferMethodToolTip();
             if (experiment?.IsTandemExperiment == true)
             {
                 referenceCombo.IsEnabled = methodCombo.IsEnabled = false;
@@ -339,6 +342,13 @@ namespace AnalysisITC.Avalonia.Details
                 ToolTip.SetShowOnDisabled(referenceCombo, true);
                 ToolTip.SetShowOnDisabled(methodCombo, true);
             }
+        }
+
+        void UpdateBufferMethodToolTip()
+        {
+            var method = methodCombo?.SelectedItem is Choice<BufferSubtractionMethod> choice ? choice.Value : BufferSubtractionMethod.MatchedInjection;
+            if (methodCombo != null)
+                ToolTip.SetTip(methodCombo, method == BufferSubtractionMethod.Mean ? BufferSubtractionSettings.MeanMethodTooltip : null);
         }
 
         void AddCompetitorResultEditor()
@@ -527,11 +537,18 @@ namespace AnalysisITC.Avalonia.Details
                 ? methodChoice.Value
                 : BufferSubtractionMethod.MatchedInjection;
 
+            var snapshot = attribute.StringValue == referenceChoice.Value ? attribute.BufferReferenceSnapshot : null;
+            var reference = DataManager.Data.FirstOrDefault(data => data.UniqueID == referenceChoice.Value);
+            if (reference == null && !BufferSubtractionPolicy.CanUseStoredMethod(snapshot, (BufferSubtractionMethod)attribute.IntValue, method))
+            {
+                error = BufferSubtractionPolicy.MeanRequiresVolumesReason;
+                return false;
+            }
+
             // Choosing another reference replaces the stored values of the missing one.
             if (attribute.StringValue != referenceChoice.Value) attribute.BufferReferenceSnapshot = null;
             attribute.StringValue = referenceChoice.Value;
             attribute.IntValue = (int)method;
-            var reference = DataManager.Data.FirstOrDefault(data => data.UniqueID == referenceChoice.Value);
             if (reference == null)
             {
                 if (attribute.BufferReferenceSnapshot != null) return true;

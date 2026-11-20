@@ -4,6 +4,7 @@ using System.Linq;
 using AnalysisITC.Core.Analysis;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.Statistics;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Numerics;
@@ -16,6 +17,7 @@ namespace AnalysisITC.Core.Data
         MatchedInjection = 0,
         Linear = 1,
         ExponentialDecay = 2,
+        Mean = 3,
     }
 
     public sealed class BufferSubtractionSettings
@@ -29,6 +31,7 @@ namespace AnalysisITC.Core.Data
 
         public const string StoredReferenceChoiceTitle = "Missing reference (stored values retained)";
         public const string StoredReferenceChoiceTooltip = "Reference not loaded; subtracts its saved buffer heats.";
+        public const string MeanMethodTooltip = "Subtract mean reference heat per injected volume.";
 
         public ExperimentData ReferenceExperiment => string.IsNullOrEmpty(ReferenceExperimentId)
             ? null
@@ -81,6 +84,8 @@ namespace AnalysisITC.Core.Data
                     return "Linear";
                 case BufferSubtractionMethod.ExponentialDecay:
                     return "Exp. decay";
+                case BufferSubtractionMethod.Mean:
+                    return "Mean";
                 default:
                     return "Matched";
             }
@@ -92,11 +97,13 @@ namespace AnalysisITC.Core.Data
         // Included, integrated reference injection: injection number and raw integrated heat.
         public double InjectionNumber { get; }
         public FloatWithError Heat { get; }
+        public double? Volume { get; }
 
-        public BufferSubtractionReferencePoint(double injectionNumber, FloatWithError heat)
+        public BufferSubtractionReferencePoint(double injectionNumber, FloatWithError heat, double? volume = null)
         {
             InjectionNumber = injectionNumber;
             Heat = heat;
+            Volume = volume;
         }
     }
 
@@ -145,10 +152,11 @@ namespace AnalysisITC.Core.Data
 
     public sealed class BufferSubtractionModel
     {
-        // Common evaluator used by matched-point subtraction and fitted subtraction models.
-        public delegate bool Evaluator(double injectionNumber, out FloatWithError heat);
+        // Mean uses injected volume in litres. The other methods use injection number.
+        public delegate bool Evaluator(double coordinate, out FloatWithError heat);
 
         readonly Evaluator evaluator;
+        readonly IReadOnlyList<BufferSubtractionReferencePoint> previewSchedule;
 
         public BufferSubtractionMethod Method { get; }
         public bool CanEvaluate => evaluator != null;
@@ -156,16 +164,27 @@ namespace AnalysisITC.Core.Data
 
         public static BufferSubtractionModel Empty(BufferSubtractionMethod method) => new BufferSubtractionModel(method, null);
 
-        public BufferSubtractionModel(BufferSubtractionMethod method, Evaluator evaluator)
+        public BufferSubtractionModel(BufferSubtractionMethod method, Evaluator evaluator) : this(method, evaluator, null) { }
+
+        internal BufferSubtractionModel(BufferSubtractionMethod method, Evaluator evaluator,
+            IReadOnlyList<BufferSubtractionReferencePoint> previewSchedule)
         {
             Method = method;
             this.evaluator = evaluator;
+            this.previewSchedule = previewSchedule;
         }
 
         public bool TryEvaluate(double injectionNumber, out FloatWithError heat)
         {
             heat = default;
-            return evaluator != null && evaluator(injectionNumber, out heat);
+            return Method != BufferSubtractionMethod.Mean && evaluator != null && evaluator(injectionNumber, out heat);
+        }
+
+        public bool TryEvaluate(double injectionNumber, double volume, out FloatWithError heat)
+        {
+            heat = default;
+            var coordinate = Method == BufferSubtractionMethod.Mean ? volume : injectionNumber;
+            return evaluator != null && evaluator(coordinate, out heat);
         }
 
         public List<BufferSubtractionModelPoint> GetLinePoints(double minInjectionNumber, double maxInjectionNumber)
@@ -173,6 +192,16 @@ namespace AnalysisITC.Core.Data
             // Only fitted methods draw a continuous model line in the preview graph.
             var points = new List<BufferSubtractionModelPoint>();
             if (!CanDrawLine) return points;
+            if (Method == BufferSubtractionMethod.Mean)
+            {
+                foreach (var point in previewSchedule ?? Array.Empty<BufferSubtractionReferencePoint>())
+                {
+                    if (point.InjectionNumber >= minInjectionNumber && point.InjectionNumber <= maxInjectionNumber
+                        && point.Volume.HasValue && TryEvaluate(point.InjectionNumber, point.Volume.Value, out var meanHeat))
+                        points.Add(new BufferSubtractionModelPoint(point.InjectionNumber, meanHeat.Value));
+                }
+                return points;
+            }
 
             var pointCount = Method == BufferSubtractionMethod.Linear ? 2 : 80;
             var span = maxInjectionNumber - minInjectionNumber;
@@ -215,6 +244,8 @@ namespace AnalysisITC.Core.Data
                     return BuildLinearModel(points);
                 case BufferSubtractionMethod.ExponentialDecay:
                     return BuildExponentialDecayModel(points);
+                case BufferSubtractionMethod.Mean:
+                    return BuildMeanModel(points, points);
                 default:
                     return new BufferSubtractionModel(
                         BufferSubtractionMethod.MatchedInjection,
@@ -234,6 +265,8 @@ namespace AnalysisITC.Core.Data
                     return BuildLinearModel(GetValidReferencePoints(referenceExperiment).ToList());
                 case BufferSubtractionMethod.ExponentialDecay:
                     return BuildExponentialDecayModel(GetValidReferencePoints(referenceExperiment).ToList());
+                case BufferSubtractionMethod.Mean:
+                    return BuildMeanModel(GetValidReferencePoints(referenceExperiment), GetReferenceSchedule(referenceExperiment));
                 default:
                     return BuildMatchedInjectionModel(referenceExperiment);
             }
@@ -241,12 +274,44 @@ namespace AnalysisITC.Core.Data
 
         public static bool TryGetReferenceHeat(InjectionData targetInjection, BufferSubtractionModel model, out FloatWithError heat)
         {
-            // Evaluate the buffer heat at the target injection's injection number.
             heat = default;
             if (targetInjection == null || model == null) return false;
 
-            return model.TryEvaluate(GetInjectionNumber(targetInjection), out heat);
+            return model.TryEvaluate(GetInjectionNumber(targetInjection), targetInjection.Volume, out heat);
         }
+
+        static BufferSubtractionModel BuildMeanModel(IEnumerable<BufferSubtractionReferencePoint> points,
+            IReadOnlyList<BufferSubtractionReferencePoint> schedule)
+        {
+            var heatsPerVolume = points
+                .Where(p => p.Volume > 0 && FWEMath.IsFinite(p.Volume.Value))
+                .Select(p => p.Heat.Value / p.Volume.Value)
+                .Where(FWEMath.IsFinite)
+                .ToArray();
+            if (heatsPerVolume.Length == 0) return BufferSubtractionModel.Empty(BufferSubtractionMethod.Mean);
+
+            var mean = heatsPerVolume.Average();
+            var standardError = heatsPerVolume.Length == 1 ? 0
+                : ArrayStatistics.StandardDeviation(heatsPerVolume) / Math.Sqrt(heatsPerVolume.Length);
+            if (!FWEMath.IsFinite(mean) || !FWEMath.IsFinite(standardError)) return BufferSubtractionModel.Empty(BufferSubtractionMethod.Mean);
+
+            return new BufferSubtractionModel(BufferSubtractionMethod.Mean,
+                (double targetVolume, out FloatWithError heat) =>
+                {
+                    heat = default;
+                    if (!FWEMath.IsFinite(targetVolume) || targetVolume <= 0) return false;
+                    var value = mean * targetVolume;
+                    var sd = standardError * targetVolume;
+                    if (!FWEMath.IsFinite(value) || !FWEMath.IsFinite(sd)) return false;
+                    heat = new FloatWithError(value, sd);
+                    return true;
+                }, schedule);
+        }
+
+        static IReadOnlyList<BufferSubtractionReferencePoint> GetReferenceSchedule(ExperimentData experiment) =>
+            experiment?.Injections?.Where(i => i != null && FWEMath.IsFinite(i.Volume) && i.Volume > 0)
+                .Select(i => new BufferSubtractionReferencePoint(GetInjectionNumber(i), i.RawPeakArea, i.Volume)).ToList()
+            ?? new List<BufferSubtractionReferencePoint>();
 
         static BufferSubtractionModel BuildMatchedInjectionModel(ExperimentData referenceExperiment)
         {
@@ -419,7 +484,8 @@ namespace AnalysisITC.Core.Data
         {
             return referenceExperiment?.Injections
                 ?.Where(IsValidReferenceInjection)
-                .Select(injection => new BufferSubtractionReferencePoint(GetInjectionNumber(injection), injection.RawPeakArea))
+                .Select(injection => new BufferSubtractionReferencePoint(GetInjectionNumber(injection), injection.RawPeakArea,
+                    FWEMath.IsFinite(injection.Volume) && injection.Volume > 0 ? injection.Volume : (double?)null))
                 ?? Enumerable.Empty<BufferSubtractionReferencePoint>();
         }
 

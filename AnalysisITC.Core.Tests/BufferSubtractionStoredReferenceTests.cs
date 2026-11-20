@@ -50,6 +50,7 @@ public sealed class BufferSubtractionStoredReferenceTests : IDisposable
     [InlineData(BufferSubtractionMethod.MatchedInjection)]
     [InlineData(BufferSubtractionMethod.Linear)]
     [InlineData(BufferSubtractionMethod.ExponentialDecay)]
+    [InlineData(BufferSubtractionMethod.Mean)]
     public void StoredValuesReproduceTheLiveReferenceModelExactly(BufferSubtractionMethod method)
     {
         var blank = CreateExperiment("blank", BlankHeats.Concat(new[] { 3.5e-6, 3.2e-6 }).ToArray());
@@ -62,10 +63,114 @@ public sealed class BufferSubtractionStoredReferenceTests : IDisposable
 
         for (var injectionNumber = 1; injectionNumber <= 8; injectionNumber++)
         {
-            Assert.Equal(live.TryEvaluate(injectionNumber, out var liveHeat), stored.TryEvaluate(injectionNumber, out var storedHeat));
+            Assert.True(live.TryEvaluate(injectionNumber, 2e-6, out var liveHeat));
+            Assert.True(stored.TryEvaluate(injectionNumber, 2e-6, out var storedHeat));
             Assert.Equal(liveHeat.Value, storedHeat.Value);
             Assert.Equal(liveHeat.SD, storedHeat.SD);
         }
+    }
+
+    [Fact]
+    public async Task MeanCorrectionAndVolumesSurviveSaveSelectedAndStrictReopen()
+    {
+        var (target, _) = AddTargetAndBlank(BufferSubtractionMethod.Mean);
+        var saved = Assert.Single((await ReadStrict(await SaveSelected(target))).OfType<ExperimentData>());
+        DataManager.Clear(DataClearMode.ResetSession);
+        DataManager.AddData(saved);
+        DataManager.ApplyOptions();
+        var experiment = saved;
+
+        Assert.All(experiment.BufferSubtractionSettings.Snapshot.Points,
+            point => Assert.Equal(2e-6, point.Volume));
+        Assert.All(experiment.Injections, injection => Assert.Equal(TargetHeat - BlankHeats.Average(), injection.PeakArea.Value, 15));
+    }
+
+    [Fact]
+    public async Task MeanSaveSelectedPreservesUnequalReferenceVolumesByInjection()
+    {
+        var referenceVolumes = new[] { 1e-6, 2e-6, 4e-6, 8e-6 };
+        var blank = CreateExperiment("blank", BlankHeats, referenceVolumes);
+        var target = CreateExperiment("target", Enumerable.Repeat(TargetHeat, BlankHeats.Length).ToArray());
+        DataManager.AddData(blank);
+        DataManager.AddData(target);
+        target.SetBufferSubtraction(blank, BufferSubtractionMethod.Mean, notify: false);
+
+        var experiment = Assert.Single((await ReadStrict(await SaveSelected(target))).OfType<ExperimentData>());
+        var points = experiment.BufferSubtractionSettings.Snapshot.Points;
+        Assert.Equal(referenceVolumes.Select(volume => (double?)volume), points.Select(point => point.Volume));
+        var meanHeatPerVolume = BlankHeats.Zip(referenceVolumes, (heat, volume) => heat / volume).Average();
+        Assert.All(experiment.Injections, injection =>
+            Assert.Equal(TargetHeat - meanHeatPerVolume * injection.Volume, injection.PeakArea.Value, 15));
+    }
+
+    [Fact]
+    public async Task DeferredMeanWithNoUsableVolumesSurvivesSaveAndUnrelatedDetailEdit()
+    {
+        var blank = CreateExperiment("blank", Array.Empty<double>());
+        var target = CreateExperiment("target", Enumerable.Repeat(TargetHeat, BlankHeats.Length).ToArray());
+        DataManager.AddData(blank);
+        DataManager.AddData(target);
+        target.SetBufferSubtraction(blank, BufferSubtractionMethod.Mean, notify: false);
+
+        var saved = Assert.Single((await ReadStrict(await SaveSelected(target))).OfType<ExperimentData>());
+        Assert.Equal(BufferSubtractionMethod.Mean, saved.BufferSubtractionSettings.Method);
+        Assert.Empty(saved.BufferSubtractionSettings.Snapshot.Points);
+        DataManager.Clear(DataClearMode.ResetSession);
+        DataManager.AddData(saved);
+        DataManager.ApplyOptions();
+
+        var edited = saved.Attributes.Select(attribute => attribute.Copy()).ToList();
+        var ionicStrength = ExperimentAttribute.FromKey(AttributeKey.IonicStrength);
+        ionicStrength.ParameterValue = new FloatWithError(0.15);
+        edited.Add(ionicStrength);
+        Assert.True(saved.UpdateDetailAttributes(edited));
+        Assert.Equal(BufferSubtractionMethod.Mean, saved.BufferSubtractionSettings.Method);
+        Assert.NotNull(saved.BufferSubtractionSettings.Snapshot);
+    }
+
+    [Fact]
+    public void MeanCorrectionTracksReferenceReintegrationAndReinclusion()
+    {
+        var blank = CreateExperiment("blank", BlankHeats);
+        var target = CreateExperiment("target", Enumerable.Repeat(TargetHeat, BlankHeats.Length).ToArray());
+        DataManager.AddData(blank);
+        DataManager.AddData(target);
+        target.SetBufferSubtraction(blank, BufferSubtractionMethod.Mean, notify: false);
+
+        blank.Injections[0].SetPeakArea(new FloatWithError(8e-6, HeatSd));
+        blank.UpdateProcessing();
+        blank.Injections[1].Include = false;
+        blank.UpdateProcessing();
+        var expectedWithoutExcluded = (8e-6 + 5e-6 + 4e-6) / 3;
+        Assert.All(target.Injections, injection => Assert.Equal(TargetHeat - expectedWithoutExcluded, injection.PeakArea.Value, 15));
+
+        blank.Injections[1].Include = true;
+        blank.UpdateProcessing();
+        var expectedWithAllIncluded = (8e-6 + 3e-6 + 5e-6 + 4e-6) / 4;
+        Assert.All(target.Injections, injection => Assert.Equal(TargetHeat - expectedWithAllIncluded, injection.PeakArea.Value, 15));
+    }
+
+    [Fact]
+    public void LegacyStoredSnapshotCannotSwitchToMeanUntilReferenceIsLoaded()
+    {
+        var legacy = new BufferSubtractionReferenceSnapshot("blank", new[]
+        {
+            new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6)),
+            new BufferSubtractionReferencePoint(2, new FloatWithError(3e-6)),
+        });
+        var target = CreateExperiment("target", new[] { TargetHeat, TargetHeat });
+        target.AddOrUpdateAttribute(new BufferSubtractionSettings("blank", BufferSubtractionMethod.Linear, legacy).ToAttribute(), notify: false);
+        var mean = target.Attributes.Single(attribute => attribute.Key == AttributeKey.BufferSubtraction).Copy();
+        mean.IntValue = (int)BufferSubtractionMethod.Mean;
+
+        var error = Assert.Throws<HandledException>(() => target.AddOrUpdateAttribute(mean, notify: false));
+        Assert.Contains(BufferSubtractionPolicy.MeanRequiresVolumesReason, error.Message);
+        Assert.Equal(BufferSubtractionMethod.Linear, target.BufferSubtractionSettings.Method);
+
+        DataManager.AddData(CreateExperiment("blank", BlankHeats));
+        Assert.True(target.AddOrUpdateAttribute(mean, notify: false));
+        Assert.Equal(BufferSubtractionMethod.Mean, target.BufferSubtractionSettings.Method);
+        Assert.NotNull(target.ReferenceExperiment);
     }
 
     [Fact]
@@ -236,15 +341,19 @@ public sealed class BufferSubtractionStoredReferenceTests : IDisposable
             .BufferSubtractionSettings.Snapshot);
     }
 
-    [Fact]
-    public async Task FullProjectSavesWithTheReferenceDoNotStoreValues()
+    [Theory]
+    [InlineData(BufferSubtractionMethod.MatchedInjection)]
+    [InlineData(BufferSubtractionMethod.Mean)]
+    public async Task FullProjectSavesWithTheReferenceDoNotStoreValues(BufferSubtractionMethod method)
     {
-        var (target, blank) = AddTargetAndBlank(BufferSubtractionMethod.MatchedInjection);
+        var (target, blank) = AddTargetAndBlank(method);
         var path = Path.Combine(directory, "full.ftxtc");
         await FTXTCWriter.WriteFileAsync(path, new[] { blank, target });
 
         var restored = (await ReadStrict(path)).OfType<ExperimentData>().Single(experiment => experiment.UniqueID == target.UniqueID);
         Assert.Null(restored.BufferSubtractionSettings.Snapshot);
+        if (method == BufferSubtractionMethod.Mean)
+            Assert.All(restored.Injections, injection => Assert.Equal(TargetHeat - BlankHeats.Average(), injection.PeakArea.Value, 15));
     }
 
     (ExperimentData Target, ExperimentData Blank) AddTargetAndBlank(BufferSubtractionMethod method)
@@ -288,8 +397,12 @@ public sealed class BufferSubtractionStoredReferenceTests : IDisposable
             Assert.Equal(rawHeat - BlankHeats[index], experiment.Injections[index].PeakArea.Value, 15);
     }
 
-    static ExperimentData CreateExperiment(string id, double[] heats)
+    static ExperimentData CreateExperiment(string id, double[] heats) =>
+        CreateExperiment(id, heats, Enumerable.Repeat(2e-6, heats.Length).ToArray());
+
+    static ExperimentData CreateExperiment(string id, double[] heats, double[] volumes)
     {
+        Assert.Equal(heats.Length, volumes.Length);
         var data = new ExperimentData(id + ".itc")
         {
             Name = id,
@@ -298,7 +411,7 @@ public sealed class BufferSubtractionStoredReferenceTests : IDisposable
         };
         data.SetID(id);
         for (var index = 0; index < heats.Length; index++)
-            data.Injections.Add(new InjectionData(data, index, 2e-6, 2e-10, include: true) { Time = 30 + index * 30 });
+            data.Injections.Add(new InjectionData(data, index, volumes[index], 2e-10, include: true) { Time = 30 + index * 30 });
         for (var index = 0; index < heats.Length; index++)
             data.Injections[index].SetPeakArea(new FloatWithError(heats[index], HeatSd));
         return data;

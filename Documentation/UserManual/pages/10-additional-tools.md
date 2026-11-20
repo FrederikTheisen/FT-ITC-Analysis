@@ -39,13 +39,14 @@ For Competitive Binding, enter the total competitor concentration and its dissoc
 
 **Buffer Subtraction...** models background heat from one reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and tandem experiments, and supports multiple targets. Buffer subtraction is currently unavailable for tandem experiments, including through Experiment Details. The correction uses the reference's available integrated heats; if the reference is processed later, target corrections update. Processing is described in [Processing](05-processing-thermograms.md).
 
-The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
+Choose the method that describes the reference heats.
 
 - **Matched** evaluates the reference heat at each target injection number, using nearby included reference injections when the matching injection is unavailable.
 - **Linear** fits a line through valid, included reference injections and evaluates it across target injections.
 - **Exp. decay** fits an exponential-decay model through valid, included reference injections when enough points are available.
+- **Mean** (the default) assumes that the expected blank heat is proportional to injection volume throughout the experiment. It averages the heat per unit volume of the included reference injections, giving each injection equal weight. The correction for each target injection is this mean multiplied by its volume.
 
-The preview graph shows reference and target heats and the selected subtraction model. Reference-point inclusion changes the points available to the fitted methods. **Focus Y axis on buffer data** changes only the preview range. A continuous model line appears for **Linear** and **Exp. decay**; **Matched** is represented by injection-level reference values.
+The preview graph shows reference and target heats and the selected subtraction model. Click a reference point to change whether it contributes to the correction. With **Mean**, the line shows the expected blank heat at each reference injection volume. **Focus Y axis on buffer data** changes only the preview range.
 
 ![Buffer Subtraction window showing a processed reference, selected targets, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.](../assets/buffer-subtraction.png)
 
@@ -66,6 +67,8 @@ When a target is saved without its reference experiment, for example with **Save
 > $$
 >
 > The selected method determines the reference value evaluated for injection $i$. $q_{i,\mathrm{target}}$ is the target heat, $q_{i,\mathrm{ref}}$ is the corresponding reference value, and $q_{i,\mathrm{corr}}$ is the corrected heat used for fitting and export. The $\sigma$ values are standard deviations (SDs). The corrected heat's SD combines the target and reference SDs as independent errors; subtracting the heats does not subtract their SDs.
+>
+> With **Mean**, the reference SD is the standard error of the mean heat per unit volume multiplied by the target injection volume. The same mean corrects every injection, so its uncertainty is shared.
 >
 > With **Matched**, the reference SD comes from the matched injection. If the method uses the average of the nearest included injections on either side, its SD is half the square root of the sum of their squared SDs. With **Linear** or **Exp. decay**, the subtracted reference value is the fitted line or curve, so the reference SD is the uncertainty of that fitted value at injection $i$, not the scatter of single reference heats. It is calculated from the scatter of included reference heats around the fit (not their individual error bars) and from how well the included injections determine the fit at injection $i$. Because the fit averages over many injections, this SD is usually much smaller than the scatter and is largest near the ends of the reference range. Beyond the included reference range, fitted-curve uncertainty can exceed the residual scatter. The same fitted curve corrects every injection, so this part of the error is shared between injections rather than independent. If the fit has no degrees of freedom left to estimate that scatter, the model assigns a reference SD of zero; this does not establish that the correction is exact.
 

@@ -83,6 +83,53 @@ public sealed class TandemBufferSubtractionTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void SubtractionToolAndDetailsOfferMeanButRejectLegacySnapshotsWithoutVolumes()
+    {
+        var reference = Experiment("blank", 2e-6);
+        var secondReferenceInjection = InjectionData.FromPEAQFile(reference, 1, true, 0, 3e-6, 10, 1, 25);
+        secondReferenceInjection.SetPeakArea(new FloatWithError(15e-6));
+        reference.Injections.Add(secondReferenceInjection);
+        var target = Experiment("target", 5e-6);
+        DataManager.AddData(new[] { reference, target });
+        var window = new BufferSubtractionWindow();
+        try
+        {
+            var methods = Field<ComboBox>(window, "methodCombo");
+            Assert.Contains(methods.Items.Cast<object>(), item => item.ToString() == "Mean");
+            Assert.Equal((int)AppSettings.BufferSubtractionDefaultMethod, methods.SelectedIndex);
+            methods.SelectedIndex = (int)BufferSubtractionMethod.Mean;
+            var preview = Field<BufferSubtractionGraphControl>(window, "graph");
+            var previewModel = (BufferSubtractionModel?)typeof(BufferSubtractionGraphControl)
+                .GetField("model", Private)!.GetValue(preview);
+            Assert.NotNull(previewModel);
+            var previewPoints = previewModel!.GetLinePoints(1, 2);
+            Assert.Equal(new[] { 1d, 2d }, previewPoints.Select(point => point.InjectionNumber));
+            Assert.InRange(Math.Abs(previewPoints[0].Heat - 10e-6), 0, 1e-18);
+            Assert.InRange(Math.Abs(previewPoints[1].Heat - 15e-6), 0, 1e-18);
+            Assert.True(BufferSubtractionCalculator.TryGetReferenceHeat(target.Injections[0], previewModel, out var targetReferenceHeat));
+            Assert.Equal(25e-6, targetReferenceHeat.Value, 12);
+            var targets = Field<ListBox>(window, "targetList");
+            targets.SelectedIndex = targets.Items.Cast<ExperimentData>().ToList().IndexOf(target);
+            Invoke(window, "Apply");
+            Assert.True(window.Applied);
+            Assert.Equal(BufferSubtractionMethod.Mean, target.BufferSubtractionSettings!.Method);
+            Assert.Equal(reference.UniqueID, target.BufferSubtractionSettings.ReferenceExperimentId);
+
+            var settings = new BufferSubtractionSettings("missing", BufferSubtractionMethod.MatchedInjection,
+                new BufferSubtractionReferenceSnapshot("blank", new[] { new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6)) }));
+            target.AddOrUpdateAttribute(settings.ToAttribute(), notify: false);
+            var editor = new ExperimentAttributeEditorControl(target.Attributes.Single().Copy(), (_, _) => true, target);
+            var detailMethods = Field<ComboBox>(editor, "methodCombo");
+            Assert.Contains(detailMethods.Items.Cast<object>(), item => item.ToString() == "Mean");
+            detailMethods.SelectedIndex = detailMethods.Items.Cast<object>()
+                .Select((item, index) => (item, index)).Single(pair => pair.item.ToString() == "Mean").index;
+            Assert.False(editor.TryApply(target, out var error));
+            Assert.Equal(BufferSubtractionPolicy.MeanRequiresVolumesReason, error);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void DetailsCannotAddSubtractionToTandemButOrdinaryExperimentsCan()
     {
         var tandem = Experiment("tandem");
@@ -118,7 +165,7 @@ public sealed class TandemBufferSubtractionTests : IDisposable
         new BufferSubtractionReferenceSnapshot("blank", new[] { new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6)) }))
         .ToAttribute(), notify: false);
 
-    static ExperimentData Experiment(string name)
+    static ExperimentData Experiment(string name, double volume = 2e-6)
     {
         var data = new ExperimentData(name)
         {
@@ -126,7 +173,7 @@ public sealed class TandemBufferSubtractionTests : IDisposable
         };
         data.DataPoints.Add(new DataPoint(0, 0, 25));
         data.DataPoints.Add(new DataPoint(1, 0, 25));
-        var injection = InjectionData.FromPEAQFile(data, 0, true, 0, 2e-6, 10, 1, 25);
+        var injection = InjectionData.FromPEAQFile(data, 0, true, 0, volume, 10, 1, 25);
         injection.SetPeakArea(new FloatWithError(10e-6));
         data.Injections.Add(injection);
         return data;

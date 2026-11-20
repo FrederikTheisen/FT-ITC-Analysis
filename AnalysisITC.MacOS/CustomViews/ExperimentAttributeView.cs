@@ -530,6 +530,14 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 Tag = (int)BufferSubtractionMethod.ExponentialDecay,
                 ToolTip = "Subtract a single exponential decay fit through the included buffer injections.",
             });
+            BufferSubtractionMethodControl.Menu.AddItem(new NSMenuItem(BufferSubtractionMethod.Mean.GetDisplayName())
+            {
+                Tag = (int)BufferSubtractionMethod.Mean,
+                ToolTip = BufferSubtractionSettings.MeanMethodTooltip,
+            });
+
+            EnumPopUpControl.Activated += (_, __) => UpdateMeanMethodAvailability();
+            UpdateMeanMethodAvailability();
 
             var method = BufferSubtractionSettings.FromAttribute(Option)?.Method ?? BufferSubtractionMethod.MatchedInjection;
             BufferSubtractionMethodControl.SelectItemWithTag((int)method);
@@ -542,6 +550,16 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 EnumPopUpControl.Enabled = BufferSubtractionMethodControl.Enabled = false;
                 EnumPopUpControl.ToolTip = BufferSubtractionMethodControl.ToolTip = BufferSubtractionPolicy.TandemTargetReason;
             }
+        }
+
+        void UpdateMeanMethodAvailability()
+        {
+            var meanItem = BufferSubtractionMethodControl?.Menu.Items.FirstOrDefault(item => item.Tag == (int)BufferSubtractionMethod.Mean);
+            if (meanItem == null) return;
+            var unavailable = EnumPopUpControl?.SelectedTag == StoredBufferReferenceTag
+                && !BufferSubtractionPolicy.CanUseStoredMethod(Option.BufferReferenceSnapshot, (BufferSubtractionMethod)Option.IntValue, BufferSubtractionMethod.Mean);
+            meanItem.Enabled = !unavailable;
+            meanItem.ToolTip = unavailable ? BufferSubtractionPolicy.MeanRequiresVolumesReason : BufferSubtractionSettings.MeanMethodTooltip;
         }
 
         void SetupCompetitorResult()
@@ -791,7 +809,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         {
                             // Keep the reference ID and its stored values; only the method can change.
                             if (BufferSubtractionMethodControl != null)
-                                Option.IntValue = (int)BufferSubtractionMethodControl.SelectedTag;
+                            {
+                                var method = (BufferSubtractionMethod)(int)BufferSubtractionMethodControl.SelectedTag;
+                                BufferSubtractionPolicy.ValidateStoredMethod(Option.BufferReferenceSnapshot, (BufferSubtractionMethod)Option.IntValue, method);
+                                Option.IntValue = (int)method;
+                            }
                             break;
                         }
                         if (idx != -1)

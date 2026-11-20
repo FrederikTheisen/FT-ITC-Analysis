@@ -56,7 +56,7 @@
     "bufferReferencePoint": {
       "type": "object", "additionalProperties": false,
       "required": ["injectionNumber", "heat"],
-      "properties": { "injectionNumber": { "$ref": "#/$defs/number" }, "heat": { "$ref": "#/$defs/floatWithError" } }
+      "properties": { "injectionNumber": { "$ref": "#/$defs/number" }, "heat": { "$ref": "#/$defs/floatWithError" }, "volume": { "$ref": "#/$defs/number" } }
     },
     "tandemSegment": {
       "type": "object", "additionalProperties": false,

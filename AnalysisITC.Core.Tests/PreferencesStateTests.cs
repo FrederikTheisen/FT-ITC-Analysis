@@ -553,6 +553,19 @@ public sealed class PreferencesStateTests : IDisposable
     }
 
     [Fact]
+    public void BufferSubtractionDefaultsToMeanAndPreservesAStoredMatchedPreference()
+    {
+        AppSettings.Reset();
+        AppSettings.Load();
+        Assert.Equal(BufferSubtractionMethod.Mean, AppSettings.BufferSubtractionDefaultMethod);
+        Assert.Equal((int)BufferSubtractionMethod.Mean, ExperimentAttribute.FromKey(AttributeKey.BufferSubtraction).IntValue);
+
+        store.SetInt("BufferSubtractionDefaultMethod", (int)BufferSubtractionMethod.MatchedInjection);
+        AppSettings.Load();
+        Assert.Equal(BufferSubtractionMethod.MatchedInjection, AppSettings.BufferSubtractionDefaultMethod);
+    }
+
+    [Fact]
     public void BookkeepingDefaultsToDiscreteAndStoredMicroCalPreferenceRoundTrips()
     {
         Assert.Equal(DilutionMethod.DiscreteDisplacement, PreferencesState.Defaults().DilutionCalculationMethod);

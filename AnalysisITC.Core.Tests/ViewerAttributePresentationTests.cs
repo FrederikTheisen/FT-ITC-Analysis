@@ -163,15 +163,17 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("missing")]
-        public async Task MissingReferenceUsesStoredNameAndMethod(string referenceId)
+        [InlineData(null, BufferSubtractionMethod.Linear, "Linear")]
+        [InlineData("missing", BufferSubtractionMethod.Linear, "Linear")]
+        [InlineData("missing", BufferSubtractionMethod.Mean, "Mean")]
+        public async Task MissingReferenceUsesStoredNameAndMethod(string referenceId, BufferSubtractionMethod method, string expectedLabel)
         {
             var target = new ExperimentData("stored.itc");
-            target.Attributes.Add(new BufferSubtractionSettings(referenceId, BufferSubtractionMethod.Linear,
-                new BufferSubtractionReferenceSnapshot("Blank", Array.Empty<BufferSubtractionReferencePoint>())).ToAttribute());
+            var blank = new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6), 1e-6);
+            target.Attributes.Add(new BufferSubtractionSettings(referenceId, method,
+                new BufferSubtractionReferenceSnapshot("Blank", new[] { blank })).ToAttribute());
 
-            Assert.Equal("Blank (stored values, Linear)", Value(await Read(target), "Reference"));
+            Assert.Equal($"Blank (stored values, {expectedLabel})", Value(await Read(target), "Reference"));
         }
 
         [Theory]

@@ -51,8 +51,11 @@ public sealed partial class AnalysisReportBuilderTests
             new AnalysisReportOptions().UncertaintyDisplayStyle);
     }
 
-    [Fact]
-    public void ReportShowsSavedBookkeepingInProcessingAndBufferSubtractionSeparatelyFromCurrentSettings()
+    [Theory]
+    [InlineData(BufferSubtractionMethod.MatchedInjection, "matched injections")]
+    [InlineData(BufferSubtractionMethod.Mean, "mean")]
+    public void ReportShowsSavedBookkeepingInProcessingAndBufferSubtractionSeparatelyFromCurrentSettings(
+        BufferSubtractionMethod savedMethod, string savedMethodLabel)
     {
         var result = CreateResult(1);
         var member = result.Solution.Solutions[0];
@@ -63,7 +66,7 @@ public sealed partial class AnalysisReportBuilderTests
         savedReference.SetID("saved-reference");
         var currentReference = new ExperimentData("Current buffer blank");
         currentReference.SetID("current-reference");
-        experiment.SetBufferSubtraction(savedReference, BufferSubtractionMethod.MatchedInjection, notify: false);
+        experiment.SetBufferSubtraction(savedReference, savedMethod, notify: false);
         result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
         experiment.SetBufferSubtraction(currentReference, BufferSubtractionMethod.Linear, notify: false);
 
@@ -81,7 +84,7 @@ public sealed partial class AnalysisReportBuilderTests
             block.Title == "Buffer subtraction used in fit" && block.Items.Any(item =>
                 item.Label == "1A"
                 && item.Value.Contains("Saved buffer blank", StringComparison.Ordinal)
-                && item.Value.Contains("matched injections", StringComparison.OrdinalIgnoreCase)));
+                && item.Value.Contains(savedMethodLabel, StringComparison.OrdinalIgnoreCase)));
 
         var processing = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>()

@@ -538,7 +538,7 @@ namespace AnalysisITC.Core.Application
             if (Enum.IsDefined(typeof(BufferSubtractionMethod), method))
                 return (BufferSubtractionMethod)method;
 
-            return BufferSubtractionMethod.MatchedInjection;
+            return PreferencesState.Defaults().BufferSubtractionDefaultMethod;
         }
 
         static EnergyUnitFamily ReadEnergyUnitFamily()

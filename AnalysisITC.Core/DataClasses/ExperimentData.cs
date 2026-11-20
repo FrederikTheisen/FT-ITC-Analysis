@@ -670,14 +670,17 @@ namespace AnalysisITC.Core.Data
 
         void ValidateBufferSubtractionChange(ExperimentAttribute incoming)
         {
-            if (!IsTandemExperiment) return;
-
             // Saved corrections remain readable and removable. Retaining the same evidence
             // during restoration or an unrelated metadata edit does not apply a new correction.
             var existing = Attributes.Find(attribute => attribute.Key == AttributeKey.BufferSubtraction);
             if (existing != null && ExperimentAttributeSnapshot.Capture(existing)
                 .EquivalentTo(ExperimentAttributeSnapshot.Capture(incoming))
                 && SameStoredBufferReference(existing.BufferReferenceSnapshot, incoming.BufferReferenceSnapshot)) return;
+
+            var settings = BufferSubtractionSettings.FromAttribute(incoming);
+            if (settings.Snapshot != null && settings.ReferenceExperiment == null)
+                BufferSubtractionPolicy.ValidateStoredMethod(settings.Snapshot, BufferSubtractionSettings.FromAttribute(existing)?.Method, settings.Method);
+            if (!IsTandemExperiment) return;
 
             BufferSubtractionPolicy.ValidateTarget(this);
         }
@@ -688,7 +691,8 @@ namespace AnalysisITC.Core.Data
             return first != null && second != null && first.ReferenceName == second.ReferenceName
                 && first.Points.Count == second.Points.Count
                 && first.Points.Zip(second.Points, (left, right) => left.InjectionNumber == right.InjectionNumber
-                    && left.Heat.Value.Equals(right.Heat.Value) && left.Heat.SD.Equals(right.Heat.SD)).All(equal => equal);
+                    && left.Heat.Value.Equals(right.Heat.Value) && left.Heat.SD.Equals(right.Heat.SD)
+                    && left.Volume.Equals(right.Volume)).All(equal => equal);
         }
 
         double[] GetLocalBootstrapResiduals(List<InjectionData> included, bool weighted)

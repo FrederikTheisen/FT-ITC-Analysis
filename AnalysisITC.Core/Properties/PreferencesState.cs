@@ -97,7 +97,7 @@ namespace AnalysisITC.Core.Application
         public bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.DiscreteDisplacement;
-        public BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; } = BufferSubtractionMethod.MatchedInjection;
+        public BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; } = BufferSubtractionMethod.Mean;
         public bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
         public SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
         public SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;

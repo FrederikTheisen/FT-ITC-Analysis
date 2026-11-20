@@ -52,7 +52,10 @@ namespace AnalysisITC
             };
 
             if (SubtractionMethodControl != null)
+            {
                 SubtractionMethodControl.SelectedSegment = (int)AppSettings.BufferSubtractionDefaultMethod;
+                SubtractionMethodControl.SetToolTip(BufferSubtractionSettings.MeanMethodTooltip, (int)BufferSubtractionMethod.Mean);
+            }
 
             if (GraphView != null)
             {
@@ -181,6 +184,7 @@ namespace AnalysisITC
                 {
                     1 => BufferSubtractionMethod.Linear,
                     2 => BufferSubtractionMethod.ExponentialDecay,
+                    3 => BufferSubtractionMethod.Mean,
                     _ => BufferSubtractionMethod.MatchedInjection,
                 };
             }

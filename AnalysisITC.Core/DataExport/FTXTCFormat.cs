@@ -306,6 +306,7 @@ namespace AnalysisITC.Core.Export
             {
                 InjectionNumber = point.InjectionNumber,
                 Heat = FtxtcFloatWithError.Capture(point.Heat),
+                Volume = point.Volume,
             }).ToList(),
         };
 
@@ -315,7 +316,8 @@ namespace AnalysisITC.Core.Export
             {
                 return new BufferSubtractionReferenceSnapshot(ReferenceName, (Points ?? throw new InvalidDataException("Buffer reference values have no points."))
                     .Select(point => new BufferSubtractionReferencePoint(point?.InjectionNumber ?? double.NaN,
-                        point?.Heat?.Restore() ?? throw new InvalidDataException("Buffer reference value has no heat."))));
+                        point?.Heat?.Restore() ?? throw new InvalidDataException("Buffer reference value has no heat."),
+                        point?.Volume)));
             }
             catch (ArgumentException ex)
             {
@@ -328,6 +330,8 @@ namespace AnalysisITC.Core.Export
     {
         public double InjectionNumber { get; set; }
         public FtxtcFloatWithError Heat { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? Volume { get; set; }
     }
 
     internal sealed class FtxtcWriteOptions

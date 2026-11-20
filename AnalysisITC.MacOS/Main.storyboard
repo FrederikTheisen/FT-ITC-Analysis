@@ -1602,7 +1602,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
         <!--Buffer Subtraction Tool-->
         <scene sceneID="4fC-rR-6HT">
             <objects>
-                <viewController title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="BufferSubtractionTool" title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
                     <view key="view" id="TAn-zL-CfY">
                         <rect key="frame" x="0.0" y="0.0" width="470" height="716"/>
                         <autoresizingMask key="autoresizingMask"/>
@@ -1695,6 +1695,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                         <segment label="Matched" toolTip="Subtract the matching buffer injection, with nearby valid injections used as fallback." selected="YES"/>
                                                         <segment label="Linear" toolTip="Subtract a straight-line fit through the included buffer injections." tag="1"/>
                                                         <segment label="Exp. decay" toolTip="Subtract a single exponential decay fit through the included buffer injections." tag="2"/>
+                                                        <segment label="Mean" tag="3"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>

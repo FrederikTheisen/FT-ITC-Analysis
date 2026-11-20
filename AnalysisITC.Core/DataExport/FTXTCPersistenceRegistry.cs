@@ -153,6 +153,7 @@ namespace AnalysisITC.Core.Export
                 [BufferSubtractionMethod.MatchedInjection] = "matched-injection",
                 [BufferSubtractionMethod.Linear] = "linear",
                 [BufferSubtractionMethod.ExponentialDecay] = "exponential-decay",
+                [BufferSubtractionMethod.Mean] = "mean",
             };
 
         static readonly IReadOnlyDictionary<ExperimentSpeciesLocation, string> SpeciesLocations =

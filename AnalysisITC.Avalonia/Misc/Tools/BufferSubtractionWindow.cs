@@ -20,7 +20,7 @@ namespace AnalysisITC.Avalonia.Tools
     public sealed class BufferSubtractionWindow : Window
     {
         readonly ComboBox referenceCombo = Combo(210);
-        readonly ComboBox methodCombo = Combo(new[] { "Matched", "Linear", "Exp. decay" }, 210);
+        readonly ComboBox methodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => method.GetDisplayName()).ToArray(), 210);
         readonly CheckBox focusYAxisCheck = Check("Focus Y axis on buffer data", false);
         readonly ListBox targetList = new ListBox { SelectionMode = SelectionMode.Multiple };
         readonly BufferSubtractionGraphControl graph = new BufferSubtractionGraphControl();
@@ -89,6 +89,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             referenceCombo.SelectedIndex = experiments.Count > 0 ? 0 : -1;
             methodCombo.SelectedIndex = (int)AppSettings.BufferSubtractionDefaultMethod;
+            UpdateMethodToolTip();
         }
 
         void WireEvents()
@@ -98,7 +99,11 @@ namespace AnalysisITC.Avalonia.Tools
                 RefreshTargets();
                 RefreshPreview();
             };
-            methodCombo.SelectionChanged += (_, _) => RefreshPreview();
+            methodCombo.SelectionChanged += (_, _) =>
+            {
+                UpdateMethodToolTip();
+                RefreshPreview();
+            };
             focusYAxisCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             targetList.SelectionChanged += (_, _) => RefreshPreview();
             graph.BufferPointIncludeChanged += (_, _) => RefreshPreview();
@@ -157,9 +162,13 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 1 => BufferSubtractionMethod.Linear,
                 2 => BufferSubtractionMethod.ExponentialDecay,
+                3 => BufferSubtractionMethod.Mean,
                 _ => BufferSubtractionMethod.MatchedInjection
             };
         }
+
+        void UpdateMethodToolTip() => ToolTip.SetTip(methodCombo,
+            SelectedMethod() == BufferSubtractionMethod.Mean ? BufferSubtractionSettings.MeanMethodTooltip : null);
 
         void Apply()
         {

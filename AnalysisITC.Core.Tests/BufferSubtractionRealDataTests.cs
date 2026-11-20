@@ -114,6 +114,79 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void MeanUsesUnweightedPerVolumeHeatAndSampleSem()
+        {
+            var snapshot = new BufferSubtractionReferenceSnapshot("blank", new[]
+            {
+                new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6, 1e-8), 1e-6),
+                new BufferSubtractionReferencePoint(2, new FloatWithError(12e-6, 1e-8), 3e-6),
+            });
+            var model = BufferSubtractionCalculator.BuildModel(snapshot,
+                new BufferSubtractionSettings("blank", BufferSubtractionMethod.Mean));
+
+            Assert.False(model.TryEvaluate(1, out _));
+            Assert.True(model.TryEvaluate(7, 2e-6, out var heat));
+            Assert.Equal(6e-6, heat.Value, 15);
+            Assert.Equal(2e-6, heat.SD, 15);
+
+            Assert.False(model.TryEvaluate(7, 0, out _));
+            Assert.False(model.TryEvaluate(7, double.NaN, out _));
+        }
+
+        [Fact]
+        public void MeanPreviewUsesIncludedMeanAndActualReferenceInjectionVolumes()
+        {
+            var reference = Read("hepes-blank.DH");
+            var model = BufferSubtractionCalculator.BuildModel(reference,
+                new BufferSubtractionSettings(reference.UniqueID, BufferSubtractionMethod.Mean));
+
+            var points = model.GetLinePoints(1, reference.InjectionCount);
+            Assert.Equal(reference.InjectionCount, points.Count);
+            Assert.Equal(1, points[0].InjectionNumber);
+            Assert.Equal(reference.InjectionCount, points[^1].InjectionNumber);
+
+            // Independently calculated from the 55 included 5 µL injections in the DH file.
+            const double meanMicrocalories = -0.3853347272727273;
+            const double semMicrocalories = 0.0294580399878007;
+            Assert.All(points.Skip(1), point =>
+                Assert.Equal(meanMicrocalories, Microcalories(new FloatWithError(point.Heat)), 10));
+            Assert.False(reference.Injections[0].Include);
+            Assert.Equal(meanMicrocalories / 5, Microcalories(new FloatWithError(points[0].Heat)), 10);
+            Assert.True(BufferSubtractionCalculator.TryGetReferenceHeat(reference.Injections[0], model, out var firstHeat));
+            Assert.Equal(semMicrocalories / 5, MicrocaloriesSd(firstHeat), 10);
+        }
+
+        [Fact]
+        public void MeanUsesEqualWeightsAndHandlesOneOrNoUsableVolumePoints()
+        {
+            var settings = new BufferSubtractionSettings("blank", BufferSubtractionMethod.Mean);
+            var equallyWeighted = new BufferSubtractionReferenceSnapshot("blank", new[]
+            {
+                new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6, double.NaN), 1e-6),
+                new BufferSubtractionReferencePoint(2, new FloatWithError(4e-6, 0), 1e-6),
+                new BufferSubtractionReferencePoint(3, new FloatWithError(1e-6, 0), 0),
+                new BufferSubtractionReferencePoint(4, new FloatWithError(double.NaN, 0), 1e-6),
+            });
+            var model = BufferSubtractionCalculator.BuildModel(equallyWeighted, settings);
+            Assert.True(model.TryEvaluate(5, 2e-6, out var heat));
+            Assert.Equal(6e-6, heat.Value, 15);
+            Assert.Equal(2e-6, heat.SD, 15);
+            var equalVolumeLine = model.GetLinePoints(1, 2);
+            Assert.Equal(new[] { 1d, 2d }, equalVolumeLine.Select(point => point.InjectionNumber));
+            Assert.All(equalVolumeLine, point => Assert.Equal(3e-6, point.Heat, 15));
+
+            var onePoint = BufferSubtractionCalculator.BuildModel(new BufferSubtractionReferenceSnapshot("blank", new[]
+                { new BufferSubtractionReferencePoint(1, new FloatWithError(3e-6), 1e-6) }), settings);
+            Assert.True(onePoint.TryEvaluate(1, 2e-6, out var oneHeat));
+            Assert.Equal(6e-6, oneHeat.Value, 15);
+            Assert.Equal(0, oneHeat.SD);
+
+            var noPoints = BufferSubtractionCalculator.BuildModel(new BufferSubtractionReferenceSnapshot("blank", new[]
+                { new BufferSubtractionReferencePoint(1, new FloatWithError(3e-6), double.NaN) }), settings);
+            Assert.False(noPoints.TryEvaluate(1, 2e-6, out _));
+        }
+
+        [Fact]
         public void ExponentialModelSdIsTheStandardErrorOfTheFittedCurve()
         {
             var reference = Read("hepes-blank.DH");

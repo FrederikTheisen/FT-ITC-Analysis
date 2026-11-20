@@ -21,14 +21,15 @@ static class TandemBufferSubtractionTests
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     static extern IntPtr Send(IntPtr receiver, IntPtr selector);
 
-    static int Main()
+    static int Main(string[] args)
     {
         NSApplication.Init();
         try
         {
             for (var mode = 0; mode < 3; mode++) MergerAvailability(mode);
-            SubtractionTargets();
+            SubtractionTargets(args[1]);
             DetailsAvailability();
+            MeanMethodAvailability();
             Console.WriteLine("PASS: native tandem restrictions cover all merger modes, subtraction targets, and Details controls/removal");
             return 0;
         }
@@ -78,22 +79,53 @@ static class TandemBufferSubtractionTests
         }
     }
 
-    static void SubtractionTargets()
+    static void SubtractionTargets(string storyboardPath)
     {
         DataManager.Clear(DataClearMode.ResetSession);
         var reference = Experiment("blank");
-        var ordinary = Experiment("ordinary");
+        var ordinary = Experiment("ordinary", 5e-6);
         var tandem = Experiment("tandem");
         tandem.AddSegment(new TandemExperimentSegment(0, tandem.CellConcentration, 0));
         DataManager.AddData(new[] { reference, ordinary, tandem });
-        using (var controller = MakeController<BufferSubtractionTool>())
+        new Class(typeof(BufferSubtractionTool));
+        new Class(typeof(BufferSubtractionGraphView));
+        using (var resources = NSBundle.FromPath(System.IO.Path.GetDirectoryName(storyboardPath)))
+        using (var storyboard = NSStoryboard.FromName("Main", resources))
+        using (var controller = (BufferSubtractionTool)storyboard.InstantiateControllerWithIdentifier("BufferSubtractionTool"))
+        using (var window = new NSWindow(new CGRect(0, 0, 700, 600), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
+        using (var presenter = new NSViewController { View = new NSView(new CGRect(0, 0, 700, 600)) })
         {
-            controller.ViewDidLoad();
+            window.ContentViewController = presenter;
+            window.OrderFront(null);
+            presenter.PresentViewControllerAsSheet(controller);
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+            controller.View.LayoutSubtreeIfNeeded();
+            var methodControl = Property<NSSegmentedControl>(controller, "SubtractionMethodControl");
+            Check(methodControl.SegmentCount == 4, "Mean segment is missing from the subtraction tool");
+            Check((int)methodControl.SelectedSegment == (int)AppSettings.BufferSubtractionDefaultMethod,
+                "subtraction tool did not select the configured default method");
             var source = Field<ExperimentMergeQueueDataSource>(controller, "mergeSource");
             Check(source.Items.Any(item => item.Data == ordinary), "ordinary target missing");
             Check(source.Items.All(item => item.Data != tandem), "tandem remained a subtraction target");
             Check(Property<NSTableView>(controller, "SelectListView").ToolTip == BufferSubtractionPolicy.TandemTargetReason,
                 "target list lacks restriction explanation");
+            var referencePopup = Property<NSPopUpButton>(controller, "ReferenceExperimentSelection");
+            referencePopup.SelectItem(1);
+            methodControl.SelectedSegment = (int)BufferSubtractionMethod.Mean;
+            var targetIndex = source.Items.FindIndex(item => item.Data == ordinary);
+            Property<NSTableView>(controller, "SelectListView").SelectRow(targetIndex, false);
+            Invoke(controller, "UpdateGraph");
+            var previewModel = Property<BufferSubtractionGraphView>(controller, "GraphView")
+                .BufferSubtractionGraph.SubtractionModel;
+            var points = previewModel.GetLinePoints(1, 2);
+            Check(points.Count == 1 && Math.Abs(points[0].Heat - 10e-6) < 1e-18,
+                "Mean preview did not use the reference injection volume schedule");
+            Invoke(controller, "Apply", new NSObject());
+            NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.1));
+            Check(ordinary.BufferSubtractionSettings?.Method == BufferSubtractionMethod.Mean,
+                "Apply did not assign Mean to a target with a different injection volume");
+            Check(Math.Abs(ordinary.Injections[0].PeakArea.Value - (-15e-6)) < 1e-18,
+                "Apply did not scale Mean correction to the target injection volume");
             controller.ViewWillDisappear();
         }
     }
@@ -126,6 +158,22 @@ static class TandemBufferSubtractionTests
         }
     }
 
+    static void MeanMethodAvailability()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var target = Experiment("target");
+        var settings = new BufferSubtractionSettings("missing", BufferSubtractionMethod.MatchedInjection,
+            new BufferSubtractionReferenceSnapshot("blank", new[] { new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6)) }));
+        target.AddOrUpdateAttribute(settings.ToAttribute(), notify: false);
+        using (var row = new ExperimentAttributeView(new CGRect(0, 0, 680, 22), target.Attributes.Single().Copy(), true, target))
+        {
+            var methods = Property<NSPopUpButton>(row, "BufferSubtractionMethodControl");
+            var mean = methods.Menu.Items.Single(item => item.Tag == (int)BufferSubtractionMethod.Mean);
+            Check(!mean.Enabled, "Mean remained selectable for a legacy snapshot without injection volumes");
+            Check(mean.ToolTip == BufferSubtractionPolicy.MeanRequiresVolumesReason, "Mean unavailability tooltip missing");
+        }
+    }
+
     static T MakeController<T>() where T : NSViewController
     {
         var handle = Send(Send(new Class(typeof(T)).Handle, Selector.GetHandle("alloc")), Selector.GetHandle("init"));
@@ -155,7 +203,7 @@ static class TandemBufferSubtractionTests
         new BufferSubtractionReferenceSnapshot("blank", new[] { new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6)) }))
         .ToAttribute(), notify: false);
 
-    static ExperimentData Experiment(string name)
+    static ExperimentData Experiment(string name, double volume = 2e-6)
     {
         var data = new ExperimentData(name)
         {
@@ -163,7 +211,7 @@ static class TandemBufferSubtractionTests
         };
         data.DataPoints.Add(new DataPoint(0, 0, 25));
         data.DataPoints.Add(new DataPoint(1, 0, 25));
-        var injection = InjectionData.FromPEAQFile(data, 0, true, 0, 2e-6, 10, 1, 25);
+        var injection = InjectionData.FromPEAQFile(data, 0, true, 0, volume, 10, 1, 25);
         injection.SetPeakArea(new FloatWithError(10e-6));
         data.Injections.Add(injection);
         return data;
@@ -171,6 +219,6 @@ static class TandemBufferSubtractionTests
 
     static T Field<T>(object instance, string name) => (T)instance.GetType().GetField(name, Private).GetValue(instance);
     static T Property<T>(object instance, string name) => (T)instance.GetType().GetProperty(name, Private).GetValue(instance);
-    static void Invoke(object instance, string name) => instance.GetType().GetMethod(name, Private).Invoke(instance, null);
+    static void Invoke(object instance, string name, params object[] arguments) => instance.GetType().GetMethod(name, Private).Invoke(instance, arguments);
     static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 }
