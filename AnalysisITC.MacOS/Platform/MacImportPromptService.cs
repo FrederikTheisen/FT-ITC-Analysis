@@ -19,27 +19,24 @@ namespace AnalysisITC.UI.MacOS
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
         {
             var result = EnergyUnitPrompt.AskForEnergyUnit(null, fileName, encounteredValue, allowQueueReuse);
-            return new EnergyUnitPromptResult(result.Unit, result.UseForRemainingFilesInQueue, result.IsCancelled, result.ReprocessIntegratedHeatData);
+            return new EnergyUnitPromptResult(result.Unit, result.UseForRemainingFilesInQueue, result.IsCancelled);
         }
 
         public EnergyUnitPromptResult AskForEnergyUnit(
             string fileName,
             string encounteredValue,
             bool allowQueueReuse,
-            bool showReprocessChoice,
-            bool defaultReprocess,
             EnergyUnit? reusedUnit,
             bool showTemperatureInput,
             double defaultTemperature)
         {
             var result = EnergyUnitPrompt.AskForEnergyUnit(
-                null, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit,
+                null, fileName, encounteredValue, allowQueueReuse, reusedUnit,
                 showTemperatureInput, defaultTemperature);
             return new EnergyUnitPromptResult(
                 result.Unit,
                 result.UseForRemainingFilesInQueue,
                 result.IsCancelled,
-                result.ReprocessIntegratedHeatData,
                 result.Temperature);
         }
     }

@@ -17,7 +17,6 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
     // Distinct from every fixture temperature so a fallback to the preference is detectable.
     private const double ReferenceTemperature = 21.5;
 
-    private readonly bool originalReprocess = AppSettings.ReprocessIntegratedHeatDataOnLoad;
     private readonly double originalReferenceTemperature = AppSettings.ReferenceTemperature;
     private readonly PromptService prompt = new();
 
@@ -30,11 +29,33 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
 
     public void Dispose()
     {
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocess;
         AppSettings.ReferenceTemperature = originalReferenceTemperature;
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
+        PlatformServices.RegisterDataValidationPromptService(null);
         DataManager.Clear(DataClearMode.ResetSession);
+    }
+
+    [Theory]
+    [InlineData("INJV,DH\n2,1e-6\n3,2e-6\n", "cell volume")]
+    [InlineData("INJV,NDH\n2,-12000\n3,-10000\n", "syringe concentration")]
+    public async Task CancelingRequiredMetadataSkipsOnlyThisFile(string table, string expectedPrompt)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var path = Path.Combine(Path.GetTempPath(), $"integrated-{Guid.NewGuid():N}.dat");
+        File.WriteAllText(path, table);
+        var validation = new CancelRequiredMetadataPrompt();
+        PlatformServices.RegisterDataValidationPromptService(validation);
+        var laterPath = Fixture("FileTypeTests", "CURVE-1.aff");
+        try
+        {
+            var read = await DataReader.ReadPathsAsync(new[] { path, laterPath });
+
+            Assert.Contains(expectedPrompt, Assert.Single(validation.Prompts), StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(laterPath, Assert.Single(read.LoadedPaths));
+            Assert.NotNull(Assert.Single(read.ImportedExperiments).SelectedBookkeepingMethod);
+        }
+        finally { File.Delete(path); }
     }
 
     [Fact]
@@ -54,54 +75,11 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
         Assert.Single(prompt.Calls);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void DelimitedPromptChoiceControlsReprocessingWithoutChangingHeatsOrFirstInjection(bool reprocess)
-    {
-        prompt.ReprocessChoice = reprocess;
-        var path = Fixture("FileTypeTests", "CURVE-1.aff");
-
-        var experiment = IntegratedHeatReader.ReadFile(
-            path,
-            concentrationsAreMilliMolar: true,
-            dilutionMethod: DilutionMethod.DiscreteDisplacement,
-            reprocessIntegratedHeatData: !reprocess);
-
-        Assert.Equal(reprocess, experiment.AppliedDilutionMethod.HasValue);
-        Assert.False(experiment.Injections[0].Include);
-        Assert.Equal(EnergyUnit.MicroCal, prompt.LastUnit);
-        Assert.True(prompt.LastShowReprocessChoice);
-        IntegratedHeatReader.BeginImportQueue();
-        prompt.ReprocessChoice = !reprocess;
-        var counterpart = IntegratedHeatReader.ReadFile(
-            path,
-            concentrationsAreMilliMolar: true,
-            dilutionMethod: DilutionMethod.DiscreteDisplacement,
-            reprocessIntegratedHeatData: reprocess);
-        Assert.Equal(
-            experiment.Injections.Select(injection => injection.RawPeakArea.Value),
-            counterpart.Injections.Select(injection => injection.RawPeakArea.Value));
-        if (reprocess)
-        {
-            var retention = 1 - experiment.Injections[0].Volume / experiment.CellVolume;
-            var expectedCell = experiment.CellConcentration.Value * retention;
-            var expectedTitrant = experiment.SyringeConcentration.Value * (1 - retention);
-            Assert.Equal(expectedCell, experiment.Injections[0].ActualCellConcentration, 10);
-            Assert.Equal(expectedTitrant / expectedCell, experiment.Injections[0].Ratio, 10);
-        }
-        else
-        {
-            Assert.Equal(0.0562e-3, experiment.Injections[0].ActualCellConcentration, 8);
-        }
-    }
-
     [Fact]
-    public void DhQueueReuseDoesNotChooseReprocessingForFollowingDelimitedFiles()
+    public void DhQueueReuseStillAsksForDelimitedTemperature()
     {
-        prompt.Responses.Enqueue(new(EnergyUnit.Joule, true, false, null));
-        prompt.Responses.Enqueue(new(EnergyUnit.Cal, true, false, true));
-        prompt.ReprocessChoice = false;
+        prompt.Responses.Enqueue(new(EnergyUnit.Joule, true, false));
+        prompt.Responses.Enqueue(new(EnergyUnit.Cal, true, false, 30));
 
         var dhPath = Fixture("PublishedBenchmarks", "nature2022-can-wt-sequential", "can-wt-preq1-1-reference-predicted.dh");
         var tablePath = Fixture("FileTypeTests", "230908_PRLRlong_W392A_run1.dat");
@@ -116,9 +94,7 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
         var retention = 1 - dh.Injections[0].Volume / dh.CellVolume;
         Assert.Equal(dh.CellConcentration.Value * retention, dh.Injections[0].ActualCellConcentration, 10);
         Assert.Equal(dh.SyringeConcentration.Value * (1 - retention) / (dh.CellConcentration.Value * retention), dh.Injections[0].Ratio, 10);
-        Assert.False(prompt.Calls[0].ShowReprocessChoice);
         Assert.False(prompt.Calls[0].ShowTemperatureInput);
-        Assert.True(prompt.Calls[1].ShowReprocessChoice);
         Assert.True(prompt.Calls[1].ShowTemperatureInput);
         Assert.Equal(EnergyUnit.Joule, prompt.Calls[1].ReusedUnit);
         Assert.Equal(2, prompt.Calls.Count);
@@ -126,20 +102,6 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
         Assert.True(nextTable.AppliedDilutionMethod.HasValue);
         Assert.False(firstTable.Injections[0].Include);
         Assert.False(nextTable.Injections[0].Include);
-    }
-
-    [Fact]
-    public void DelimitedChoiceIsAskedAgainWhenQueueReuseIsNotSelected()
-    {
-        prompt.Responses.Enqueue(new(EnergyUnit.Joule, false, false, false));
-        prompt.Responses.Enqueue(new(EnergyUnit.Joule, false, false, true));
-
-        var dat = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "230908_PRLRlong_W392A_run1.dat"));
-        var aff = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "CURVE-1.aff"));
-
-        Assert.Equal(2, prompt.Calls.Count);
-        Assert.Null(dat.AppliedDilutionMethod);
-        Assert.True(aff.AppliedDilutionMethod.HasValue);
     }
 
     [Theory]
@@ -162,7 +124,7 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
     [Fact]
     public void QueuedTemperatureIsReusedForRemainingDelimitedFiles()
     {
-        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, true, false, false, 30));
+        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, true, false, 30));
 
         var dat = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "230908_PRLRlong_W392A_run1.dat"));
         var aff = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "CURVE-1.aff"));
@@ -175,8 +137,8 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
     [Fact]
     public void TemperatureIsAskedForEachDelimitedFileWithoutQueueReuse()
     {
-        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, false, 20));
-        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, false, 35));
+        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, 20));
+        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, 35));
 
         var dat = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "230908_PRLRlong_W392A_run1.dat"));
         var aff = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "CURVE-1.aff"));
@@ -210,7 +172,7 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
     [Fact]
     public void OutOfRangePromptTemperatureIsNotApplied()
     {
-        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, false, 298.15));
+        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, false, 298.15));
 
         var experiment = IntegratedHeatReader.ReadFile(Fixture("FileTypeTests", "CURVE-1.aff"));
 
@@ -259,39 +221,30 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
 
     private sealed class PromptService : IIntegratedHeatImportPromptService
     {
-        public bool ReprocessChoice { get; set; }
         /// <summary>Temperature returned by the default response; null returns the proposed default.</summary>
         public double? TemperatureChoice { get; set; }
-        public EnergyUnit LastUnit { get; private set; }
-        public bool LastShowReprocessChoice { get; private set; }
         public System.Collections.Generic.Queue<EnergyUnitPromptResult> Responses { get; } = new();
-        public System.Collections.Generic.List<(bool ShowReprocessChoice, bool DefaultReprocess, EnergyUnit? ReusedUnit, bool ShowTemperatureInput, double DefaultTemperature)> Calls { get; } = new();
+        public System.Collections.Generic.List<(EnergyUnit? ReusedUnit, bool ShowTemperatureInput, double DefaultTemperature)> Calls { get; } = new();
 
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
-            => AskForEnergyUnit(fileName, encounteredValue, allowQueueReuse, false, false, null, false, double.NaN);
+            => AskForEnergyUnit(fileName, encounteredValue, allowQueueReuse, null, false, double.NaN);
 
         public EnergyUnitPromptResult AskForEnergyUnit(
             string fileName,
             string encounteredValue,
             bool allowQueueReuse,
-            bool showReprocessChoice,
-            bool defaultReprocess,
             EnergyUnit? reusedUnit,
             bool showTemperatureInput,
             double defaultTemperature)
         {
-            Calls.Add((showReprocessChoice, defaultReprocess, reusedUnit, showTemperatureInput, defaultTemperature));
-            LastShowReprocessChoice = showReprocessChoice;
-            var result = Responses.Count > 0
+            Calls.Add((reusedUnit, showTemperatureInput, defaultTemperature));
+            return Responses.Count > 0
                 ? Responses.Dequeue()
                 : new EnergyUnitPromptResult(
                     EnergyUnit.MicroCal,
                     false,
                     false,
-                    showReprocessChoice ? ReprocessChoice : null,
                     showTemperatureInput ? TemperatureChoice ?? defaultTemperature : null);
-            if (result.Unit.HasValue) LastUnit = result.Unit.Value;
-            return result;
         }
     }
 
@@ -299,5 +252,20 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
     {
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
             => new(EnergyUnit.MicroCal, false, false);
+    }
+
+    private sealed class CancelRequiredMetadataPrompt : IDataValidationPromptService
+    {
+        public System.Collections.Generic.List<string> Prompts { get; } = new();
+
+        public DataValidationPromptResult AskValidationIssue(
+            string title, string message, bool canFix, bool requiresInput, bool allowKeep)
+        {
+            Assert.True(canFix);
+            Assert.True(requiresInput);
+            Assert.False(allowKeep);
+            Prompts.Add(message);
+            return new(DataValidationPromptAction.Discard);
+        }
     }
 }

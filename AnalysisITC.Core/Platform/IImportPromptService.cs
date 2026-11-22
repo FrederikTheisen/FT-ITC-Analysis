@@ -7,26 +7,14 @@ namespace AnalysisITC.Platform
         public EnergyUnit? Unit { get; }
         public bool UseForRemainingFilesInQueue { get; }
         public bool IsCancelled { get; }
-        public bool? ReprocessIntegratedHeatData { get; }
         /// <summary>Experiment temperature in °C, when the prompt asked for it.</summary>
         public double? Temperature { get; }
 
-        public EnergyUnitPromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled)
-            : this(unit, useForRemainingFilesInQueue, isCancelled, null)
-        {
-        }
-
-        public EnergyUnitPromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled, bool? reprocessIntegratedHeatData)
-            : this(unit, useForRemainingFilesInQueue, isCancelled, reprocessIntegratedHeatData, null)
-        {
-        }
-
-        public EnergyUnitPromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled, bool? reprocessIntegratedHeatData, double? temperature)
+        public EnergyUnitPromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled, double? temperature = null)
         {
             Unit = unit;
             UseForRemainingFilesInQueue = useForRemainingFilesInQueue;
             IsCancelled = isCancelled;
-            ReprocessIntegratedHeatData = reprocessIntegratedHeatData;
             Temperature = temperature;
         }
     }
@@ -43,8 +31,6 @@ namespace AnalysisITC.Platform
             string fileName,
             string encounteredValue,
             bool allowQueueReuse,
-            bool showReprocessChoice,
-            bool defaultReprocess,
             EnergyUnit? reusedUnit,
             bool showTemperatureInput,
             double defaultTemperature);

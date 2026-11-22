@@ -98,7 +98,6 @@ namespace AnalysisITC.Core.Application
         public bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.DiscreteDisplacement;
         public BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; } = BufferSubtractionMethod.Mean;
-        public bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
         public SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
         public SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
         public bool DefaultSplinePointTimeDragging { get; set; } = false;
@@ -200,7 +199,6 @@ namespace AnalysisITC.Core.Application
                 IncludeBufferInIonicStrengthCalc = AppSettings.IncludeBufferInIonicStrengthCalc,
                 DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
                 BufferSubtractionDefaultMethod = AppSettings.BufferSubtractionDefaultMethod,
-                ReprocessIntegratedHeatDataOnLoad = AppSettings.ReprocessIntegratedHeatDataOnLoad,
                 DefaultSplinePointDensity = AppSettings.DefaultSplinePointDensity,
                 DefaultSplineHandleMode = AppSettings.DefaultSplineHandleMode,
                 DefaultSplinePointTimeDragging = AppSettings.DefaultSplinePointTimeDragging,
@@ -345,7 +343,6 @@ namespace AnalysisITC.Core.Application
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrengthCalc;
             AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;
             AppSettings.BufferSubtractionDefaultMethod = BufferSubtractionDefaultMethod;
-            AppSettings.ReprocessIntegratedHeatDataOnLoad = ReprocessIntegratedHeatDataOnLoad;
             AppSettings.DefaultSplinePointDensity = DefaultSplinePointDensity;
             AppSettings.DefaultSplineHandleMode = DefaultSplineHandleMode;
             AppSettings.DefaultSplinePointTimeDragging = DefaultSplinePointTimeDragging;

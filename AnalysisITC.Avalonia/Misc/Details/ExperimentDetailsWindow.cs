@@ -77,7 +77,7 @@ namespace AnalysisITC.Avalonia.Details
                 Name = "InjectionBookkeeping",
                 ItemsSource = data.SelectedBookkeepingMethod.HasValue
                     ? new[] { "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" }
-                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" },
+                    : new[] { InjectionBookkeeping.SavedConcentrationsLabel(data.HeatMethod), "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" },
                 SelectedIndex = data.SelectedBookkeepingMethod.HasValue ? (int)data.SelectedBookkeepingMethod.Value : 0,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 IsEnabled = !data.IsTandemExperiment,

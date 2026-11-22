@@ -52,36 +52,15 @@ namespace AnalysisITC.Core.DataReaders
                     issue.RequiresInput,
                     issue.AllowKeep);
 
-                // A prompt implementation cannot override a raw-import rejection.
-                if (!issue.AllowKeep) return false;
+                if (issue.Fixable && response.Action == DataValidationPromptAction.AttemptFix)
+                {
+                    var fixedData = AttemptDataFix(data, issue.FixProtocol, response.Input);
+                    if (fixedData == null) return false;
+                    data = fixedData;
+                    continue;
+                }
 
-                if (issue.Fixable)
-                {
-                    switch (response.Action)
-                    {
-                        case DataValidationPromptAction.AttemptFix:
-                            var fixedData = AttemptDataFix(data, issue.FixProtocol, response.Input);
-                            if (fixedData == null) return false; // fix failed -> discard
-                            data = fixedData;
-                            continue; // re-validate after fix
-                        case DataValidationPromptAction.Discard:
-                            return false;
-                        case DataValidationPromptAction.Keep:
-                        default:
-                            return true;
-                    }
-                }
-                else
-                {
-                    switch (response.Action)
-                    {
-                        case DataValidationPromptAction.Discard:
-                            return false;
-                        case DataValidationPromptAction.Keep:
-                        default:
-                            return true;
-                    }
-                }
+                return issue.AllowKeep && response.Action != DataValidationPromptAction.Discard;
             }
         }
 
@@ -153,6 +132,13 @@ namespace AnalysisITC.Core.DataReaders
                 return new ValidationIssue("No injections were found in the file.");
             }
 
+            var missingIntegratedHeatMetadata = data.DataSourceFormat == ITCDataFormat.IntegratedHeats
+                ? GetMissingIntegratedHeatMetadata(data)
+                : null;
+            // Finish mandatory import processing before a separate warning can offer Keep.
+            if (missingIntegratedHeatMetadata is { AllowKeep: false })
+                return missingIntegratedHeatMetadata;
+
             // Avoid flagging self if re-validating an already-added dataset.
             var existingSameName = DataManager.Data
                 .FirstOrDefault(d => d.UniqueID != data.UniqueID && d.Name == data.Name);
@@ -193,36 +179,9 @@ namespace AnalysisITC.Core.DataReaders
                     $"Target: {data.TargetTemperature:G4} °C. Measured: {data.MeasuredTemperature:G4} °C.");
             }
 
-            if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats)
-            {
-                if (!FWEMath.IsFinite(data.CellVolume) || data.CellVolume <= 0)
-                {
-                    return new ValidationIssue(
-                        "The cell volume could not be inferred from the imported Mt trajectory.\n" +
-                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
-                        "Provide the cell volume here (accepted units: L, mL, µL; unitless values are interpreted as µL):",
-                        DataFixProtocol.CellVolume);
-                }
+            if (missingIntegratedHeatMetadata != null) return missingIntegratedHeatMetadata;
 
-                if (!FWEMath.IsFinite(data.CellConcentration.Value) || data.CellConcentration.Value < 0)
-                {
-                    return new ValidationIssue(
-                        "The initial cell concentration could not be read from the imported Mt trajectory.\n" +
-                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
-                        $"Provide the cell concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
-                        DataFixProtocol.CellConcentration);
-                }
-
-                if (!FWEMath.IsFinite(data.SyringeConcentration.Value) || data.SyringeConcentration.Value < 0)
-                {
-                    return new ValidationIssue(
-                        "The syringe concentration could not be inferred from the imported Xt trajectory.\n" +
-                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
-                        $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
-                        DataFixProtocol.SyringeConcentration);
-                }
-            }
-            else
+            if (data.DataSourceFormat != ITCDataFormat.IntegratedHeats)
             {
                 if (!FWEMath.IsFinite(data.CellVolume) || data.CellVolume <= 0)
                 {
@@ -257,6 +216,32 @@ namespace AnalysisITC.Core.DataReaders
                     $"Provide an updated syringe concentration (default unit: {AppSettings.DefaultConcentrationUnit}) here:",
                     DataFixProtocol.SyringeConcentration);
             }
+
+            return null;
+        }
+
+        static ValidationIssue GetMissingIntegratedHeatMetadata(ExperimentData data)
+        {
+            var allowKeep = !data.PendingImportBookkeepingMethod.HasValue;
+            const string missingMetadata = "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n";
+
+            if (!FWEMath.IsFinite(data.CellVolume) || data.CellVolume <= 0)
+                return new ValidationIssue(
+                    "The cell volume could not be inferred from the imported Mt trajectory.\n" + missingMetadata +
+                    "Provide the cell volume here (accepted units: L, mL, µL; unitless values are interpreted as µL):",
+                    DataFixProtocol.CellVolume, allowKeep);
+
+            if (!FWEMath.IsFinite(data.CellConcentration.Value) || data.CellConcentration.Value < 0)
+                return new ValidationIssue(
+                    "The initial cell concentration could not be read from the imported Mt trajectory.\n" + missingMetadata +
+                    $"Provide the cell concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                    DataFixProtocol.CellConcentration, allowKeep);
+
+            if (!FWEMath.IsFinite(data.SyringeConcentration.Value) || data.SyringeConcentration.Value < 0)
+                return new ValidationIssue(
+                    "The syringe concentration could not be inferred from the imported Xt trajectory.\n" + missingMetadata +
+                    $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                    DataFixProtocol.SyringeConcentration, allowKeep);
 
             return null;
         }

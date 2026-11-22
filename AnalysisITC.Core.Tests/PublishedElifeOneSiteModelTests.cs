@@ -30,13 +30,10 @@ namespace AnalysisITC.Core.Tests
         const double DirectHeatRegressionTolerance = 0.005;
 
         readonly DilutionMethod originalDilutionMethod;
-        readonly bool originalReprocessSetting;
 
         public PublishedElifeOneSiteModelTests()
         {
             originalDilutionMethod = AppSettings.DilutionCalculationMethod;
-            originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
-            AppSettings.ReprocessIntegratedHeatDataOnLoad = false;
             IntegratedHeatReader.BeginImportQueue();
             PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
         }
@@ -46,7 +43,6 @@ namespace AnalysisITC.Core.Tests
             IntegratedHeatReader.EndImportQueue();
             PlatformServices.RegisterImportPromptService(null);
             AppSettings.DilutionCalculationMethod = originalDilutionMethod;
-            AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
         }
 
         [Theory]

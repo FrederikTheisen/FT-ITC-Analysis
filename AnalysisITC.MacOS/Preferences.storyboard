@@ -1152,13 +1152,6 @@ DQ
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
                                                         </button>
-                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-ReprocessIntegratedCheck">
-                                                            <rect key="frame" x="0.0" y="156" width="602" height="18"/>
-                                                            <buttonCell key="cell" type="check" title="Recalculate concentrations on integrated-heat import" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="processing-ReprocessIntegratedCheck-cell">
-                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                                <font key="font" metaFont="system"/>
-                                                            </buttonCell>
-                                                        </button>
                                                         <stackView distribution="fill" orientation="vertical" alignment="none" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-separator-1-container">
                                                             <rect key="frame" x="0.0" y="120" width="600" height="33"/>
                                                             <subviews>
@@ -1304,13 +1297,11 @@ DQ
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
-                                                        <integer value="1000"/>
                                                     </visibilityPriorities>
                                                     <customSpacing>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="10"/>
-                                                        <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
@@ -1451,7 +1442,6 @@ DQ
                         <outlet property="DilutionDescription" destination="processing-DilutionDescription" id="processing-DilutionDescription-outlet"/>
                         <outlet property="DiscardIntegrationCheck" destination="processing-DiscardIntegrationCheck" id="processing-DiscardIntegrationCheck-outlet"/>
                         <outlet property="PreferencesScrollView" destination="processing-scroll" id="processing-scroll-outlet"/>
-                        <outlet property="ReprocessIntegratedCheck" destination="processing-ReprocessIntegratedCheck" id="processing-ReprocessIntegratedCheck-outlet"/>
                         <outlet property="SplineDensityPopup" destination="processing-SplineDensityPopup" id="processing-SplineDensityPopup-outlet"/>
                         <outlet property="SplineHandlePopup" destination="processing-SplineHandlePopup" id="processing-SplineHandlePopup-outlet"/>
                         <outlet property="SplineTimeDraggingCheck" destination="processing-SplineTimeDraggingCheck" id="processing-SplineTimeDraggingCheck-outlet"/>

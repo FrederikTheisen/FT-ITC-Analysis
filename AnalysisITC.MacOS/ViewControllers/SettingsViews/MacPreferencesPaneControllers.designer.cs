@@ -122,7 +122,6 @@ namespace AnalysisITC
         [Outlet] AppKit.NSPopUpButton SplineDensityPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton SplineHandlePopup { get; set; }
         [Outlet] AppKit.NSButton DiscardIntegrationCheck { get; set; }
-        [Outlet] AppKit.NSButton ReprocessIntegratedCheck { get; set; }
         [Outlet] AppKit.NSButton SplineTimeDraggingCheck { get; set; }
         [Outlet] AppKit.NSButton CopyIntegrationStartCheck { get; set; }
 
@@ -134,7 +133,6 @@ namespace AnalysisITC
             SplineDensityPopup = Release(SplineDensityPopup);
             SplineHandlePopup = Release(SplineHandlePopup);
             DiscardIntegrationCheck = Release(DiscardIntegrationCheck);
-            ReprocessIntegratedCheck = Release(ReprocessIntegratedCheck);
             SplineTimeDraggingCheck = Release(SplineTimeDraggingCheck);
             CopyIntegrationStartCheck = Release(CopyIntegrationStartCheck);
         }

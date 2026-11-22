@@ -30,15 +30,13 @@ namespace AnalysisITC.UI.MacOS
             public EnergyUnit? Unit { get; }
             public bool UseForRemainingFilesInQueue { get; }
             public bool IsCancelled { get; }
-            public bool? ReprocessIntegratedHeatData { get; }
             public double? Temperature { get; }
 
-            public PromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled, bool? reprocessIntegratedHeatData = null, double? temperature = null)
+            public PromptResult(EnergyUnit? unit, bool useForRemainingFilesInQueue, bool isCancelled, double? temperature = null)
             {
                 Unit = unit;
                 UseForRemainingFilesInQueue = useForRemainingFilesInQueue;
                 IsCancelled = isCancelled;
-                ReprocessIntegratedHeatData = reprocessIntegratedHeatData;
                 Temperature = temperature;
             }
         }
@@ -48,15 +46,13 @@ namespace AnalysisITC.UI.MacOS
             string fileName = null,
             string encounteredvalue = null,
             bool allowQueueReuse = false)
-            => AskForEnergyUnit(parentWindow, fileName, encounteredvalue, allowQueueReuse, false, false, null, false, AppSettings.ReferenceTemperature);
+            => AskForEnergyUnit(parentWindow, fileName, encounteredvalue, allowQueueReuse, null, false, AppSettings.ReferenceTemperature);
 
         public static PromptResult AskForEnergyUnit(
             NSWindow parentWindow,
             string fileName,
             string encounteredvalue,
             bool allowQueueReuse,
-            bool showReprocessChoice,
-            bool defaultReprocess,
             EnergyUnit? reusedUnit,
             bool showTemperatureInput,
             double defaultTemperature)
@@ -64,7 +60,6 @@ namespace AnalysisITC.UI.MacOS
             // State carried over when the prompt is shown again after an invalid temperature.
             var unitSelection = reusedUnit.HasValue ? Units.IndexOf(reusedUnit.Value) : selection;
             var useForQueue = false;
-            var reprocess = defaultReprocess;
             var temperatureText = defaultTemperature.ToString("G6", CultureInfo.CurrentCulture);
             var invalidTemperature = false;
 
@@ -82,7 +77,7 @@ namespace AnalysisITC.UI.MacOS
 
                 NSButton queueCheckbox = null;
                 var temperatureRowHeight = showTemperatureInput ? 30 : 0;
-                var accessoryView = new NSView(new CGRect(0, 0, 340, (allowQueueReuse ? 54 : 28) + (showReprocessChoice ? 26 : 0) + temperatureRowHeight));
+                var accessoryView = new NSView(new CGRect(0, 0, 340, (allowQueueReuse ? 54 : 28) + temperatureRowHeight));
                 popup.Frame = new CGRect(60, accessoryView.Frame.Height - 28, 220, 26);
                 accessoryView.AddSubview(popup);
 
@@ -103,7 +98,7 @@ namespace AnalysisITC.UI.MacOS
 
                 if (allowQueueReuse)
                 {
-                    queueCheckbox = new NSButton(new CGRect(30, 2 + (showReprocessChoice ? 24 : 0), 280, 18))
+                    queueCheckbox = new NSButton(new CGRect(30, 2, 280, 18))
                     {
                         Title = "Use selected action for remaining files",
                         State = useForQueue ? NSCellStateValue.On : NSCellStateValue.Off,
@@ -115,20 +110,6 @@ namespace AnalysisITC.UI.MacOS
                     accessoryView.AddSubview(queueCheckbox);
                 }
 
-                NSButton reprocessCheckbox = null;
-                if (showReprocessChoice)
-                {
-                    reprocessCheckbox = new NSButton(new CGRect(30, 2, 290, 18))
-                    {
-                        Title = "Recalculate concentrations and ratios",
-                        State = reprocess ? NSCellStateValue.On : NSCellStateValue.Off,
-                        ControlSize = NSControlSize.Small,
-                        Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)
-                    };
-                    reprocessCheckbox.SetButtonType(NSButtonType.Switch);
-                    accessoryView.AddSubview(reprocessCheckbox);
-                }
-
                 var missing = showTemperatureInput ? "the energy unit or the experiment temperature" : "the energy unit";
                 var action = showTemperatureInput
                     ? "Choose the unit used in the file and enter the temperature of the experiment."
@@ -138,8 +119,8 @@ namespace AnalysisITC.UI.MacOS
                     : $"The imported file \"{Path.GetFileName(fileName)}\" does not specify {missing}. {action}";
                 if (reusedUnit.HasValue)
                     informativeText = showTemperatureInput
-                        ? $"Energy unit {reusedUnit.Value.GetProperties().LongName} is reused from an earlier file. Enter the temperature of the experiment and choose whether to recalculate concentrations and ratios for this table."
-                        : $"Energy unit {reusedUnit.Value.GetProperties().LongName} is reused from an earlier file. Choose whether to recalculate concentrations and ratios for this table.";
+                        ? $"Energy unit {reusedUnit.Value.GetProperties().LongName} is reused from an earlier file. Enter the temperature of the experiment."
+                        : $"Energy unit {reusedUnit.Value.GetProperties().LongName} is reused from an earlier file.";
 
                 if (encounteredvalue != null)
                 {
@@ -174,7 +155,6 @@ namespace AnalysisITC.UI.MacOS
 
                 unitSelection = (int)popup.IndexOfSelectedItem;
                 useForQueue = queueCheckbox != null && queueCheckbox.State == NSCellStateValue.On;
-                reprocess = reprocessCheckbox != null && reprocessCheckbox.State == NSCellStateValue.On;
 
                 double? temperature = null;
                 if (temperatureField != null)
@@ -191,9 +171,7 @@ namespace AnalysisITC.UI.MacOS
                 selection = unitSelection;
                 EnergyUnit? selectedUnit = selection < Units.Count ? Units[selection] : (EnergyUnit?)null;
 
-                return new PromptResult(selectedUnit, useForQueue, false,
-                    reprocessCheckbox == null ? (bool?)null : reprocess,
-                    temperature);
+                return new PromptResult(selectedUnit, useForQueue, false, temperature);
             }
         }
     }

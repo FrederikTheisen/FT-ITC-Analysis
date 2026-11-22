@@ -213,7 +213,7 @@ public sealed class ExperimentDetailsWindowTests
         var heats = data.Injections.Select(i => i.PeakArea.Value).ToArray();
         AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
         var window = new ExperimentDetailsWindow(data);
-        Assert.Equal(InjectionBookkeeping.SavedProcessingLabel, Field<ComboBox>(window, "bookkeepingCombo").SelectedItem);
+        Assert.Equal("Saved concentrations (MicroCal)", Field<ComboBox>(window, "bookkeepingCombo").SelectedItem);
         Assert.Equal(InjectionBookkeeping.Description(null), Field<TextBlock>(window, "bookkeepingDescription").Text);
         Field<TextBox>(window, "nameBox").Text = "Renamed";
         Apply(window);

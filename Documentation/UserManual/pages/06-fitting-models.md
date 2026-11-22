@@ -52,7 +52,7 @@ Injection bookkeeping determines the concentrations used by the fit and accounts
 
 No method is assumed to be empirically superior. Injection bookkeeping is separate from dilution-heat background models and between-reload back-mixing.
 
-**Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
+**Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. If a project has saved concentrations whose calculation method is unknown, the selector shows **Saved concentrations (MicroCal)**. The name in parentheses identifies the heat calculation used for fitting. Select a bookkeeping method to recalculate the concentrations. Rebuild tandem experiments through the tandem tool to change their method.
 
 ### Concentrations and injection heat
 

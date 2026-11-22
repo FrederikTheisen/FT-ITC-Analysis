@@ -17,13 +17,10 @@ public sealed class PublishedElifeNrampOneSiteModelTests : IDisposable
 {
     private const double RelativeTolerance = 0.005;
     private readonly DilutionMethod originalDilutionMethod;
-    private readonly bool originalReprocessSetting;
 
     public PublishedElifeNrampOneSiteModelTests()
     {
         originalDilutionMethod = AppSettings.DilutionCalculationMethod;
-        originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = false;
         IntegratedHeatReader.BeginImportQueue();
         PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
     }
@@ -33,7 +30,6 @@ public sealed class PublishedElifeNrampOneSiteModelTests : IDisposable
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
         AppSettings.DilutionCalculationMethod = originalDilutionMethod;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
     }
 
     [Theory]

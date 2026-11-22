@@ -383,7 +383,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
     }
 
     static ExperimentData ReadIntegrated(string path) =>
-        IntegratedHeatReader.ReadFile(path, true, DilutionMethod.MicroCal, reprocessIntegratedHeatData: false);
+        IntegratedHeatReader.ReadFile(path, true, DilutionMethod.MicroCal);
 
     string WritePeaqXml(Action<XDocument> edit)
     {
@@ -439,7 +439,7 @@ public sealed class ImportReaderRegressionTests : IDisposable
     sealed class JoulePrompt : IImportPromptService
     {
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
-            => new(EnergyUnit.Joule, false, false, false, 25);
+            => new(EnergyUnit.Joule, false, false, 25);
     }
 
     sealed class ValidationPrompt : IDataValidationPromptService

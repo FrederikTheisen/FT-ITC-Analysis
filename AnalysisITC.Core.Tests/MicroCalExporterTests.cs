@@ -172,8 +172,7 @@ namespace AnalysisITC.Core.Tests
                 var fromDh = IntegratedHeatReader.ReadFile(
                     fullPath,
                     concentrationsAreMilliMolar: true,
-                    dilutionMethod: DilutionMethod.MicroCal,
-                    reprocessIntegratedHeatData: false);
+                    dilutionMethod: DilutionMethod.MicroCal);
                 Assert.NotNull(fromDh);
                 Assert.Equal(data.Injections.Count, fromDh.Injections.Count);
                 for (var index = 0; index < data.Injections.Count; index++)
@@ -182,8 +181,7 @@ namespace AnalysisITC.Core.Tests
                 var fromNdh = IntegratedHeatReader.ReadFile(
                     ndhPath,
                     concentrationsAreMilliMolar: true,
-                    dilutionMethod: DilutionMethod.MicroCal,
-                    reprocessIntegratedHeatData: false);
+                    dilutionMethod: DilutionMethod.MicroCal);
                 Assert.NotNull(fromNdh);
                 Assert.True(double.IsNaN(fromNdh.Injections[0].PeakArea.Value));
                 AssertClose(data.Injections[1].PeakArea.Value, fromNdh.Injections[1].PeakArea.Value);

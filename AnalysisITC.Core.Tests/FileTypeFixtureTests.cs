@@ -6,9 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -168,48 +170,96 @@ namespace AnalysisITC.Core.Tests
             });
         }
 
-        [Fact]
-        public void Curve2UsesTerminalConcentrationsForFinalRatioWithoutReprocessing()
-        {
-            var experiment = ReadIntegratedFile(
-                Fixture("CURVE-2.aff"),
-                reprocessIntegratedHeatData: false);
-
-            var last = experiment.Injections.Last();
-            var expectedRatio = last.ActualTitrantConcentration / last.ActualCellConcentration;
-
-            Assert.Equal(expectedRatio, last.Ratio, 12);
-            Assert.InRange(last.Ratio, 8.04, 8.06);
-            Assert.NotEqual(8.00e-3, last.Ratio);
-            Assert.Null(experiment.AppliedDilutionMethod);
-            Assert.Equal(InjectionHeatMethod.MicroCal, experiment.HeatMethod);
-        }
-
         [Theory]
-        [InlineData(DilutionMethod.MicroCal)]
-        [InlineData(DilutionMethod.Exponential)]
-        public void IntegratedHeatTrajectoryInferenceMatchesActiveDilutionMethod(DilutionMethod method)
+        [InlineData(".dat", DilutionMethod.MicroCal, InjectionHeatMethod.MicroCal)]
+        [InlineData(".dat", DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing)]
+        [InlineData(".dat", DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement)]
+        [InlineData(".aff", DilutionMethod.MicroCal, InjectionHeatMethod.MicroCal)]
+        [InlineData(".aff", DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing)]
+        [InlineData(".aff", DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement)]
+        public async Task DelimitedImportInfersMicroCalMetadataAndAppliesSelectedBookkeeping(
+            string extension, DilutionMethod method, InjectionHeatMethod expectedHeatMethod)
         {
-            AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
-                ? DilutionMethod.Exponential : DilutionMethod.MicroCal;
-            var path = WriteTemporaryIntegratedFile(BuildTrajectory(method, concentrationsAreMilliMolar: true));
-
+            var table = BuildMicroCalTrajectory(concentrationsAreMilliMolar: true);
+            if (extension == ".aff") table = table.Replace(',', ';');
+            var path = WriteTemporaryIntegratedFile(table, extension);
             try
             {
-                var experiment = ReadIntegratedFile(path, dilutionMethod: method);
-
-                Assert.Equal(4, experiment.Injections.Count);
-                AssertRelative(1.4e-3, experiment.CellVolume, 1e-10);
-                AssertRelative(100e-6, experiment.CellConcentration.Value, 1e-10);
-                AssertRelative(4e-3, experiment.SyringeConcentration.Value, 1e-10);
+                AppSettings.DilutionCalculationMethod = method;
+                var experiment = IntegratedHeatReader.ReadFile(path);
+                Assert.Empty(validationPromptService.Messages);
                 Assert.Equal(method, experiment.AppliedDilutionMethod);
-                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.MicroCal,
-                    experiment.HeatMethod);
+                Assert.Equal(expectedHeatMethod, experiment.HeatMethod);
+                Assert.Equal(method.DisplayName(), experiment.BookkeepingDescription);
+                Assert.False(experiment.Injections[0].Include);
+
+                const double cellVolume = 1.4e-3;
+                const double initialCell = 100e-6;
+                const double syringe = 4e-3;
+                const double injectionVolume = 10e-6;
+                const double relativeVolume = injectionVolume / cellVolume;
+                AssertRelative(cellVolume, experiment.CellVolume, 1e-10);
+                AssertRelative(initialCell, experiment.CellConcentration.Value, 1e-10);
+                AssertRelative(syringe, experiment.SyringeConcentration.Value, 1e-10);
+
+                double Retention(double injectionCount) => method == DilutionMethod.Exponential
+                    ? Math.Exp(-relativeVolume * injectionCount)
+                    : Math.Pow(1 - relativeVolume, injectionCount);
+
+                double HeatContentAt(double injectionCount)
+                {
+                    if (method == DilutionMethod.MicroCal)
+                    {
+                        var (titrant, cell) = MicroCalState(injectionCount * injectionVolume, cellVolume, initialCell, syringe);
+                        return cell * titrant;
+                    }
+                    var retained = Retention(injectionCount);
+                    return initialCell * retained * syringe * (1 - retained);
+                }
+
+                var model = new HeatContentModel(experiment);
+                for (var index = 0; index < experiment.Injections.Count; index++)
+                {
+                    var injection = experiment.Injections[index];
+                    var count = index + 1;
+                    var retained = Retention(count);
+                    var (titrant, cell) = method == DilutionMethod.MicroCal
+                        ? MicroCalState(count * injectionVolume, cellVolume, initialCell, syringe)
+                        : (syringe * (1 - retained), initialCell * retained);
+                    AssertRelative(cell, injection.ActualCellConcentration, 1e-10);
+                    AssertRelative(titrant, injection.ActualTitrantConcentration, 1e-10);
+                    AssertRelative(titrant / cell, injection.Ratio, 1e-10);
+                    Assert.Equal(1e-6, injection.RawPeakArea.Value);
+
+                    var before = HeatContentAt(index);
+                    var after = HeatContentAt(count);
+                    var displacedHeat = method switch
+                    {
+                        DilutionMethod.MicroCal => relativeVolume * (before + after) / 2,
+                        DilutionMethod.Exponential => relativeVolume * (before + 4 * HeatContentAt(index + 0.5) + after) / 6,
+                        DilutionMethod.DiscreteDisplacement => relativeVolume * before,
+                        _ => throw new ArgumentOutOfRangeException(nameof(method)),
+                    };
+                    AssertRelative(after - before + displacedHeat, model.Evaluate(index), 1e-10);
+                }
+
+                using var stream = new MemoryStream();
+                await FTXTCWriter.WriteStream(stream, new[] { experiment }, Array.Empty<AnalysisResult>());
+                stream.Position = 0;
+                AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
+                    ? DilutionMethod.DiscreteDisplacement
+                    : DilutionMethod.MicroCal;
+                var restored = Assert.Single((await FTXTCReader.ReadStream(stream)).OfType<ExperimentData>());
+                Assert.Equal(experiment.AppliedDilutionMethod, restored.AppliedDilutionMethod);
+                Assert.Equal(experiment.HeatMethod, restored.HeatMethod);
+                Assert.Equal(experiment.CellVolume, restored.CellVolume);
+                Assert.Equal(experiment.CellConcentration.Value, restored.CellConcentration.Value);
+                Assert.Equal(experiment.SyringeConcentration.Value, restored.SyringeConcentration.Value);
+                Assert.Equal(
+                    experiment.Injections.Select(i => (i.ActualCellConcentration, i.ActualTitrantConcentration, i.Ratio, i.RawPeakArea.Value)),
+                    restored.Injections.Select(i => (i.ActualCellConcentration, i.ActualTitrantConcentration, i.Ratio, i.RawPeakArea.Value)));
             }
-            finally
-            {
-                File.Delete(path);
-            }
+            finally { File.Delete(path); }
         }
 
         [Theory]
@@ -234,8 +284,8 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IntegratedHeatMolarAndMillimolarModesProduceIdenticalInternalValues()
         {
-            var millimolarPath = WriteTemporaryIntegratedFile(BuildTrajectory(DilutionMethod.MicroCal, concentrationsAreMilliMolar: true));
-            var molarPath = WriteTemporaryIntegratedFile(BuildTrajectory(DilutionMethod.MicroCal, concentrationsAreMilliMolar: false));
+            var millimolarPath = WriteTemporaryIntegratedFile(BuildMicroCalTrajectory(concentrationsAreMilliMolar: true));
+            var molarPath = WriteTemporaryIntegratedFile(BuildMicroCalTrajectory(concentrationsAreMilliMolar: false));
 
             try
             {
@@ -259,9 +309,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IntegratedHeatCanUseNdhWhenDhColumnIsAbsent()
         {
-            var path = WriteTemporaryIntegratedFile(BuildTrajectory(
-                DilutionMethod.MicroCal,
-                concentrationsAreMilliMolar: true,
+            var path = WriteTemporaryIntegratedFile(BuildMicroCalTrajectory(concentrationsAreMilliMolar: true,
                 normalizedHeatOnly: true));
 
             try
@@ -286,9 +334,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IntegratedHeatFallsBackToCompleteNdhInsteadOfRejectingIgnoredDh()
         {
-            var contents = BuildTrajectory(
-                    DilutionMethod.MicroCal,
-                    concentrationsAreMilliMolar: true,
+            var contents = BuildMicroCalTrajectory(concentrationsAreMilliMolar: true,
                     normalizedHeatOnly: false)
                 .Replace("1e-6,", "bad,");
             var lines = contents.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -316,9 +362,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IntegratedHeatAllowsMissingFirstNdhBecauseFirstInjectionIsExcluded()
         {
-            var contents = BuildTrajectory(
-                DilutionMethod.MicroCal,
-                concentrationsAreMilliMolar: true,
+            var contents = BuildMicroCalTrajectory(concentrationsAreMilliMolar: true,
                 normalizedHeatOnly: true);
             var lines = contents.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
             var first = lines[1].Split(',');
@@ -425,9 +469,7 @@ namespace AnalysisITC.Core.Tests
                 "INJV,NDH\n" +
                 "10,-10000\n" +
                 "10,-9000\n");
-            var subsequentPath = WriteTemporaryIntegratedFile(BuildTrajectory(
-                DilutionMethod.MicroCal,
-                concentrationsAreMilliMolar: true,
+            var subsequentPath = WriteTemporaryIntegratedFile(BuildMicroCalTrajectory(concentrationsAreMilliMolar: true,
                 normalizedHeatOnly: true));
 
             try
@@ -480,7 +522,8 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void ValidationDoesNotInferUnknownSavedProcessingFromOriginalSourceFormat()
         {
-            var experiment = ReadIntegratedFile(Fixture("CURVE-2.aff"), reprocessIntegratedHeatData: false);
+            var experiment = ReadIntegratedFile(Fixture("CURVE-2.aff"));
+            experiment.AppliedDilutionMethod = null;
             Assert.Equal(ITCDataFormat.IntegratedHeats, experiment.DataSourceFormat);
             var cells = experiment.Injections.Select(i => i.ActualCellConcentration).ToArray();
             var titrant = experiment.Injections.Select(i => i.ActualTitrantConcentration).ToArray();
@@ -508,7 +551,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.Null(experiment.AppliedDilutionMethod);
                 AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
                     ? DilutionMethod.Exponential : DilutionMethod.MicroCal;
-                foreach (var value in new[] { "200 uL", "20 uM", "400 uM" })
+                foreach (var value in new[] { "not a volume", "200 uL", "20 uM", "400 uM" })
                     validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
                         DataValidationPromptAction.AttemptFix, value));
                 Assert.True(ImportValidator.ValidateData(experiment));
@@ -516,6 +559,8 @@ namespace AnalysisITC.Core.Tests
                 Assert.Null(experiment.PendingImportBookkeepingMethod);
                 Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.MicroCal,
                     experiment.HeatMethod);
+                Assert.Equal(4, validationPromptService.AllowKeepValues.Count);
+                Assert.All(validationPromptService.AllowKeepValues, allowKeep => Assert.False(allowKeep));
             }
             finally { File.Delete(path); }
         }
@@ -548,7 +593,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void IntegratedHeatInferenceToleratesAnIncompleteIntermediateState()
         {
-            var lines = BuildTrajectory(DilutionMethod.MicroCal, concentrationsAreMilliMolar: true)
+            var lines = BuildMicroCalTrajectory(concentrationsAreMilliMolar: true)
                 .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
             var incomplete = lines[2].Split(',');
             incomplete[2] = "--";
@@ -607,6 +652,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(2, experiment.Injections.Count);
                 Assert.True(double.IsFinite(experiment.CellVolume));
                 Assert.True(double.IsFinite(experiment.SyringeConcentration.Value));
+                Assert.True(double.IsFinite(experiment.Injections.Last().Ratio));
             }
             finally
             {
@@ -730,14 +776,12 @@ namespace AnalysisITC.Core.Tests
         static ExperimentData ReadIntegratedFile(
             string path,
             bool concentrationsAreMilliMolar = true,
-            DilutionMethod dilutionMethod = DilutionMethod.MicroCal,
-            bool reprocessIntegratedHeatData = true)
+            DilutionMethod dilutionMethod = DilutionMethod.MicroCal)
         {
             return IntegratedHeatReader.ReadFile(
                 path,
                 concentrationsAreMilliMolar,
-                dilutionMethod,
-                reprocessIntegratedHeatData);
+                dilutionMethod);
         }
 
         static void AssertExperiment(
@@ -758,8 +802,7 @@ namespace AnalysisITC.Core.Tests
             Assert.InRange(Math.Abs(actual - expected) / scale, 0, relativeTolerance);
         }
 
-        static string BuildTrajectory(
-            DilutionMethod method,
+        static string BuildMicroCalTrajectory(
             bool concentrationsAreMilliMolar,
             bool normalizedHeatOnly = false)
         {
@@ -776,7 +819,7 @@ namespace AnalysisITC.Core.Tests
 
             for (var injectionIndex = 0; injectionIndex < injectionCount; injectionIndex++)
             {
-                var state = ConcentrationState(method, injectionIndex * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
+                var state = MicroCalState(injectionIndex * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
                 var concentrationColumns = new[]
                 {
                     "10",
@@ -789,7 +832,7 @@ namespace AnalysisITC.Core.Tests
                     : string.Join(",", new[] { "1e-6" }.Concat(concentrationColumns).Concat(new[] { "--" })));
             }
 
-            var terminal = ConcentrationState(method, injectionCount * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
+            var terminal = MicroCalState(injectionCount * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
             var terminalColumns = new[]
             {
                 "--",
@@ -804,30 +847,31 @@ namespace AnalysisITC.Core.Tests
             return string.Join("\n", lines) + "\n";
         }
 
-        static (double xt, double mt) ConcentrationState(
-            DilutionMethod method,
+        static (double xt, double mt) MicroCalState(
             double cumulativeVolume,
             double cellVolume,
             double cellConcentration,
             double syringeConcentration)
         {
-            if (method == DilutionMethod.Exponential)
-            {
-                var remaining = Math.Exp(-cumulativeVolume / cellVolume);
-                return (syringeConcentration * (1 - remaining), cellConcentration * remaining);
-            }
-
             var a = cumulativeVolume / (2 * cellVolume);
             return (
                 syringeConcentration * (cumulativeVolume / cellVolume) * (1 - a),
                 cellConcentration * ((1 - a) / (1 + a)));
         }
 
-        static string WriteTemporaryIntegratedFile(string contents)
+        static string WriteTemporaryIntegratedFile(string contents, string extension = ".dat")
         {
-            var path = Path.Combine(Path.GetTempPath(), $"integrated-{Guid.NewGuid():N}.dat");
+            var path = Path.Combine(Path.GetTempPath(), $"integrated-{Guid.NewGuid():N}{extension}");
             File.WriteAllText(path, contents, Encoding.UTF8);
             return path;
+        }
+
+        sealed class HeatContentModel : Model
+        {
+            public HeatContentModel(ExperimentData data) : base(data) { }
+
+            public override double Evaluate(int injectionIndex, bool withoffset = true) =>
+                DeltaHeatFromHeatContent(injectionIndex, (cell, titrant) => cell * titrant);
         }
 
         sealed class FixtureEnergyUnitPromptService : IImportPromptService

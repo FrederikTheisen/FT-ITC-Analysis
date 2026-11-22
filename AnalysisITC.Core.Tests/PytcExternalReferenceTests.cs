@@ -121,17 +121,18 @@ public sealed class PytcExternalReferenceTests : IDisposable
     }
 
     [Fact]
-    public void NativeTrajectoryImportInfersDiscreteMetadataWithoutUsingPreferences()
+    public void NativeTrajectoryImportUsesMicroCalInferenceWithDiscretePredictions()
     {
         var sample = Reference("one-c10-small");
         var path = Path.Combine(DirectoryPath, sample.GetProperty("trajectory_file").GetString());
         AssertHash(path, sample.GetProperty("trajectory_sha256").GetString());
-        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement, true);
+        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement);
         Assert.Equal(DilutionMethod.DiscreteDisplacement, data.AppliedDilutionMethod);
         Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, data.HeatMethod);
-        Assert.InRange(Math.Abs(data.CellVolume/200e-6-1), 0, 1e-12);
-        var syringe = sample.GetProperty("syringe_molar").GetDouble();
-        Assert.InRange(Math.Abs(data.SyringeConcentration.Value/syringe-1), 0, 1e-12);
+        // These estimates come from applying the MicroCal inverse equations to
+        // the external table, which used discrete displacement to produce Xt and Mt.
+        Assert.InRange(Math.Abs(data.CellVolume/0.00019940806821418055-1), 0, 1e-12);
+        Assert.InRange(Math.Abs(data.SyringeConcentration.Value/0.0001002396421938035-1), 0, 1e-12);
         var heats = Numbers(sample, "heats_joules");
         foreach (var injection in data.Injections)
             Assert.InRange(Math.Abs(injection.PeakArea.Value-heats[injection.ID]), 0, 1e-17);
@@ -164,7 +165,7 @@ public sealed class PytcExternalReferenceTests : IDisposable
     {
         var path = Path.Combine(DirectoryPath, sample.GetProperty("file").GetString());
         AssertHash(path, sample.GetProperty("sha256").GetString());
-        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement, true);
+        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement);
         Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, data.HeatMethod);
         Assert.Empty(data.DataPoints);
         Assert.Empty(data.BaseLineCorrectedDataPoints);

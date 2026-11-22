@@ -26,14 +26,12 @@ namespace AnalysisITC.Platform.Avalonia
         static int selection;
 
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
-            => AskForEnergyUnit(fileName, encounteredValue, allowQueueReuse, false, AppSettings.ReprocessIntegratedHeatDataOnLoad, null, false, AppSettings.ReferenceTemperature);
+            => AskForEnergyUnit(fileName, encounteredValue, allowQueueReuse, null, false, AppSettings.ReferenceTemperature);
 
         public EnergyUnitPromptResult AskForEnergyUnit(
             string fileName,
             string encounteredValue,
             bool allowQueueReuse,
-            bool showReprocessChoice,
-            bool defaultReprocess,
             EnergyUnit? reusedUnit,
             bool showTemperatureInput,
             double defaultTemperature)
@@ -44,18 +42,17 @@ namespace AnalysisITC.Platform.Avalonia
                     EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily),
                     false,
                     false,
-                    showReprocessChoice ? defaultReprocess : null,
                     showTemperatureInput ? defaultTemperature : null);
 
             if (Dispatcher.UIThread.CheckAccess())
-                return ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit, showTemperatureInput, defaultTemperature);
+                return ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, reusedUnit, showTemperatureInput, defaultTemperature);
 
-            return Dispatcher.UIThread.Invoke(() => ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit, showTemperatureInput, defaultTemperature));
+            return Dispatcher.UIThread.Invoke(() => ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, reusedUnit, showTemperatureInput, defaultTemperature));
         }
 
-        static EnergyUnitPromptResult ShowPrompt(Window owner, string fileName, string encounteredValue, bool allowQueueReuse, bool showReprocessChoice, bool defaultReprocess, EnergyUnit? reusedUnit, bool showTemperatureInput, double defaultTemperature)
+        static EnergyUnitPromptResult ShowPrompt(Window owner, string fileName, string encounteredValue, bool allowQueueReuse, EnergyUnit? reusedUnit, bool showTemperatureInput, double defaultTemperature)
         {
-            var dialog = new EnergyUnitPromptWindow(Units, selection, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit, showTemperatureInput, defaultTemperature);
+            var dialog = new EnergyUnitPromptWindow(Units, selection, fileName, encounteredValue, allowQueueReuse, reusedUnit, showTemperatureInput, defaultTemperature);
             var task = dialog.ShowDialog<EnergyUnitPromptWindow.PromptResult?>(owner);
             var frame = new DispatcherFrame();
 
@@ -64,11 +61,11 @@ namespace AnalysisITC.Platform.Avalonia
 
             var result = task.IsCompletedSuccessfully ? task.Result : null;
             if (result == null || result.Value.IsCancelled)
-                return new EnergyUnitPromptResult(null, false, true, null);
+                return new EnergyUnitPromptResult(null, false, true);
 
             selection = result.Value.SelectedIndex;
             var unit = selection >= 0 && selection < Units.Count ? Units[selection] : (EnergyUnit?)null;
-            return new EnergyUnitPromptResult(unit, result.Value.UseForRemainingFilesInQueue, false, result.Value.ReprocessIntegratedHeatData, result.Value.Temperature);
+            return new EnergyUnitPromptResult(unit, result.Value.UseForRemainingFilesInQueue, false, result.Value.Temperature);
         }
 
         static Window? GetMainWindow()
@@ -82,7 +79,6 @@ namespace AnalysisITC.Platform.Avalonia
         {
             readonly ComboBox unitCombo;
             readonly CheckBox? queueCheckbox;
-            readonly CheckBox? reprocessCheckbox;
             readonly TextBox? temperatureBox;
             readonly TextBlock? temperatureMessage;
             readonly Button importButton;
@@ -96,15 +92,13 @@ namespace AnalysisITC.Platform.Avalonia
                 public int SelectedIndex { get; }
                 public bool UseForRemainingFilesInQueue { get; }
                 public bool IsCancelled { get; }
-                public bool? ReprocessIntegratedHeatData { get; }
                 public double? Temperature { get; }
 
-                public PromptResult(int selectedIndex, bool useForRemainingFilesInQueue, bool isCancelled, bool? reprocessIntegratedHeatData, double? temperature)
+                public PromptResult(int selectedIndex, bool useForRemainingFilesInQueue, bool isCancelled, double? temperature)
                 {
                     SelectedIndex = selectedIndex;
                     UseForRemainingFilesInQueue = useForRemainingFilesInQueue;
                     IsCancelled = isCancelled;
-                    ReprocessIntegratedHeatData = reprocessIntegratedHeatData;
                     Temperature = temperature;
                 }
             }
@@ -115,8 +109,6 @@ namespace AnalysisITC.Platform.Avalonia
                 string fileName,
                 string encounteredValue,
                 bool allowQueueReuse,
-                bool showReprocessChoice,
-                bool defaultReprocess,
                 EnergyUnit? reusedUnit,
                 bool showTemperatureInput,
                 double defaultTemperature)
@@ -124,9 +116,9 @@ namespace AnalysisITC.Platform.Avalonia
                 var title = showTemperatureInput ? "Import Integrated Heats" : "Select Energy Unit";
                 Title = title;
                 Width = 460;
-                Height = (allowQueueReuse ? 295 : 250) + (showReprocessChoice ? 38 : 0) + (showTemperatureInput ? 84 : 0);
+                Height = (allowQueueReuse ? 295 : 250) + (showTemperatureInput ? 84 : 0);
                 MinWidth = 420;
-                MinHeight = (allowQueueReuse ? 270 : 230) + (showReprocessChoice ? 38 : 0) + (showTemperatureInput ? 84 : 0);
+                MinHeight = (allowQueueReuse ? 270 : 230) + (showTemperatureInput ? 84 : 0);
                 WindowStartupLocation = WindowStartupLocation.CenterOwner;
                 CanResize = false;
 
@@ -245,12 +237,11 @@ namespace AnalysisITC.Platform.Avalonia
                         unitCombo.SelectedIndex,
                         queueCheckbox?.IsChecked == true,
                         false,
-                        reprocessCheckbox == null ? null : reprocessCheckbox.IsChecked == true,
                         temperature));
                 };
 
                 var cancel = DialogButton("Cancel");
-                cancel.Click += (_, _) => Close(new PromptResult(-1, false, true, null, null));
+                cancel.Click += (_, _) => Close(new PromptResult(-1, false, true, null));
 
                 var buttons = new StackPanel
                 {
@@ -271,18 +262,6 @@ namespace AnalysisITC.Platform.Avalonia
 
                 if (queueCheckbox != null)
                     body.Children.Add(queueCheckbox);
-
-                reprocessCheckbox = showReprocessChoice
-                    ? new CheckBox
-                    {
-                        Content = "Recalculate concentrations and ratios",
-                        IsChecked = defaultReprocess,
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        Margin = new Thickness(0, allowQueueReuse ? 4 : 10, 0, 0)
-                    }
-                    : null;
-                if (reprocessCheckbox != null)
-                    body.Children.Add(reprocessCheckbox);
 
                 var layout = new Grid
                 {

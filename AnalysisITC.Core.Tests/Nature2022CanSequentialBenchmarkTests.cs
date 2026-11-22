@@ -32,14 +32,11 @@ public sealed class Nature2022CanSequentialBenchmarkTests : IDisposable
     };
 
     readonly DilutionMethod originalDilutionMethod;
-    readonly bool originalReprocessSetting;
 
     public Nature2022CanSequentialBenchmarkTests()
     {
         originalDilutionMethod = AppSettings.DilutionCalculationMethod;
-        originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
         AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = true;
         IntegratedHeatReader.BeginImportQueue();
         PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
     }
@@ -49,7 +46,6 @@ public sealed class Nature2022CanSequentialBenchmarkTests : IDisposable
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
         AppSettings.DilutionCalculationMethod = originalDilutionMethod;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
     }
 
     [Fact]

@@ -262,8 +262,7 @@ namespace AnalysisITC.Core.Tests
                     var reopened = IntegratedHeatReader.ReadFile(
                         path,
                         concentrationsAreMilliMolar: true,
-                        dilutionMethod: DilutionMethod.MicroCal,
-                        reprocessIntegratedHeatData: false);
+                        dilutionMethod: DilutionMethod.MicroCal);
                     AssertClose(25.5, reopened.MeasuredTemperature);
                     AssertClose(20e-6, reopened.CellConcentration.Value);
                     AssertClose(200e-6, reopened.SyringeConcentration.Value);

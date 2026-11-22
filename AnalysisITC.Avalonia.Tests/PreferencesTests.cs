@@ -368,6 +368,8 @@ public sealed class PreferencesTests
     public void BookkeepingPreferenceUsesStableValuesWithThreeLabels(int value, string label)
     {
         var window = new PreferencesWindow();
+        Assert.DoesNotContain(window.GetLogicalDescendants().OfType<CheckBox>(),
+            checkBox => Equals(checkBox.Content, "Recalculate concentrations on integrated-heat import"));
         var combo = (ComboBox)typeof(PreferencesWindow).GetField("dilutionMethodCombo",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
         Assert.Equal(new[] { "MicroCal", "Ideal continuous mixing", "Discrete displacement" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));

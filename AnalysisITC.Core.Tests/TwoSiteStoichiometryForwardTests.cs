@@ -168,7 +168,7 @@ public sealed class TwoSiteStoichiometryForwardTests : IDisposable
     {
         var path = Path.Combine(Root, sample.GetProperty("file").GetString());
         Assert.Equal(sample.GetProperty("sha256").GetString(), Hash(path));
-        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement, true);
+        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement);
         Assert.NotNull(data);
         Assert.Empty(data.DataPoints);
         Assert.Empty(data.BaseLineCorrectedDataPoints);

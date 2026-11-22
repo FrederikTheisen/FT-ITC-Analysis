@@ -25,10 +25,9 @@ namespace AnalysisITC.Core.DataReaders
     ///   starting from the reference temperature preference.
     /// - A complete DH column is used as absolute heat. If DH is absent or incomplete, a complete NDH column is
     ///   interpreted as molar heat and converted to absolute heat using the inferred or supplied syringe concentration.
-    /// - Syringe concentration and cell volume are inferred from the Xt/Mt concentration trajectory,
-    ///   independently of the optional NDH column.
+    /// - Cell volume and syringe concentration are inferred from the Xt/Mt trajectory using MicroCal.
     /// - Xt and Mt are assumed to be in mM by default (set concentrationsAreMilliMolar=false if you want raw as M).
-    /// - Ratio is computed (preferred) from inferred concentrations/volume rather than trusting Xmt (which can be malformed).
+    /// - The selected bookkeeping method calculates per-injection concentrations, ratios, and predicted heats.
     /// </summary>
     public static class IntegratedHeatReader
     {
@@ -36,8 +35,6 @@ namespace AnalysisITC.Core.DataReaders
         private const NumberStyles NumStyle = NumberStyles.Float | NumberStyles.AllowLeadingSign;
         private static char separator = ',';
         private static EnergyUnit? queuedEnergyUnit;
-        private static bool? queuedReprocessIntegratedHeatData;
-        private static bool? promptedReprocessIntegratedHeatData;
         private static double? queuedTemperature;
         private static double? promptedTemperature;
         private static bool cancelRemainingQueueItems;
@@ -54,8 +51,6 @@ namespace AnalysisITC.Core.DataReaders
         public static void BeginImportQueue()
         {
             queuedEnergyUnit = null;
-            queuedReprocessIntegratedHeatData = null;
-            promptedReprocessIntegratedHeatData = null;
             queuedTemperature = null;
             promptedTemperature = null;
             cancelRemainingQueueItems = false;
@@ -64,8 +59,6 @@ namespace AnalysisITC.Core.DataReaders
         public static void EndImportQueue()
         {
             queuedEnergyUnit = null;
-            queuedReprocessIntegratedHeatData = null;
-            promptedReprocessIntegratedHeatData = null;
             queuedTemperature = null;
             promptedTemperature = null;
             cancelRemainingQueueItems = false;
@@ -104,15 +97,13 @@ namespace AnalysisITC.Core.DataReaders
             return ReadFile(
                 filepath,
                 concentrationsAreMilliMolar,
-                AppSettings.DilutionCalculationMethod,
-                AppSettings.ReprocessIntegratedHeatDataOnLoad);
+                AppSettings.DilutionCalculationMethod);
         }
 
         internal static ExperimentData ReadFile(
             string filepath,
             bool concentrationsAreMilliMolar,
-            DilutionMethod dilutionMethod,
-            bool reprocessIntegratedHeatData)
+            DilutionMethod dilutionMethod)
         {
             if (filepath == null) throw new ArgumentNullException(nameof(filepath));
             if (!File.Exists(filepath)) throw new FileNotFoundException("File not found", filepath);
@@ -130,8 +121,7 @@ namespace AnalysisITC.Core.DataReaders
                     filepath,
                     lines,
                     concentrationsAreMilliMolar,
-                    dilutionMethod,
-                    reprocessIntegratedHeatData);
+                    dilutionMethod);
 
             ProcessExperiment(data);
 
@@ -150,8 +140,7 @@ namespace AnalysisITC.Core.DataReaders
             string filepath,
             List<string> lines,
             bool concentrationsAreMilliMolar,
-            DilutionMethod dilutionMethod,
-            bool reprocessIntegratedHeatData)
+            DilutionMethod dilutionMethod)
         {
             separator = ResolveSeparator(lines[0]);
 
@@ -221,7 +210,6 @@ namespace AnalysisITC.Core.DataReaders
                     InjV_uL = injv,
                     Xt = xt,
                     Mt = mt,
-                    Xmt = xmt,
                     SourceLineNumber = i + 1,
                 });
 
@@ -249,7 +237,6 @@ namespace AnalysisITC.Core.DataReaders
                     PreMt = record.Mt,
                     PostXt = i + 1 < records.Count ? next.Xt : double.NaN,
                     PostMt = i + 1 < records.Count ? next.Mt : double.NaN,
-                    Xmt = record.Xmt,
                     SourceLineNumber = record.SourceLineNumber,
                 });
             }
@@ -278,14 +265,14 @@ namespace AnalysisITC.Core.DataReaders
             // Infer cell volume and syringe concentration from the concentration
             // trajectory. This is independent of the DH/NDH relative unit scale.
             AppEventHandler.PrintAndLog("Inferring Cell Volume...");
-            var vcell_L = InferCellVolumeLiters(rows, dilutionMethod);
+            var vcell_L = InferCellVolumeLiters(rows);
             data.CellVolume = vcell_L;
             AppEventHandler.PrintAndLog(FWEMath.IsFinite(vcell_L)
                 ? $"Volume = {vcell_L * 1000000} ul"
                 : "Cell volume could not be inferred from Mt.", 1);
 
             AppEventHandler.PrintAndLog("Inferring Syringe Concentration...");
-            var csyr_M = InferSyringeConcentration(rows, vcell_L, concScale, dilutionMethod);
+            var csyr_M = InferSyringeConcentration(rows, vcell_L, concScale);
             data.SyringeConcentration = new(csyr_M);
             AppEventHandler.PrintAndLog(FWEMath.IsFinite(csyr_M)
                 ? $"Syringe Concentration = {1000000 * csyr_M} uM"
@@ -310,7 +297,6 @@ namespace AnalysisITC.Core.DataReaders
 
             var unit = ResolveEnergyUnit(filepath, encounteredHeat, isDelimitedIntegratedHeatFile: true);
             if (unit == null) return null;
-            reprocessIntegratedHeatData = ResolveReprocessChoice(reprocessIntegratedHeatData);
             // Delimited tables do not record the experiment temperature.
             data.TargetTemperature = ResolveTemperature();
 
@@ -337,24 +323,13 @@ namespace AnalysisITC.Core.DataReaders
                     // first injection. Preserve the injection without inventing a heat.
                     inj.SetPeakArea(new FloatWithError(double.NaN, 0));
                 }
-                inj.ActualCellConcentration = FWEMath.IsFinite(r.PostMt) ? r.PostMt * concScale : double.NaN;
-                inj.ActualTitrantConcentration = FWEMath.IsFinite(r.PostXt) ? r.PostXt * concScale : double.NaN;
-                inj.Ratio = FWEMath.IsFinite(inj.ActualTitrantConcentration)
-                    && inj.ActualTitrantConcentration >= 0
-                    && FWEMath.IsFinite(inj.ActualCellConcentration)
-                    && inj.ActualCellConcentration > 0
-                        ? inj.ActualTitrantConcentration / inj.ActualCellConcentration
-                        : r.Xmt;
-
                 data.Injections.Add(inj);
             }
 
-            if (reprocessIntegratedHeatData)
-            {
+            if (HasResolvedConcentrationMetadata(data))
+                RawDataReader.ProcessInjections(data, dilutionMethod);
+            else
                 data.PendingImportBookkeepingMethod = dilutionMethod;
-                if (HasResolvedConcentrationMetadata(data))
-                    RawDataReader.ProcessInjections(data, dilutionMethod);
-            }
 
             // Try to get the instrument based on cell volume
             ITCInstrumentAttribute.ResolveInstrument(data);
@@ -511,9 +486,8 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var isDelimited = isDelimitedIntegratedHeatFile;
-            var needsReprocessChoice = isDelimited && !queuedReprocessIntegratedHeatData.HasValue;
             var needsTemperature = isDelimited && !queuedTemperature.HasValue;
-            if (queuedEnergyUnit.HasValue && !needsReprocessChoice && !needsTemperature)
+            if (queuedEnergyUnit.HasValue && !needsTemperature)
             {
                 AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedEnergyUnit}");
                 if (isDelimited)
@@ -528,8 +502,6 @@ namespace AnalysisITC.Core.DataReaders
                     filepath,
                     encounteredValue,
                     allowQueueReuse: true,
-                    showReprocessChoice: isDelimited,
-                    defaultReprocess: AppSettings.ReprocessIntegratedHeatDataOnLoad,
                     reusedUnit: queuedUnit,
                     showTemperatureInput: isDelimited,
                     defaultTemperature: AppSettings.ReferenceTemperature)
@@ -553,29 +525,14 @@ namespace AnalysisITC.Core.DataReaders
             if (result.UseForRemainingFilesInQueue && (queuedUnit.HasValue || result.Unit.HasValue))
             {
                 queuedEnergyUnit = queuedUnit ?? result.Unit;
-                queuedReprocessIntegratedHeatData = isDelimited
-                    ? result.ReprocessIntegratedHeatData ?? AppSettings.ReprocessIntegratedHeatDataOnLoad
-                    : null;
                 queuedTemperature = isDelimited
                     ? temperature ?? AppSettings.ReferenceTemperature
                     : null;
             }
 
-            promptedReprocessIntegratedHeatData = isDelimited ? result.ReprocessIntegratedHeatData : null;
             promptedTemperature = temperature;
 
             return queuedUnit ?? result.Unit;
-        }
-
-        private static bool ResolveReprocessChoice(bool defaultValue)
-        {
-            if (queuedReprocessIntegratedHeatData.HasValue)
-                return queuedReprocessIntegratedHeatData.Value;
-
-            if (promptedReprocessIntegratedHeatData.HasValue)
-                return promptedReprocessIntegratedHeatData.Value;
-
-            return defaultValue;
         }
 
         private static double ResolveTemperature()
@@ -720,7 +677,7 @@ namespace AnalysisITC.Core.DataReaders
             return true;
         }
 
-        private static double InferCellVolumeLiters(List<Row> rows, DilutionMethod dilutionMethod)
+        private static double InferCellVolumeLiters(List<Row> rows)
         {
             var vCandidates = new List<double>();
             if (rows.Count == 0 || !FWEMath.IsFinite(rows[0].PreMt) || rows[0].PreMt <= 0)
@@ -736,24 +693,8 @@ namespace AnalysisITC.Core.DataReaders
                 var f = row.PostMt / initialMt;
                 if (f <= 0 || f >= 1) continue;
 
-                double vcell;
-                switch (dilutionMethod)
-                {
-                    case DilutionMethod.DiscreteDisplacement:
-                        if (!FWEMath.IsFinite(row.PreMt) || row.PreMt <= row.PostMt || row.InjV_L <= 0)
-                            continue;
-                        vcell = row.InjV_L / (1.0 - row.PostMt / row.PreMt);
-                        break;
-                    case DilutionMethod.Exponential:
-                        vcell = -cumulativeVolume / Math.Log(f);
-                        break;
-                    case DilutionMethod.MicroCal:
-                        var a = (1.0 - f) / (1.0 + f);
-                        vcell = cumulativeVolume / (2.0 * a);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(dilutionMethod));
-                }
+                var a = (1.0 - f) / (1.0 + f);
+                var vcell = cumulativeVolume / (2.0 * a);
 
                 // Keep plausible ITC cell volumes (50 uL .. 10 mL)
                 if (FWEMath.IsFinite(vcell) && vcell > 50e-6 && vcell < 10e-3)
@@ -766,8 +707,7 @@ namespace AnalysisITC.Core.DataReaders
         private static double InferSyringeConcentration(
             List<Row> rows,
             double cellVolume_L,
-            double concScale,
-            DilutionMethod dilutionMethod)
+            double concScale)
         {
             var cCandidates = new List<double>();
             if (rows.Count == 0 || !FWEMath.IsFinite(cellVolume_L) || cellVolume_L <= 0)
@@ -776,42 +716,17 @@ namespace AnalysisITC.Core.DataReaders
 
             var initialXt = rows[0].PreXt * concScale;
             var cumulativeVolume = 0.0;
-            var discreteRetention = 1.0;
 
             foreach (var r in rows)
             {
                 cumulativeVolume += r.InjV_L;
-                if (dilutionMethod == DilutionMethod.DiscreteDisplacement)
-                {
-                    if (!FWEMath.IsFinite(r.InjV_L) || r.InjV_L < 0 || r.InjV_L >= cellVolume_L)
-                        return double.NaN;
-                    discreteRetention *= 1.0 - r.InjV_L / cellVolume_L;
-                }
                 if (!FWEMath.IsFinite(r.PostXt)) continue;
 
-                double remainingFraction;
-                double injectedFraction;
-                switch (dilutionMethod)
-                {
-                    case DilutionMethod.DiscreteDisplacement:
-                        remainingFraction = discreteRetention;
-                        injectedFraction = 1.0 - remainingFraction;
-                        break;
-                    case DilutionMethod.Exponential:
-                        remainingFraction = Math.Exp(-cumulativeVolume / cellVolume_L);
-                        injectedFraction = 1.0 - remainingFraction;
-                        break;
-                    case DilutionMethod.MicroCal:
-                        var a = cumulativeVolume / (2.0 * cellVolume_L);
-                        if (a <= 0 || a >= 1) continue;
-                        remainingFraction = (1.0 - a) / (1.0 + a);
-                        injectedFraction = (cumulativeVolume / cellVolume_L) * (1.0 - a);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(dilutionMethod));
-                }
-
-                if (!FWEMath.IsFinite(injectedFraction) || injectedFraction <= 0) continue;
+                var relativeVolume = cumulativeVolume / cellVolume_L;
+                var a = relativeVolume / 2.0;
+                if (a <= 0 || a >= 1) continue;
+                var remainingFraction = (1.0 - a) / (1.0 + a);
+                var injectedFraction = relativeVolume * (1.0 - a);
                 var postXt = r.PostXt * concScale;
                 var c = (postXt - initialXt * remainingFraction) / injectedFraction;
                 if (FWEMath.IsFinite(c) && c >= 0 && c < 50) cCandidates.Add(c);
@@ -871,7 +786,6 @@ namespace AnalysisITC.Core.DataReaders
             public double PreMt;
             public double PostXt;
             public double PostMt;
-            public double Xmt;
             public int SourceLineNumber;
 
             public readonly double InjV_L => InjV_uL * 1E-6;
@@ -889,7 +803,6 @@ namespace AnalysisITC.Core.DataReaders
             public double InjV_uL;
             public double Xt;
             public double Mt;
-            public double Xmt;
             public int SourceLineNumber;
         }
 

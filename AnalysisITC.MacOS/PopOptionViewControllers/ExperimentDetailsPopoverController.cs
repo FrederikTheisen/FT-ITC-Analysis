@@ -180,7 +180,7 @@ namespace AnalysisITC
             };
             bookkeepingPopup.AddItems(Data.SelectedBookkeepingMethod.HasValue
                 ? new[] { "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" }
-                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" });
+                : new[] { InjectionBookkeeping.SavedConcentrationsLabel(Data.HeatMethod), "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" });
             bookkeepingPopup.SelectItem(Data.SelectedBookkeepingMethod.HasValue ? (nint)(int)Data.SelectedBookkeepingMethod.Value : 0);
             formStack.AddArrangedSubview(Section("Injection bookkeeping", bookkeepingPopup));
             bookkeepingDescription = NSTextField.CreateLabel(InjectionBookkeeping.Description(Data.SelectedBookkeepingMethod));

@@ -95,7 +95,7 @@ namespace AnalysisITC.Core.Data
         public string BookkeepingDescription => SelectedBookkeepingMethod?.DisplayName()
             ?? (AppliedDilutionMethod == DilutionMethod.Exponential
                 ? "Saved exponential concentrations; historical heat model"
-                : InjectionBookkeeping.SavedProcessingLabel);
+                : InjectionBookkeeping.SavedConcentrationsLabel(HeatMethod));
         public double StirringSpeed { get; set; } = -1;
         public FeedbackMode FeedBackMode { get; set; } = FeedbackMode.Null;
 

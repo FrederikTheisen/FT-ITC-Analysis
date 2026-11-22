@@ -671,7 +671,6 @@ namespace AnalysisITC
             base.ViewDidLoad();
             PopulatePopup(DilutionPopup, EnumValues<DilutionMethod>(), value => value.DisplayName());
             DilutionPopup.ToolTip = InjectionBookkeeping.Help + " Default for new data.";
-            ReprocessIntegratedCheck.ToolTip = IntegratedHeatImportPresentation.PreferenceTooltip;
             DilutionDescription.Cell.Wraps = true;
             DilutionDescription.Cell.UsesSingleLineMode = false;
             DilutionDescription.LineBreakMode = NSLineBreakMode.ByWordWrapping;
@@ -693,7 +692,6 @@ namespace AnalysisITC
             SelectPopup(SplineDensityPopup, state.DefaultSplinePointDensity);
             SelectPopup(SplineHandlePopup, state.DefaultSplineHandleMode);
             Set(DiscardIntegrationCheck, state.DiscardIntegrationRegionForBaseline);
-            Set(ReprocessIntegratedCheck, state.ReprocessIntegratedHeatDataOnLoad);
             Set(SplineTimeDraggingCheck, state.DefaultSplinePointTimeDragging);
             Set(CopyIntegrationStartCheck, state.IntegrationRegionCopyIncludesStart);
         }
@@ -711,7 +709,6 @@ namespace AnalysisITC
             state.DefaultSplinePointDensity = PopupValue<SplineInterpolator.SplinePointDensity>(SplineDensityPopup);
             state.DefaultSplineHandleMode = PopupValue<SplineInterpolator.SplineHandleMode>(SplineHandlePopup);
             state.DiscardIntegrationRegionForBaseline = IsOn(DiscardIntegrationCheck);
-            state.ReprocessIntegratedHeatDataOnLoad = IsOn(ReprocessIntegratedCheck);
             state.DefaultSplinePointTimeDragging = IsOn(SplineTimeDraggingCheck);
             state.IntegrationRegionCopyIncludesStart = IsOn(CopyIntegrationStartCheck);
             error = null;

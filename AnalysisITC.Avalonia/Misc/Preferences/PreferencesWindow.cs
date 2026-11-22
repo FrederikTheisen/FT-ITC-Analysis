@@ -100,7 +100,6 @@ internal sealed class PreferencesWindow : Window
     readonly TextBlock dilutionMethodDescription = Explanation();
     readonly ComboBox bufferSubtractionMethodCombo;
     readonly CheckBox discardIntegrationRegionCheck = Check("Discard integration regions for baseline");
-    readonly CheckBox reprocessIntegratedHeatsCheck = Check("Recalculate concentrations on integrated-heat import");
     readonly ComboBox splineDensityCombo;
     readonly ComboBox splineHandleModeCombo;
     readonly CheckBox splinePointTimeDraggingCheck = Check("Allow spline point time dragging by default");
@@ -232,7 +231,6 @@ internal sealed class PreferencesWindow : Window
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
         ToolTip.SetTip(dilutionMethodCombo, InjectionBookkeeping.Help + " Default for new data.");
-        ToolTip.SetTip(reprocessIntegratedHeatsCheck, IntegratedHeatImportPresentation.PreferenceTooltip);
         dilutionMethodCombo.SelectionChanged += (_, _) => UpdateDilutionMethodDescription();
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));
@@ -451,7 +449,6 @@ internal sealed class PreferencesWindow : Window
             dilutionMethodDescription,
             Row("Buffer subtraction", bufferSubtractionMethodCombo),
             discardIntegrationRegionCheck,
-            reprocessIntegratedHeatsCheck
         }));
         panel.Children.Add(Section("Spline defaults", new Control[]
         {
@@ -616,7 +613,6 @@ internal sealed class PreferencesWindow : Window
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(bufferSubtractionMethodCombo, state.BufferSubtractionDefaultMethod);
         discardIntegrationRegionCheck.IsChecked = state.DiscardIntegrationRegionForBaseline;
-        reprocessIntegratedHeatsCheck.IsChecked = state.ReprocessIntegratedHeatDataOnLoad;
         SetCombo(splineDensityCombo, state.DefaultSplinePointDensity);
         SetCombo(splineHandleModeCombo, state.DefaultSplineHandleMode);
         splinePointTimeDraggingCheck.IsChecked = state.DefaultSplinePointTimeDragging;
@@ -804,7 +800,6 @@ internal sealed class PreferencesWindow : Window
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.BufferSubtractionDefaultMethod = Value(bufferSubtractionMethodCombo, AppSettings.BufferSubtractionDefaultMethod);
         state.DiscardIntegrationRegionForBaseline = discardIntegrationRegionCheck.IsChecked == true;
-        state.ReprocessIntegratedHeatDataOnLoad = reprocessIntegratedHeatsCheck.IsChecked == true;
         state.DefaultSplinePointDensity = Value(splineDensityCombo, AppSettings.DefaultSplinePointDensity);
         state.DefaultSplineHandleMode = Value(splineHandleModeCombo, AppSettings.DefaultSplineHandleMode);
         state.DefaultSplinePointTimeDragging = splinePointTimeDraggingCheck.IsChecked == true;

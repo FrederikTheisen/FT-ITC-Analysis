@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Linq;
 
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using AnalysisITC.Core.Units;
@@ -18,6 +21,8 @@ public sealed class ImportPromptServiceTests
         var window = CreateWindow(showTemperatureInput: true, defaultTemperature: 21.5);
 
         Assert.NotNull(window.TemperatureBox);
+        var queue = Assert.Single(window.GetLogicalDescendants().OfType<CheckBox>());
+        Assert.Equal("Use selected action for remaining files", queue.Content);
         Assert.Equal(21.5.ToString("G6", CultureInfo.CurrentCulture), window.TemperatureBox!.Text);
         Assert.True(window.ImportButton.IsEnabled);
 
@@ -52,8 +57,6 @@ public sealed class ImportPromptServiceTests
             "CURVE-1.aff",
             "DH = 1",
             allowQueueReuse: true,
-            showReprocessChoice: true,
-            defaultReprocess: false,
             reusedUnit: null,
             showTemperatureInput: showTemperatureInput,
             defaultTemperature: defaultTemperature);

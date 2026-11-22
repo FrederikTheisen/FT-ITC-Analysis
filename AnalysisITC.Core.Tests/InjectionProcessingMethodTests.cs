@@ -171,7 +171,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     public void UnknownSavedStateAndTandemRequireExplicitHandling()
     {
         var data = NewExperiment();
-        Assert.Equal(InjectionBookkeeping.SavedProcessingLabel, data.BookkeepingDescription);
+        Assert.Equal("Saved concentrations (MicroCal)", data.BookkeepingDescription);
         Assert.Throws<InvalidOperationException>(() => RawDataReader.RecalculateInjections(data));
         data.AddSegment(new TandemExperimentSegment(0, 20e-6, 0));
         Assert.Throws<InvalidOperationException>(() => RawDataReader.ReprocessInjections(data, DilutionMethod.Exponential));

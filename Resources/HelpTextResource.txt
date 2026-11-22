@@ -28,7 +28,7 @@ Dates recorded in data files are read-only. If only a filesystem date is availab
 
 Instrument identification uses recorded metadata first, then an estimate from cell volume when needed. Volume-based identification is a best guess and retains the imported cell volume for calculations.
 
-**Integrated heats:** `.dat`, `.aff`, and `.dh`. The first injection is excluded from fitting by default; include it manually if appropriate. For `.dat` and `.aff`, choose whether to **Recalculate concentrations and ratios** from injection volumes or retain the table progression. The **Recalculate concentrations on integrated-heat import** preference sets the initial choice; you can override it for each import. Enter the experiment temperature in °C during import. `.dh` concentrations are always calculated.
+**Integrated heats:** `.dat`, `.aff`, and `.dh`. The first injection is excluded from fitting by default; include it manually if appropriate. For `.dat` and `.aff`, FT-ITC Analysis estimates cell volume and syringe concentration using the MicroCal equations. The selected **Injection bookkeeping** method determines the recalculated concentrations and ratios and the predicted heats. Enter the experiment temperature in °C during import.
 
 For concatenated `.itc` runs, choose the MicroCal concentration progression or supply between-segment back-mixing settings when prompted.
 
@@ -133,7 +133,7 @@ These are different physical approximations; no method is assumed to be empirica
 
 **Preferences > Processing > Injection bookkeeping** sets the default for new data. For an existing ordinary experiment, change the method in **Experiment Details**. This recalculates concentrations and invalidates its fits without reintegrating measured heats. Rebuild tandem experiments through the tandem tool to change their method.
 
-Changing the preference or editing a name/comment does not switch existing data. Saved projects retain their processing until explicitly changed. If the selector shows **Saved processing — unchanged**, choose a method before recalculating concentrations.
+Changing the preference or editing a name/comment does not switch existing data. Saved projects retain their processing until explicitly changed. If the selector shows **Saved concentrations (MicroCal)**, the fit uses the MicroCal heat calculation. Choose a bookkeeping method to recalculate concentrations.
 
 # Discrete displacement
 

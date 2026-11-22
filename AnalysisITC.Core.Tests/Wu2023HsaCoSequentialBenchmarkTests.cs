@@ -18,15 +18,12 @@ namespace AnalysisITC.Core.Tests;
 public sealed class Wu2023HsaCoSequentialBenchmarkTests : IDisposable
 {
     readonly PreferencesState originalPreferences;
-    readonly bool originalReprocessSetting;
 
     public Wu2023HsaCoSequentialBenchmarkTests()
     {
         originalPreferences = PreferencesState.FromSettings();
         PreferencesState.Defaults().ApplyToSettings();
-        originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = true;
         IntegratedHeatReader.BeginImportQueue();
         PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
     }
@@ -36,7 +33,6 @@ public sealed class Wu2023HsaCoSequentialBenchmarkTests : IDisposable
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
         originalPreferences.ApplyToSettings();
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
     }
 
     public static IEnumerable<object[]> Optimizers()

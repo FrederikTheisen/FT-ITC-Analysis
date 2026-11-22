@@ -21,13 +21,10 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
     private static readonly string[] Metals = { "mn", "cd" };
     private static readonly string[] Runs = { "first", "second", "third" };
     private readonly DilutionMethod originalDilutionMethod;
-    private readonly bool originalReprocessSetting;
 
     public PublishedElifeTwoSiteSourceDataTests()
     {
         originalDilutionMethod = AppSettings.DilutionCalculationMethod;
-        originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = false;
         IntegratedHeatReader.BeginImportQueue();
         PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
     }
@@ -37,7 +34,6 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
         AppSettings.DilutionCalculationMethod = originalDilutionMethod;
-        AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
     }
 
     public static IEnumerable<object[]> FixtureAndDilutionCases()

@@ -105,7 +105,6 @@ public sealed class AvaloniaDataValidationPromptService : IDataValidationPromptS
             {
                 input = new TextBox
                 {
-                    PlaceholderText = "Updated syringe concentration",
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
                 body.Children.Add(input);

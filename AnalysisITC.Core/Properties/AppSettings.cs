@@ -192,7 +192,6 @@ namespace AnalysisITC.Core.Application
         public static bool IncludeBufferInIonicStrengthCalc { get; set; }
         public static DilutionMethod DilutionCalculationMethod { get; set; }
         public static BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; }
-        public static bool ReprocessIntegratedHeatDataOnLoad { get; set; }
         public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; }
         public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; }
         public static bool DefaultSplinePointTimeDragging { get; set; }
@@ -343,7 +342,6 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             Storage.SetInt("DilutionCalculationMethod", (int)DilutionCalculationMethod);
             Storage.SetInt("BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod);
-            Storage.SetBool("ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
             Storage.SetInt("DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
             Storage.SetInt("DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
             Storage.SetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
@@ -465,7 +463,6 @@ namespace AnalysisITC.Core.Application
             AutoAxesIgnoresBadData = Storage.GetBool("AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             DilutionCalculationMethod = (DilutionMethod)Storage.GetInt("DilutionCalculationMethod", (int)DilutionCalculationMethod);
             BufferSubtractionDefaultMethod = NormalizeBufferSubtractionMethod(Storage.GetInt("BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod));
-            ReprocessIntegratedHeatDataOnLoad = Storage.GetBool("ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
             DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)Storage.GetInt("DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
             DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)Storage.GetInt("DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
             DefaultSplinePointTimeDragging = Storage.GetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
