@@ -762,13 +762,15 @@ namespace AnalysisITC.Core.Tests
         [InlineData(true, 10.0 / 7)]
         public void PooledBootstrapRefitsUsePrimaryWeightingAndKeepTheBestFit(bool weighted, double expected)
         {
+            // The numerical fit can land on either side of a decimal rounding boundary.
+            const double offsetTolerance = 1e-6;
             var a = CreatePooledMember("A", new[] { 2.0, 4.0 }, new[] { 2.0, 2.0 });
             var b = CreatePooledMember("B", new[] { -8.0, -4.0, 2.0 }, new[] { 4.0, 4.0, 2.0 });
             var model = CreateJointProbe(a, b);
             var solver = CreatePooledSolver(model, weighted);
             Assert.True(solver.Solve().Success);
             Assert.NotEmpty(model.Solution.BootstrapSolutions);
-            Assert.Equal(expected, model.Solution.Solutions[0].Parameters[ParameterType.Offset].Value, 6);
+            Assert.Equal(expected, model.Solution.Solutions[0].Parameters[ParameterType.Offset].Value, tolerance: offsetTolerance);
             foreach (var replicate in model.Solution.BootstrapSolutions)
             {
                 Assert.Equal(weighted, replicate.UseWeightedFitting);
@@ -776,7 +778,7 @@ namespace AnalysisITC.Core.Tests
                 var observations = replicate.Solutions.SelectMany(member => member.Data.Injections.Where(i => i.Include));
                 var numerator = observations.Sum(i => (i.PeakArea.Value - 10 * i.ID) / (weighted ? i.PeakAreaError * i.PeakAreaError : 1));
                 var denominator = observations.Sum(i => weighted ? 1 / (i.PeakAreaError * i.PeakAreaError) : 1);
-                Assert.Equal(numerator / denominator, replicate.Solutions[0].Parameters[ParameterType.Offset].Value, 6);
+                Assert.Equal(numerator / denominator, replicate.Solutions[0].Parameters[ParameterType.Offset].Value, tolerance: offsetTolerance);
             }
         }
 
