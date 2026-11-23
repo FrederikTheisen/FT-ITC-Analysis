@@ -1773,7 +1773,7 @@ Comments:</string>
                                                     <rect key="frame" x="0.0" y="0.0" width="447" height="200"/>
                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                     <subviews>
-                                                        <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" columnResizing="NO" multipleSelection="NO" autosaveColumns="NO" typeSelect="NO" rowHeight="63" rowSizeStyle="automatic" viewBased="YES" id="bpG-Eu-mC9" customClass="ToggleSelectTableView">
+                                                        <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" columnResizing="NO" multipleSelection="YES" autosaveColumns="NO" typeSelect="NO" rowHeight="63" rowSizeStyle="automatic" viewBased="YES" id="bpG-Eu-mC9" customClass="ToggleSelectTableView">
                                                             <rect key="frame" x="0.0" y="0.0" width="447" height="200"/>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1928,7 +1928,7 @@ Comments:</string>
                                                     <nil key="backgroundColor"/>
                                                 </clipView>
                                                 <constraints>
-                                                    <constraint firstAttribute="height" constant="200" id="ekM-YU-eIA"/>
+                                                    <constraint firstAttribute="height" constant="200" priority="750" id="ekM-YU-eIA"/>
                                                 </constraints>
                                                 <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="QqW-Zx-Pu2">
                                                     <rect key="frame" x="-100" y="-100" width="443" height="16"/>
@@ -1939,6 +1939,16 @@ Comments:</string>
                                                     <autoresizingMask key="autoresizingMask"/>
                                                 </scroller>
                                             </scrollView>
+                                            <textField hidden="YES" focusRingType="none" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-volume-warning">
+                                                <rect key="frame" x="0.0" y="1" width="430" height="16"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="430" id="buf-volume-warning-width"/>
+                                                </constraints>
+                                                <textFieldCell key="cell" wraps="YES" id="buf-volume-warning-cell">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <color key="textColor" name="systemOrangeColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
                                             <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="iHO-HP-Kd2">
                                                 <rect key="frame" x="0.0" y="-2" width="447" height="5"/>
                                             </box>
@@ -1947,8 +1957,10 @@ Comments:</string>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
+                                            <integer value="1000"/>
                                         </visibilityPriorities>
                                         <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
@@ -2040,6 +2052,7 @@ Gw
                         <outlet property="ReferenceExperimentSelection" destination="fa6-XX-Enp" id="dqB-2J-zew"/>
                         <outlet property="SelectListView" destination="bpG-Eu-mC9" id="acW-al-YDk"/>
                         <outlet property="SubtractionMethodControl" destination="buf-method-control" id="buf-method-outlet"/>
+                        <outlet property="VolumeWarningLabel" destination="buf-volume-warning" id="buf-volume-warning-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="c0W-Zu-OH3" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

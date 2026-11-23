@@ -504,6 +504,8 @@ Tandem mode repeats the injection series for each syringe load, with a small fir
 ## Buffer subtraction
 Select a reference buffer experiment and one or more targets in the Buffer Subtraction tool, then apply the correction. Original integrated heats remain stored and raw files are unchanged.
 
+If the tool flags different injection volumes, check that the reference is appropriate for the selected targets before applying the correction.
+
 Buffer subtraction is currently unavailable for tandem experiments, including through Experiment Details.
 
 **Matched:** subtract matching buffer injections, using nearby valid injections as fallback.

@@ -166,6 +166,9 @@ namespace AnalysisITC
                 .Where(target => target != reference)
                 .ToList();
 
+            VolumeWarningLabel.StringValue = BufferSubtractionPresentation.InjectionVolumeWarning(reference, targets);
+            VolumeWarningLabel.Hidden = VolumeWarningLabel.StringValue.Length == 0;
+
             var settings = reference == null
                 ? null
                 : new BufferSubtractionSettings(reference.UniqueID, SelectedSubtractionMethod);

@@ -90,7 +90,8 @@ public sealed class TandemBufferSubtractionTests : IDisposable
         secondReferenceInjection.SetPeakArea(new FloatWithError(15e-6));
         reference.Injections.Add(secondReferenceInjection);
         var target = Experiment("target", 5e-6);
-        DataManager.AddData(new[] { reference, target });
+        var matching = Experiment("matching", 2e-6);
+        DataManager.AddData(new[] { reference, target, matching });
         var window = new BufferSubtractionWindow();
         try
         {
@@ -109,7 +110,18 @@ public sealed class TandemBufferSubtractionTests : IDisposable
             Assert.True(BufferSubtractionCalculator.TryGetReferenceHeat(target.Injections[0], previewModel, out var targetReferenceHeat));
             Assert.Equal(25e-6, targetReferenceHeat.Value, 12);
             var targets = Field<ListBox>(window, "targetList");
+            var warning = Field<TextBlock>(window, "volumeWarning");
+            Assert.False(warning.IsVisible);
             targets.SelectedIndex = targets.Items.Cast<ExperimentData>().ToList().IndexOf(target);
+            Assert.True(warning.IsVisible);
+            Assert.Equal("Injection volumes differ from the reference.", warning.Text);
+            targets.SelectedItems!.Add(matching);
+            Assert.Equal("Injection volumes differ from the reference for 1 of 2 selected targets.", warning.Text);
+            targets.SelectedItems.Remove(target);
+            Assert.False(warning.IsVisible);
+            targets.SelectedItems.Add(target);
+            Assert.True(warning.IsVisible);
+            Assert.True(Field<Button>(window, "applyButton").IsEnabled);
             Invoke(window, "Apply");
             Assert.True(window.Applied);
             Assert.Equal(BufferSubtractionMethod.Mean, target.BufferSubtractionSettings!.Method);

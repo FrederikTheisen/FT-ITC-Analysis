@@ -48,6 +48,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSSegmentedControl SubtractionMethodControl { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField VolumeWarningLabel { get; set; }
+
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
 
@@ -62,6 +65,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (VolumeWarningLabel != null) {
+				VolumeWarningLabel.Dispose ();
+				VolumeWarningLabel = null;
+			}
+
 			if (ExperimentListView != null) {
 				ExperimentListView.Dispose ();
 				ExperimentListView = null;

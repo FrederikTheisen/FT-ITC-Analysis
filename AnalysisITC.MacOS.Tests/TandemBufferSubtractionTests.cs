@@ -84,9 +84,10 @@ static class TandemBufferSubtractionTests
         DataManager.Clear(DataClearMode.ResetSession);
         var reference = Experiment("blank");
         var ordinary = Experiment("ordinary", 5e-6);
+        var matching = Experiment("matching");
         var tandem = Experiment("tandem");
         tandem.AddSegment(new TandemExperimentSegment(0, tandem.CellConcentration, 0));
-        DataManager.AddData(new[] { reference, ordinary, tandem });
+        DataManager.AddData(new[] { reference, ordinary, tandem, matching });
         new Class(typeof(BufferSubtractionTool));
         new Class(typeof(BufferSubtractionGraphView));
         using (var resources = NSBundle.FromPath(System.IO.Path.GetDirectoryName(storyboardPath)))
@@ -95,6 +96,9 @@ static class TandemBufferSubtractionTests
         using (var window = new NSWindow(new CGRect(0, 0, 700, 600), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
         using (var presenter = new NSViewController { View = new NSView(new CGRect(0, 0, 700, 600)) })
         {
+            // The standalone storyboard runner has no app color assets.
+            controller.View.LayoutSubtreeIfNeeded();
+            Property<BufferSubtractionGraphView>(controller, "GraphView").BufferSubtractionGraph.DrawOnWhite = true;
             window.ContentViewController = presenter;
             window.OrderFront(null);
             presenter.PresentViewControllerAsSheet(controller);
@@ -113,8 +117,22 @@ static class TandemBufferSubtractionTests
             referencePopup.SelectItem(1);
             methodControl.SelectedSegment = (int)BufferSubtractionMethod.Mean;
             var targetIndex = source.Items.FindIndex(item => item.Data == ordinary);
-            Property<NSTableView>(controller, "SelectListView").SelectRow(targetIndex, false);
-            Invoke(controller, "UpdateGraph");
+            var table = Property<NSTableView>(controller, "SelectListView");
+            var warning = Property<NSTextField>(controller, "VolumeWarningLabel");
+            Check(warning.Hidden, "empty selection showed a volume warning");
+            table.SelectRow(targetIndex, false);
+            Check(!warning.Hidden && warning.StringValue == "Injection volumes differ from the reference.",
+                "selecting a mismatching target did not show the warning");
+            table.SelectRow(source.Items.FindIndex(item => item.Data == matching), true);
+            Check(warning.StringValue == "Injection volumes differ from the reference for 1 of 2 selected targets.",
+                "mixed selection did not identify the mismatch count");
+            controller.View.LayoutSubtreeIfNeeded();
+            Check(warning.Superview != null && warning.Frame.Height > 0 && warning.VisibleRect().Height >= warning.Frame.Height,
+                "the warning was clipped in the subtraction sheet");
+            table.DeselectRow(targetIndex);
+            Check(warning.Hidden, "deselecting the mismatching target did not clear the warning");
+            table.SelectRow(targetIndex, false);
+            Check(!warning.Hidden && Property<NSButton>(controller, "ApplyButton").Enabled, "warning blocked Apply");
             var previewModel = Property<BufferSubtractionGraphView>(controller, "GraphView")
                 .BufferSubtractionGraph.SubtractionModel;
             var points = previewModel.GetLinePoints(1, 2);

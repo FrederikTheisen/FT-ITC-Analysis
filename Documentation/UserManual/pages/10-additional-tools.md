@@ -39,6 +39,8 @@ For Competitive Binding, enter the total competitor concentration and its dissoc
 
 **Buffer Subtraction...** models background heat from one reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and tandem experiments, and supports multiple targets. Buffer subtraction is currently unavailable for tandem experiments, including through Experiment Details. The correction uses the reference's available integrated heats; if the reference is processed later, target corrections update. Processing is described in [Processing](05-processing-thermograms.md).
 
+If the tool flags different injection volumes, check that the reference is appropriate for the selected targets before applying the correction.
+
 Choose the method that describes the reference heats.
 
 - **Matched** evaluates the reference heat at each target injection number, using nearby included reference injections when the matching injection is unavailable.

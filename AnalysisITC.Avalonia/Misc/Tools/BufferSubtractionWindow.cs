@@ -12,6 +12,7 @@ using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
@@ -25,6 +26,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ListBox targetList = new ListBox { SelectionMode = SelectionMode.Multiple };
         readonly BufferSubtractionGraphControl graph = new BufferSubtractionGraphControl();
         readonly TextBlock referenceInfoText = Text();
+        readonly TextBlock volumeWarning = new TextBlock { TextWrapping = TextWrapping.Wrap };
         readonly TextBlock statusText = Text();
         readonly Button applyButton = Button("Apply", 82);
         readonly Button cancelButton = Button("Cancel", 82);
@@ -61,7 +63,8 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Method", methodCombo),
                 focusYAxisCheck,
                 referenceInfoText));
-            inspector.Children.Add(Section("Targets", targetList));
+            AppTheme.Bind(volumeWarning, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+            inspector.Children.Add(Section("Targets", targetList, volumeWarning));
 
             targetList.ItemTemplate = new FuncDataTemplate<ExperimentData>((data, _) => ExperimentCell(data));
             ToolTip.SetTip(targetList, BufferSubtractionPolicy.TandemTargetReason);
@@ -126,6 +129,8 @@ namespace AnalysisITC.Avalonia.Tools
             var reference = SelectedReference();
             var targets = SelectedTargets();
             referenceInfoText.Text = ReferenceInfo(reference);
+            volumeWarning.Text = BufferSubtractionPresentation.InjectionVolumeWarning(reference, targets);
+            volumeWarning.IsVisible = volumeWarning.Text.Length > 0;
 
             var settings = reference == null
                 ? null
