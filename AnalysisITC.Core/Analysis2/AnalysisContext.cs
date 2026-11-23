@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Processing;
 
 
 namespace AnalysisITC.Core.Analysis
@@ -58,6 +59,19 @@ namespace AnalysisITC.Core.Analysis
             (GlobalModelParameters.RequiresGlobalFitting
                 || GlobalModelParameters.BootstrapRequiresJointFit(FittingOptionsController.ErrorEstimationMethod,
                     FittingOptionsController.UnlockBootstrapParameters));
+
+        internal bool CanReestimateTandemMixing => IsMultiExperiment
+            ? GlobalModel.Models.Any(model => TandemMixingBootstrap.IsEligible(model.Data))
+            : TandemMixingBootstrap.IsEligible(SingleModel.Data);
+
+        internal bool HasUnlockableParameters => IsMultiExperiment
+            ? GlobalModelParameters.GlobalTable.Values.Any(parameter => parameter.IsLocked)
+                || GlobalModel.Models.Any(model => model.Parameters.Table.Values.Any(parameter =>
+                    CanUnlock(parameter)
+                    && GlobalModelParameters.GetConstraintForParameter(parameter.Key) == VariableConstraint.None))
+            : SingleModel.Parameters.Table.Values.Any(CanUnlock);
+
+        static bool CanUnlock(Parameter parameter) => parameter.IsLocked && !parameter.IsGloballyDetermined;
 
         /// <summary>
         /// Number of independent variables in the current fit configuration.

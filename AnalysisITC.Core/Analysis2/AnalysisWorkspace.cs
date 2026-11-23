@@ -39,10 +39,7 @@ namespace AnalysisITC.Core.Analysis
 
         public bool IsReady => Context != null;
         public bool ReestimateTandemMixing { get; set; }
-        public bool CanReestimateTandemMixing =>
-            Context != null && (Context.IsMultiExperiment
-                ? Context.GlobalModel.Models.Any(model => TandemMixingBootstrap.IsEligible(model.Data))
-                : TandemMixingBootstrap.IsEligible(Context.SingleModel.Data));
+        public bool CanReestimateTandemMixing => Context?.CanReestimateTandemMixing == true;
         internal bool ReuseAttachedSolutionInitialValues => reuseAttachedSolutionInitialValues;
 
         /// <summary>Returns editable model options even when no analysis context can be built.</summary>

@@ -26,7 +26,7 @@ namespace AnalysisITC.Core.Presentation
         { Title = title; Rows = rows.AsReadOnly(); }
     }
 
-    /// <summary>Shared saved-evidence presentation for desktop result views and completion messages.</summary>
+    /// <summary>Shared presentation for fit controls, result views, and completion messages.</summary>
     public static class UncertaintyEstimationPresentation
     {
         public static IReadOnlyList<FittingCompletionMessage> CompletionMessages(SolverInterface solver,
@@ -225,6 +225,15 @@ namespace AnalysisITC.Core.Presentation
 
         public const string PoolResidualsTooltip = "Draw standardized noise from all fitted experiments";
         public const string TandemMixingTooltip = "Re-estimate tandem mixing for each bootstrap refit";
+
+        internal static (bool UnlockParameters, bool PoolResiduals, bool TandemMixing) GetBootstrapOptionVisibility(
+            AnalysisContext context, ErrorEstimationMethod method)
+        {
+            if (context == null || method != ErrorEstimationMethod.BootstrapResiduals)
+                return default;
+
+            return (context.HasUnlockableParameters, context.WillFitGlobally, context.CanReestimateTandemMixing);
+        }
 
         internal static string PooledSamplingText(GlobalSolution solution)
         {

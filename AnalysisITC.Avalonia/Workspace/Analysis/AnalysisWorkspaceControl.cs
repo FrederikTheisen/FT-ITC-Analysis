@@ -1436,13 +1436,18 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateErrorEstimationControlState()
         {
-            var canConfigureBootstrap = !isFitting
-                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
+            var method = SelectedErrorMethod();
+            var canConfigureBootstrap = !isFitting && method == ErrorEstimationMethod.BootstrapResiduals;
             bootstrapIterationsBox.IsEnabled = canConfigureBootstrap;
             concentrationUncertaintyCheck.IsEnabled = canConfigureBootstrap;
-            unlockParametersCheck.IsEnabled = canConfigureBootstrap;
-            poolResidualsCheck.IsEnabled = canConfigureBootstrap && workspace.Context?.WillFitGlobally == true;
-            tandemMixingCheck.IsEnabled = canConfigureBootstrap && workspace.CanReestimateTandemMixing;
+
+            var visibility = UncertaintyEstimationPresentation.GetBootstrapOptionVisibility(workspace.Context, method);
+            unlockParametersCheck.IsVisible = visibility.UnlockParameters;
+            poolResidualsCheck.IsVisible = visibility.PoolResiduals;
+            tandemMixingCheck.IsVisible = visibility.TandemMixing;
+            unlockParametersCheck.IsEnabled = visibility.UnlockParameters && !isFitting;
+            poolResidualsCheck.IsEnabled = visibility.PoolResiduals && !isFitting;
+            tandemMixingCheck.IsEnabled = visibility.TandemMixing && !isFitting;
         }
 
         void ChangeConcentrationUncertainty()

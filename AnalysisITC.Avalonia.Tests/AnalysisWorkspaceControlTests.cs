@@ -1523,10 +1523,11 @@ public sealed class AnalysisWorkspaceControlTests
                 try
                 {
                     Assert.False(workspace.PoolResidualsCheck.IsChecked);
+                    Assert.False(workspace.PoolResidualsCheck.IsVisible);
                     Assert.False(workspace.PoolResidualsCheck.IsEnabled);
                     workspace.ModeSelectorForTesting.SelectedIndex = 1;
                     Dispatcher.UIThread.RunJobs();
-                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                    Assert.False(workspace.PoolResidualsCheck.IsVisible);
 
                     var affinity = Assert.Single(workspace.ParameterPanelForTesting.GetVisualDescendants()
                         .OfType<ComboBox>(), combo => combo.Items.OfType<ComboBoxItem>()
@@ -1534,17 +1535,26 @@ public sealed class AnalysisWorkspaceControlTests
                     affinity.SelectedItem = affinity.Items.OfType<ComboBoxItem>()
                         .Single(item => Equals(item.Tag, VariableConstraint.SameForAll));
                     Dispatcher.UIThread.RunJobs();
+                    Assert.True(workspace.PoolResidualsCheck.IsVisible);
                     Assert.True(workspace.PoolResidualsCheck.IsEnabled);
+                    Assert.False(workspace.UnlockParametersCheck.IsVisible);
                     var shared = workspace.ContextForTesting!.GlobalModelParameters.GlobalTable[ParameterType.Affinity1];
                     CoreWorkspaceFor(workspace).SetParameterOverride(ParameterType.Affinity1, shared.Value, isLocked: true);
                     Dispatcher.UIThread.RunJobs();
-                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                    Assert.True(workspace.UnlockParametersCheck.IsVisible);
+                    Assert.False(workspace.PoolResidualsCheck.IsVisible);
                     workspace.UnlockParametersCheck.IsChecked = true;
+                    Assert.True(workspace.PoolResidualsCheck.IsVisible);
                     Assert.True(workspace.PoolResidualsCheck.IsEnabled);
                     workspace.PoolResidualsCheck.IsChecked = true;
                     Assert.True(FittingOptionsController.PoolBootstrapResiduals);
                     workspace.ErrorMethodComboForTesting.SelectedIndex = 2;
-                    Assert.False(workspace.PoolResidualsCheck.IsEnabled);
+                    Assert.False(workspace.PoolResidualsCheck.IsVisible);
+                    Assert.False(workspace.UnlockParametersCheck.IsVisible);
+                    workspace.ErrorMethodComboForTesting.SelectedIndex = 1;
+                    Assert.True(workspace.PoolResidualsCheck.IsVisible);
+                    Assert.True(workspace.PoolResidualsCheck.IsChecked);
+                    Assert.True(workspace.UnlockParametersCheck.IsChecked);
                 }
                 finally
                 {
@@ -1661,7 +1671,7 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
-    public void LeaveOneOutDisablesBootstrapOnlyControlsWithoutChangingTheirValues()
+    public void LeaveOneOutPreservesBootstrapChoicesAndHidesUnlock()
     {
         var previousMethod = FittingOptionsController.ErrorEstimationMethod;
         var previousIterations = FittingOptionsController.BootstrapIterations;
@@ -1676,7 +1686,13 @@ public sealed class AnalysisWorkspaceControlTests
 
             Dispatcher.UIThread.Invoke(() =>
             {
-                var workspace = new AnalysisWorkspaceControl();
+                var workspace = new AnalysisWorkspaceControl { Experiment = CreateReadyExperiment("locked.itc", 20) };
+                var core = CoreWorkspaceFor(workspace);
+                var affinity = core.Context.SingleModel.Parameters.Table[ParameterType.Affinity1].Value;
+                Assert.False(workspace.UnlockParametersCheck.IsVisible);
+                core.SetParameterOverride(ParameterType.Affinity1, affinity, isLocked: true, rebuild: false);
+                workspace.RefreshIncludedDataState();
+                Assert.True(workspace.UnlockParametersCheck.IsVisible);
                 var originalIterations = workspace.BootstrapIterationsBoxForTesting.Text;
                 var originalConcentrationUncertainty = workspace.ConcentrationUncertaintyCheck.IsChecked;
                 var originalUnlock = workspace.UnlockParametersCheck.IsChecked;
@@ -1685,6 +1701,7 @@ public sealed class AnalysisWorkspaceControlTests
 
                 Assert.False(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
                 Assert.False(workspace.ConcentrationUncertaintyCheck.IsEnabled);
+                Assert.False(workspace.UnlockParametersCheck.IsVisible);
                 Assert.False(workspace.UnlockParametersCheck.IsEnabled);
                 Assert.Equal(originalIterations, workspace.BootstrapIterationsBoxForTesting.Text);
                 Assert.Equal(originalConcentrationUncertainty, workspace.ConcentrationUncertaintyCheck.IsChecked);
@@ -1694,9 +1711,18 @@ public sealed class AnalysisWorkspaceControlTests
 
                 Assert.True(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
                 Assert.True(workspace.ConcentrationUncertaintyCheck.IsEnabled);
+                Assert.True(workspace.UnlockParametersCheck.IsVisible);
                 Assert.True(workspace.UnlockParametersCheck.IsEnabled);
                 Assert.Equal("500", workspace.BootstrapIterationsBoxForTesting.Text);
                 Assert.True(workspace.ConcentrationUncertaintyCheck.IsChecked);
+                Assert.True(workspace.UnlockParametersCheck.IsChecked);
+
+                core.SetParameterOverride(ParameterType.Affinity1, affinity, isLocked: false, rebuild: false);
+                workspace.RefreshIncludedDataState();
+                Assert.False(workspace.UnlockParametersCheck.IsVisible);
+                core.SetParameterOverride(ParameterType.Affinity1, affinity, isLocked: true, rebuild: false);
+                workspace.RefreshIncludedDataState();
+                Assert.True(workspace.UnlockParametersCheck.IsVisible);
                 Assert.True(workspace.UnlockParametersCheck.IsChecked);
             });
 
@@ -1786,6 +1812,8 @@ public sealed class AnalysisWorkspaceControlTests
         var previousBootstrapIterations = AppSettings.DefaultBootstrapIterations;
         var previousIncludeConcentrationErrors = AppSettings.IncludeConcentrationErrorsInBootstrap;
         var previousWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
+        var previousDefaultPooling = AppSettings.DefaultPoolBootstrapResiduals;
+        var previousLivePooling = FittingOptionsController.PoolBootstrapResiduals;
         var previousParameterLimitSetting = AppSettings.ParameterLimitSetting;
         var previousSingleResult = AppSettings.CreateSingleAnalysisResult;
         var previousGlobalResult = AppSettings.CreateGlobalAnalysisResult;
@@ -1803,6 +1831,7 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.DefaultBootstrapIterations = 500;
             AppSettings.IncludeConcentrationErrorsInBootstrap = true;
             AppSettings.UseInjectionErrorWeightedFitting = true;
+            AppSettings.DefaultPoolBootstrapResiduals = true;
             AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
             AppSettings.CreateSingleAnalysisResult = true;
             AppSettings.CreateGlobalAnalysisResult = false;
@@ -1811,12 +1840,20 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.MaximumOptimizerIterations = 10_000;
 
             FittingOptionsController.UnlockBootstrapParameters = true;
+            FittingOptionsController.PoolBootstrapResiduals = false;
 
             AppSettings.SettingsDidUpdate += settingsUpdatedHandler;
             Dispatcher.UIThread.Invoke(() =>
             {
                 var workspace = new AnalysisWorkspaceControl();
+                workspace.TandemMixingCheck.IsChecked = true;
+                Assert.False(workspace.TandemMixingCheck.IsVisible);
+                Assert.False(workspace.UnlockParametersCheck.IsVisible);
+                Assert.False(workspace.PoolResidualsCheck.IsVisible);
                 workspace.RestoreAnalysisDefaults();
+                Assert.False(workspace.TandemMixingCheck.IsChecked);
+                Assert.False(workspace.UnlockParametersCheck.IsChecked);
+                Assert.True(workspace.PoolResidualsCheck.IsChecked);
             });
 
             Assert.Equal(SolverAlgorithm.LevenbergMarquardt, FittingOptionsController.Algorithm);
@@ -1825,6 +1862,7 @@ public sealed class AnalysisWorkspaceControlTests
             Assert.True(FittingOptionsController.IncludeConcentrationVariance);
             Assert.True(FittingOptionsController.UseErrorWeightedFitting);
             Assert.False(FittingOptionsController.UnlockBootstrapParameters);
+            Assert.True(FittingOptionsController.PoolBootstrapResiduals);
             Assert.False(settingsUpdated);
 
             Assert.Equal(ParameterLimitSetting.Extended, AppSettings.ParameterLimitSetting);
@@ -1843,6 +1881,8 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.DefaultBootstrapIterations = previousBootstrapIterations;
             AppSettings.IncludeConcentrationErrorsInBootstrap = previousIncludeConcentrationErrors;
             AppSettings.UseInjectionErrorWeightedFitting = previousWeightedFitting;
+            AppSettings.DefaultPoolBootstrapResiduals = previousDefaultPooling;
+            FittingOptionsController.PoolBootstrapResiduals = previousLivePooling;
             AppSettings.ParameterLimitSetting = previousParameterLimitSetting;
             AppSettings.CreateSingleAnalysisResult = previousSingleResult;
             AppSettings.CreateGlobalAnalysisResult = previousGlobalResult;

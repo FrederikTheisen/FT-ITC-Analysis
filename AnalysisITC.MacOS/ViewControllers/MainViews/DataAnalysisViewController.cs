@@ -50,6 +50,7 @@ namespace AnalysisITC
             modelOptionDraftCache = new();
         AnalysisInspectorDraft inspectorDraft;
         AnalysisContext inspectorPreviewContext;
+        readonly Dictionary<NSStackView, NSLayoutConstraint> bootstrapOptionRowWidths = new();
         AnalysisInspectorDraftKey? activeInspectorDraftKey;
         bool inspectorRefreshQueued;
         ExperimentData summaryExperiment;
@@ -379,19 +380,47 @@ namespace AnalysisITC
             ErrorIterationsControl.Enabled = isBootstrap;
             ErrorIterationLabel.Enabled = isBootstrap;
             IncludeConcErrorControl.Enabled = isBootstrap;
-            UnlockParametersForErrorEstimationControl.Enabled = isBootstrap;
             RefreshBootstrapOptionAvailability();
         }
 
         void RefreshBootstrapOptionAvailability()
         {
-            if (PoolResidualsControl == null || ErrorMethodControl == null) return;
-            PoolResidualsControl.Enabled = !isFitting && Workspace.IsReady
-                && (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem == ErrorEstimationMethod.BootstrapResiduals
-                && (inspectorPreviewContext ?? Workspace.Context)?.WillFitGlobally == true;
-            if (TandemMixingControl != null)
-                TandemMixingControl.Enabled = !isFitting && Workspace.CanReestimateTandemMixing
-                    && (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem == ErrorEstimationMethod.BootstrapResiduals;
+            if (ErrorMethodControl == null) return;
+
+            var method = (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem;
+            var visibility = UncertaintyEstimationPresentation.GetBootstrapOptionVisibility(
+                inspectorPreviewContext ?? Workspace.Context, method);
+            SetBootstrapOptionVisibility(UnlockParametersForErrorEstimationControl, visibility.UnlockParameters);
+            SetBootstrapOptionVisibility(PoolResidualsControl, visibility.PoolResiduals);
+            SetBootstrapOptionVisibility(TandemMixingControl, visibility.TandemMixing);
+        }
+
+        void SetBootstrapOptionVisibility(NSButton button, bool visible)
+        {
+            if (button == null) return;
+
+            button.Enabled = visible && !isFitting;
+            if (button.Superview is not NSStackView row || FitSummaryView?.Superview is not NSStackView fitStack)
+            {
+                button.Hidden = !visible;
+                return;
+            }
+
+            // AppKit detaches hidden rows. Only constrain the width while the row is attached.
+            if (!visible && bootstrapOptionRowWidths.TryGetValue(row, out var width))
+            {
+                width.Active = false;
+                bootstrapOptionRowWidths.Remove(row);
+            }
+
+            row.Hidden = !visible;
+            if (visible && !bootstrapOptionRowWidths.ContainsKey(row))
+            {
+                var rowWidth = NSLayoutConstraint.Create(
+                    row, NSLayoutAttribute.Width, NSLayoutRelation.Equal, fitStack, NSLayoutAttribute.Width, 1, 0);
+                rowWidth.Active = true;
+                bootstrapOptionRowWidths.Add(row, rowWidth);
+            }
         }
 
         void OnTandemMixingActivated(object sender, EventArgs e) =>

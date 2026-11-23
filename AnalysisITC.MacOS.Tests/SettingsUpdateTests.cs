@@ -119,6 +119,12 @@ static class SettingsUpdateTests
                 AppSettings.ShowResidualGraph = !AppSettings.ShowResidualGraph;
                 AppSettings.Save();
                 Check(FinalFigureGraphView.ShowResiduals == AppSettings.ShowResidualGraph, "A normal display preference stopped applying");
+                var tandem = Outlet<NSButton>(analysis, "TandemMixingControl");
+                var pooling = Outlet<NSButton>(analysis, "PoolResidualsControl");
+                var unlock = Outlet<NSButton>(analysis, "UnlockParametersForErrorEstimationControl");
+                Check(tandem.Hidden && pooling.Hidden && unlock.Hidden, "Bootstrap options should be hidden before restoring defaults");
+                analysis.Workspace.ReestimateTandemMixing = true;
+                FittingOptionsController.PoolBootstrapResiduals = !AppSettings.DefaultPoolBootstrapResiduals;
                 FittingOptionsController.ResetToPreferenceDefaults();
                 ModelFactory.ResetStoredAnalysisState();
                 DataAnalysisViewController.ResetStoredAnalysisState();
@@ -127,8 +133,12 @@ static class SettingsUpdateTests
                 Check(FittingOptionsController.BootstrapIterations == 1000
                     && Outlet<NSTextField>(analysis, "ErrorIterationLabel").IntValue == 1000,
                     "Restore defaults did not load the newly saved iteration count");
-                Check(Outlet<NSButton>(analysis, "UnlockParametersForErrorEstimationControl").State == NSCellStateValue.Off,
+                Check(unlock.State == NSCellStateValue.Off,
                     "Restore defaults did not clear parameter unlocking");
+                Check(!analysis.Workspace.ReestimateTandemMixing && tandem.State == NSCellStateValue.Off,
+                    "Restore defaults did not clear tandem propagation");
+                Check((pooling.State == NSCellStateValue.On) == AppSettings.DefaultPoolBootstrapResiduals,
+                    "Restore defaults did not reload the pooling preference");
                 Console.WriteLine("PASS: native display updates and explicit Analysis restore defaults");
                 Check(Outlet<NSSlider>(analysis, "ErrorIterationsControl").ToolTip
                     == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.BootstrapIterationsTooltip,
@@ -175,6 +185,7 @@ static class SettingsUpdateTests
     static void CheckPooledResidualsControl(DataAnalysisViewController controller, ExperimentData first)
     {
         var checkbox = Outlet<NSButton>(controller, "PoolResidualsControl");
+        var unlock = Outlet<NSButton>(controller, "UnlockParametersForErrorEstimationControl");
         var errors = Outlet<NSPopUpButton>(controller, "ErrorMethodControl");
         var weighted = Outlet<NSButton>(controller, "UseWeightedControl");
         var refresh = typeof(DataAnalysisViewController).GetMethod("RefreshBootstrapOptionAvailability", Instance);
@@ -184,7 +195,8 @@ static class SettingsUpdateTests
         typeof(DataAnalysisViewController).GetMethod("OnErrorMethodActivated", Instance)
             .Invoke(controller, new object[] { errors, EventArgs.Empty });
         refresh.Invoke(controller, null);
-        Check(!checkbox.Enabled && checkbox.State == NSCellStateValue.Off, "Pooling should default off and require a joint fit");
+        Check(checkbox.Hidden && !checkbox.Enabled && checkbox.State == NSCellStateValue.Off, "Pooling should default off and require a joint fit");
+        Check(unlock.Hidden, "Unlocking should be hidden when the single fit has no locks");
         Check(checkbox.ToolTip == AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.PoolResidualsTooltip,
             "Pooling does not use the shared tooltip");
 
@@ -194,7 +206,7 @@ static class SettingsUpdateTests
         Check(!controller.Workspace.Context.WillFitGlobally, "Expected an independent fit configuration");
         preview.SetValue(controller, null);
         refresh.Invoke(controller, null);
-        Check(!checkbox.Enabled, "Pooling was enabled for independent fits");
+        Check(checkbox.Hidden && !checkbox.Enabled, "Pooling was shown for independent fits");
         controller.Workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll, rebuild: false);
         Check(controller.Workspace.TryRebuild(new[] { first, second }), "Could not prepare the joint fit");
         Check(controller.Workspace.Context.WillFitGlobally, "Expected a joint fit configuration");
@@ -202,8 +214,8 @@ static class SettingsUpdateTests
         preview.SetValue(controller, null);
         weighted.State = NSCellStateValue.Off;
         refresh.Invoke(controller, null);
-        Check(checkbox.Enabled, "Pooling should be available for unweighted joint fits");
-        var unlock = Outlet<NSButton>(controller, "UnlockParametersForErrorEstimationControl");
+        Check(!checkbox.Hidden && checkbox.Enabled, "Pooling should be available for unweighted joint fits");
+        Check(unlock.Hidden, "Unlocking was shown when the shared parameter was free");
         var changeUnlock = typeof(DataAnalysisViewController).GetMethod("OnUnlockParametersActivated", Instance);
         var shared = controller.Workspace.Context.GlobalModelParameters.GlobalTable[ParameterType.Affinity1];
         controller.Workspace.SetParameterOverride(ParameterType.Affinity1, shared.Value, isLocked: true, rebuild: false);
@@ -211,15 +223,25 @@ static class SettingsUpdateTests
         preview.SetValue(controller, null);
         unlock.State = NSCellStateValue.Off;
         changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
-        Check(!checkbox.Enabled, "Pooling was enabled for a locked shared parameter without unlocking");
+        Check(!unlock.Hidden && unlock.Enabled, "Unlocking should be available for a locked shared parameter");
+        Check(checkbox.Hidden && !checkbox.Enabled, "Pooling was shown for a locked shared parameter without unlocking");
         unlock.State = NSCellStateValue.On;
         changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
-        Check(checkbox.Enabled, "Unlocking a locked shared parameter should enable pooling");
+        Check(!checkbox.Hidden && checkbox.Enabled, "Unlocking a locked shared parameter should reveal pooling");
+        checkbox.PerformClick(checkbox);
+        Check(FittingOptionsController.PoolBootstrapResiduals, "The pooling choice did not reach the fitting options");
         unlock.State = NSCellStateValue.Off;
+        changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
+        Check(checkbox.Hidden, "Pooling should hide when the bootstrap becomes independent");
+        unlock.State = NSCellStateValue.On;
         changeUnlock.Invoke(controller, new object[] { unlock, EventArgs.Empty });
         errors.SelectItem((int)ErrorEstimationMethod.LeaveOneOut);
         refresh.Invoke(controller, null);
-        Check(!checkbox.Enabled, "Pooling was enabled for leave-one-out");
+        Check(checkbox.Hidden && unlock.Hidden, "Pooling and unlocking should hide for leave-one-out");
+        errors.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
+        refresh.Invoke(controller, null);
+        Check(!checkbox.Hidden && checkbox.State == NSCellStateValue.On
+            && !unlock.Hidden && unlock.State == NSCellStateValue.On, "Returning to bootstrap lost the pooling or unlocking choice");
         Console.WriteLine("PASS: native pooled bootstrap option availability");
     }
 

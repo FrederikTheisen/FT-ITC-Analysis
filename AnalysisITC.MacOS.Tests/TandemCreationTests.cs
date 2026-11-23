@@ -313,26 +313,12 @@ static class TandemCreationTests
         using (var resources = NSBundle.FromPath(System.IO.Path.GetDirectoryName(storyboardPath)))
         using (var storyboard = NSStoryboard.FromName("Main", resources))
         using (var controller = (DataAnalysisViewController)storyboard.InstantiateControllerWithIdentifier("DataAnalysisViewController"))
+        using (var window = new NSWindow(new CGRect(0, 0, 800, 600), NSWindowStyle.Titled, NSBackingStore.Buffered, false))
         {
+            window.ContentViewController = controller;
             DataManager.SelectIndex(DataManager.SourceItems.ToList().IndexOf(merged));
-            controller.View.LayoutSubtreeIfNeeded();
             var error = (NSPopUpButton)type.GetProperty("ErrorMethodControl", Instance).GetValue(controller);
             var mixing = (NSButton)type.GetProperty("TandemMixingControl", Instance).GetValue(controller);
-            var pooling = (NSButton)type.GetProperty("PoolResidualsControl", Instance).GetValue(controller);
-            foreach (var button in new[] { pooling, mixing })
-            {
-                var row = button.Superview;
-                var inspector = row.Superview;
-                var image = ((NSButtonCell)button.Cell).ImageRectForBounds(button.Bounds);
-                var imageInInspector = button.ConvertRectToView(image, inspector);
-                var buttonInInspector = button.ConvertRectToView(button.Bounds, inspector);
-                Check(Math.Abs((double)(row.Frame.Width - inspector.Bounds.Width)) < 1
-                    && buttonInInspector.Left <= inspector.Bounds.Left
-                    && buttonInInspector.Right >= inspector.Bounds.Right,
-                    button.Title + " must fill the inspector width");
-                Check(Math.Abs((double)(imageInInspector.Right - inspector.Bounds.Right)) <= 4,
-                    button.Title + " must place its checkbox at the right edge");
-            }
 
             var previousMethod = FittingOptionsController.ErrorEstimationMethod;
             var previousIterations = FittingOptionsController.BootstrapIterations;
@@ -346,7 +332,20 @@ static class TandemCreationTests
                 Check(controller.Workspace.TryRebuild(), "automatic tandem must be ready to fit");
                 error.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
                 Check(error.SendAction(error.Action, error.Target), "bootstrap method action must dispatch");
-                Check(mixing.Enabled && mixing.State == NSCellStateValue.Off, "eligible tandem checkbox must default off");
+                Check(!mixing.Superview.Hidden && mixing.Enabled && mixing.State == NSCellStateValue.Off,
+                    "eligible tandem checkbox must appear and default off");
+                Console.WriteLine("Checking visible tandem fit row layout");
+                controller.View.LayoutSubtreeIfNeeded();
+                CheckFitCheckboxLayout(mixing);
+
+                var regular = DataManager.Data.First(data => !data.IsTandemExperiment);
+                mixing.PerformClick(mixing);
+                DataManager.SelectIndex(DataManager.SourceItems.ToList().IndexOf(regular));
+                Check(mixing.Superview.Hidden, "tandem propagation should hide for a regular experiment");
+                DataManager.SelectIndex(DataManager.SourceItems.ToList().IndexOf(merged));
+                Check(!mixing.Superview.Hidden && mixing.State == NSCellStateValue.On,
+                    "returning to eligible tandem data must restore the checked state");
+                mixing.PerformClick(mixing);
 
                 var apply = type.GetMethod("ApplyInspectorSettings", Instance);
                 foreach (var requested in new[] { true, false })
@@ -362,9 +361,39 @@ static class TandemCreationTests
                         "prepared fit did not capture the current tandem checkbox");
                 }
 
+                mixing.PerformClick(mixing);
+                var row = mixing.Superview;
+                var inspector = (NSStackView)row.Superview;
+                var concentration = (NSButton)type.GetProperty("IncludeConcErrorControl", Instance).GetValue(controller);
+                var summaryLine = inspector.ArrangedSubviews.SkipWhile(view => view != row).Skip(1).First();
+                var visibleGap = concentration.Superview.Frame.Top - summaryLine.Frame.Bottom;
+                var rowHeight = row.Frame.Height;
                 error.SelectItem((int)ErrorEstimationMethod.LeaveOneOut);
                 Check(error.SendAction(error.Action, error.Target), "leave-one-out method action must dispatch");
-                Check(!mixing.Enabled, "leave-one-out must disable tandem propagation");
+                Console.WriteLine("Checking collapsed tandem fit row layout");
+                controller.View.LayoutSubtreeIfNeeded();
+                Check(mixing.Superview.Hidden && !mixing.Enabled, "leave-one-out must hide tandem propagation");
+                var hiddenGap = concentration.Superview.Frame.Top - summaryLine.Frame.Bottom;
+                Check(rowHeight > 0 && visibleGap - hiddenGap >= rowHeight,
+                    "the hidden tandem row must release its space in the fit inspector");
+                error.SelectItem((int)ErrorEstimationMethod.BootstrapResiduals);
+                Check(error.SendAction(error.Action, error.Target), "bootstrap method action must dispatch again");
+                Check(!mixing.Superview.Hidden && mixing.State == NSCellStateValue.On,
+                    "returning to bootstrap must restore the tandem checkbox choice");
+
+                var pooling = (NSButton)type.GetProperty("PoolResidualsControl", Instance).GetValue(controller);
+                var mode = (NSSegmentedControl)type.GetProperty("AnalysisModeControl", Instance).GetValue(controller);
+                regular.Include = true;
+                mode.SelectedSegment = 1;
+                controller.Workspace.SetGlobalMode(true);
+                controller.Workspace.SetConstraint(ParameterType.Affinity1, VariableConstraint.SameForAll, rebuild: false);
+                Check(controller.Workspace.TryRebuild(new[] { merged, regular }), "joint tandem fit must be ready");
+                type.GetField("inspectorPreviewContext", Instance).SetValue(controller, null);
+                type.GetMethod("RefreshBootstrapOptionAvailability", Instance).Invoke(controller, null);
+                Console.WriteLine("Checking visible pooling fit row layout");
+                controller.View.LayoutSubtreeIfNeeded();
+                Check(!pooling.Superview.Hidden, "pooling should appear for a joint fit");
+                CheckFitCheckboxLayout(pooling);
             }
             finally
             {
@@ -377,6 +406,21 @@ static class TandemCreationTests
                 FittingOptionsController.PoolBootstrapResiduals = previousPooling;
             }
         }
+    }
+
+    static void CheckFitCheckboxLayout(NSButton button)
+    {
+        var row = button.Superview;
+        var inspector = row.Superview;
+        var image = ((NSButtonCell)button.Cell).ImageRectForBounds(button.Bounds);
+        var imageInInspector = button.ConvertRectToView(image, inspector);
+        var buttonInInspector = button.ConvertRectToView(button.Bounds, inspector);
+        Check(Math.Abs((double)(row.Frame.Width - inspector.Bounds.Width)) < 1
+            && buttonInInspector.Left <= inspector.Bounds.Left
+            && buttonInInspector.Right >= inspector.Bounds.Right,
+            button.Title + " must fill the inspector width");
+        Check(Math.Abs((double)(imageInInspector.Right - inspector.Bounds.Right)) <= 4,
+            button.Title + " must place its checkbox at the right edge");
     }
 
     sealed class Fixture : IDisposable

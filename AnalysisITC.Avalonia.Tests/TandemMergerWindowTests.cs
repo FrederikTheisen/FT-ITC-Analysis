@@ -67,6 +67,7 @@ public sealed class TandemMergerWindowTests
                 try
                 {
                     fit.ErrorMethodComboForTesting.SelectedIndex = 1;
+                    Assert.True(fit.TandemMixingCheck.IsVisible);
                     Assert.True(fit.TandemMixingCheck.IsEnabled);
                     Assert.False(fit.TandemMixingCheck.IsChecked);
                     fit.TandemMixingCheck.IsChecked = true;
@@ -76,6 +77,13 @@ public sealed class TandemMergerWindowTests
                     AppSettings.CreateSingleAnalysisResult = false;
                     var workspace = (AnalysisWorkspace)typeof(AnalysisWorkspaceControl)
                         .GetField("workspace", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(fit)!;
+                    fit.Experiment = sources[0];
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.False(fit.TandemMixingCheck.IsVisible);
+                    fit.Experiment = merged;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.True(fit.TandemMixingCheck.IsVisible);
+                    Assert.True(fit.TandemMixingCheck.IsChecked);
                     foreach (var requested in new[] { true, false })
                     {
                         fit.TandemMixingCheck.IsChecked = requested;
@@ -90,8 +98,13 @@ public sealed class TandemMergerWindowTests
                         Assert.NotNull(prepared.Solution);
                         Assert.Equal(requested, prepared.ModelCloneOptions.ReestimateTandemMixing);
                     }
+                    fit.TandemMixingCheck.IsChecked = true;
                     fit.ErrorMethodComboForTesting.SelectedIndex = 2;
-                    Assert.False(fit.TandemMixingCheck.IsEnabled);
+                    Assert.False(fit.TandemMixingCheck.IsVisible);
+                    fit.ErrorMethodComboForTesting.SelectedIndex = 1;
+                    Assert.True(fit.TandemMixingCheck.IsVisible);
+                    Assert.True(fit.TandemMixingCheck.IsChecked);
+
                 }
                 finally { window.Close(); }
             }

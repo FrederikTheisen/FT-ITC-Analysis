@@ -23,6 +23,27 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void BootstrapUnlockRequiresAnIndependentLockedParameter()
+        {
+            var data = InjectionProcessingMethodTests.FittedModel().Data;
+            var model = new TwoSetsOfSites(data);
+            model.InitializeParameters(data);
+            model.ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue = true;
+            model.ApplyModelOptions();
+            var secondSite = model.Parameters.Table[ParameterType.Nvalue2];
+            secondSite.SetValue(secondSite.Value, lockpar: true);
+            var context = new AnalysisContext(AnalysisModel.TwoSetsOfSites, model);
+
+            Assert.False(UncertaintyEstimationPresentation.GetBootstrapOptionVisibility(
+                context, ErrorEstimationMethod.BootstrapResiduals).UnlockParameters);
+
+            var firstSite = model.Parameters.Table[ParameterType.Nvalue1];
+            firstSite.SetValue(firstSite.Value, lockpar: true);
+            Assert.True(UncertaintyEstimationPresentation.GetBootstrapOptionVisibility(
+                context, ErrorEstimationMethod.BootstrapResiduals).UnlockParameters);
+        }
+
+        [Fact]
         public void GlobalContextCountsSharedAndUnconstrainedVariables()
         {
             var first = CreateModel(
