@@ -330,7 +330,7 @@ namespace AnalysisITC.Avalonia.Details
                 BufferSubtractionMethod.ExponentialDecay,
                 BufferSubtractionMethod.Mean
             }.Select(method => new Choice<BufferSubtractionMethod>(method, method.GetDisplayName())).ToList();
-            methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88, 180);
+            methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 150, 180);
             editorPanel.Children.Add(methodCombo);
             methodCombo.SelectionChanged += (_, _) => UpdateBufferMethodToolTip();
             UpdateBufferMethodToolTip();
