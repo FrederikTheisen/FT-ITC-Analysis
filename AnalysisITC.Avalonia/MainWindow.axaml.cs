@@ -623,6 +623,14 @@ public partial class MainWindow : Window
 
     internal async Task OpenPreferencesAsync()
     {
+        if (OwnedWindows.OfType<PreferencesWindow>().FirstOrDefault() is { } existing)
+        {
+            if (existing.WindowState == WindowState.Minimized)
+                existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            return;
+        }
+
         var dialog = new PreferencesWindow();
         var applied = await dialog.ShowDialog<bool?>(this);
         if (applied == true || dialog.Applied)

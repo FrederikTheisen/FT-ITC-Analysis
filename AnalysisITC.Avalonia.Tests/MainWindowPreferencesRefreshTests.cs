@@ -14,6 +14,33 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class MainWindowPreferencesRefreshTests
 {
     [AvaloniaFact]
+    public async Task OpeningPreferencesTwiceReusesTheDialogUntilItCloses()
+    {
+        var mainWindow = new MainWindow(false);
+        try
+        {
+            mainWindow.Show();
+            var firstOpen = mainWindow.OpenPreferencesAsync();
+            var preferences = Assert.IsType<PreferencesWindow>(Assert.Single(mainWindow.OwnedWindows));
+
+            var secondOpen = mainWindow.OpenPreferencesAsync();
+            Assert.Same(preferences, Assert.Single(mainWindow.OwnedWindows));
+            preferences.Close();
+            await Task.WhenAll(firstOpen, secondOpen);
+
+            var reopen = mainWindow.OpenPreferencesAsync();
+            var reopened = Assert.IsType<PreferencesWindow>(Assert.Single(mainWindow.OwnedWindows));
+            Assert.NotSame(preferences, reopened);
+            reopened.Close();
+            await reopen;
+        }
+        finally
+        {
+            mainWindow.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task ApplyingUnrelatedPreferencePreservesManualFinalFigureChoices()
     {
         var original = PreferencesState.FromSettings();
