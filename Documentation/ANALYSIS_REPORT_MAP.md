@@ -155,7 +155,7 @@ codes retain their existing identifiers.
 | 5 | [A06 · Experiment parameter overview](#a06-experiment-parameter-overview) | same columns; Std. / Diag. row differences |
 | 6 | [A07 · Buffer subtraction used in fit](#a07-buffer-subtraction-used-in-fit) | only with subtraction at fit time |
 | 7 | [A08 · Combined parameters](#a08-combined-parameters) | multiple experiments; output allowed and evaluable |
-| 8 | [A09 · Summary uncertainty](#a09-summary-uncertainty) | expanded explanations + CI style + approximate intervals |
+| 8 | [A09 · Summary uncertainty](#a09-summary-uncertainty) | expanded explanations + interval style + local summaries |
 | 9 | [A10 · Model and fit details](#a10-model-and-fit-details) | both |
 | 10 | [A11 · Fixed parameters](#a11-fixed-parameters) | only with locked parameters |
 | 11 | [A12 · Reading fit diagnostics](#a12-reading-fit-diagnostics) | expanded explanations + weighted fit |
@@ -280,8 +280,9 @@ the result is not evaluable. Rows, in order:
 
 ### A09. Summary uncertainty
 
-**[Info]** Expanded explanations + CI style + approximate intervals. Explains that intervals
-come from individual 95% CIs and spread, coverage is not established, and covariance is omitted.
+Local summary rows label the displayed uncertainty according to the current **Summary uncertainty** preference. For averages, ± is the standard error of the mean (SEM) or replicate standard deviation (SD). For temperature trends, it is the standard error of the fitted value or the SD around the fitted trend. The 95% limits describe the same quantity. Local temperature bands follow the same preference. Shared parameters retain model-estimated uncertainty and ΔCp retains slope uncertainty. Reopening a saved report applies the current preference.
+
+**[Info]** Expanded explanations with an interval display add the limitations of these local summaries: observed spread may already include fitting noise, lower and upper widths are propagated separately, covariance between experiments is omitted, and the replicate range has no established 95% coverage.
 
 ### A10. Model and fit details
 
@@ -340,7 +341,8 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **X01** | **Temperature dependence** | |
-| | · [Plot] ΔH / −TΔS / ΔG vs temperature, per step; saved fitted lines; band in CI styles | |
+| | · [Plot] ΔH / −TΔS / ΔG vs temperature, per step. Point bars show individual-fit 95% limits. Bands show the Parameter Evaluation limits at each temperature. None hides both | |
+| | · Caption identifies the visible bars and bands | omitted when neither is drawn |
 | | · Parameters at <T>: same lines as A08 except Evaluation temperature | omitted when not evaluable |
 | | · [Info] Summary uncertainty (as A09) | as A09 |
 | **X02** | **Structuring** (no plot) | |
@@ -525,6 +527,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | **P04** | **Report details** | |
 | | · Software | |
 | | · Application version | |
+| | · Summary uncertainty | Uncertainty in the mean (SEM) / Replicate spread (SD), as used to render this report |
 | | · Report identifier | Trace only |
 | **P05** | **Result identifiers** | Trace only |
 | | · One independently pageable row per result: Result 1 · <id> | report order |
@@ -559,7 +562,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 - Assessment text always includes "(manual)" for overrides, independently of Traceability Mode; collection summaries are marked when any member is overridden.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
 - Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data, except the E04/E04a Injection bookkeeping row, which is saved with the fit.
-- Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
+- Uncertainty style (default ± and 95% limits) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
 - RMSD is always µJ, molar RMSD kJ/mol, whatever the energy unit.
 - Defaults: injection tables on, condense repeats on, expanded explanations off, advanced analyses off.
 - Both desktop report builders disable Expanded explanations while busy and restore it only when results are selected. A later change invalidates the preview; PDF export rebuilds stale content using the selected option (CR-034).

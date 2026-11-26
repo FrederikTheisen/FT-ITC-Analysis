@@ -398,7 +398,7 @@ public sealed partial class SaltAnalysisTests : IDisposable
         // Viewer coordinates are sqrt(I), in the same saved context as its fitted curve.
         Assert.Equal(expected.Select(Math.Sqrt), dto.Plots.Single(p => p.Key == "debye-huckel").Series.Single(s => s.Kind == "points").X, new DoublePrecisionComparer(12));
         var curve = dto.Plots.Single(p => p.Key == "debye-huckel").Series.Single(s => s.Kind == "line");
-        for (var i = 0; i < curve.X.Length; i++) Assert.Equal(-6 + 2 * curve.X[i] / Math.Log(10), curve.Y[i], 10);
+        for (var i = 0; i < curve.X.Length; i++) Assert.Equal(-6 + 2 * curve.X[i] / Math.Log(10), curve.Y[i].Value, 10);
         var report = new AnalysisReport(); report.SetResultIds(new[] { reopened.UniqueID });
         var evidence = Assert.Single(AnalysisInterpretationPackageBuilder.Build(report, reopened).Result.AdvancedAnalyses, a => a.Type == "electrostatics");
         Assert.Equal(1e-6, evidence.Values.Single(v => v.Id == "kd-zero-ionic-strength").Value.Value, 15);

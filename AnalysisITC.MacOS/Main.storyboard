@@ -11236,7 +11236,7 @@ DQ
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Choose whether exported uncertainty is standard deviation, 95% confidence interval bounds, or both." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="URB-C7-W7z">
+                                            <segmentedControl toolTip="Show ±, 95% limits, or both." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="URB-C7-W7z">
                                                 <rect key="frame" x="178" y="-2" width="254" height="19"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="Fx7-89-2Hc"/>
@@ -11244,9 +11244,9 @@ DQ
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="mNY-F5-671">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
-                                                        <segment label="SD" selected="YES"/>
-                                                        <segment label="95% CI" tag="1"/>
-                                                        <segment label="SD + CI" tag="2"/>
+                                                        <segment label="±" selected="YES"/>
+                                                        <segment label="95% limits" tag="1"/>
+                                                        <segment label="± and 95% limits" tag="2"/>
                                                     </segments>
                                                 </segmentedCell>
                                             </segmentedControl>

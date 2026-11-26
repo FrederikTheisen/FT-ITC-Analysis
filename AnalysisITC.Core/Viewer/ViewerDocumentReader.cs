@@ -676,6 +676,8 @@ namespace AnalysisITC.Core.Viewer
                 MinimumTemperatureCelsius = temperatures.Length == 0 ? (double?)null : temperatures.Min(),
                 MaximumTemperatureCelsius = temperatures.Length == 0 ? (double?)null : temperatures.Max(),
                 IsTemperatureDependent = solution.Model?.TemperatureDependenceExposed == true,
+                SummaryUncertaintyToolTip = UncertaintyDisplayPresentation.SummaryModeTooltip(SummaryUncertaintyMode.Mean),
+                ReplicateSpreadToolTip = UncertaintyDisplayPresentation.SummaryModeTooltip(SummaryUncertaintyMode.ReplicateSpread),
             };
 
             var keys = ThermodynamicParameterSlots.OrderedKeys(
@@ -683,10 +685,26 @@ namespace AnalysisITC.Core.Viewer
                 ThermodynamicParameterFamily.Enthalpy,
                 ThermodynamicParameterFamily.EntropyContribution,
                 ThermodynamicParameterFamily.Gibbs);
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result, SummaryUncertaintyMode.Mean);
+            var spreadSummaries = new AnalysisResultAggregateSummaryCalculator(result, SummaryUncertaintyMode.ReplicateSpread);
             foreach (var key in keys)
             {
-                viewer.Dependences.Add(BuildTemperatureDependence(key, summaries.BuildDependence(key)));
+                var dependence = summaries.BuildDependence(key);
+                var dto = BuildTemperatureDependence(key, dependence);
+                if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family)
+                    && family == ThermodynamicParameterFamily.Enthalpy)
+                {
+                    var heatCapacity = summaries.EvaluateHeatCapacity(slot);
+                    if (heatCapacity != null)
+                    {
+                        dto.HeatCapacity = BuildValueWithError(heatCapacity.Value, 1.0 / 1000.0);
+                        dto.HeatCapacity.StatisticLabel = AggregateUncertaintyPresentation.StatisticLabel(heatCapacity);
+                        dto.HeatCapacity.IntervalLabel = AggregateUncertaintyPresentation.IntervalLabel(heatCapacity);
+                    }
+                }
+                if (SupportsReplicateSpread(dependence))
+                    dto.ReplicateSpread = BuildTemperatureDependence(key, spreadSummaries.BuildDependence(key));
+                viewer.Dependences.Add(dto);
             }
 
             return viewer.Dependences.Count == 0 ? null : viewer;
@@ -790,7 +808,11 @@ namespace AnalysisITC.Core.Viewer
                 ThermodynamicParameterFamily.Enthalpy,
                 ThermodynamicParameterFamily.EntropyContribution,
                 ThermodynamicParameterFamily.Gibbs);
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result, SummaryUncertaintyMode.Mean);
+            var spreadSummaries = new AnalysisResultAggregateSummaryCalculator(result, SummaryUncertaintyMode.ReplicateSpread);
+            var meanBands = new List<(string Label, TemperatureDependenceIntervalKind Kind)>();
+            var spreadBands = new List<(string Label, TemperatureDependenceIntervalKind Kind)>();
+            var hasIndividualIntervals = false;
 
             foreach (var parameter in parameters)
             {
@@ -800,31 +822,52 @@ namespace AnalysisITC.Core.Viewer
                         && IsFinite(member.Temp)
                         && member.ReportParameters.TryGetValue(parameter, out var estimate)
                         && IsFinite(estimate.Value))
-                    .Select(member => Tuple.Create(member.Temp, member.ReportParameters[parameter]))
-                    .OrderBy(point => point.Item1)
+                    .Select(member => (Member: member, Estimate: member.ReportParameters[parameter]))
+                    .OrderBy(point => point.Member.Temp)
                     .ToList();
                 if (values.Count == 0) continue;
 
                 var label = parameter.GetProperties()?.Name ?? parameter.ToString();
                 var group = parameter.ToString();
+                var pointIntervals = values.Select(point =>
+                    TemperatureDependenceUncertaintyCaption.TryGetIndividualInterval(
+                        result, point.Member, parameter, point.Estimate, out var lower, out var upper)
+                        ? ((double? Lower, double? Upper))(lower * energyScale, upper * energyScale)
+                        : (null, null)).ToArray();
+                hasIndividualIntervals |= pointIntervals.Any(interval => interval.Lower.HasValue);
                 plot.Series.Add(new ViewerAdvancedPlotSeriesDto
                 {
                     Label = label,
                     Kind = "points",
                     Group = group,
-                    X = values.Select(point => point.Item1).ToArray(),
-                    Y = values.Select(point => point.Item2.Value * energyScale).ToArray(),
-                    Lower = values.Select(point => FiniteBound(point.Item2.Lower, point.Item2.Value) * energyScale).ToArray(),
-                    Upper = values.Select(point => FiniteBound(point.Item2.Upper, point.Item2.Value) * energyScale).ToArray(),
+                    X = values.Select(point => point.Member.Temp).ToArray(),
+                    Y = values.Select(point => (double?)(point.Estimate.Value * energyScale)).ToArray(),
+                    Lower = pointIntervals.Select(interval => interval.Lower).ToArray(),
+                    Upper = pointIntervals.Select(interval => interval.Upper).ToArray(),
                 });
 
-                plot.Series.Add(BuildEnvelopeSeries(
-                    label,
-                    summaries.BuildEnvelope(parameter, xs),
-                    energyScale,
-                    group));
+                var mean = summaries.BuildDependence(parameter);
+                var meanEnvelope = summaries.BuildEnvelope(parameter, xs, out var meanKind);
+                var series = BuildEnvelopeSeries(label, meanEnvelope, energyScale, group);
+                series.IntervalLabel = SummaryIntervalLabel(mean);
+                var hasMeanBand = TemperatureDependenceUncertaintyCaption.HasBand(meanEnvelope);
+                if (hasMeanBand) meanBands.Add((label, meanKind));
+                if (SupportsReplicateSpread(mean))
+                {
+                    var spread = spreadSummaries.BuildDependence(parameter);
+                    var spreadEnvelope = spreadSummaries.BuildEnvelope(parameter, xs, out var spreadKind);
+                    series.ReplicateSpread = BuildEnvelopeSeries(label, spreadEnvelope, energyScale, group);
+                    series.ReplicateSpread.IntervalLabel = SummaryIntervalLabel(spread);
+                    if (TemperatureDependenceUncertaintyCaption.HasBand(spreadEnvelope))
+                        spreadBands.Add((label, spreadKind));
+                }
+                else if (hasMeanBand)
+                    spreadBands.Add((label, meanKind));
+                plot.Series.Add(series);
             }
 
+            plot.IntervalCaption = TemperatureDependenceUncertaintyCaption.Build(hasIndividualIntervals, meanBands);
+            plot.ReplicateSpreadIntervalCaption = TemperatureDependenceUncertaintyCaption.Build(hasIndividualIntervals, spreadBands);
             return plot;
         }
 
@@ -923,9 +966,9 @@ namespace AnalysisITC.Core.Viewer
                 Label = "Saved observations",
                 Kind = "points",
                 X = values.Select(point => point.Item1 * xScale).ToArray(),
-                Y = values.Select(point => point.Item2.Value * yScale).ToArray(),
-                Lower = values.Select(point => FiniteBound(point.Item2.Lower, point.Item2.Value) * yScale).ToArray(),
-                Upper = values.Select(point => FiniteBound(point.Item2.Upper, point.Item2.Value) * yScale).ToArray(),
+                Y = values.Select(point => (double?)(point.Item2.Value * yScale)).ToArray(),
+                Lower = values.Select(point => (double?)(FiniteBound(point.Item2.Lower, point.Item2.Value) * yScale)).ToArray(),
+                Upper = values.Select(point => (double?)(FiniteBound(point.Item2.Upper, point.Item2.Value) * yScale)).ToArray(),
             });
             return plot;
         }
@@ -947,9 +990,9 @@ namespace AnalysisITC.Core.Viewer
                 Label = label,
                 Kind = kind,
                 X = envelope.Select(point => point.X).ToArray(),
-                Y = envelope.Select(point => point.Center * scale).ToArray(),
-                Lower = envelope.Select(point => (point.HasBand ? point.Lower : point.Center) * scale).ToArray(),
-                Upper = envelope.Select(point => (point.HasBand ? point.Upper : point.Center) * scale).ToArray(),
+                Y = envelope.Select(point => (double?)(point.Center * scale)).ToArray(),
+                Lower = envelope.Select(point => (double?)((point.HasBand ? point.Lower : point.Center) * scale)).ToArray(),
+                Upper = envelope.Select(point => (double?)((point.HasBand ? point.Upper : point.Center) * scale)).ToArray(),
             };
         }
 
@@ -959,15 +1002,25 @@ namespace AnalysisITC.Core.Viewer
             double scale,
             string group)
         {
+            var lower = new double?[envelope.Count];
+            var upper = new double?[envelope.Count];
+            foreach (var (start, length) in TemperatureDependenceUncertaintyCaption.UsableBandRuns(envelope))
+            {
+                for (var index = start; index < start + length; index++)
+                {
+                    lower[index] = envelope[index].Lower * scale;
+                    upper[index] = envelope[index].Upper * scale;
+                }
+            }
             return new ViewerAdvancedPlotSeriesDto
             {
                 Label = label,
                 Kind = "line",
                 Group = group,
                 X = envelope.Select(point => point.X).ToArray(),
-                Y = envelope.Select(point => point.Center * scale).ToArray(),
-                Lower = envelope.Select(point => (point.HasBand ? point.Lower : point.Center) * scale).ToArray(),
-                Upper = envelope.Select(point => (point.HasBand ? point.Upper : point.Center) * scale).ToArray(),
+                Y = envelope.Select(point => FiniteOrNull(point.Center * scale)).ToArray(),
+                Lower = lower,
+                Upper = upper,
             };
         }
 
@@ -997,9 +1050,9 @@ namespace AnalysisITC.Core.Viewer
                 Kind = "line",
                 Group = group,
                 X = values.Select(value => value.X).ToArray(),
-                Y = values.Select(value => value.Exact).ToArray(),
-                Lower = values.Select(value => value.Lower).ToArray(),
-                Upper = values.Select(value => value.Upper).ToArray(),
+                Y = values.Select(value => (double?)value.Exact).ToArray(),
+                Lower = values.Select(value => (double?)value.Lower).ToArray(),
+                Upper = values.Select(value => (double?)value.Upper).ToArray(),
             };
         }
 
@@ -1019,10 +1072,21 @@ namespace AnalysisITC.Core.Viewer
         static double[] Sample(double min, double max, int count) => Enumerable.Range(0, count)
             .Select(index => min + (max - min) * index / Math.Max(1, count - 1.0)).ToArray();
 
-        static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, SummaryDependence dependence)
+        static AggregateParameterSummary DescribeDependence(SummaryDependence dependence) =>
+            new AggregateParameterSummary(new FloatWithError(dependence.Intercept), dependence.Kind, dependence.Count);
+
+        static string SummaryIntervalLabel(SummaryDependence dependence) =>
+            AggregateUncertaintyPresentation.IntervalLabel(DescribeDependence(dependence));
+
+        static bool SupportsReplicateSpread(SummaryDependence dependence) =>
+            dependence.Kind == AggregateUncertaintyKind.MeanStandardError
+            || dependence.Kind == AggregateUncertaintyKind.TemperatureTrendStandardError;
+
+        static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, SummaryDependence dependence, bool includeLabels = true)
         {
             const double energyScale = 1.0 / 1000.0;
             ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family);
+            var description = includeLabels ? DescribeDependence(dependence) : null;
             return new ViewerTemperatureDependenceDto
             {
                 Key = key.ToString(),
@@ -1035,7 +1099,7 @@ namespace AnalysisITC.Core.Viewer
                 Intercept = dependence.Intercept * energyScale,
                 Slope = dependence.Slope * energyScale,
                 HeatCapacityTerm = dependence.HeatCapacityTerm * energyScale,
-                Replicates = dependence.Replicates.Count == 0 ? null : dependence.Replicates.Select(curve => BuildTemperatureDependence(key, curve)).ToList(),
+                Replicates = dependence.Replicates.Count == 0 ? null : dependence.Replicates.Select(curve => BuildTemperatureDependence(key, curve, includeLabels: false)).ToList(),
                 LowerOffset = FiniteOrNull(dependence.LowerOffset * energyScale),
                 UpperOffset = FiniteOrNull(dependence.UpperOffset * energyScale),
                 Contributions = dependence.Contributions.Select(term => new ViewerSummaryContributionDto
@@ -1047,6 +1111,8 @@ namespace AnalysisITC.Core.Viewer
                     UpperWidth = FiniteOrNull(term.UpperWidth * energyScale),
                 }).ToList(),
                 HeatCapacity = BuildValueWithError(dependence.SlopeUncertainty, energyScale),
+                StatisticLabel = includeLabels ? AggregateUncertaintyPresentation.StatisticLabel(description) : null,
+                IntervalLabel = includeLabels ? AggregateUncertaintyPresentation.IntervalLabel(description) : null,
             };
         }
 

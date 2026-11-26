@@ -183,6 +183,13 @@
                   <p id="temperature-evaluation-note" class="muted"></p>
                 </div>
                 <div>
+                  <div id="summary-uncertainty-control" hidden>
+                    <label for="summary-uncertainty-select">Summary uncertainty</label>
+                    <select id="summary-uncertainty-select">
+                      <option value="mean" selected>Uncertainty in the mean (SEM)</option>
+                      <option value="replicateSpread">Replicate spread (SD)</option>
+                    </select>
+                  </div>
                   <label for="result-evaluation-temperature">Temperature (°C)</label>
                   <input id="result-evaluation-temperature" type="number" step="0.1" inputmode="decimal" />
                 </div>
@@ -210,6 +217,7 @@
               </div>
               <div id="advanced-analysis-message" class="notice" hidden></div>
               <div id="advanced-analysis-plot" class="plot" aria-label="Saved advanced-analysis graph"></div>
+              <p id="temperature-dependence-caption" class="muted" hidden></p>
             </section>
 
             <section class="result-card" aria-labelledby="member-fit-heading">

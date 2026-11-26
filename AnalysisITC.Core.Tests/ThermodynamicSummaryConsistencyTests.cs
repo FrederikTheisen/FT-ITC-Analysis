@@ -175,8 +175,8 @@ public sealed class ThermodynamicSummaryConsistencyTests
         var reportItems = report.Sections.SelectMany(s => s.Blocks).OfType<AnalysisReportKeyValueBlock>()
             .SelectMany(block => block.Items).ToList();
         foreach (var row in defaultDisplay.Rows)
-            Assert.True(reportItems.Any(item => item.Label == row.Label && item.Value == (string.IsNullOrWhiteSpace(row.Value) ? "Unavailable" : row.Value)),
-                $"Display {row.Label}: '{row.Value}'; report: " + string.Join("; ", reportItems.Where(item => item.Label == row.Label).Select(item => item.Value)));
+            Assert.True(reportItems.Any(item => item.Label == row.DisplayLabel && item.Value == (string.IsNullOrWhiteSpace(row.Value) ? "Unavailable" : row.Value)),
+                $"Display {row.Label}: '{row.Value}'; report: " + string.Join("; ", reportItems.Where(item => item.Label == row.DisplayLabel).Select(item => item.Value)));
     }
 
     [Theory]

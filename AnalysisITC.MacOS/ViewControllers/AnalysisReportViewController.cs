@@ -51,7 +51,7 @@ namespace AnalysisITC
         NSView reportIdRow;
         readonly NSPopUpButton energyPopup = Popup("Joule", "Calories");
         readonly NSPopUpButton temperaturePopup = Popup("Celsius", "Kelvin");
-        readonly NSPopUpButton uncertaintyPopup = Popup("Automatic", "Standard deviation (SD)", "95% CI", "SD + 95% CI", "None");
+        readonly NSPopUpButton uncertaintyPopup = Popup("Automatic", UncertaintyDisplayPresentation.SymmetricLabel, UncertaintyDisplayPresentation.LimitsLabel, UncertaintyDisplayPresentation.BothLabel, "None");
         readonly NSPopUpButton outputPurposePopup = Popup("Standard report", "Diagnostic report");
         readonly NSStackView advancedStack = VerticalStack();
         readonly NSButton injectionTablesButton = Button("Injection tables");
@@ -1192,7 +1192,7 @@ namespace AnalysisITC
                 ShowInterpretationWorkspace(true);
                 return;
             }
-            if (stale || currentPdfData == null)
+            if (NeedsReportBuild())
             {
                 if (!await BuildAsync(true)) ShowInterpretationWorkspace(true);
                 else ShowPreviewWorkspace();
@@ -1254,6 +1254,13 @@ namespace AnalysisITC
                     return Tuple.Create(document, plan, data);
                 });
                 if (!CanWriteReport) { output.Item3.Dispose(); return false; }
+                if (output.Item1.SummaryUncertaintyMode != AppSettings.SummaryUncertaintyMode)
+                {
+                    output.Item3.Dispose();
+                    MarkStale();
+                    SetStatus("Summary uncertainty changed. Select Update Preview to refresh.", false, true);
+                    return false;
+                }
                 ReplaceReport(output.Item1, output.Item2, output.Item3, showPreview || pdfView.Document != null);
                 stale = false;
                 SetStatus(output.Item1.Warnings.FirstOrDefault() ?? output.Item2.Pages.Count + " A4 pages ready.", false, output.Item1.Warnings.Count > 0);
@@ -1275,6 +1282,9 @@ namespace AnalysisITC
             oldDocument?.Dispose(); oldData?.Dispose();
         }
 
+        bool NeedsReportBuild() => stale || currentPdfData == null || currentDocument == null || currentPlan == null
+            || currentDocument.SummaryUncertaintyMode != AppSettings.SummaryUncertaintyMode;
+
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
@@ -1283,13 +1293,14 @@ namespace AnalysisITC
                 MarkStale();
                 if (!await BuildAsync(true)) return;
             }
-            if (stale || currentPdfData == null || currentDocument == null || currentPlan == null)
+            if (NeedsReportBuild())
                 if (!await BuildAsync(false)) return;
-            var bytes = currentPdfData.ToArray();
             var panel = NSSavePanel.SavePanel; panel.Title = "Export Analysis Report"; panel.NameFieldStringValue = Sanitize(selectedResults.Count == 1 ? selectedResults[0].Name : titleField.StringValue) + "-analysis-report.pdf"; panel.AllowedFileTypes = new[] { "pdf" }; panel.CanCreateDirectories = true;
             panel.BeginSheet(View.Window, async response =>
             {
                 if (response != (int)NSModalResponse.OK || panel.Url == null) return;
+                if (NeedsReportBuild() && !await BuildAsync(false)) return;
+                var bytes = currentPdfData.ToArray();
                 SetBusy(true, "Exporting PDF...");
                 try
                 {

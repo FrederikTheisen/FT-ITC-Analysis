@@ -129,6 +129,7 @@ namespace AnalysisITC.Core.Application
         public bool FinalFigureShowModelInfoAsDefault { get; set; } = true;
         public NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
         public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
+        public SummaryUncertaintyMode SummaryUncertaintyMode { get; set; } = SummaryUncertaintyMode.Mean;
         public bool ShowResidualGraph { get; set; } = true;
         public bool ShowResidualGraphGap { get; set; } = true;
         public bool UnifyResidualGraphAxis { get; set; } = false;
@@ -230,6 +231,7 @@ namespace AnalysisITC.Core.Application
                 FinalFigureShowModelInfoAsDefault = AppSettings.FinalFigureShowModelInfoAsDefault,
                 NumberPrecision = AppSettings.NumberPrecision,
                 UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle,
+                SummaryUncertaintyMode = AppSettings.SummaryUncertaintyMode,
                 ShowResidualGraph = AppSettings.ShowResidualGraph,
                 ShowResidualGraphGap = AppSettings.ShowResidualGraphGap,
                 UnifyResidualGraphAxis = AppSettings.UnifyResidualGraphAxis,
@@ -374,6 +376,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.FinalFigureShowModelInfoAsDefault = FinalFigureShowModelInfoAsDefault;
             AppSettings.NumberPrecision = NumberPrecision;
             AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle;
+            AppSettings.SummaryUncertaintyMode = SummaryUncertaintyMode;
             AppSettings.ShowResidualGraph = ShowResidualGraph;
             AppSettings.ShowResidualGraphGap = ShowResidualGraphGap;
             AppSettings.UnifyResidualGraphAxis = UnifyResidualGraphAxis;

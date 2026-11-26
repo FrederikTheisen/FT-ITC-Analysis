@@ -466,6 +466,30 @@ public sealed class PreferencesTests
     }
 
     [AvaloniaFact]
+    public void SummaryUncertaintyModeStagesIndependentlyOfUncertaintyDisplayStyle()
+    {
+        var window = new PreferencesWindow();
+        var combo = Assert.Single(window.GetLogicalDescendants().OfType<ComboBox>(),
+            control => AutomationProperties.GetName(control) == UncertaintyDisplayPresentation.SummaryLabel);
+        Assert.Equal(new[] { "Uncertainty in the mean (SEM)", "Replicate spread (SD)" },
+            combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
+
+        var state = PreferencesState.Defaults();
+        state.UncertaintyDisplayStyle = UncertaintyDisplayStyle.ConfidenceInterval;
+        window.LoadState(state);
+        Assert.Equal(0, combo.SelectedIndex);
+        combo.SelectedIndex = 1;
+        Assert.True(window.TryBuildState(out var staged));
+        Assert.Equal(Core.SummaryUncertaintyMode.ReplicateSpread, staged.SummaryUncertaintyMode);
+        Assert.Equal(UncertaintyDisplayStyle.ConfidenceInterval, staged.UncertaintyDisplayStyle);
+
+        window.LoadState(staged);
+        Assert.Equal(1, combo.SelectedIndex);
+        window.RestoreDefaults();
+        Assert.Equal(0, combo.SelectedIndex);
+    }
+
+    [AvaloniaFact]
     public async Task ApplyingStagedDefaultsOverridesNewerValuesFromTheOpeningBaseline()
     {
         var original = PreferencesState.FromSettings();

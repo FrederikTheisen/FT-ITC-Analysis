@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AnalysisITC.Core.Viewer
 {
@@ -140,6 +141,8 @@ namespace AnalysisITC.Core.Viewer
         public double? MinimumTemperatureCelsius { get; internal set; }
         public double? MaximumTemperatureCelsius { get; internal set; }
         public bool IsTemperatureDependent { get; internal set; }
+        public string SummaryUncertaintyToolTip { get; internal set; }
+        public string ReplicateSpreadToolTip { get; internal set; }
         public List<ViewerTemperatureDependenceDto> Dependences { get; } = new List<ViewerTemperatureDependenceDto>();
     }
 
@@ -160,6 +163,12 @@ namespace AnalysisITC.Core.Viewer
         public double? UpperOffset { get; internal set; }
         public List<ViewerSummaryContributionDto> Contributions { get; internal set; }
         public ViewerValueWithErrorDto HeatCapacity { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string StatisticLabel { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string IntervalLabel { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public ViewerTemperatureDependenceDto ReplicateSpread { get; internal set; }
     }
 
     public sealed class ViewerSummaryContributionDto
@@ -178,6 +187,10 @@ namespace AnalysisITC.Core.Viewer
         public double? Sd { get; internal set; }
         public double? ConfidenceLower { get; internal set; }
         public double? ConfidenceUpper { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string StatisticLabel { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string IntervalLabel { get; internal set; }
     }
 
     public sealed class ViewerAdvancedAnalysesDto
@@ -238,6 +251,10 @@ namespace AnalysisITC.Core.Viewer
         public string Title { get; internal set; }
         public string XAxisLabel { get; internal set; }
         public string YAxisLabel { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string IntervalCaption { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ReplicateSpreadIntervalCaption { get; internal set; }
         public List<ViewerAdvancedPlotSeriesDto> Series { get; } = new List<ViewerAdvancedPlotSeriesDto>();
     }
 
@@ -247,9 +264,13 @@ namespace AnalysisITC.Core.Viewer
         public string Kind { get; internal set; }
         public string Group { get; internal set; }
         public double[] X { get; internal set; }
-        public double[] Y { get; internal set; }
-        public double[] Lower { get; internal set; }
-        public double[] Upper { get; internal set; }
+        public double?[] Y { get; internal set; }
+        public double?[] Lower { get; internal set; }
+        public double?[] Upper { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string IntervalLabel { get; internal set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public ViewerAdvancedPlotSeriesDto ReplicateSpread { get; internal set; }
     }
 
     public sealed class ViewerExperiment

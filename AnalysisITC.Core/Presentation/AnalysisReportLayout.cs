@@ -682,8 +682,15 @@ namespace AnalysisITC.Core.Presentation
             void PlacePlot(AnalysisReportPlotBlock block)
             {
                 var height = Math.Min(UsableHeight() * .40, ContentWidth * .42);
-                Ensure(height + BlockSpacing);
+                var captionLines = string.IsNullOrEmpty(block.Caption) ? new List<string>() : Wrap(block.Caption, ContentWidth, BodyStyle);
+                var captionHeight = captionLines.Count * Math.Max(BodyStyle.FontSize * 1.34, LineHeight(BodyStyle));
+                Ensure(height + BlockSpacing + captionHeight);
                 Add(AnalysisReportFragmentKind.CartesianPlot, block, height);
+                if (captionLines.Count > 0)
+                {
+                    var caption = new AnalysisReportTextBlock("", block.Caption, AnalysisReportLayoutPolicy.KeepTogether);
+                    Add(AnalysisReportFragmentKind.Text, caption, captionHeight, lines: captionLines);
+                }
             }
 
             void PlaceThermodynamicSummary(AnalysisReportThermodynamicSummaryBlock block)

@@ -198,28 +198,94 @@ public sealed class AnalysisResultStoichiometryExportTests
     }
 
     [Fact]
-    public void OrdinaryTablesAndQuickCopyMatchItc134ThermodynamicBaselines()
+    public void MixedSummaryColumnUsesNeutralHeaderInEitherResultOrder()
+    {
+        var local = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "local");
+        var shared = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "shared");
+        shared.Model.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+        var options = Options(AnalysisResultExportRowMode.Summary);
+        var previousMode = AppSettings.SummaryUncertaintyMode;
+        try
+        {
+            AppSettings.SummaryUncertaintyMode = SummaryUncertaintyMode.Mean;
+            Assert.Contains("N_sd", Headers(shared));
+            Assert.Contains("N_se", Headers(local));
+            Assert.Contains("N_uncertainty", Headers(local, shared));
+            Assert.Equal(Headers(local, shared), Headers(shared, local));
+        }
+        finally { AppSettings.SummaryUncertaintyMode = previousMode; }
+
+        string[] Headers(params AnalysisResult[] results) =>
+            Parse(AnalysisResultTableExporter.Build(results, options), options.Delimiter)[0];
+    }
+
+    [Theory]
+    [InlineData(SummaryUncertaintyMode.Mean, AnalysisResultExportFileFormat.CSV)]
+    [InlineData(SummaryUncertaintyMode.Mean, AnalysisResultExportFileFormat.TSV)]
+    [InlineData(SummaryUncertaintyMode.ReplicateSpread, AnalysisResultExportFileFormat.CSV)]
+    [InlineData(SummaryUncertaintyMode.ReplicateSpread, AnalysisResultExportFileFormat.TSV)]
+    public void SummaryTableAppliesModeToLocalStoichiometryAndEnthalpy(
+        SummaryUncertaintyMode mode, AnalysisResultExportFileFormat format)
+    {
+        var result = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "ordinary one");
+        // Equal best fits isolate within-fit variance and asymmetric interval propagation.
+        result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-40000, 1000, -42000, -36000);
+        result.Solution.Solutions[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-40000, 3000, -41000, -37000);
+        result.UpdateSolution(result.Solution);
+
+        var previousMode = AppSettings.SummaryUncertaintyMode;
+        try
+        {
+            AppSettings.SummaryUncertaintyMode = mode;
+            var options = Options(AnalysisResultExportRowMode.Summary, format);
+            var rows = Parse(AnalysisResultTableExporter.Build(new[] { result }, options), options.Delimiter);
+            var header = rows[0];
+            var row = Assert.Single(rows.Skip(1));
+            var mean = mode == SummaryUncertaintyMode.Mean;
+            Assert.Contains(mean ? "SEM" : "Replicate SD", header[0]);
+            Assert.Equal("1.4", row[Array.IndexOf(header, "N_value")]);
+            // Two independent fits: for the mean sum variances and divide by 4.
+            // For replicate spread sum variances and divide by 2.
+            AssertCell(mean ? "N_se" : "N_sd", Math.Sqrt(mean ? .00045 : .0009));
+            AssertCell("N_interval_lower", 1.4 - Math.Sqrt(mean ? .005 : .01));
+            AssertCell("N_interval_upper", 1.4 + Math.Sqrt(mean ? .02 : .04));
+            AssertCell("∆H (kJ/mol)_value", -40);
+            AssertCell(mean ? "∆H (kJ/mol)_se" : "∆H (kJ/mol)_sd", Math.Sqrt(mean ? 2.5 : 5));
+            AssertCell("∆H (kJ/mol)_interval_lower", -40 - Math.Sqrt(mean ? 1.25 : 2.5));
+            AssertCell("∆H (kJ/mol)_interval_upper", -40 + Math.Sqrt(mean ? 6.25 : 12.5));
+
+            options.RowMode = AnalysisResultExportRowMode.AllRows;
+            var memberTable = AnalysisResultTableExporter.Build(new[] { result }, options);
+            AppSettings.SummaryUncertaintyMode = mean ? SummaryUncertaintyMode.ReplicateSpread : SummaryUncertaintyMode.Mean;
+            Assert.Equal(memberTable, AnalysisResultTableExporter.Build(new[] { result }, options));
+            var members = Parse(memberTable, options.Delimiter);
+            Assert.All(members.Skip(1), member => Assert.Equal("0.03", member[Array.IndexOf(members[0], "N_sd")]));
+
+            void AssertCell(string name, double value) =>
+                Assert.Equal(value.ToString("G5", CultureInfo.InvariantCulture), row[Array.IndexOf(header, name)]);
+        }
+        finally { AppSettings.SummaryUncertaintyMode = previousMode; }
+    }
+
+    [Fact]
+    public void QuickCopyMatchesItc134ThermodynamicBaselinesInBothModes()
     {
         var one = Cr019Fixtures.Create(AnalysisModel.OneSetOfSites, false, "ordinary one");
         var two = Cr019Fixtures.Create(AnalysisModel.TwoSetsOfSites, false, "ordinary two");
         var competitive = Cr019Fixtures.Create(AnalysisModel.CompetitiveBinding, false, "ordinary competitive");
-        // ITC-134 UTF-8 baselines, joined with two LF characters. Exact R changes
-        // the displayed -T∆S values; the complete output remains byte-checked so
-        // column layout, metadata, and every other value stay protected. Normalize
-        // only platform line endings so these checks also run on Windows.
-        var cases = new[]
+        var previousMode = AppSettings.SummaryUncertaintyMode;
+        try
         {
-            (new[] { one }, "BE434C27481E4BAB0657B180F9DC64023D0CFC2C67AFF68A34946DFBD0D144D5"),
-            (new[] { two }, "5B4FFBED4E12170A666B688E3BAF1877AF5AD65A0757DC47200EC1B23ECCF72F"),
-            (new[] { competitive }, "FD2C1F11DE4507FBFD52476BE60C268648C2BDDC3DE7F06E726D650F8B3227BF"),
-            (new[] { one, two }, "63654465E06A8352FCD377E44C4367603185D6E13690230846ED97F967460564"),
-            (new[] { two, one }, "D5C07A3D40AB6E4038929CF352C9C3C1CFB9222A422BC89F7F2FC7ACECE98EF2"),
-        };
-        foreach (var (results, expected) in cases)
-            Assert.Equal(expected, Hash(Cr019Fixtures.Layouts().Select(options => AnalysisResultTableExporter.Build(results, options))));
-        Assert.Equal("F41DE59220E9885E57D25AE40F852FDCCB34DC31513D25CF3AFAD2A7354FF9EF", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(one, style))));
-        Assert.Equal("8E7C3C3CD3A08C39172142DFF1654B8B795E615950AC3EF9F59B4F4263E2D7B9", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(two, style))));
-        Assert.Equal("A8470E130B4D20FCCD32EA9B4272F2B1D29DBBE5CC42736EE6C4EC179889206C", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
+            // Quick Copy exports member rows, so the prior byte baselines apply in both modes.
+            foreach (var mode in Enum.GetValues<SummaryUncertaintyMode>())
+            {
+                AppSettings.SummaryUncertaintyMode = mode;
+                Assert.Equal("F41DE59220E9885E57D25AE40F852FDCCB34DC31513D25CF3AFAD2A7354FF9EF", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(one, style))));
+                Assert.Equal("8E7C3C3CD3A08C39172142DFF1654B8B795E615950AC3EF9F59B4F4263E2D7B9", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(two, style))));
+                Assert.Equal("A8470E130B4D20FCCD32EA9B4272F2B1D29DBBE5CC42736EE6C4EC179889206C", Hash(Enum.GetValues<UncertaintyDisplayStyle>().Select(style => Cr019Fixtures.Copy(competitive, style))));
+            }
+        }
+        finally { AppSettings.SummaryUncertaintyMode = previousMode; }
     }
 
     [Fact]
@@ -262,13 +328,15 @@ public sealed class AnalysisResultStoichiometryExportTests
             : header.StartsWith("∆") || header.StartsWith("-T") ? header + " (kJ/mol)" : header;
         if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError) return new[] { label };
         if (header.Contains("fixed")) return new[] { label + "_value" };
-        var interval = options.RowMode == AnalysisResultExportRowMode.Summary ? "_interval" : "_ci";
+        var summary = options.RowMode == AnalysisResultExportRowMode.Summary;
+        var interval = summary ? "_interval" : "_ci";
+        var uncertainty = summary ? "_se" : "_sd";
         return options.UncertaintyDisplayStyle switch
         {
             UncertaintyDisplayStyle.None => new[] { label + "_value" },
-            UncertaintyDisplayStyle.StandardDeviation => new[] { label + "_value", label + "_sd" },
+            UncertaintyDisplayStyle.StandardDeviation => new[] { label + "_value", label + uncertainty },
             UncertaintyDisplayStyle.ConfidenceInterval => new[] { label + "_value", label + interval + "_lower", label + interval + "_upper" },
-            _ => new[] { label + "_value", label + "_sd", label + interval + "_lower", label + interval + "_upper" },
+            _ => new[] { label + "_value", label + uncertainty, label + interval + "_lower", label + interval + "_upper" },
         };
     }
 

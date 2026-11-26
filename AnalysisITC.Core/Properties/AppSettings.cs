@@ -233,6 +233,7 @@ namespace AnalysisITC.Core.Application
         public static bool FinalFigureShowModelInfoAsDefault { get; set; }
         public static NumberPrecision NumberPrecision { get; set; }
         public static UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; }
+        public static SummaryUncertaintyMode SummaryUncertaintyMode { get; set; }
         public static bool ShowResidualGraph { get; set; }
         public static bool ShowResidualGraphGap { get; set; }
         public static bool UnifyResidualGraphAxis { get; set; }
@@ -327,6 +328,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
             Storage.SetInt("NumberPrecision", (int)NumberPrecision);
             Storage.SetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
+            Storage.SetInt(nameof(SummaryUncertaintyMode), (int)SummaryUncertaintyMode);
             Storage.SetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             Storage.SetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
             Storage.SetInt("ExportColumns", (int)ExportColumns);
@@ -448,6 +450,10 @@ namespace AnalysisITC.Core.Application
             FinalFigureShowModelInfoAsDefault = Storage.GetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
             NumberPrecision = (NumberPrecision)Storage.GetInt("NumberPrecision", (int)NumberPrecision);
             UncertaintyDisplayStyle = (UncertaintyDisplayStyle)Storage.GetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
+            SummaryUncertaintyMode = Storage.GetInt(nameof(SummaryUncertaintyMode), (int)SummaryUncertaintyMode.Mean)
+                == (int)SummaryUncertaintyMode.ReplicateSpread
+                ? SummaryUncertaintyMode.ReplicateSpread
+                : SummaryUncertaintyMode.Mean;
             IncludeBufferInIonicStrengthCalc = Storage.GetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)Storage.GetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
             ExportColumns = (ExportColumns)Storage.GetInt("ExportColumns", (int)ExportColumns.Default);

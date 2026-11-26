@@ -15,6 +15,7 @@ const state = {
   correlationViewKeysByResult: {},
   resultMemberIndex: 0,
   resultEvaluationTemperature: null,
+  summaryUncertaintyMode: "mean",
   advancedAnalysisKind: null,
   advancedPlotKey: null
 };
@@ -29,6 +30,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function bindEvents() {
+  try {
+    if (localStorage.getItem("itc-summary-uncertainty") === "replicateSpread")
+      state.summaryUncertaintyMode = "replicateSpread";
+  } catch {}
+  $("summary-uncertainty-select").addEventListener("change", (event) => {
+    state.summaryUncertaintyMode = event.target.value;
+    try { localStorage.setItem("itc-summary-uncertainty", state.summaryUncertaintyMode); } catch {}
+    const result = currentResult();
+    renderTemperatureParameterEvaluation(result);
+    if (state.advancedAnalysisKind === "spolarRecord") renderAdvancedAnalysis(result);
+  });
   $("file-input").addEventListener("change", (event) => {
     $("file-label").textContent = event.target.files[0]?.name || "Select an .ftxtc file";
   });
@@ -361,6 +373,8 @@ function renderResult() {
 
 function renderAdvancedAnalysis(result) {
   const card = $("result-advanced-card");
+  const caption = $("temperature-dependence-caption");
+  caption.hidden = true;
   const advanced = result?.advancedAnalyses;
   const available = [
     ["spolarRecord", "Spolar Record method", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
@@ -453,7 +467,7 @@ function renderAdvancedAnalysis(result) {
   if (state.advancedPlotKey) select.value = state.advancedPlotKey;
   const plot = plots.find((item) => item.key === state.advancedPlotKey) || plots[0];
   const target = $("advanced-analysis-plot");
-  if (!plot || !plot.series?.some((series) => series.x?.length)) {
+  if (!plot || !plot.series?.some((series) => series.y?.some(Number.isFinite))) {
     window.Plotly?.purge?.(target);
     target.hidden = true;
     message.hidden = false;
@@ -462,6 +476,11 @@ function renderAdvancedAnalysis(result) {
   }
   target.hidden = false;
   renderAdvancedPlot(target, plot);
+  if (plot.key === "temperature-dependence") {
+    caption.textContent = (state.summaryUncertaintyMode === "replicateSpread"
+      ? plot.replicateSpreadIntervalCaption : plot.intervalCaption) || "";
+    caption.hidden = !caption.textContent;
+  }
 }
 
 function advancedMetadataRows(metadata) {
@@ -505,14 +524,13 @@ function renderAdvancedSummary(metadataRows, parameters) {
     const value = parameter.value;
     if (!value || value.value == null || !Number.isFinite(Number(value.value))) {
       appendAdvancedCell(row, "Value", "Unavailable");
-      appendAdvancedCell(row, "SD", "Unavailable");
-      appendAdvancedCell(row, "95% interval", "Unavailable");
+      appendAdvancedCell(row, "SD", "");
+      appendAdvancedCell(row, "95% interval", "");
     } else {
       const suffix = parameter.unit ? ` ${parameter.unit}` : "";
       appendAdvancedCell(row, "Value", formatParameterNumber(value.value, value.sd, suffix));
-      appendAdvancedCell(row, "SD", formatParameterNumber(value.sd, value.sd, suffix));
-      appendAdvancedCell(row, "95% interval", formatParameterInterval(
-        value.confidenceLower, value.confidenceUpper, value.sd, parameter.unit));
+      appendAdvancedCell(row, "SD", formatParameterUncertainty(value.sd, parameter.unit));
+      appendAdvancedCell(row, "95% interval", formatParameterInterval(value, parameter.unit));
     }
     body.append(row);
   });
@@ -532,13 +550,28 @@ function renderAdvancedPlot(target, plot) {
   const palette = [colors.teal, colors.coral, colors.blue, colors.amber, colors.purple];
   const colorsByGroup = new Map();
   const shownGroups = new Set();
-  (plot.series || []).forEach((series, index) => {
+  const isTemperaturePlot = plot.key === "temperature-dependence";
+  (plot.series || []).forEach((savedSeries, index) => {
+    const series = selectSummaryUncertainty(savedSeries);
     const group = series.group || `series-${index}`;
     if (!colorsByGroup.has(group)) colorsByGroup.set(group, palette[colorsByGroup.size % palette.length]);
     const color = colorsByGroup.get(group);
     const showlegend = !shownGroups.has(group);
     shownGroups.add(group);
     if (series.kind === "points") {
+      if (isTemperaturePlot) {
+        const x = [], y = [];
+        series.x.forEach((temperature, point) => {
+          if (!hasTemperatureInterval(series, point)) return;
+          x.push(temperature, temperature, null);
+          y.push(series.lower[point], series.upper[point], null);
+        });
+        if (x.length) {
+          traces.push({ x, y, type: "scatter", mode: "lines+markers", legendgroup: group,
+            showlegend: false, hoverinfo: "skip", line: { color, width: 1 },
+            marker: { color, size: 6, symbol: "line-ew-open" } });
+        }
+      }
       traces.push({
         x: series.x,
         y: series.y,
@@ -548,25 +581,48 @@ function renderAdvancedPlot(target, plot) {
         legendgroup: group,
         showlegend,
         marker: { color, size: 8 },
-        error_y: {
+        ...(!isTemperaturePlot ? { error_y: {
           type: "data",
           symmetric: false,
           array: series.y.map((value, point) => Math.max(0, (series.upper?.[point] ?? value) - value)),
           arrayminus: series.y.map((value, point) => Math.max(0, value - (series.lower?.[point] ?? value))),
           visible: true,
           color
-        }
+        } } : {})
       });
       return;
     }
-    if (series.lower?.length === series.x?.length && series.upper?.length === series.x?.length) {
+    let hasBand = false;
+    if (isTemperaturePlot) {
+      for (let start = 0, end = 0; end < series.x.length; start = end + 1) {
+        end = start;
+        while (end < series.x.length && hasTemperatureInterval(series, end)) end++;
+        if (end - start < 2) continue;
+        const x = series.x.slice(start, end);
+        const lower = series.lower.slice(start, end);
+        const upper = series.upper.slice(start, end).reverse();
+        traces.push({ x: x.concat([...x].reverse()), y: lower.concat(upper), type: "scatter", mode: "lines",
+          legendgroup: group, line: { width: 0 }, fill: "toself", fillcolor: `${color}22`,
+          showlegend: false, hoverinfo: "skip" });
+        hasBand = true;
+      }
+    } else if (series.lower?.length === series.x?.length && series.upper?.length === series.x?.length
+      && series.lower.some((lower, point) => lower !== series.upper[point])) {
+      hasBand = true;
       traces.push({ x: series.x, y: series.lower, type: "scatter", mode: "lines", legendgroup: group, line: { width: 0 }, showlegend: false, hoverinfo: "skip" });
       traces.push({ x: series.x, y: series.upper, type: "scatter", mode: "lines", legendgroup: group, line: { width: 0 }, fill: "tonexty", fillcolor: `${color}22`, showlegend: false, hoverinfo: "skip" });
     }
-    traces.push({ x: series.x, y: series.y, name: series.label, type: "scatter", mode: "lines", legendgroup: group, showlegend, line: { color, width: 2 } });
+    traces.push({ x: series.x, y: series.y, name: series.label, type: "scatter", mode: "lines", legendgroup: group, showlegend, line: { color, width: 2 },
+      ...(hasBand && series.intervalLabel ? { hovertemplate: "%{x}<br>%{y}<br>" + series.intervalLabel + "<extra>%{fullData.name}</extra>" } : {}) });
   });
   const layout = baseLayout(plot.xAxisLabel, plot.yAxisLabel);
   window.Plotly.newPlot(target, traces, layout, plotConfig);
+}
+
+function hasTemperatureInterval(series, point) {
+  const lower = series.lower?.[point];
+  const upper = series.upper?.[point];
+  return Number.isFinite(series.y[point]) && Number.isFinite(lower) && Number.isFinite(upper) && lower < upper;
 }
 
 function renderResultComparison(result) {
@@ -853,6 +909,13 @@ function renderTemperatureParameterEvaluation(result) {
   card.hidden = !evaluation?.dependences?.length;
   if (card.hidden) return;
 
+  const local = evaluation.dependences.find(item => item.replicateSpread);
+  $("summary-uncertainty-control").hidden = !local;
+  const select = $("summary-uncertainty-select");
+  if (local) select.replaceChildren(option("mean", local.statisticLabel), option("replicateSpread", local.replicateSpread.statisticLabel));
+  select.value = state.summaryUncertaintyMode;
+  select.title = (state.summaryUncertaintyMode === "replicateSpread" ? evaluation.replicateSpreadToolTip : evaluation.summaryUncertaintyToolTip) || "";
+
   if (!Number.isFinite(state.resultEvaluationTemperature))
     state.resultEvaluationTemperature = evaluation.defaultTemperatureCelsius;
   input.value = formatInputNumber(state.resultEvaluationTemperature);
@@ -861,8 +924,7 @@ function renderTemperatureParameterEvaluation(result) {
     : "";
   note.textContent = (evaluation.isTemperatureDependent
     ? `Evaluated from the global temperature dependence. ${range}`
-    : `The saved fit has no resolved temperature dependence; reported energy terms remain constant. ${range}`)
-    + " Local aggregates show Combined SD and an Approximate propagated interval from individual 95% intervals and observed spread; 95% coverage is not established and covariance between experiments is omitted. Model-estimated intervals retain their CI95 meaning.";
+    : `The saved fit has no resolved temperature dependence; reported energy terms remain constant. ${range}`);
 
   if (!Number.isFinite(state.resultEvaluationTemperature) || state.resultEvaluationTemperature < -273.15) {
     message.hidden = false;
@@ -872,7 +934,14 @@ function renderTemperatureParameterEvaluation(result) {
   }
   message.hidden = true;
   const termKey = (item) => `${item.family}:${item.slotIndex}`;
-  const terms = new Map(evaluation.dependences.map((item) => [termKey(item), evaluateTemperatureDependence(item, state.resultEvaluationTemperature)]));
+  const terms = new Map(evaluation.dependences.map((item) => {
+    const selected = selectSummaryUncertainty(item);
+    return [termKey(item), {
+      ...evaluateTemperatureDependence(selected, state.resultEvaluationTemperature),
+      statisticLabel: selected.statisticLabel,
+      intervalLabel: selected.intervalLabel
+    }];
+  }));
   const rows = [];
   const slots = [...new Set(evaluation.dependences.map((item) => Number(item.slotIndex)).filter(Number.isFinite))].sort((a, b) => a - b);
   const includeIndex = slots.length > 1;
@@ -885,26 +954,34 @@ function renderTemperatureParameterEvaluation(result) {
     const affinity = deriveAffinity(gibbs, state.resultEvaluationTemperature);
     addTemperatureEvaluationRow(rows, affinity, `Affinity${suffix}`, affinity?.unit || "µM");
     const enthalpy = evaluation.dependences.find((item) => item.family === "Enthalpy" && item.slotIndex === slot);
-    if (enthalpy && Math.abs(enthalpy.heatCapacity.value) > 1e-12)
+    if (enthalpy?.heatCapacity && Math.abs(enthalpy.heatCapacity.value) > 1e-12)
       addTemperatureEvaluationRow(rows, enthalpy.heatCapacity, `Heat capacity change${suffix}`, "kJ/(mol·K)");
   });
 
   const table = document.createElement("table");
   const head = document.createElement("thead");
   const header = document.createElement("tr");
-  ["Parameter", "Value", "SD", "Interval"].forEach((text) => { const th = document.createElement("th"); th.textContent = text; header.append(th); });
+  ["Parameter", "Value", "Uncertainty", "Interval"].forEach((text) => { const th = document.createElement("th"); th.textContent = text; header.append(th); });
   head.append(header);
   const body = document.createElement("tbody");
   rows.forEach((item) => {
     const row = document.createElement("tr");
     appendCell(row, item.label);
     appendCell(row, formatParameterNumber(item.value, item.sd, ` ${item.unit}`));
-    appendCell(row, formatParameterNumber(item.sd, item.sd, ` ${item.unit}`));
-    appendCell(row, formatParameterInterval(item.confidenceLower, item.confidenceUpper, item.sd, item.unit));
+    const statistic = formatParameterUncertainty(item.sd, item.unit);
+    const interval = formatParameterInterval(item, item.unit);
+    const statisticCell = appendCell(row, statistic);
+    const intervalCell = appendCell(row, interval);
+    if (item.statisticLabel && statistic) statisticCell.title = item.statisticLabel;
+    if (item.intervalLabel && interval) intervalCell.title = item.intervalLabel;
     body.append(row);
   });
   table.append(head, body);
   target.replaceChildren(table);
+}
+
+function selectSummaryUncertainty(item) {
+  return state.summaryUncertaintyMode === "replicateSpread" && item.replicateSpread ? item.replicateSpread : item;
 }
 
 function evaluateTemperatureDependence(dependence, temperatureCelsius) {
@@ -918,10 +995,13 @@ function evaluateTemperatureDependence(dependence, temperatureCelsius) {
     const samples = dependence.replicates.map(curve => evaluateTemperatureDependence(curve, temperatureCelsius).value).sort((a, b) => a - b);
     if (!samples.every(Number.isFinite)) return { value, sd: null, confidenceLower: null, confidenceUpper: null };
     const n = samples.length;
+    if (n === 1) return { value, samples, sd: 0, confidenceLower: value, confidenceUpper: value };
+    // Same outward 95% ranks as FloatWithError.GetConfidenceInterval.
+    const lowerIndex = Math.floor((n - 1) / 40);
     return { value, samples,
-      sd: n > 1 ? Math.sqrt(samples.reduce((sum, sample) => sum + (sample - value) ** 2, 0) / n) : 0,
-      confidenceLower: samples[Math.ceil(((1 - 0.95) / 2) * n) - 1],
-      confidenceUpper: samples[Math.floor(((1 + 0.95) / 2) * n)] };
+      sd: Math.sqrt(samples.reduce((sum, sample) => sum + (sample - value) ** 2, 0) / n),
+      confidenceLower: samples[lowerIndex],
+      confidenceUpper: samples[n - 1 - lowerIndex] };
   }
   let variance = 0, lowerVariance = 0, upperVariance = 0;
   for (const term of dependence.contributions) {
@@ -966,6 +1046,8 @@ function deriveAffinity(gibbs, temperatureCelsius) {
   const sd = Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) : null;
   return {
     value: value * concentration.scale,
+    statisticLabel: gibbs.statisticLabel,
+    intervalLabel: gibbs.intervalLabel,
     sd: Number.isFinite(sd) ? sd * concentration.scale : null,
     confidenceLower: Number.isFinite(convert(gibbs.confidenceLower)) ? convert(gibbs.confidenceLower) * concentration.scale : null,
     confidenceUpper: Number.isFinite(convert(gibbs.confidenceUpper)) ? convert(gibbs.confidenceUpper) * concentration.scale : null,
@@ -1299,7 +1381,7 @@ function parameterSection(titleText, parameters, showStatus) {
   parameters.forEach((parameter) => {
     const tr = document.createElement("tr");
     const unit = parameter.unit ? ` ${parameter.unit}` : "";
-    const values = [parameter.label, formatParameterNumber(parameter.value, parameter.sd, unit), formatParameterNumber(parameter.sd, parameter.sd, unit), formatParameterInterval(parameter.confidenceLower, parameter.confidenceUpper, parameter.sd, parameter.unit)];
+    const values = [parameter.label, formatParameterNumber(parameter.value, parameter.sd, unit), formatParameterUncertainty(parameter.sd, parameter.unit), formatParameterInterval(parameter, parameter.unit)];
     values.forEach((value) => appendCell(tr, value));
     if (showStatus) appendParameterStatusCell(tr, parameter);
     body.append(tr);
@@ -1367,7 +1449,7 @@ function currentResult() { return state.document?.analysisResults?.[state.result
 function memberLabel(member) { return `${member.experimentName}${member.temperatureCelsius == null ? "" : ` · ${formatNumber(member.temperatureCelsius)} °C`}`; }
 function option(value, label) { const element = document.createElement("option"); element.value = String(value); element.textContent = label; return element; }
 function definition(label, value) { const wrapper = document.createElement("div"); const dt = document.createElement("dt"); const dd = document.createElement("dd"); dt.textContent = label; dd.textContent = value || "Unavailable"; if (/RMSD \(µJ\)/i.test(label)) { dt.className = "metric-label"; dt.title = "Unweighted RMSD display diagnostic in microjoules; separate from the weighted fitting objective."; dd.title = dt.title; } else if (/Molar RMSD/i.test(label)) { dt.className = "metric-label"; dt.title = "Unweighted molar RMSD display diagnostic in kJ/mol; separate from the weighted fitting objective."; dd.title = dt.title; } wrapper.append(dt, dd); return wrapper; }
-function appendCell(row, value, className = "") { const cell = document.createElement("td"); cell.className = className; cell.textContent = value == null ? "—" : String(value); row.append(cell); }
+function appendCell(row, value, className = "") { const cell = document.createElement("td"); cell.className = className; cell.textContent = value == null ? "—" : String(value); row.append(cell); return cell; }
 function appendParameterCell(row, parameter) {
   const cell = document.createElement("td");
   if (!parameter) { cell.textContent = "—"; row.append(cell); return; }
@@ -1376,8 +1458,10 @@ function appendParameterCell(row, parameter) {
   value.textContent = formatParameterNumber(parameter.value, parameter.sd, unit);
   cell.append(value);
   const details = [];
-  if (Number.isFinite(Number(parameter.sd))) details.push(`SD ${formatParameterNumber(parameter.sd, parameter.sd)}`);
-  if (parameter.confidenceLower != null) details.push(`95% ${formatParameterInterval(parameter.confidenceLower, parameter.confidenceUpper, parameter.sd, "")}`);
+  const sd = formatParameterUncertainty(parameter.sd);
+  const interval = formatParameterInterval(parameter);
+  if (sd) details.push(`SD ${sd}`);
+  if (interval) details.push(`95% ${interval}`);
   if (parameter.isLocked) details.push("Locked");
   else if (parameter.isGloballyDetermined) details.push("Globally constrained");
   else if (parameter.isDerived) details.push("Derived");
@@ -1412,8 +1496,12 @@ function formatParameterNumber(value, sd, suffix = "") {
   const digits = parameterFractionDigits(sd);
   return `${digits == null ? numberFormatter.format(Number(value)) : formatDecimal(Number(value), digits)}${suffix}`;
 }
-function formatParameterInterval(lower, upper, sd, unit = "") {
-  if (lower == null || upper == null || !Number.isFinite(Number(lower)) || !Number.isFinite(Number(upper))) return "—";
+function formatParameterUncertainty(sd, unit = "") {
+  return Number.isFinite(sd) && sd > 0 ? formatParameterNumber(sd, sd, unit ? ` ${unit}` : "") : "";
+}
+function formatParameterInterval(parameter, unit = "") {
+  const { value, sd, confidenceLower: lower, confidenceUpper: upper } = parameter;
+  if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper || (lower === value && upper === value)) return "";
   const suffix = unit ? ` ${unit}` : "";
   return `${formatParameterNumber(lower, sd)} – ${formatParameterNumber(upper, sd)}${suffix}`;
 }

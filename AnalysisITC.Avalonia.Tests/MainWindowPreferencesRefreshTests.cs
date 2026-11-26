@@ -1,9 +1,18 @@
 using AnalysisITC.Avalonia.FinalFigure;
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Avalonia.Results;
+using AnalysisITC.Core;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Platform;
 using Avalonia.Controls;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
@@ -83,6 +92,85 @@ public sealed class MainWindowPreferencesRefreshTests
         {
             preferences?.Close();
             mainWindow?.Close();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SwitchingSummaryUncertaintyRefreshesTheOpenResultInBothDirections()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        DataManager.Clear(DataClearMode.ResetSession);
+        MainWindow? window = null;
+        try
+        {
+            const UncertaintyDisplayStyle style = UncertaintyDisplayStyle.StandardDeviation;
+            var initial = PreferencesState.Defaults();
+            initial.UncertaintyDisplayStyle = style;
+            initial.Apply();
+            var (first, second, result) = AnalysisReportEnhancementTests.CreateReplicateSummaryFixture();
+            DataManager.AddData(new ITCDataContainer[] { first, second, result });
+            window = new MainWindow(false);
+            window.Show();
+            var items = window.FindControl<ListBox>("ItemsList")!;
+            items.SelectedIndex = -1;
+            items.SelectedIndex = DataManager.IndexOfSourceItem(result);
+            Dispatcher.UIThread.RunJobs();
+            var workspace = window.FindControl<AnalysisResultWorkspaceControl>("ResultWorkspace")!;
+            window.UpdateLayout();
+            var inspector = Assert.Single(workspace.GetVisualDescendants().OfType<TabControl>());
+            inspector.SelectedIndex = 1;
+            window.UpdateLayout();
+            var rows = Field<StackPanel>(workspace, "evaluationRowsPanel");
+
+            Verify("SEM", Math.Sqrt(3.5));
+            ApplyMode(SummaryUncertaintyMode.ReplicateSpread);
+            Verify("Replicate SD", Math.Sqrt(7));
+            ApplyMode(SummaryUncertaintyMode.Mean);
+            Verify("SEM", Math.Sqrt(3.5));
+
+            void ApplyMode(SummaryUncertaintyMode mode)
+            {
+                var preferences = PreferencesState.FromSettings();
+                preferences.SummaryUncertaintyMode = mode;
+                var changes = PreferencesChangeSet.Between(PreferencesState.FromSettings(), preferences);
+                preferences.Apply();
+                window.RefreshAfterPreferencesApplied(changes);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            void Verify(string label, double uncertainty)
+            {
+                window.UpdateLayout();
+                Assert.Same(result, DataManager.SelectedResult);
+                Assert.Same(result, workspace.Result);
+                Assert.True(workspace.IsVisible);
+                var row = Assert.Single(rows.Children, child => child.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(text => text.Text?.Contains("∆H", StringComparison.Ordinal) == true));
+                var texts = row.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
+                Assert.Equal("Enthalpy (∆H)", texts[0]);
+                var modeLine = Assert.Single(rows.Children.OfType<TextBlock>());
+                Assert.Equal("Summary uncertainty: " + label, modeLine.Text);
+                Assert.Contains("fitting uncertainty", Assert.IsType<string>(ToolTip.GetTip(modeLine)));
+                var expected = new FloatWithError(11, uncertainty).Energy
+                    .ToFormattedString(EnergyUnit.KiloJoule, permole: true, style: style);
+                Assert.Equal(expected, texts[1]);
+                var lines = Assert.IsType<string>(ToolTip.GetTip(row)).Split(Environment.NewLine);
+                var mean = AppSettings.SummaryUncertaintyMode == SummaryUncertaintyMode.Mean;
+                Assert.Equal(2, lines.Length);
+                Assert.EndsWith(mean ? "kJ/mol (SEM)" : "kJ/mol (SD)", lines[0]);
+                Assert.StartsWith(mean ? "95% limits:" : "95% range:", lines[1]);
+            }
+        }
+        finally
+        {
+            DocumentDirtyTracker.MarkClean();
+            window?.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
             original.ApplyToSettings();
             AppSettings.ApplySettings();
             PlatformServices.RegisterSettingsStore(originalStore);

@@ -1956,6 +1956,7 @@ public partial class MainWindow : Window
             nameof(PreferencesState.EnergyUnitFamily),
             nameof(PreferencesState.NumberPrecision),
             nameof(PreferencesState.UncertaintyDisplayStyle),
+            nameof(PreferencesState.SummaryUncertaintyMode),
             nameof(PreferencesState.DefaultConcentrationUnit),
             nameof(PreferencesState.MinimumTemperatureSpanForFitting),
             nameof(PreferencesState.MinimumIonSpanForFitting),

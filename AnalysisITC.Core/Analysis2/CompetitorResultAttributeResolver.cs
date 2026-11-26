@@ -59,14 +59,14 @@ namespace AnalysisITC.Core.Analysis
             var temperature = result.Model.TemperatureDependenceExposed
                 ? experiment.MeasuredTemperature
                 : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
+            var summaries = AnalysisResultAggregateSummaryCalculator.ForCompetitorCapture(result);
             var gibbs = summaries.EvaluateSummaryParameter(ParameterType.Gibbs1, temperature)?.Value ?? FloatWithError.NaN;
             var enthalpy = summaries.EvaluateSummaryParameter(ParameterType.Enthalpy1, temperature)?.Value ?? FloatWithError.NaN;
             var kelvin = temperature + 273.15;
             if (!(kelvin > 0) || FloatWithError.IsNaN(gibbs) || !FWEMath.IsFinite(gibbs.Value))
                 throw new InvalidOperationException($"Analysis Result '{result.Name}' does not have a usable global affinity summary.");
 
-            // Match the result summary display: Kd = exp(∆G / RT).
+            // Use the Gibbs-based convention: Kd = exp(∆G / RT).
             var kd = FWEMath.Exp(gibbs / (kelvin * Energy.R));
             if (!FWEMath.IsFinite(kd.Value) || kd.Value <= 0)
                 throw new InvalidOperationException($"Analysis Result '{result.Name}' does not have a usable global affinity summary.");

@@ -161,7 +161,7 @@ The chosen cutoffs are **No binding detected** at $\Delta\mathrm{AICc} \leq 0$, 
 
 The central value is the model's best fit to the original data. An uncertainty display gives a range or spread around that value under the selected estimation method. It does not include every possible experimental error or guarantee that the chosen model is correct.
 
-The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with its lower and upper confidence limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the SD display.
+Use **Errors** to show **±**, **95% limits**, or **± and 95% limits**. **Automatic** chooses the display for each value. **None** hides uncertainty in the table. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the ± display.
 
 The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Its default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Temperature display can be **Celsius** or **Kelvin**. Results remembers this unit for the current application session, independently of the result exporter. Both start from **Preferences > Temperature units**; changing that preference resets both choices. Switching units preserves the physical evaluation temperature. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
@@ -169,7 +169,7 @@ Changing **Errors** changes only how stored uncertainty is presented in tables, 
 
 ### Automatic display calculation
 
-**Automatic** shows the 95% confidence interval when the interval is clearly lopsided around the best-fit value, and SD otherwise. In practice, CI is shown when the longer side of the interval is at least about 1.44 times the shorter side. A symmetric `value ± SD` would misrepresent such an interval, so its limits are shown instead.
+**Automatic** shows the 95% limits when the longer side of the interval is at least about 1.44 times the shorter side. Otherwise it shows ±.
 
 The choice is made separately for each reported quantity. Let $L$ and $U$ be its stored 95% confidence limits and $\hat{\theta}$ its primary best-fit value:
 
@@ -183,25 +183,26 @@ The choice is made separately for each reported quantity. Let $L$ and $U$ be its
 > \text{asymmetry} = \frac{\lvert w_{\mathrm{upper}} - w_{\mathrm{lower}} \rvert}{w_{\mathrm{upper}} + w_{\mathrm{lower}}}
 > $$
 >
-> Automatic shows the 95% confidence interval when the asymmetry is at least 0.18; otherwise it shows SD. An asymmetry of 0.18 corresponds to one side being 1.18/0.82 ≈ 1.44 times the other. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
+> Automatic shows the 95% confidence interval when the asymmetry is at least 0.18; otherwise it shows ±. An asymmetry of 0.18 corresponds to one side being 1.18/0.82 ≈ 1.44 times the other. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
 
-For example, $K_{\mathrm{d}}$ = 50 nM with a 95% interval of 40–70 nM has widths 10 and 20 nM. The asymmetry is 10/30 = 0.33, so Automatic shows the interval. With an interval of 42–59 nM, the widths are 8 and 9 nM, the asymmetry is 1/17 = 0.06, and Automatic shows SD.
+For example, $K_{\mathrm{d}}$ = 50 nM with a 95% interval of 40–70 nM has widths 10 and 20 nM. The asymmetry is 10/30 = 0.33, so Automatic shows the interval. With an interval of 42–59 nM, the widths are 8 and 9 nM, the asymmetry is 1/17 = 0.06, and Automatic shows ±.
 
-To check a value, set **Errors** to **SD + 95% CI**. Both the SD and the limits are then shown, and the widths can be read directly. If a quantity has no stored interval, Automatic shows SD.
+To check a value, set **Errors** to **± and 95% limits**. Both the symmetric uncertainty and the limits are then shown, and the widths can be read directly. If a quantity has no stored interval, Automatic shows ±.
 
 The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting $\log_{10}(K_{\mathrm{a}})$ and displaying $K_{\mathrm{d}}$—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
 
 ### Summary uncertainty
 
-Use **Combined SD** to describe combined spread and the **Approximate propagated interval** for the average or evaluated temperature trend. Neither replaces individual parameter uncertainty.
+For averages reported in an analysis result, the uncertainty combines variation between experiments with the fitting uncertainty of each experiment. **Summary uncertainty** in Preferences sets what ± and the 95% limits describe. The web viewer offers the same choice.
 
-For local parameters, **Combined SD** is the square root of between-experiment sample variance plus mean individual variance; a temperature trend uses residual variance. It describes combined spread, not the standard error of the mean, and observed spread may already include fitting noise.
+- **Uncertainty in the mean (SEM)** (default) reports the standard error of the mean and an approximate 95% interval for the mean. For a temperature trend, it reports the standard error of the fitted value at the selected temperature and an approximate 95% interval for that value.
+- **Replicate spread (SD)** reports the replicate standard deviation and an approximate 95% range for individual replicates. For a temperature trend, these describe the spread around the fitted line at the selected temperature and include individual fitting uncertainty.
 
-The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. $\Delta C_{\mathrm{p}}$ uses slope uncertainty.
+For an average, the replicate SD is calculated by adding the sample variance of the fitted values to the mean of their individual fitting variances and taking the square root. The SEM is this SD divided by the square root of the number of experiments.
 
-These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
+Both choices propagate lower and upper fitting uncertainties separately to retain asymmetry. The calculations omit covariance between experiments, and the observed scatter may already include fitting noise. The replicate range has no established 95% coverage. Shared model parameters use the uncertainty from the joint fit. For a temperature trend, the uncertainty in ΔCp describes the fitted slope.
 
-Summary $K_{\mathrm{d}}$ is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
+Summary $K_{\mathrm{d}}$ is calculated from summarized Gibbs energy. Its symmetric uncertainty is propagated from the corresponding Gibbs-energy uncertainty using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
 
 ## Parameter correlation
 
@@ -250,6 +251,8 @@ All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analy
 ### Temperature
 
 The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its **Structuring** section uses the Spolar–Record method to estimate the hydration entropy ($-T\Delta S_{\mathrm{HE}}$), the conformational entropy ($-T\Delta S_{\mathrm{conf}}$), and the number of residues folding upon binding. **Interaction** selects **Folded–folded** for two folded proteins or **Folded–disordered** for one folded and one disordered protein. Completed outputs retain their saved estimates and evaluation temperature until rerun.
+
+The point bars on a temperature plot show each individual fit’s 95% limits. The shaded band shows the same limits as **Parameter Evaluation** at each temperature. For local trends, **Summary uncertainty** selects the approximate interval for the fitted trend or the approximate replicate range. Shared parameters use their joint-fit limits. Choosing **None** in the desktop app hides the bars and shading.
 
 #### Structuring assumptions
 

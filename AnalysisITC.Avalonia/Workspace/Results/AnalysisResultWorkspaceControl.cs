@@ -37,7 +37,7 @@ namespace AnalysisITC.Avalonia.Results
     {
         const double ResultTableResizeGripWidth = 8;
         const double ResultTableMeasurementSafety = 12;
-        static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
+        static readonly string[] UncertaintyStyleNames = { "Automatic", UncertaintyDisplayPresentation.SymmetricLabel, UncertaintyDisplayPresentation.LimitsLabel, UncertaintyDisplayPresentation.BothLabel, "None" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", ElectrostaticsAnalysisAvailability.SaltDependenceModeLabel };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
 
@@ -310,6 +310,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             AppSettings.UncertaintyDisplayStyle = style;
             AppSettings.Save();
+            if (activeViewMode == ResultAnalysisViewMode.Temperature) dependenceGraph.Rebuild();
             RefreshTable();
             RefreshParameterEvaluation();
             RefreshAnalysis();
@@ -961,6 +962,13 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
+            if (evaluation.SummaryMode is { } mode)
+            {
+                var modeLine = WorkspaceControlBuilder.Text(UncertaintyDisplayPresentation.SummaryLabel + ": "
+                    + UncertaintyDisplayPresentation.SummaryStatisticLabel(mode, result.Model.TemperatureDependenceExposed));
+                ToolTip.SetTip(modeLine, UncertaintyDisplayPresentation.SummaryModeTooltip(mode));
+                evaluationRowsPanel.Children.Add(modeLine);
+            }
             foreach (var row in evaluation.Rows)
             {
                 var pair = ParameterPair(row.Label, row.Value);
@@ -1717,6 +1725,7 @@ namespace AnalysisITC.Avalonia.Results
                 1 => UncertaintyDisplayStyle.StandardDeviation,
                 2 => UncertaintyDisplayStyle.ConfidenceInterval,
                 3 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+                4 => UncertaintyDisplayStyle.None,
                 _ => UncertaintyDisplayStyle.Automatic
             });
         }
@@ -1731,6 +1740,7 @@ namespace AnalysisITC.Avalonia.Results
                     UncertaintyDisplayStyle.StandardDeviation => 1,
                     UncertaintyDisplayStyle.ConfidenceInterval => 2,
                     UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => 3,
+                    UncertaintyDisplayStyle.None => 4,
                     _ => 0
                 };
             }
@@ -1905,6 +1915,7 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Text = label,
                 FontSize = 10,
+                TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Top
             };
             AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);

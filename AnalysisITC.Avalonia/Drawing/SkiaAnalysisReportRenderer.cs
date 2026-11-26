@@ -466,7 +466,7 @@ public sealed class SkiaAnalysisReportRenderer
             .Where(point => Finite(point.X) && Finite(point.Y)).ToList();
         if (points.Count == 0) return;
         var minX = points.Min(point => point.X); var maxX = points.Max(point => point.X);
-        var minY = points.Min(point => point.Lower ?? point.Y); var maxY = points.Max(point => point.Upper ?? point.Y);
+        var minY = points.Min(point => Math.Min(point.Lower ?? point.Y, point.Y)); var maxY = points.Max(point => Math.Max(point.Upper ?? point.Y, point.Y));
         Expand(ref minX, ref maxX); Expand(ref minY, ref maxY);
         Stroke(canvas, graph, Ink, .8f);
         DrawText(canvas, plot.XAxisTitle, graph.MidX - Measure(plot.XAxisTitle, 8, false).Width / 2, graph.Bottom + 10, 8, Ink);
@@ -492,34 +492,30 @@ public sealed class SkiaAnalysisReportRenderer
             if (!groupColors.TryGetValue(group, out var colorIndex))
                 groupColors[group] = colorIndex = nextColor++;
             var color = SeriesColor(colorIndex);
-            var seriesPoints = series.Points.Where(point => Finite(point.X) && Finite(point.Y)).OrderBy(point => point.X).ToList();
-            if (seriesPoints.Count == 0) continue;
-            if (series.Kind == AnalysisReportPlotSeriesKind.Line
-                && seriesPoints.Any(point => point.Lower.HasValue && point.Upper.HasValue))
+            if (series.Kind == AnalysisReportPlotSeriesKind.Line)
             {
-                using var band = new SKPath();
-                var bandPoints = seriesPoints.Where(point => point.Lower.HasValue && point.Upper.HasValue).ToList();
-                if (bandPoints.Count > 1)
+                foreach (var bandPoints in series.ContinuousSegments(requireBounds: true))
                 {
-                    band.MoveTo(MapX(bandPoints[0].X), MapY(bandPoints[0].Upper.GetValueOrDefault()));
-                    foreach (var point in bandPoints.Skip(1)) band.LineTo(MapX(point.X), MapY(point.Upper.GetValueOrDefault()));
-                    foreach (var point in bandPoints.AsEnumerable().Reverse()) band.LineTo(MapX(point.X), MapY(point.Lower.GetValueOrDefault()));
+                    using var band = new SKPath();
+                    band.MoveTo(MapX(bandPoints[0].X), MapY(bandPoints[0].Upper.Value));
+                    foreach (var point in bandPoints.Skip(1)) band.LineTo(MapX(point.X), MapY(point.Upper.Value));
+                    foreach (var point in bandPoints.AsEnumerable().Reverse()) band.LineTo(MapX(point.X), MapY(point.Lower.Value));
                     band.Close();
                     using var paint = new SKPaint { Color = color.WithAlpha(42), Style = SKPaintStyle.Fill, IsAntialias = true };
                     canvas.DrawPath(band, paint);
                 }
-            }
-            if (series.Kind == AnalysisReportPlotSeriesKind.Line && seriesPoints.Count > 1)
-            {
-                using var path = new SKPath();
-                path.MoveTo(MapX(seriesPoints[0].X), MapY(seriesPoints[0].Y));
-                foreach (var point in seriesPoints.Skip(1)) path.LineTo(MapX(point.X), MapY(point.Y));
-                using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1.4f, IsAntialias = true };
-                canvas.DrawPath(path, paint);
+                foreach (var line in series.ContinuousSegments(requireBounds: false))
+                {
+                    using var path = new SKPath();
+                    path.MoveTo(MapX(line[0].X), MapY(line[0].Y));
+                    foreach (var point in line.Skip(1)) path.LineTo(MapX(point.X), MapY(point.Y));
+                    using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1.4f, IsAntialias = true };
+                    canvas.DrawPath(path, paint);
+                }
             }
             else
             {
-                foreach (var point in seriesPoints)
+                foreach (var point in series.Points.Where(point => Finite(point.X) && Finite(point.Y)))
                 {
                     var x = MapX(point.X); var y = MapY(point.Y);
                     if (plot.UncertaintyStyle == AnalysisITC.Core.Application.UncertaintyDisplayStyle.ConfidenceInterval

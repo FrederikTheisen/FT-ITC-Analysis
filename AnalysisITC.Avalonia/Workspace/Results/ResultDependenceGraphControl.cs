@@ -34,6 +34,7 @@ namespace AnalysisITC.Avalonia.Results
         IReadOnlyList<GraphSeries> cachedSeries = Array.Empty<GraphSeries>();
         string xLabel = "";
         string yLabel = "";
+        string uncertaintyCaption = "";
 
         public ResultDependenceGraphControl()
         {
@@ -130,6 +131,22 @@ namespace AnalysisITC.Avalonia.Results
             InvalidateVisual();
         }
 
+        internal string UncertaintyCaptionForTesting => uncertaintyCaption;
+        internal int UncertaintyBandCountForTesting => cachedSeries.Sum(series => series.Fit?.Bands.Count ?? 0);
+        internal IReadOnlyList<(double Lower, double Upper)> PointIntervalsForTesting => cachedSeries
+            .SelectMany(series => series.Points)
+            .Where(point => point.HasInterval)
+            .Select(point => (point.LowerY, point.UpperY))
+            .ToList();
+        internal (double Min, double Max) YRangeForTesting
+        {
+            get
+            {
+                var range = BuildRange(cachedSeries, includeZero: mode != ResultAnalysisViewMode.Salt);
+                return (range.YMin, range.YMax);
+            }
+        }
+
         internal bool HasPrintableData => cachedSeries.Any(series => series.Points.Count > 0);
         internal IReadOnlyList<string> SeriesLabelsForTesting =>
             cachedSeries.Select(series => series.Name).ToList();
@@ -151,12 +168,7 @@ namespace AnalysisITC.Avalonia.Results
                 ? AvaloniaGraphSettings.YLabelFallbackWidth
                 : yTicks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
 
-            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
-            var plot = new Rect(
-                left,
-                AvaloniaGraphSettings.GraphMarginTop,
-                Math.Max(1, bounds.Width - left - AvaloniaGraphSettings.GraphMarginRight),
-                Math.Max(1, bounds.Height - AvaloniaGraphSettings.GraphMarginTop - AvaloniaGraphSettings.GraphMarginBottom));
+            var plot = PlotBounds(bounds, yLabelWidth, out var caption);
 
             context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, plot);
 
@@ -184,6 +196,8 @@ namespace AnalysisITC.Avalonia.Results
                 DrawFit(context, plot, range, series);
                 DrawPoints(context, plot, range, series);
             }
+            if (caption != null)
+                context.DrawText(caption, new Point(plot.Left, plot.Bottom + AvaloniaGraphSettings.GraphMarginBottom));
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -206,12 +220,7 @@ namespace AnalysisITC.Avalonia.Results
             var yLabelWidth = yTicks.Count == 0
                 ? AvaloniaGraphSettings.YLabelFallbackWidth
                 : yTicks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
-            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
-            var plot = new Rect(
-                left,
-                AvaloniaGraphSettings.GraphMarginTop,
-                Math.Max(1, Bounds.Width - left - AvaloniaGraphSettings.GraphMarginRight),
-                Math.Max(1, Bounds.Height - AvaloniaGraphSettings.GraphMarginTop - AvaloniaGraphSettings.GraphMarginBottom));
+            var plot = PlotBounds(Bounds, yLabelWidth, out _);
 
             if (!plot.Contains(pointer)) return null;
 
@@ -229,6 +238,25 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             return closest;
+        }
+
+        Rect PlotBounds(Rect bounds, double yLabelWidth, out FormattedText? caption)
+        {
+            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum,
+                yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
+            var width = Math.Max(1, bounds.Width - left - AvaloniaGraphSettings.GraphMarginRight);
+            caption = null;
+            var captionHeight = 0.0;
+            if (uncertaintyCaption.Length > 0)
+            {
+                caption = CreateText(uncertaintyCaption, AvaloniaGraphSettings.TickLabelFontSize,
+                    FontWeight.Normal, GraphTheme.MutedTextBrush);
+                caption.MaxTextWidth = width;
+                captionHeight = caption.Height + 5;
+            }
+            return new Rect(left, AvaloniaGraphSettings.GraphMarginTop, width,
+                Math.Max(1, bounds.Height - AvaloniaGraphSettings.GraphMarginTop
+                    - AvaloniaGraphSettings.GraphMarginBottom - captionHeight));
         }
 
         void DrawAxes(DrawingContext context, Rect plot, GraphRange range, IReadOnlyList<double> yTicks)
@@ -271,10 +299,11 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (series.Fit == null || series.Fit.Line.Count < 2) return;
 
-            if (series.Fit.Upper.Count > 1 && series.Fit.Lower.Count > 1)
+            foreach (var band in series.Fit.Bands)
             {
-                var upper = series.Fit.Upper.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
-                var lower = series.Fit.Lower.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
+                if (band.Lower.Count < 2 || band.Upper.Count < 2) continue;
+                var upper = band.Upper.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
+                var lower = band.Lower.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
                 var geometry = new StreamGeometry();
                 using (var ctx = geometry.Open())
                 {
@@ -286,13 +315,25 @@ namespace AnalysisITC.Avalonia.Results
                 context.DrawGeometry(GraphTheme.ConfidenceBandBrush, null, geometry);
             }
 
-            var line = series.Fit.Line.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
-            if (line.Count < 2) return;
             var path = new StreamGeometry();
             using (var ctx = path.Open())
             {
-                ctx.BeginFigure(line[0], false);
-                foreach (var point in line.Skip(1)) ctx.LineTo(point);
+                var hasFigure = false;
+                foreach (var point in series.Fit.Line)
+                {
+                    if (!IsFinite(point.X) || !IsFinite(point.Y))
+                    {
+                        if (hasFigure) ctx.EndFigure(false);
+                        hasFigure = false;
+                        continue;
+                    }
+
+                    var screen = ToScreen(plot, range, point.X, point.Y);
+                    if (hasFigure) ctx.LineTo(screen);
+                    else ctx.BeginFigure(screen, false);
+                    hasFigure = true;
+                }
+                if (hasFigure) ctx.EndFigure(false);
             }
             context.DrawGeometry(null, GraphTheme.FitPen, path);
         }
@@ -326,6 +367,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             xLabel = "";
             yLabel = "";
+            uncertaintyCaption = "";
 
             if (result == null) return Array.Empty<GraphSeries>();
 
@@ -359,20 +401,27 @@ namespace AnalysisITC.Avalonia.Results
             yLabel = $"Thermodynamic parameter ({unit.GetUnit()}/mol)";
             var scale = Energy.ScaleFactor(unit);
 
-            return parameters
-                .Where(parameter => result.Solution.TemperatureDependence.ContainsKey(parameter))
+            var showUncertainty = AppSettings.UncertaintyDisplayStyle != UncertaintyDisplayStyle.None;
+            var series = parameters
                 .Select((parameter, index) =>
                 {
+                    var points = SortFinitePoints(members
+                        .Where(member => member.Parameters.ContainsKey(parameter))
+                        .Select(member => TemperaturePoint(member, parameter, scale, showUncertainty)));
                     return new GraphSeries(
                         parameter.GetProperties().Name,
-                        SortFinitePoints(members
-                            .Where(member => member.Parameters.ContainsKey(parameter))
-                            .Select(member => PointFrom(member.TemperatureCelsius, member.Parameters[parameter], member.Solution, scale))),
-                        BuildTemperatureFit(parameter, scale),
+                        points,
+                        BuildTemperatureFit(parameter, points, scale, showUncertainty),
                         SymbolForSeries(index));
                 })
-                .Where(series => series.Points.Count > 0)
+                .Where(item => item.Points.Count > 0)
                 .ToList();
+
+            uncertaintyCaption = TemperatureDependenceUncertaintyCaption.Build(
+                series.Any(item => item.Points.Any(point => point.HasInterval)),
+                series.Where(item => item.Fit?.IntervalKind != null && item.Fit.Bands.Count > 0)
+                    .Select(item => (item.Name, item.Fit!.IntervalKind!.Value)));
+            return series;
         }
 
         IReadOnlyList<GraphSeries> BuildSaltSeries()
@@ -583,35 +632,37 @@ namespace AnalysisITC.Avalonia.Results
             return new GraphValue(value.Value * scale, value.Lower * scale, value.Upper * scale);
         }
 
-        GraphFitSeries? BuildTemperatureFit(
-            ParameterType parameter,
-            double scale)
+        GraphPoint TemperaturePoint(AnalysisResultPresentationMember member, ParameterType parameter,
+            double scale, bool showUncertainty)
         {
-            var points = (presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>())
-                .Where(member => member.Parameters.ContainsKey(parameter))
-                .Select(member => PointFrom(member.TemperatureCelsius, member.Parameters[parameter], member.Solution, scale))
-                .Where(point => point.HasValue)
-                .ToList() ?? new List<GraphPoint>();
+            var value = member.Parameters[parameter];
+            if (showUncertainty && TemperatureDependenceUncertaintyCaption.TryGetIndividualInterval(result, member.Solution, parameter, value, out var lower, out var upper))
+                return new GraphPoint(member.TemperatureCelsius, value.Value * scale, lower * scale, upper * scale, member.Solution);
 
-            var xs = SampleXs(points);
-            if (xs.Count < 2) return null;
+            return new GraphPoint(member.TemperatureCelsius, value.Value * scale, double.NaN, double.NaN, member.Solution);
+        }
 
-            var envelope = presentation?.GetTemperatureEnvelope(
-                parameter, xs.First(), xs.Last(), Math.Max(1, xs.Count - 1))
-                ?? Array.Empty<FitEnvelopePoint>();
-            var line = envelope
-                .Select(point => new GraphFitPoint(point.X, point.Center * scale))
-                .ToList();
-            var lower = envelope
-                .Where(point => point.HasBand)
-                .Select(point => new GraphFitPoint(point.X, point.Lower * scale))
-                .ToList();
-            var upper = envelope
-                .Where(point => point.HasBand)
-                .Select(point => new GraphFitPoint(point.X, point.Upper * scale))
-                .ToList();
+        GraphFitSeries? BuildTemperatureFit(ParameterType parameter, IReadOnlyList<GraphPoint> points, double scale,
+            bool showUncertainty)
+        {
+            var domain = BuildDataXDomain(points);
+            if (presentation == null || domain == null) return null;
 
-            return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
+            var envelope = presentation.GetTemperatureEnvelope(parameter, domain.Value.Min, domain.Value.Max,
+                out var intervalKind, mode: AppSettings.SummaryUncertaintyMode);
+            var line = envelope.Select(point => new GraphFitPoint(point.X, point.Center * scale)).ToList();
+            if (line.Count < 2) return null;
+
+            var bands = new List<GraphBand>();
+            if (showUncertainty)
+                foreach (var (start, length) in TemperatureDependenceUncertaintyCaption.UsableBandRuns(envelope))
+                {
+                    var run = envelope.Skip(start).Take(length);
+                    bands.Add(new GraphBand(
+                        run.Select(point => new GraphFitPoint(point.X, point.Lower * scale)).ToList(),
+                        run.Select(point => new GraphFitPoint(point.X, point.Upper * scale)).ToList()));
+                }
+            return new GraphFitSeries(line, bands, intervalKind);
         }
 
         static GraphFitSeries? BuildLinearFit(
@@ -886,19 +937,29 @@ namespace AnalysisITC.Avalonia.Results
 
         sealed class GraphFitSeries
         {
-            public GraphFitSeries(IReadOnlyList<GraphFitPoint> line, IReadOnlyList<GraphFitPoint> lower, IReadOnlyList<GraphFitPoint> upper)
+            public GraphFitSeries(IReadOnlyList<GraphFitPoint> line, IReadOnlyList<GraphFitPoint> lower,
+                IReadOnlyList<GraphFitPoint> upper)
+                : this(line, new[] { new GraphBand(lower, upper) }, null)
+            {
+            }
+
+            public GraphFitSeries(IReadOnlyList<GraphFitPoint> line, IReadOnlyList<GraphBand> bands,
+                TemperatureDependenceIntervalKind? intervalKind)
             {
                 Line = line;
-                Lower = lower;
-                Upper = upper;
+                Bands = bands;
+                IntervalKind = intervalKind;
             }
 
             public IReadOnlyList<GraphFitPoint> Line { get; }
-            public IReadOnlyList<GraphFitPoint> Lower { get; }
-            public IReadOnlyList<GraphFitPoint> Upper { get; }
-
+            public IReadOnlyList<GraphBand> Bands { get; }
+            public TemperatureDependenceIntervalKind? IntervalKind { get; }
+            public IEnumerable<GraphFitPoint> Lower => Bands.SelectMany(band => band.Lower);
+            public IEnumerable<GraphFitPoint> Upper => Bands.SelectMany(band => band.Upper);
             public IEnumerable<GraphFitPoint> AllPoints => Line.Concat(Lower).Concat(Upper);
         }
+
+        sealed record GraphBand(IReadOnlyList<GraphFitPoint> Lower, IReadOnlyList<GraphFitPoint> Upper);
 
         readonly struct GraphFitPoint
         {
@@ -931,6 +992,7 @@ namespace AnalysisITC.Avalonia.Results
             public double UpperY { get; }
             public SolutionInterface? Solution { get; }
             public bool HasValue => IsFinite(X) && IsFinite(Y);
+            public bool HasInterval => IsFinite(LowerY) && IsFinite(UpperY) && UpperY > LowerY;
 
             public GraphPoint WithX(double x)
             {

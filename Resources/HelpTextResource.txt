@@ -247,7 +247,7 @@ Results and the Analysis Result Exporter each remember their Celsius/Kelvin choi
 
 In **Summary > Validity**, use **Export Result…** to open the table exporter with this result selected. Choose summary or individual rows, value and uncertainty columns, and CSV or TSV output. The same table can be copied. Numeric tables use decimal points regardless of regional settings.
 
-Distinguish **Combined SD** and **Approximate propagated interval** in local summaries from model-estimated SDs and CI95 intervals. See **Parameter uncertainty** for the refitting methods and **Binding assessment** for model comparisons and output restrictions.
+Choose **Summary uncertainty** in Preferences to show uncertainty in the mean or the spread of individual replicates. See **Parameter uncertainty** for the refitting methods and **Binding assessment** for model comparisons and output restrictions.
 
 ## Result validity
 
@@ -263,13 +263,15 @@ In the result's **Analysis** tab, **Binding** and **Null** each show RMSD and AI
 
 # Summary uncertainty
 
-For local parameters, **Combined SD** is the square root of between-experiment sample variance plus mean individual variance; a temperature trend uses residual variance. It describes combined spread, not the standard error of the mean, and observed spread may already include fitting noise.
+For averages reported in an analysis result, the uncertainty combines variation between experiments with the fitting uncertainty of each experiment. In Preferences, **Uncertainty in the mean (SEM)** (default) shows the standard error of the mean and an approximate 95% interval for the mean. **Replicate spread (SD)** shows the replicate standard deviation and an approximate 95% range for individual replicates.
 
-The **Approximate propagated interval** describes the average or evaluated trend. It combines observed spread with separately propagated lower and upper individual interval widths, preserving possible asymmetry. Two distinct-temperature observations propagate individual errors without estimating residual spread; additional observations contribute residual spread. ΔCp uses slope uncertainty.
+For a temperature trend, ± gives the standard error of the fitted value at the selected temperature by default. In replicate mode, ± gives the SD around the fitted trend, including individual fitting uncertainty. The 95% limits describe the same quantity as ±. Shared parameters retain the uncertainty from the joint fit. The uncertainty in ΔCp describes the fitted slope.
 
-Summary Kd is calculated from summarized Gibbs energy. Its SD is propagated from Gibbs-energy SD using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
+The calculation treats the lower and upper limits separately to allow for asymmetry. Observed scatter may already include fitting noise, and the calculation omits covariance between experiments. The replicate range has no established 95% coverage.
 
-These intervals lack established 95% coverage, especially for small collections, and omit between-experiment covariance even when local parameters are coupled through a global fit. Shared and temperature-constrained parameters retain model-estimated uncertainty. Central values remain the fits to the original data.
+Reports use the current **Summary uncertainty** preference, including when you reopen a report. The appendix names the setting under **Report details**.
+
+Summary Kd is calculated from summarized Gibbs energy. Its symmetric uncertainty is propagated from the corresponding Gibbs-energy uncertainty using the local slope of the exponential transformation, so it is an approximation; its interval endpoints are transformed from the Gibbs-energy interval. Individual-fit uncertainty retains its own calculation.
 
 ## Binding assessment
 Check the automatic assessment alongside the curve, residuals, and uncertainty. It compares the binding fit with a **Null model**, which describes heat without binding. **No binding detected** means this experiment does not establish binding relative to that model; it does not show that the molecules cannot bind.
@@ -321,7 +323,7 @@ Choose residual bootstrap, leave-one-out refitting, or profile likelihood in the
 
 The reported parameter value always comes from the best fit to the original data. Refitting estimates uncertainty without replacing it with a resampling mean or median.
 
-The uncertainty style preference selects SDs, intervals, or both when available; it does not change the fit. **Automatic** shows the 95% interval when its longer side is at least about 1.44 times its shorter side (asymmetry |w_upper − w_lower|/(w_upper + w_lower) ≥ 0.18, where w are the distances from the best fit to each limit), and SD otherwise. It decides separately for each displayed quantity, after unit conversion. Choose **SD + 95% CI** to see both and check the choice. **Bootstraps** shows the requested count, its tooltip shows retained refits, and reports count complete retained replicates. Use **Update Result** to rerun uncertainty, then check the completion message and counts. Independent members can retain individual uncertainty without a complete combined set.
+The uncertainty style preference selects ±, 95% limits, or both when available; it does not change the fit. **Automatic** shows the 95% interval when its longer side is at least about 1.44 times its shorter side (asymmetry |w_upper − w_lower|/(w_upper + w_lower) ≥ 0.18, where w are the distances from the best fit to each limit), and ± otherwise. It decides separately for each displayed quantity, after unit conversion. Choose **± and 95% limits** to see both and check the choice. **Bootstraps** shows the requested count, its tooltip shows retained refits, and reports count complete retained replicates. Use **Update Result** to rerun uncertainty, then check the completion message and counts. Independent members can retain individual uncertainty without a complete combined set.
 
 # Residual bootstrap
 
@@ -387,7 +389,7 @@ This describes finite-simulation precision of the correlation, not uncertainty i
 ## Derived analyses
 For one-set-of-sites results, open the additional analysis tabs when the experiments provide the required variation and metadata:
 
-**Temperature:** inspect temperature dependence and run Spolar–Record structuring analysis when the temperature span is sufficient.
+**Temperature:** inspect temperature dependence and run Spolar–Record structuring analysis when the temperature span is sufficient. Point bars show individual-fit 95% limits. Shading follows the limits in **Parameter Evaluation** at each temperature. Choose **None** to hide both.
 
 **Ionic strength:** requires salt metadata for every experiment and three ionic-strength conditions with usable affinities. Select conditions in increasing order, each more than half the **Minimum ionic-strength span (mM)** above the previous selected condition. Repeated observations remain part of each fit.
 
@@ -448,7 +450,7 @@ Each result experiment's processing or data-availability details identify its sa
 
 Conditions show nominal initial concentrations in syringe ▸ cell order, target temperature, and recorded buffer and salt conditions. **Combined parameters** states its evaluation temperature: the current reference-temperature preference when the temperature span exceeds the configured minimum, otherwise the mean target temperature. This is independent of the result-view temperature and does not refit data.
 
-Fixed estimates have no uncertainty interval. Combined spread and approximate propagated intervals remain distinct from model-estimated uncertainty; see **Analysis results**. Exported warnings remain visible, and structurally unusable results cannot be exported.
+Fixed estimates have no uncertainty interval. Local summaries follow **Summary uncertainty** in Preferences. Shared parameters use the joint fit. Exported warnings remain visible, and structurally unusable results cannot be exported.
 
 ## Online interpretation
 In the report editor, choose **Generate interpretation…**, enter your question or context, and review the selected evidence before **Generate**. Check the read-only draft against your results, then choose **Use in report** to include it. Edit it in the report builder if needed. Choose **Provider** to select the service receiving the evidence; the available models and presets depend on your access. Generation requires an internet connection; local analysis and PDF export remain available without it.
@@ -486,7 +488,7 @@ Figure batches ask once before replacing existing PDFs; **Cancel** stops the ent
 
 # Exporting and checking plots
 
-Use **File > Export**, context menus, or the result exporter for data and figures. Numerical exports use a period as the decimal separator, regardless of regional settings. Combined Data includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available. **Copy Result Table** copies one row per experiment as tab-separated text for spreadsheet pasting. Values and uncertainties use separate columns following the uncertainty display preference; **None** copies values only. Use the Analysis Result Exporter for combined summary rows or other formats. Its **Temperature** choice displays copied and exported values in Celsius or Kelvin while preserving the physical evaluation temperature.
+Use **File > Export**, context menus, or the result exporter for data and figures. Numerical exports use a period as the decimal separator, regardless of regional settings. Combined Data includes raw and baseline-corrected traces when available; peaks and fitted values are exported without fitted-offset correction, with residuals when available. **Copy Result Table** copies one row per experiment as tab-separated text for spreadsheet pasting. Values and uncertainties use separate columns following the uncertainty display preference; **None** copies values only. Use the Analysis Result Exporter for combined summary rows or other formats. In separate columns, `_se` identifies a standard error, `_sd` a standard deviation, and `_uncertainty` a column containing both. Its **Temperature** choice displays copied and exported values in Celsius or Kelvin while preserving the physical evaluation temperature.
 
 Figures use current processing. After changing baselines or integration regions, rerun the fit before exporting; processing edits do not automatically refit curves. Supporting Figure retains its sources and layout during the current document session.
 

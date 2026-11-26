@@ -324,7 +324,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var graph = PdfRect(pageHeight, new AnalysisReportRect(graphLeft, graphTop, graphRight - graphLeft, graphBottom - graphTop));
             var points = plot.Series.SelectMany(series => series.Points).Where(point => Finite(point.X) && Finite(point.Y)).ToList();
             if (points.Count == 0) return;
-            var minX = points.Min(point => point.X); var maxX = points.Max(point => point.X); var minY = points.Min(point => point.Lower ?? point.Y); var maxY = points.Max(point => point.Upper ?? point.Y);
+            var minX = points.Min(point => point.X); var maxX = points.Max(point => point.X); var minY = points.Min(point => Math.Min(point.Lower ?? point.Y, point.Y)); var maxY = points.Max(point => Math.Max(point.Upper ?? point.Y, point.Y));
             Expand(ref minX, ref maxX); Expand(ref minY, ref maxY); Stroke(context, graph, Ink, .8f);
             DrawTextTop(context, pageHeight, plot.XAxisTitle, graphLeft, graphBottom + 10, 8, Ink);
             DrawTextTop(context, pageHeight, plot.YAxisTitle, bounds.X, graphTop, 8, Ink);
@@ -344,25 +344,26 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 var group = string.IsNullOrWhiteSpace(series.Group) ? series.Label : series.Group;
                 if (!groupColors.TryGetValue(group, out var colorIndex)) groupColors[group] = colorIndex = nextColor++;
                 var color = SeriesColor(colorIndex);
-                var values = series.Points.Where(point => Finite(point.X) && Finite(point.Y)).OrderBy(point => point.X).ToList();
-                var bandValues = values.Where(point => point.Lower.HasValue && point.Upper.HasValue && Finite(point.Lower.Value) && Finite(point.Upper.Value)).ToList();
-                if (series.Kind == AnalysisReportPlotSeriesKind.Line && bandValues.Count > 1)
+                if (series.Kind == AnalysisReportPlotSeriesKind.Line)
                 {
-                    using (var band = new CGPath())
+                    foreach (var bandValues in series.ContinuousSegments(requireBounds: true))
                     {
+                        using var band = new CGPath();
                         band.MoveToPoint(X(bandValues[0].X), Y(bandValues[0].Upper.Value));
                         foreach (var point in bandValues.Skip(1)) band.AddLineToPoint(X(point.X), Y(point.Upper.Value));
                         foreach (var point in bandValues.AsEnumerable().Reverse()) band.AddLineToPoint(X(point.X), Y(point.Lower.Value));
                         band.CloseSubpath();
                         context.SaveState(); context.SetFillColor(new CGColor(color, .16f)); context.AddPath(band); context.FillPath(); context.RestoreState();
                     }
+                    foreach (var line in series.ContinuousSegments(requireBounds: false))
+                    {
+                        context.SaveState(); context.SetStrokeColor(color); context.SetLineWidth(1.4f);
+                        context.MoveTo(X(line[0].X), Y(line[0].Y));
+                        foreach (var point in line.Skip(1)) context.AddLineToPoint(X(point.X), Y(point.Y));
+                        context.StrokePath(); context.RestoreState();
+                    }
                 }
-                if (series.Kind == AnalysisReportPlotSeriesKind.Line && values.Count > 1)
-                {
-                    context.SaveState(); context.SetStrokeColor(color); context.SetLineWidth(1.4f);
-                    context.MoveTo(X(values[0].X), Y(values[0].Y)); foreach (var point in values.Skip(1)) context.AddLineToPoint(X(point.X), Y(point.Y)); context.StrokePath(); context.RestoreState();
-                }
-                else foreach (var point in values)
+                else foreach (var point in series.Points.Where(point => Finite(point.X) && Finite(point.Y)))
                 {
                     var x = X(point.X); var y = Y(point.Y);
                     if (plot.UncertaintyStyle == AnalysisITC.Core.Application.UncertaintyDisplayStyle.ConfidenceInterval || plot.UncertaintyStyle == AnalysisITC.Core.Application.UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)

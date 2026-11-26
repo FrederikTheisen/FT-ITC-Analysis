@@ -80,6 +80,7 @@ namespace AnalysisITC.Core.Presentation
             return InReportCulture(() =>
             {
                 var effective = ApplyTraceabilityPolicy((options ?? new AnalysisReportOptions()).Copy());
+                effective.SummaryUncertaintyMode = AppSettings.SummaryUncertaintyMode;
                 var document = Build(results, effective, false);
                 AddReportAppendix(document, results, null, effective);
                 return document;
@@ -168,6 +169,7 @@ namespace AnalysisITC.Core.Presentation
             if (experimentResolver == null) throw new ArgumentNullException(nameof(experimentResolver));
             var useSavedSettings = options == null;
             options = ApplyTraceabilityPolicy((options ?? report.PresentationSettings).Copy());
+            options.SummaryUncertaintyMode = AppSettings.SummaryUncertaintyMode;
             options.ExperimentResolver = experimentResolver;
             if (useSavedSettings)
             {
@@ -466,6 +468,7 @@ namespace AnalysisITC.Core.Presentation
             var defaultTitle = selected.Count == 1 && selected[0] != null ? selected[0].Name ?? "" : "Analysis report";
             var document = new AnalysisReportDocument
             {
+                SummaryUncertaintyMode = options.SummaryUncertaintyMode,
                 DocumentLabel = options.DocumentLabel?.Trim() ?? "",
                 Title = string.IsNullOrWhiteSpace(options.Title) ? defaultTitle : options.Title.Trim(),
                 GeneratedAtUtc = options.GeneratedAtUtc.Kind == DateTimeKind.Utc
@@ -626,6 +629,7 @@ namespace AnalysisITC.Core.Presentation
                 CondenseRepeatedExperiments = options.CondenseRepeatedExperiments,
                 ExpandedExplanations = options.ExpandedExplanations,
                 UncertaintyDisplayStyle = options.UncertaintyDisplayStyle,
+                SummaryUncertaintyMode = options.SummaryUncertaintyMode,
                 GeneratedAtUtc = options.GeneratedAtUtc,
                 ApplicationVersion = options.ApplicationVersion,
                 ExtraTraceability = options.ExtraTraceability,
@@ -974,7 +978,7 @@ namespace AnalysisITC.Core.Presentation
                 evaluationTemperature,
                 options.EnergyUnitFamily,
                 options.EnergyUnitOverride,
-                options.UncertaintyDisplayStyle);
+                options.UncertaintyDisplayStyle, options.SummaryUncertaintyMode);
             if (options.OutputPurpose == ResultOutputPurpose.Diagnostic)
             {
                 var assessmentItems = new List<AnalysisReportKeyValueItem>
@@ -1055,7 +1059,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 section.Add(new AnalysisReportKeyValueBlock("Combined parameters",
                     new[] { Item("Evaluation temperature", FormatTemperature(evaluationTemperature, options.UseKelvin)) }
-                        .Concat(evaluation.Rows.Select(row => Item(row.Label, row.Value)))));
+                        .Concat(evaluation.Rows.Select(SummaryParameterItem))));
                 AddSummaryUncertaintyExplanation(section, evaluation, options);
             }
 
@@ -1423,6 +1427,8 @@ namespace AnalysisITC.Core.Presentation
             {
                 Item("Software", document.Creator),
                 Item("Application version", document.ApplicationVersion),
+                Item(UncertaintyDisplayPresentation.SummaryLabel,
+                    UncertaintyDisplayPresentation.SummaryModeLabel(document.SummaryUncertaintyMode)),
             };
             // Preparer and generation time are on the front page; the appendix does not repeat them.
             if (options.ExtraTraceability)
@@ -1492,7 +1498,7 @@ namespace AnalysisITC.Core.Presentation
                         && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, row.Solution, options.OutputPurpose) ? ""
                     : column.Parameter.HasValue
                     ? row.Solution.ReportParameters.TryGetValue(column.Parameter.Value, out var reportValue) && (FloatWithError.IsNaN(reportValue) || !IsFinite(reportValue.Value)) ? "—"
-                    : ParameterFitStatus(result, row.Solution, column.Parameter.Value) == "Fixed"
+                    : ParameterFitPresentation.GetStatus(result, row.Solution, column.Parameter.Value) == "Fixed"
                         ? FormatParameter(column.Parameter.Value,
                             row.Solution?.ReportParameters != null && row.Solution.ReportParameters.TryGetValue(column.Parameter.Value, out var fixedValue)
                                 ? fixedValue
@@ -1557,7 +1563,7 @@ namespace AnalysisITC.Core.Presentation
                     .Distinct();
                 foreach (var parameter in parameterKeys)
                 {
-                    if (ParameterFitStatus(result, solution, parameter) != "Fixed") continue;
+                    if (ParameterFitPresentation.GetStatus(result, solution, parameter) != "Fixed") continue;
                     var value = solution?.ReportParameters != null && solution.ReportParameters.TryGetValue(parameter, out var reported)
                         ? reported
                         : solution?.Parameters != null && solution.Parameters.TryGetValue(parameter, out var fitted)
@@ -1684,7 +1690,7 @@ namespace AnalysisITC.Core.Presentation
                 .OrderBy(item => ParameterOrder(item.Key))
                 .Select(item =>
                 {
-                    var status = ParameterFitStatus(result, solution, item.Key);
+                    var status = ParameterFitPresentation.GetStatus(result, solution, item.Key);
                     var formatted = !FloatWithError.IsNaN(item.Value) && IsFinite(item.Value.Value) ? FormatParameter(item.Key, item.Value, overview,
                         status == "Fixed" ? fixedOptions : options) : (value: "—", unit: "");
                     return new AnalysisReportTableRow(new[]
@@ -1698,32 +1704,6 @@ namespace AnalysisITC.Core.Presentation
             return new AnalysisReportTableBlock(
                 title, columns, rows, AnalysisReportLayoutPolicy.AllowContinuation,
                 verticalCellPadding: 1.5);
-        }
-
-        static string ParameterFitStatus(AnalysisResult result, SolutionInterface solution, ParameterType parameter)
-        {
-            if (IsDerivedParameter(parameter)) return "Derived";
-            var key = parameter == ParameterType.ApparentAffinity ? ParameterType.Affinity1 : parameter;
-            var global = result?.Model?.Parameters;
-            if (global != null)
-            {
-                var constraint = global.GetConstraintForParameter(key);
-                if (constraint != VariableConstraint.None)
-                {
-                    if (constraint == VariableConstraint.ThermodynamicallyLinked
-                        && key.GetProperties().ParentType == ParameterType.Affinity1)
-                        return "Derived";
-                    var coordinates = GlobalConstraintSemantics.CoordinateKeys(key, constraint);
-                    if (coordinates.Count > 0)
-                        return coordinates.All(coordinate => global.GlobalTable.TryGetValue(coordinate, out var value) && value.IsLocked)
-                            ? "Fixed" : "Fitted";
-                    if (global.GlobalTable.TryGetValue(key, out var shared))
-                        return shared.IsLocked ? "Fixed" : "Fitted";
-                }
-            }
-            return solution?.Model?.Parameters?.Table != null
-                && solution.Model.Parameters.Table.TryGetValue(key, out var local) && local.IsLocked
-                ? "Fixed" : "Fitted";
         }
 
         static AnalysisReportTableBlock BuildInjectionTable(
@@ -2451,7 +2431,7 @@ namespace AnalysisITC.Core.Presentation
                 {
                     if (!member.ReportParameters.TryGetValue(parameters[index], out var value)
                         || !IsFinite(value.Value)) continue;
-                    var bounds = ParameterFitStatus(result, member, parameters[index]) == "Fixed"
+                    var bounds = ParameterFitPresentation.GetStatus(result, member, parameters[index]) == "Fixed"
                         ? (sdLower: (double?)null, sdUpper: (double?)null, ciLower: (double?)null, ciUpper: (double?)null)
                         : UncertaintyBounds(value, scale);
                     bars.Add(new AnalysisReportThermodynamicBar(
@@ -2687,7 +2667,10 @@ namespace AnalysisITC.Core.Presentation
             var unit = ResolveMolarEnergyUnit(result, options);
             var scale = Energy.ScaleFactor(unit);
             var series = new List<AnalysisReportPlotSeries>();
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
+            var showIntervals = options.UncertaintyDisplayStyle != UncertaintyDisplayStyle.None;
+            var hasPointIntervals = false;
+            var bands = new List<(string Label, TemperatureDependenceIntervalKind Kind)>();
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result, options.SummaryUncertaintyMode);
             foreach (var parameter in parameters)
             {
                 if (!dependences.ContainsKey(parameter)) continue;
@@ -2698,16 +2681,12 @@ namespace AnalysisITC.Core.Presentation
                         && solution.ReportParameters.ContainsKey(parameter)
                         && IsFinite(solution.ReportParameters[parameter].Value))
                     .OrderBy(solution => solution.Temp)
-                    .Select(solution => PlotPointForDisplay(
-                        DisplayTemperature(solution.Temp, options.UseKelvin),
-                        solution.ReportParameters[parameter],
-                        scale,
-                        solution.Data?.Name,
-                        ParameterFitStatus(result, solution, parameter) == "Fixed"
-                            ? UncertaintyDisplayStyle.None : options.UncertaintyDisplayStyle))
+                    .Select(solution => TemperaturePlotPoint(result, solution, parameter,
+                        DisplayTemperature(solution.Temp, options.UseKelvin), scale, showIntervals))
                     .ToList();
                 if (points.Count == 0) continue;
 
+                hasPointIntervals |= points.Any(point => point.ConfidenceLower.HasValue);
                 var label = ParameterLabel(parameter);
                 series.Add(new AnalysisReportPlotSeries(
                     label, AnalysisReportPlotSeriesKind.Points, points, group));
@@ -2716,17 +2695,19 @@ namespace AnalysisITC.Core.Presentation
                 var modelXs = options.UseKelvin
                     ? displayXs.Select(value => value - 273.15).ToArray()
                     : displayXs;
-                var envelope = summaries.BuildEnvelope(parameter, modelXs);
-                var includeConfidenceBand = options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval
-                    || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+                var envelope = summaries.BuildEnvelope(parameter, modelXs, out var intervalKind);
+                if (showIntervals && TemperatureDependenceUncertaintyCaption.HasBand(envelope))
+                    bands.Add((label, intervalKind));
                 series.Add(new AnalysisReportPlotSeries(
                     label,
                     AnalysisReportPlotSeriesKind.Line,
-                    envelope.Select(point => new AnalysisReportPlotPoint(
-                        DisplayTemperature(point.X, options.UseKelvin),
-                        point.Center * scale,
-                        includeConfidenceBand && point.HasBand ? (double?)(point.Lower * scale) : null,
-                        includeConfidenceBand && point.HasBand ? (double?)(point.Upper * scale) : null)),
+                    envelope.Select(point =>
+                    {
+                        var hasBounds = showIntervals && TemperatureDependenceUncertaintyCaption.IsUsableBandPoint(point);
+                        return new AnalysisReportPlotPoint(DisplayTemperature(point.X, options.UseKelvin), point.Center * scale,
+                            hasBounds ? (double?)(point.Lower * scale) : null,
+                            hasBounds ? (double?)(point.Upper * scale) : null);
+                    }),
                     group));
             }
 
@@ -2735,7 +2716,8 @@ namespace AnalysisITC.Core.Presentation
                 options.UseKelvin ? "Temperature (K)" : "Temperature (°C)",
                 "Thermodynamic parameter (" + unit.GetUnit() + "/mol)",
                 series,
-                options.UncertaintyDisplayStyle);
+                showIntervals ? UncertaintyDisplayStyle.ConfidenceInterval : UncertaintyDisplayStyle.None,
+                TemperatureDependenceUncertaintyCaption.Build(hasPointIntervals, bands));
         }
 
         static void AddTemperatureParameters(
@@ -2746,27 +2728,32 @@ namespace AnalysisITC.Core.Presentation
             var temperature = AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
             var evaluation = AnalysisResultParameterEvaluator.Evaluate(
                 result, temperature, options.EnergyUnitFamily,
-                options.EnergyUnitOverride, options.UncertaintyDisplayStyle);
+                options.EnergyUnitOverride, options.UncertaintyDisplayStyle, options.SummaryUncertaintyMode);
             if (evaluation.IsAvailable)
             {
                 section.Add(new AnalysisReportKeyValueBlock(
                     "Parameters at " + FormatTemperature(temperature, options.UseKelvin),
-                    evaluation.Rows.Select(row => Item(row.Label, row.Value))));
+                    evaluation.Rows.Select(SummaryParameterItem)));
                 AddSummaryUncertaintyExplanation(section, evaluation, options);
             }
         }
 
+        static AnalysisReportKeyValueItem SummaryParameterItem(AnalysisResultParameterEvaluationRow row)
+            => Item(row.DisplayLabel, row.Value);
+
         static void AddSummaryUncertaintyExplanation(AnalysisReportSection section,
             AnalysisResultParameterEvaluation evaluation, AnalysisReportOptions options)
         {
-            if (options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.None
-                || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation) return;
-            if (!evaluation.Rows.Any(row => row.Tooltip.Contains("Approximate propagated interval"))) return;
-            if (options.ExpandedExplanations)
-                section.Add(new AnalysisReportNoticeBlock("Summary uncertainty",
-                    "Local summary intervals are constructed from individual 95% intervals and observed spread. "
-                    + "Lower and upper uncertainty are propagated separately. These intervals have not been shown to provide 95% coverage, and covariance between experiments is omitted. "
-                    + "Shared/model-estimated intervals retain their CI95 meaning.", AnalysisReportNoticeLevel.Information));
+            if (!options.ExpandedExplanations
+                || options.UncertaintyDisplayStyle is UncertaintyDisplayStyle.None or UncertaintyDisplayStyle.StandardDeviation
+                || !evaluation.Rows.Any(row => !string.IsNullOrEmpty(row.SummaryUncertaintyLabel))) return;
+            section.Add(new AnalysisReportNoticeBlock("Summary uncertainty",
+                "Local summaries combine the observed spread with individual fitting uncertainties. "
+                + "Observed spread may already include fitting noise. Lower and upper widths are propagated separately. "
+                + "The calculation omits covariance between experiments."
+                + (options.SummaryUncertaintyMode == SummaryUncertaintyMode.ReplicateSpread
+                    ? " The replicate range has no established 95% coverage." : ""),
+                AnalysisReportNoticeLevel.Information));
         }
 
         static void AddSpolarRecord(
@@ -3320,15 +3307,6 @@ namespace AnalysisITC.Core.Presentation
             return index < 0 ? int.MaxValue : index;
         }
 
-        static bool IsDerivedParameter(ParameterType parameter)
-        {
-            var parent = parameter.GetProperties().ParentType;
-            return parent == ParameterType.Gibbs1
-                || parent == ParameterType.Entropy1
-                || parent == ParameterType.EntropyContribution1
-                || parent == ParameterType.HeatCapacity1;
-        }
-
         static EnergyUnit ResolveMolarEnergyUnit(AnalysisResult result, AnalysisReportOptions options)
         {
             var values = result?.Solution?.Solutions?
@@ -3365,27 +3343,19 @@ namespace AnalysisITC.Core.Presentation
             return new AnalysisReportPlotPoint(x, center, lower, upper, label);
         }
 
-        static AnalysisReportPlotPoint PlotPointForDisplay(
-            double x,
-            FloatWithError value,
-            double scale,
-            string label,
-            UncertaintyDisplayStyle style)
+        static AnalysisReportPlotPoint TemperaturePlotPoint(AnalysisResult result, SolutionInterface solution,
+            ParameterType parameter, double x, double scale, bool showIntervals)
         {
-            var center = value.Value * scale;
-            if (style == UncertaintyDisplayStyle.None)
-                return new AnalysisReportPlotPoint(x, center, label: label);
-            var bounds = UncertaintyBounds(value, scale);
-            var useConfidenceInterval = style == UncertaintyDisplayStyle.ConfidenceInterval
-                || style == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
-            var lower = useConfidenceInterval ? bounds.ciLower : bounds.sdLower;
-            var upper = useConfidenceInterval ? bounds.ciUpper : bounds.sdUpper;
-            return new AnalysisReportPlotPoint(x, center, lower, upper, label)
+            var value = solution.ReportParameters[parameter];
+            var label = solution.Data?.Name;
+            if (!showIntervals || !TemperatureDependenceUncertaintyCaption.TryGetIndividualInterval(
+                result, solution, parameter, value, out var lower, out var upper))
+                return new AnalysisReportPlotPoint(x, value.Value * scale, label: label);
+
+            return new AnalysisReportPlotPoint(x, value.Value * scale, lower * scale, upper * scale, label)
             {
-                StandardDeviationLower = bounds.sdLower,
-                StandardDeviationUpper = bounds.sdUpper,
-                ConfidenceLower = bounds.ciLower,
-                ConfidenceUpper = bounds.ciUpper,
+                ConfidenceLower = lower * scale,
+                ConfidenceUpper = upper * scale,
             };
         }
 

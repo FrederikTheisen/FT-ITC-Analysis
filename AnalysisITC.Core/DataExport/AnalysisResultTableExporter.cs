@@ -84,10 +84,11 @@ namespace AnalysisITC.Core.Export
 
             options ??= new AnalysisResultExportOptions();
 
+            var mode = AppSettings.SummaryUncertaintyMode;
             var parameters = GetParameterColumns(results, options);
             var columns = GetExportColumns(results, parameters, options);
-            var concentrationUnits = GetConcentrationUnits(results, parameters, options);
-            var energyUnits = GetEnergyUnits(results, parameters, options);
+            var concentrationUnits = GetConcentrationUnits(results, parameters, options, mode);
+            var energyUnits = GetEnergyUnits(results, parameters, options, mode);
             options.ResolvedEnergyUnit = energyUnits.molar;
             options.ResolvedHeatCapacityUnit = energyUnits.heatCapacity;
             var includeIonicStrength = results.Any(r => HasExportableBindingMember(r, options)
@@ -97,16 +98,13 @@ namespace AnalysisITC.Core.Export
             var includePooledDiagnostics = options.RowMode == AnalysisResultExportRowMode.Summary
                 && options.OutputPurpose == ResultOutputPurpose.Diagnostic
                 && results.Any(r => r.IsIndependentAssessmentCollection);
-            var rows = new List<List<string>>
-            {
-                BuildHeader(results, columns, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation,
-                    includePooledDiagnostics, options)
-            };
+            var rows = new List<List<string>>();
+            var errorSuffixes = new Dictionary<ExportColumn, string>();
 
             if (options.RowMode == AnalysisResultExportRowMode.Summary)
             {
                 rows.AddRange(results.Select(result => BuildSummaryRow(result, columns, concentrationUnits, energyUnits,
-                    includeIonicStrength, includeProtonation, includePooledDiagnostics, options)));
+                    includeIonicStrength, includeProtonation, includePooledDiagnostics, options, mode, errorSuffixes)));
             }
             else
             {
@@ -116,6 +114,8 @@ namespace AnalysisITC.Core.Export
                 }
             }
 
+            rows.Insert(0, BuildHeader(results, columns, concentrationUnits, energyUnits, includeIonicStrength,
+                includeProtonation, includePooledDiagnostics, options, mode, errorSuffixes));
             return string.Join(Environment.NewLine, rows.Select(row => JoinRow(row, options.Delimiter)));
         }
 
@@ -250,7 +250,7 @@ namespace AnalysisITC.Core.Export
         static Dictionary<ParameterType, ConcentrationUnit> GetConcentrationUnits(
             List<AnalysisResult> results,
             List<ParameterType> parameters,
-            AnalysisResultExportOptions options)
+            AnalysisResultExportOptions options, SummaryUncertaintyMode mode)
         {
             var units = new Dictionary<ParameterType, ConcentrationUnit>();
 
@@ -262,7 +262,7 @@ namespace AnalysisITC.Core.Export
                     foreach (var result in results)
                     {
                         if (!ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) continue;
-                        var value = SummaryValue(result, parameter);
+                        var value = SummaryValue(result, parameter, mode);
                         if (SummaryUncertainty.HasValue(value) && value.Value > 0)
                             values.Add(Math.Abs(value.Value));
                     }
@@ -288,7 +288,7 @@ namespace AnalysisITC.Core.Export
         static (EnergyUnit molar, EnergyUnit heatCapacity) GetEnergyUnits(
             List<AnalysisResult> results,
             List<ParameterType> parameters,
-            AnalysisResultExportOptions options)
+            AnalysisResultExportOptions options, SummaryUncertaintyMode mode)
         {
             var molarValues = new List<double>();
             var heatCapacityValues = new List<double>();
@@ -301,7 +301,7 @@ namespace AnalysisITC.Core.Export
                     foreach (var parameter in parameters)
                     {
                         if (!ParameterTypeAttribute.IsEnergyUnitParameter(parameter)) continue;
-                        var value = SummaryValue(result, parameter);
+                        var value = SummaryValue(result, parameter, mode);
                         if (!SummaryUncertainty.HasValue(value)) continue;
                         if (IsHeatCapacityParameter(parameter)) heatCapacityValues.Add(value.Value);
                         else molarValues.Add(value.Value);
@@ -349,14 +349,17 @@ namespace AnalysisITC.Core.Export
             return parameter.GetProperties().ParentType == ParameterType.HeatCapacity1;
         }
 
-        static List<string> BuildHeader(List<AnalysisResult> results, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
+        static List<string> BuildHeader(List<AnalysisResult> results, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options, SummaryUncertaintyMode mode, Dictionary<ExportColumn, string> errorSuffixes)
         {
             var hasProfileLikelihood = results.Any(result => result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
                 || result?.Solution?.Solutions?.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true);
+            var localUncertainty = mode == SummaryUncertaintyMode.ReplicateSpread
+                ? "Replicate SD and approximate 95% replicate range"
+                : "SEM for averages or SE of the fitted value at the selected temperature with approximate 95% limits";
             var header = new List<string>
             {
                 options.RowMode == AnalysisResultExportRowMode.Summary
-                    ? "Analysis Result (Combined SD; Approximate propagated interval for local aggregates; model CI95 unchanged"
+                    ? "Analysis Result (" + localUncertainty + " for local aggregates; shared parameters use model uncertainty; slopes use slope uncertainty"
                         + (hasProfileLikelihood ? "; profile SD = equivalent scale)" : ")")
                     : hasProfileLikelihood ? "Analysis Result (profile SD = equivalent scale)" : "Analysis Result"
             };
@@ -396,7 +399,8 @@ namespace AnalysisITC.Core.Export
                 }
                 else
                 {
-                    foreach (var suffix in GetSeparateColumnSuffixes(options))
+                    errorSuffixes.TryGetValue(column, out var errorSuffix);
+                    foreach (var suffix in GetSeparateColumnSuffixes(options, errorSuffix ?? "_sd"))
                         header.Add(label + suffix);
                 }
             }
@@ -431,7 +435,7 @@ namespace AnalysisITC.Core.Export
             return header;
         }
 
-        static List<string> BuildSummaryRow(AnalysisResult result, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
+        static List<string> BuildSummaryRow(AnalysisResult result, List<ExportColumn> columns, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options, SummaryUncertaintyMode mode, Dictionary<ExportColumn, string> errorSuffixes)
         {
             var solutions = result.Solution.Solutions;
             var row = new List<string>
@@ -455,7 +459,19 @@ namespace AnalysisITC.Core.Export
                 else if (column.IsFixed)
                     AddFixedStoichiometry(row, column, solutions[0]);
                 else
-                    AddValue(row, SummaryValue(result, column.Parameter), column.Parameter, concentrationUnits, energyUnits, options);
+                {
+                    var summary = ParameterSummary(result, column.Parameter, mode);
+                    if (summary != null && SummaryUncertainty.IsFinite(summary.Value.SD))
+                    {
+                        var suffix = summary.Kind is AggregateUncertaintyKind.MeanStandardError
+                            or AggregateUncertaintyKind.TemperatureTrendStandardError
+                            or AggregateUncertaintyKind.RegressionSlopeStandardError ? "_se" : "_sd";
+                        if (errorSuffixes.TryGetValue(column, out var previous) && previous != suffix)
+                            suffix = "_uncertainty";
+                        errorSuffixes[column] = suffix;
+                    }
+                    AddValue(row, summary?.Value ?? FloatWithError.NaN, column.Parameter, concentrationUnits, energyUnits, options);
+                }
             }
 
             row.Add(suppressBinding ? "" : result.Solution.UnweightedRmsd.ToString("G3"));
@@ -468,20 +484,22 @@ namespace AnalysisITC.Core.Export
             return row;
         }
 
-        internal static FloatWithError SummaryValue(AnalysisResult result, ParameterType parameter)
+        internal static FloatWithError SummaryValue(AnalysisResult result, ParameterType parameter, SummaryUncertaintyMode? mode = null)
+            => ParameterSummary(result, parameter, mode ?? AppSettings.SummaryUncertaintyMode)?.Value ?? FloatWithError.NaN;
+
+        static AggregateParameterSummary ParameterSummary(AnalysisResult result, ParameterType parameter, SummaryUncertaintyMode summaryMode)
         {
-            var calculator = new AnalysisResultAggregateSummaryCalculator(result);
+            var calculator = new AnalysisResultAggregateSummaryCalculator(result, summaryMode);
             if (ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family))
             {
                 if (family == ThermodynamicParameterFamily.HeatCapacity
                     && !result.IsTemperatureDependenceEnabled)
-                    return FloatWithError.NaN;
+                    return null;
 
                 // Do not substitute raw member values if the saved thermodynamic
                 // evaluation is absent: that would silently change the meaning.
                 return calculator.EvaluateSummaryParameter(
-                    parameter, AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result))?.Value
-                    ?? FloatWithError.NaN;
+                    parameter, AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result));
             }
 
             var members = result.Solution.Solutions
@@ -489,13 +507,14 @@ namespace AnalysisITC.Core.Export
                 .Select(member => (data: member.Data, value: member.ReportParameters[parameter]))
                 .Where(item => SummaryUncertainty.HasValue(item.value)).ToList();
             var values = members.Select(item => item.value).ToList();
-            if (values.Count == 0) return FloatWithError.NaN;
+            if (values.Count == 0) return null;
             if (!calculator.IsLocallyAggregated(parameter))
-                return values[0];
+                return new AggregateParameterSummary(values[0], AggregateUncertaintyKind.ModelEstimated);
             var central = values.Average(value => value.Value);
-            if (SummaryUncertainty.HasDuplicateExperiments(members.Select(item => item.data)))
-                return SummaryUncertainty.Unavailable(central);
-            return SummaryUncertainty.Mean(values, central).Evaluate(0);
+            var summary = SummaryUncertainty.Mean(values, central, summaryMode);
+            var value = SummaryUncertainty.HasDuplicateExperiments(members.Select(item => item.data))
+                ? SummaryUncertainty.Unavailable(central) : summary.Evaluate(0);
+            return new AggregateParameterSummary(value, summary.Kind);
         }
 
         // Existing model-estimated summary path; repeated shared parameters are
@@ -772,7 +791,7 @@ namespace AnalysisITC.Core.Export
                 : style;
         }
 
-        static string[] GetSeparateColumnSuffixes(AnalysisResultExportOptions options)
+        static string[] GetSeparateColumnSuffixes(AnalysisResultExportOptions options, string errorSuffix = "_sd")
         {
             var intervalPrefix = options.RowMode == AnalysisResultExportRowMode.Summary ? "_interval" : "_ci";
             switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
@@ -782,10 +801,10 @@ namespace AnalysisITC.Core.Export
                 case UncertaintyDisplayStyle.ConfidenceInterval:
                     return new[] { "_value", intervalPrefix + "_lower", intervalPrefix + "_upper" };
                 case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
-                    return new[] { "_value", "_sd", intervalPrefix + "_lower", intervalPrefix + "_upper" };
+                    return new[] { "_value", errorSuffix, intervalPrefix + "_lower", intervalPrefix + "_upper" };
                 case UncertaintyDisplayStyle.StandardDeviation:
                 default:
-                    return new[] { "_value", "_sd" };
+                    return new[] { "_value", errorSuffix };
             }
         }
 

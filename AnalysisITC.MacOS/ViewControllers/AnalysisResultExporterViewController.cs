@@ -229,7 +229,7 @@ namespace AnalysisITC
         {
             ExportTypeControl.ToolTip = "Summary thermodynamic values use Parameter Evaluation at its default temperature; replicate rows retain their fitted values.";
             ErrorTypeControl.ToolTip = "Choose inline publication-style values or data-style value and uncertainty columns.";
-            UncertaintyStyleControl.ToolTip = "Choose standard deviation, interval bounds, or both. Local summaries use Combined SD and approximate propagated intervals; model-estimated intervals remain CI95.";
+            UncertaintyStyleControl.ToolTip = AnalysisResultExportPresentation.UncertaintyStyleToolTip;
             ExportFormatControl.ToolTip = "Choose comma-separated CSV or tab-separated TSV output.";
             EnergyUnitControl.ToolTip = "Choose Automatic or a fixed energy unit for all exported energy columns.";
             ListView.ToolTip = "Select the analysis results to include in the export.";

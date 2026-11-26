@@ -99,6 +99,8 @@ namespace AnalysisITC.Core.Presentation
         /// <summary>Transient project ordering for result chapters; never saved as report content.</summary>
         public IReadOnlyList<string> ResultOrderIds { get; set; }
         internal IReadOnlyDictionary<string, string> ExperimentReferenceLabels { get; set; }
+        // Captured at build time so every chapter uses the same current app preference.
+        internal SummaryUncertaintyMode SummaryUncertaintyMode { get; set; }
         internal Func<string, ExperimentData> ExperimentResolver { get; set; }
 
         public AnalysisReportOptions Copy(bool includeGenerationMetadata = true)
@@ -119,6 +121,7 @@ namespace AnalysisITC.Core.Presentation
                 IncludeCoverSignature = !includeGenerationMetadata || IncludeCoverSignature,
                 ExperimentReferenceLabels = includeGenerationMetadata ? ExperimentReferenceLabels : null,
                 ExperimentResolver = ExperimentResolver,
+                SummaryUncertaintyMode = SummaryUncertaintyMode,
                 GeneratedAtUtc = includeGenerationMetadata ? GeneratedAtUtc : default,
                 ApplicationVersion = includeGenerationMetadata ? ApplicationVersion : "",
             };
@@ -266,6 +269,7 @@ namespace AnalysisITC.Core.Presentation
         {
         }
 
+        public SummaryUncertaintyMode SummaryUncertaintyMode { get; internal set; }
         public AnalysisReportPageSettings PageSettings { get; } = new AnalysisReportPageSettings();
         public AnalysisReportAppearance Appearance { get; } = new AnalysisReportAppearance();
         public string DocumentLabel { get; internal set; } = "";
@@ -732,6 +736,26 @@ namespace AnalysisITC.Core.Presentation
         public AnalysisReportPlotSeriesKind Kind { get; }
         public IReadOnlyList<AnalysisReportPlotPoint> Points { get; }
         public string Group { get; }
+
+        // A missing limit interrupts the shading; a missing fitted value also interrupts the line.
+        internal IEnumerable<List<AnalysisReportPlotPoint>> ContinuousSegments(bool requireBounds)
+        {
+            var run = new List<AnalysisReportPlotPoint>();
+            foreach (var point in Points.OrderBy(point => point.X))
+            {
+                if (Finite(point.X) && Finite(point.Y)
+                    && (!requireBounds || (Finite(point.Lower) && Finite(point.Upper))))
+                {
+                    run.Add(point);
+                    continue;
+                }
+                if (run.Count > 1) yield return run;
+                run = new List<AnalysisReportPlotPoint>();
+            }
+            if (run.Count > 1) yield return run;
+        }
+
+        static bool Finite(double? value) => value.HasValue && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
     }
 
     public sealed class AnalysisReportPlotBlock : AnalysisReportBlock
@@ -741,15 +765,18 @@ namespace AnalysisITC.Core.Presentation
             string xAxisTitle,
             string yAxisTitle,
             IEnumerable<AnalysisReportPlotSeries> series,
-            UncertaintyDisplayStyle uncertaintyStyle = UncertaintyDisplayStyle.Automatic)
+            UncertaintyDisplayStyle uncertaintyStyle = UncertaintyDisplayStyle.Automatic,
+            string caption = "")
             : base(title, AnalysisReportLayoutPolicy.KeepTogether)
         {
             XAxisTitle = xAxisTitle ?? "";
             YAxisTitle = yAxisTitle ?? "";
+            Caption = caption ?? "";
             Series = (series ?? Enumerable.Empty<AnalysisReportPlotSeries>()).ToList();
             UncertaintyStyle = uncertaintyStyle;
         }
 
+        public string Caption { get; }
         public string XAxisTitle { get; }
         public string YAxisTitle { get; }
         public IReadOnlyList<AnalysisReportPlotSeries> Series { get; }

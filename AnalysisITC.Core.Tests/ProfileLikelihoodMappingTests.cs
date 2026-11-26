@@ -433,9 +433,9 @@ public sealed class ProfileLikelihoodMappingTests
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             new AnalysisResult(solution), solution.MeanTemperature,
             EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("Propagated slope SD", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Approximate propagated interval", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Approximate propagated interval", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("(slope SE)", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("95% limits:", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("95% limits:", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
         Assert.Contains("(direct profile)", evaluation.Rows.Single(row => row.Label.Contains("∆G")).Tooltip);
 
         using var package = new MemoryStream();
@@ -498,8 +498,17 @@ public sealed class ProfileLikelihoodMappingTests
         Assert.Equal(enthalpy.Intercept, enthalpy.Evaluate(20));
         Assert.Equal(enthalpy.Intercept, enthalpy.Evaluate(40));
 
+        var result = new AnalysisResult(solution);
+        foreach (var mode in new[] { SummaryUncertaintyMode.Mean, SummaryUncertaintyMode.ReplicateSpread })
+        {
+            var shared = new AnalysisResultAggregateSummaryCalculator(result, mode).Evaluate(ParameterType.Enthalpy1, 40);
+            Assert.Equal(AggregateUncertaintyKind.ModelEstimated, shared.Kind);
+            Assert.Equal(coordinate.ToFloatWithError().SD, shared.Value.SD, 12);
+            Assert.Equal(-14, shared.Value.Lower, 12);
+            Assert.Equal(-8, shared.Value.Upper, 12);
+        }
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
-            new AnalysisResult(solution), 40, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
+            result, 40, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
         Assert.DoesNotContain(evaluation.Rows, row => row.Label.Contains("∆Cp"));
         Assert.Contains("(direct profile)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
     }
@@ -629,9 +638,9 @@ public sealed class ProfileLikelihoodMappingTests
         var result = new AnalysisResult(solution);
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, solution.MeanTemperature, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("Propagated slope SD",
+        Assert.Contains("(slope SE)",
             evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Approximate propagated interval",
+        Assert.Contains("95% limits:",
             evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
     }
 

@@ -17,10 +17,62 @@ public sealed class SummaryUncertaintyTests
         var summary = SummaryUncertainty.Mean(values, 11);
         var actual = summary.Evaluate(0);
         Assert.Equal(11, actual.Value);
-        Assert.Equal(Math.Sqrt(7), actual.SD, 12); // sample variance 2 + mean individual variance 5
+        Assert.Equal(Math.Sqrt(3.5), actual.SD, 12); // sample variance 2 + mean individual variance 5
         Assert.Equal(11 - Math.Sqrt(5.0916), actual.Lower, 12);
         Assert.Equal(11 + Math.Sqrt(10.0916), actual.Upper, 12);
         Assert.Equal(actual, summary.Evaluate(0));
+    }
+
+    [Fact]
+    public void ReplicateSpreadUsesSampleVarianceAndAverageSquaredIntervalWidths()
+    {
+        var values = new[] { new FloatWithError(10, 1, 8, 14), new FloatWithError(12, 3, 11, 15) };
+        var actual = SummaryUncertainty.Mean(values, 11, SummaryUncertaintyMode.ReplicateSpread).Evaluate(0);
+        Assert.Equal(11, actual.Value);
+        Assert.Equal(Math.Sqrt(7), actual.SD, 12);
+        Assert.Equal(11 - Math.Sqrt(10.1832), actual.Lower, 12);
+        Assert.Equal(11 + Math.Sqrt(20.1832), actual.Upper, 12);
+    }
+
+    [Fact]
+    public void ReplicateSpreadAroundTrendIsConstantEvenWhenExtrapolating()
+    {
+        // Two observations give zero residual variance. Individual squared widths
+        // are 4 and 1 (lower), 16 and 9 (upper); the slope uses unchanged signed weights.
+        var fit = new LinearFitWithError(1, 10, 20);
+        var values = new[] { new FloatWithError(10, 1, 8, 14), new FloatWithError(20, 3, 19, 23) };
+        var temperatures = new[] { 20.0, 30.0 };
+        var spread = SummaryUncertainty.Trend(fit, values, temperatures, SummaryUncertaintyMode.ReplicateSpread);
+        var mean = SummaryUncertainty.Trend(fit, values, temperatures);
+        foreach (double temperature in new[] { 20.0, 25.0, 40.0 })
+        {
+            var actual = spread.Evaluate(temperature);
+            Assert.Equal(temperature - 10, actual.Value);
+            Assert.Equal(Math.Sqrt(5), actual.SD, 12);
+            Assert.Equal(Math.Sqrt(2.5), actual.LowerWidth, 12);
+            Assert.Equal(Math.Sqrt(12.5), actual.UpperWidth, 12);
+        }
+        Assert.Equal(mean.SlopeUncertainty, spread.SlopeUncertainty);
+        Assert.Equal(mean.SlopeUncertainty.Lower, spread.SlopeUncertainty.Lower);
+        Assert.Equal(mean.SlopeUncertainty.Upper, spread.SlopeUncertainty.Upper);
+    }
+
+    [Fact]
+    public void RegressionMeanStandardErrorGrowsAwayFromReferenceWhileSpreadIncludesResidualVariance()
+    {
+        // Fitted means 1 and 11, residuals -1,+1,-1,+1. SSE=4, df=2, Sxx=100.
+        // At 35, the weights are -.25,-.25,.75,.75 and their squared sum is 1.25.
+        var fit = new LinearFitWithError(1, 6, 25);
+        var values = new[] { new FloatWithError(0, 1), new FloatWithError(2, 1), new FloatWithError(10, 1), new FloatWithError(12, 1) };
+        var temperatures = new[] { 20.0, 20, 30, 30 };
+        var mean = SummaryUncertainty.Trend(fit, values, temperatures).Evaluate(35);
+        var spread = SummaryUncertainty.Trend(fit, values, temperatures, SummaryUncertaintyMode.ReplicateSpread).Evaluate(35);
+        Assert.Equal(16, mean.Value);
+        Assert.Equal(16, spread.Value);
+        Assert.Equal(Math.Sqrt(3.75), mean.SD, 12);
+        Assert.Equal(1.96 * Math.Sqrt(3.75), mean.UpperWidth, 12);
+        Assert.Equal(Math.Sqrt(3), spread.SD, 12);
+        Assert.Equal(1.96 * Math.Sqrt(3), spread.UpperWidth, 12);
     }
 
     [Fact]
@@ -56,7 +108,7 @@ public sealed class SummaryUncertaintyTests
     {
         var actual = SummaryUncertainty.Mean(new[] { new FloatWithError(10, double.NaN, 8, 14), new FloatWithError(12, 0, 11, 15) }, 11).Evaluate(0);
         Assert.Equal(11, actual.Value);
-        Assert.Equal(Math.Sqrt(2), actual.SD, 12);
+        Assert.Equal(1, actual.SD, 12);
         Assert.Equal(11 - Math.Sqrt(5.0916), actual.Lower, 12);
         Assert.Equal(0, SummaryUncertainty.Mean(new[] { new FloatWithError(10, 0) }, 10).Evaluate(0).SD);
     }
@@ -67,7 +119,7 @@ public sealed class SummaryUncertaintyTests
     public void InvalidMultiMemberIntervalDoesNotPreventSd(double lower, double upper)
     {
         var actual = SummaryUncertainty.Mean(new[] { new FloatWithError(10, 1, lower, upper), new FloatWithError(12, 3) }, 11).Evaluate(0);
-        Assert.Equal(Math.Sqrt(7), actual.SD, 12);
+        Assert.Equal(Math.Sqrt(3.5), actual.SD, 12);
         Assert.True(double.IsNaN(actual.Lower));
         Assert.True(double.IsNaN(actual.Upper));
     }
@@ -86,7 +138,7 @@ public sealed class SummaryUncertaintyTests
             new[] { new FloatWithError(10, 1, 8, 14), new FloatWithError(20, 3, 19, 23) }, new[] { 20.0, 30.0 });
         var actual = summary.Evaluate(40); // weights -1 and 2; zero residual degrees of freedom
         Assert.Equal(30, actual.Value);
-        Assert.Equal(Math.Sqrt(5), actual.SD, 12);
+        Assert.Equal(Math.Sqrt(37), actual.SD, 12);
         Assert.Equal(30 - Math.Sqrt(20), actual.Lower, 12);
         Assert.Equal(30 + Math.Sqrt(40), actual.Upper, 12);
         Assert.Equal(Math.Sqrt(.1), summary.SlopeUncertainty.SD, 12);
@@ -102,7 +154,7 @@ public sealed class SummaryUncertaintyTests
             new[] { new FloatWithError(0, 1), new FloatWithError(2, 1), new FloatWithError(10, 1), new FloatWithError(12, 1) },
             new[] { 20.0, 20, 30, 30 });
         var actual = summary.Evaluate(25);
-        Assert.Equal(Math.Sqrt(3), actual.SD, 12);
+        Assert.Equal(Math.Sqrt(.75), actual.SD, 12);
         Assert.Equal(6 - 1.96 * Math.Sqrt(.75), actual.Lower, 12);
         Assert.Equal(Math.Sqrt(.03), summary.SlopeUncertainty.SD, 12);
         Assert.InRange(Math.Abs(1 + 1.96 * Math.Sqrt(.03) - summary.SlopeUncertainty.Upper), 0, 1e-14);
@@ -114,7 +166,7 @@ public sealed class SummaryUncertaintyTests
         // z=-1,0,1; y=0,0,3; residuals .5,-1,.5; residual variance=1.5.
         var summary = SummaryUncertainty.Trend(new LinearFitWithError(1.5, 1, 21),
             new[] { new FloatWithError(0, 1), new FloatWithError(0, 2), new FloatWithError(3, 3) }, new[] { 20.0, 21, 22 });
-        Assert.Equal(Math.Sqrt(1.5 + 14.0 / 3), summary.Evaluate(21).SD, 12);
+        Assert.Equal(Math.Sqrt(.5 + 14.0 / 9), summary.Evaluate(21).SD, 12);
         Assert.Equal(Math.Sqrt(3.25), summary.SlopeUncertainty.SD, 12);
         Assert.Equal(1 + 1.96 * Math.Sqrt(.5 + 14.0 / 9), summary.Evaluate(21).Upper, 12);
     }

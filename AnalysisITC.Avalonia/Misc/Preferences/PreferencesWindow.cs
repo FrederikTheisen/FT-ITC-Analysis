@@ -14,6 +14,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Core;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -70,6 +71,7 @@ internal sealed class PreferencesWindow : Window
     readonly TextBox minimumIonSpanBox = Box("");
     readonly ComboBox numberPrecisionCombo;
     readonly ComboBox uncertaintyStyleCombo;
+    readonly ComboBox summaryUncertaintyCombo;
     readonly CheckBox includeBufferInIonicStrengthCheck = Check("Include buffer in ionic-strength calculation");
     readonly CheckBox onlineChecksCheck = Check("Check for updates and online resources on launch");
     readonly CheckBox confirmRemoveDeleteCheck = Check("Confirm remove/delete actions");
@@ -222,12 +224,19 @@ internal sealed class PreferencesWindow : Window
         uncertaintyStyleCombo = Combo(new[]
         {
             Option("Automatic", UncertaintyDisplayStyle.Automatic),
-            Option("Standard deviation", UncertaintyDisplayStyle.StandardDeviation),
-            Option("Confidence interval", UncertaintyDisplayStyle.ConfidenceInterval),
-            Option("SD + confidence interval", UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
+            Option(UncertaintyDisplayPresentation.SymmetricLabel, UncertaintyDisplayStyle.StandardDeviation),
+            Option(UncertaintyDisplayPresentation.LimitsLabel, UncertaintyDisplayStyle.ConfidenceInterval),
+            Option(UncertaintyDisplayPresentation.BothLabel, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
             Option("None", UncertaintyDisplayStyle.None)
         });
         ToolTip.SetTip(uncertaintyStyleCombo, UncertaintyDisplayPresentation.StyleTooltip);
+        summaryUncertaintyCombo = Combo(new[]
+        {
+            Option(UncertaintyDisplayPresentation.MeanLabel, SummaryUncertaintyMode.Mean),
+            Option(UncertaintyDisplayPresentation.ReplicateSpreadLabel, SummaryUncertaintyMode.ReplicateSpread)
+        });
+        ToolTip.SetTip(summaryUncertaintyCombo, UncertaintyDisplayPresentation.SummaryTooltip);
+        AutomationProperties.SetName(summaryUncertaintyCombo, UncertaintyDisplayPresentation.SummaryLabel);
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
         ToolTip.SetTip(dilutionMethodCombo, InjectionBookkeeping.Help + " Default for new data.");
@@ -396,7 +405,8 @@ internal sealed class PreferencesWindow : Window
             Row("Concentration unit", concentrationUnitCombo),
             Row("Designer instrument", designerInstrumentCombo),
             Row("Number precision", numberPrecisionCombo),
-            Row("Uncertainty display", uncertaintyStyleCombo)
+            Row("Uncertainty display", uncertaintyStyleCombo),
+            Row(UncertaintyDisplayPresentation.SummaryLabel, summaryUncertaintyCombo)
         }));
         panel.Children.Add(Section("Analysis context", new Control[]
         {
@@ -561,6 +571,7 @@ internal sealed class PreferencesWindow : Window
         ToolTip.SetTip(minimumIonSpanBox, ElectrostaticsAnalysisAvailability.MinimumSpanToolTip);
         SetCombo(numberPrecisionCombo, state.NumberPrecision);
         SetCombo(uncertaintyStyleCombo, state.UncertaintyDisplayStyle);
+        SetCombo(summaryUncertaintyCombo, state.SummaryUncertaintyMode);
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;
         onlineChecksCheck.IsChecked = state.PerformOnlineChecksOnLaunch;
         confirmRemoveDeleteCheck.IsChecked = state.ConfirmRemoveDelete;
@@ -771,6 +782,7 @@ internal sealed class PreferencesWindow : Window
                     : minimumIonSpanMm / 1000.0;
         state.NumberPrecision = Value(numberPrecisionCombo, AppSettings.NumberPrecision);
         state.UncertaintyDisplayStyle = Value(uncertaintyStyleCombo, AppSettings.UncertaintyDisplayStyle);
+        state.SummaryUncertaintyMode = Value(summaryUncertaintyCombo, AppSettings.SummaryUncertaintyMode);
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
         state.PerformOnlineChecksOnLaunch = onlineChecksCheck.IsChecked == true;
         state.ConfirmRemoveDelete = confirmRemoveDeleteCheck.IsChecked == true;

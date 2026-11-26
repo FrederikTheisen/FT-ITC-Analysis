@@ -1203,24 +1203,43 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(expectedTemperatures.OrderBy(value => value), enthalpyPoints.X);
                 var expectedEnthalpies = restored.Solution.Solutions
                     .OrderBy(solution => solution.Temp)
-                    .Select(solution => solution.ReportParameters[ParameterType.Enthalpy1].Value / 1000.0)
+                    .Select(solution => solution.ReportParameters[ParameterType.Enthalpy1])
                     .ToArray();
                 Assert.Equal(expectedEnthalpies.Length, enthalpyPoints.Y.Length);
                 for (var index = 0; index < expectedEnthalpies.Length; index++)
-                    Assert.Equal(expectedEnthalpies[index], enthalpyPoints.Y[index], 10);
+                {
+                    var expected = expectedEnthalpies[index];
+                    Assert.Equal(expected.Value / 1000.0, enthalpyPoints.Y[index].Value, 10);
+                    if (double.IsFinite(expected.Lower) && double.IsFinite(expected.Upper) && expected.Lower < expected.Upper)
+                    {
+                        Assert.Equal(expected.Lower / 1000.0, enthalpyPoints.Lower[index].Value, 10);
+                        Assert.Equal(expected.Upper / 1000.0, enthalpyPoints.Upper[index].Value, 10);
+                    }
+                }
                 Assert.Equal(81, enthalpyLine.X.Length);
                 Assert.Equal(enthalpyLine.X.Length, enthalpyLine.Lower.Length);
                 Assert.Equal(enthalpyLine.X.Length, enthalpyLine.Upper.Length);
                 Assert.True(restored.Solution.BootstrapSolutions.Count > 1);
                 var midpoint = enthalpyLine.X.Length / 2;
-                var bootstrapValues = restored.Solution.BootstrapSolutions
-                    .Select(solution => solution.TemperatureDependence[ParameterType.Enthalpy1])
-                    .Select(fit => ((enthalpyLine.X[midpoint] - fit.ReferenceT) * fit.Slope.Value
-                        + fit.Intercept.Value) / 1000.0)
-                    .OrderBy(value => value)
-                    .ToArray();
-                Assert.Equal(Percentile(bootstrapValues, 0.025), enthalpyLine.Lower[midpoint], 10);
-                Assert.Equal(Percentile(bootstrapValues, 0.975), enthalpyLine.Upper[midpoint], 10);
+                var mean = new AnalysisResultAggregateSummaryCalculator(restored, SummaryUncertaintyMode.Mean)
+                    .Evaluate(ParameterType.Enthalpy1, enthalpyLine.X[midpoint]).Value;
+                var spread = new AnalysisResultAggregateSummaryCalculator(restored, SummaryUncertaintyMode.ReplicateSpread)
+                    .Evaluate(ParameterType.Enthalpy1, enthalpyLine.X[midpoint]).Value;
+                var enthalpySummary = Assert.Single(viewerResult.TemperatureParameterEvaluation.Dependences,
+                    item => item.Key == ParameterType.Enthalpy1.ToString());
+                Assert.Equal("SE of fitted value", enthalpySummary.StatisticLabel);
+                Assert.Equal("SD around fitted trend", enthalpySummary.ReplicateSpread.StatisticLabel);
+                var spreadLine = enthalpyLine.ReplicateSpread;
+                Assert.NotNull(spreadLine);
+                Assert.Equal(enthalpyLine.Y, spreadLine.Y);
+                Assert.Equal(mean.Value / 1000.0, enthalpyLine.Y[midpoint].Value, 10);
+                Assert.Equal(mean.Lower / 1000.0, enthalpyLine.Lower[midpoint].Value, 10);
+                Assert.Equal(mean.Upper / 1000.0, enthalpyLine.Upper[midpoint].Value, 10);
+                Assert.Equal(spread.Lower / 1000.0, spreadLine.Lower[midpoint].Value, 10);
+                Assert.Equal(spread.Upper / 1000.0, spreadLine.Upper[midpoint].Value, 10);
+                Assert.NotEqual(enthalpyLine.IntervalLabel, spreadLine.IntervalLabel);
+                Assert.Contains("95% intervals for the fitted trend", temperature.TemperatureDependencePlot.IntervalCaption);
+                Assert.Contains("95% replicate ranges", temperature.TemperatureDependencePlot.ReplicateSpreadIntervalCaption);
                 AssertClose(expectedHydration.Value / 1000.0,
                     temperature.HydrationContributionKilojoulesPerMole.Value);
                 AssertClose(expectedHydration.SD / 1000.0,
@@ -1255,7 +1274,7 @@ namespace AnalysisITC.Core.Tests
                 var debyePlot = viewerResult.AdvancedAnalyses.Electrostatics.Plots.Single(plot => plot.Key == "debye-huckel");
                 var debyeFit = debyePlot.Series.Single(series => series.Label == "Fitted curve");
                 AssertClose(restored.ElectrostaticsAnalysis.IonicStrengthDependenceFit.Evaluate(debyeFit.X[40]),
-                    debyeFit.Y[40]);
+                    debyeFit.Y[40].Value);
                 Assert.NotEmpty(viewerResult.AdvancedAnalyses.Protonation.Plot.Series);
                 Assert.Null(temperature.Metadata.ErrorEstimationMethod);
                 Assert.Null(viewerResult.AdvancedAnalyses.Electrostatics.Metadata.ErrorEstimationMethod);
@@ -1371,7 +1390,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task TemperatureViewerPlotFallsBackToSavedFitIntervalsWithoutBootstrapReplicates()
+        public async Task TemperatureViewerPlotShowsLocalSummaryWithoutBootstrapReplicates()
         {
             var result = await PrepareAdvancedResult(includeBootstrapReplicates: false);
             result.SpolarRecordAnalysis.RestoreResult(
@@ -1403,12 +1422,13 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(line.X.Length, line.Y.Length);
                 Assert.Equal(line.X.Length, line.Lower.Length);
                 Assert.Equal(line.X.Length, line.Upper.Length);
-                Assert.All(line.X.Concat(line.Y).Concat(line.Lower).Concat(line.Upper),
-                    value => Assert.True(double.IsFinite(value)));
+                Assert.All(line.X, value => Assert.True(double.IsFinite(value)));
+                Assert.All(line.Y.Concat(line.Lower).Concat(line.Upper),
+                    value => Assert.True(!value.HasValue || double.IsFinite(value.Value)));
                 for (var index = 0; index < line.Y.Length; index++)
                 {
-                    Assert.True(line.Lower[index] <= line.Y[index]);
-                    Assert.True(line.Upper[index] >= line.Y[index]);
+                    Assert.Equal(line.Lower[index].HasValue, line.Upper[index].HasValue);
+                    if (line.Lower[index].HasValue) Assert.True(line.Lower[index] < line.Upper[index]);
                 }
             });
         }
@@ -3004,15 +3024,6 @@ namespace AnalysisITC.Core.Tests
             Assert.NotNull(result.ProtonationAnalysis);
             result.MarkClean();
             return result;
-        }
-
-        static double Percentile(IReadOnlyList<double> sortedValues, double percentile)
-        {
-            var position = percentile * (sortedValues.Count - 1);
-            var lowerIndex = (int)Math.Floor(position);
-            var upperIndex = (int)Math.Ceiling(position);
-            var weight = position - lowerIndex;
-            return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
         }
 
         static void AssertClose(double expected, double actual, double tolerance = 1e-12)

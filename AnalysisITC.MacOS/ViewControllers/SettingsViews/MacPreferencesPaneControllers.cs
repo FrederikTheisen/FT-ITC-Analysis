@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AppKit;
 using Foundation;
 
+using AnalysisITC.Core;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -52,8 +53,16 @@ namespace AnalysisITC
             TemperatureUnitPopup.ToolTip = AnalysisResultExportPresentation.DefaultTemperatureUnitToolTip;
             PopulatePopup(NumberPrecisionPopup, EnumValues<NumberPrecision>(), FriendlyName);
             NumberPrecisionPopup.ToolTip = "Controls how displayed values are rounded. Values of magnitude 10¹⁰ or more use scientific notation with up to six significant digits, and infinite interval bounds show as ∞. This changes presentation only.";
-            PopulatePopup(UncertaintyPopup, EnumValues<UncertaintyDisplayStyle>(), FriendlyName);
+            PopulatePopup(UncertaintyPopup, EnumValues<UncertaintyDisplayStyle>(), UncertaintyDisplayPresentation.StyleLabel);
             UncertaintyPopup.ToolTip = UncertaintyDisplayPresentation.StyleTooltip;
+            SummaryUncertaintyLabel.StringValue = UncertaintyDisplayPresentation.SummaryLabel;
+            PopulatePopup(SummaryUncertaintyPopup, EnumValues<SummaryUncertaintyMode>(), value =>
+                value == SummaryUncertaintyMode.ReplicateSpread
+                    ? UncertaintyDisplayPresentation.ReplicateSpreadLabel
+                    : UncertaintyDisplayPresentation.MeanLabel);
+            SummaryUncertaintyPopup.ToolTip = UncertaintyDisplayPresentation.SummaryTooltip;
+            SummaryUncertaintyPopup.SetValueForKey(new NSString(UncertaintyDisplayPresentation.SummaryLabel),
+                new NSString("accessibilityLabel"));
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
@@ -68,6 +77,7 @@ namespace AnalysisITC
             SelectPopup(TemperatureUnitPopup, state.DefaultTemperatureUnit);
             SelectPopup(NumberPrecisionPopup, state.NumberPrecision);
             SelectPopup(UncertaintyPopup, state.UncertaintyDisplayStyle);
+            SelectPopup(SummaryUncertaintyPopup, state.SummaryUncertaintyMode);
             SelectPopup(InstrumentPopup, state.DefaultDesignerInstrument);
             ReferenceTemperatureField.StringValue = Format(state.ReferenceTemperature);
             MinimumTemperatureSpanField.StringValue = Format(state.MinimumTemperatureSpanForFitting);
@@ -126,6 +136,7 @@ namespace AnalysisITC
             state.DefaultTemperatureUnit = PopupValue<TemperatureUnit>(TemperatureUnitPopup);
             state.NumberPrecision = PopupValue<NumberPrecision>(NumberPrecisionPopup);
             state.UncertaintyDisplayStyle = PopupValue<UncertaintyDisplayStyle>(UncertaintyPopup);
+            state.SummaryUncertaintyMode = PopupValue<SummaryUncertaintyMode>(SummaryUncertaintyPopup);
             state.DefaultDesignerInstrument = PopupValue<ITCInstrument>(InstrumentPopup);
             state.ReferenceTemperature = referenceTemperature;
             state.MinimumTemperatureSpanForFitting = minimumTemperatureSpan;

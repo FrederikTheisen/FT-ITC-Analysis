@@ -1146,7 +1146,7 @@ public sealed partial class AnalysisReportBuilderTests
     public void ParameterEvaluationCombinesMemberUncertaintyWithReplicateSpread()
     {
         var result = CreateResult(3);
-        var calculator = new AnalysisResultAggregateSummaryCalculator(result);
+        var calculator = new AnalysisResultAggregateSummaryCalculator(result, SummaryUncertaintyMode.ReplicateSpread);
 
         var expectedEnthalpy = result.Solution.TemperatureDependence[ParameterType.Enthalpy1].Evaluate(20).Value;
         var enthalpy = calculator.Evaluate(ParameterType.Enthalpy1, 20);
@@ -1162,9 +1162,9 @@ public sealed partial class AnalysisReportBuilderTests
         Assert.Equal(Math.Sqrt(1_000_000.0 + 1_000_000.0 * 1_000_000.0), calculator.Evaluate(ParameterType.Enthalpy1, 20).Value.SD, 12);
 
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
-            result, 20, EnergyUnit.Joule, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval);
-        Assert.Contains("Combined SD (n = 3)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
-        Assert.Contains("Combined SD (n = 3)", evaluation.Rows.Single(row => row.Label == "Affinity (Kd)").Tooltip);
+            result, 20, EnergyUnit.Joule, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, SummaryUncertaintyMode.ReplicateSpread);
+        Assert.Contains("95% range:", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Equal("1 µM", evaluation.Rows.Single(row => row.Label == "Affinity (Kd)").Tooltip);
     }
 
     [Fact]
@@ -1175,7 +1175,7 @@ public sealed partial class AnalysisReportBuilderTests
 
         var enthalpy = calculator.Evaluate(ParameterType.Enthalpy1, 30);
         Assert.Equal(0, enthalpy.Value.SD, 12);
-        Assert.Equal(AggregateUncertaintyKind.TemperatureTrendStandardDeviation, enthalpy.Kind);
+        Assert.Equal(AggregateUncertaintyKind.TemperatureTrendStandardError, enthalpy.Kind);
 
         var heatCapacity = calculator.EvaluateHeatCapacity(ThermodynamicParameterSlots.ForStep(1));
         Assert.Equal(0, heatCapacity.Value.SD, 12);
@@ -1183,8 +1183,8 @@ public sealed partial class AnalysisReportBuilderTests
 
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, 30, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("Combined SD around temperature trend", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
-        Assert.Contains("Propagated slope SD", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Equal("-26000 J/mol", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Equal("-100 J/mol·K", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
     }
 
     [Fact]
@@ -1318,6 +1318,79 @@ public sealed partial class AnalysisReportBuilderTests
         Assert.Equal(InReportCulture(() => expected.AsNumber(style)) + (useKelvin ? " K" : " °C"), temperature);
         Assert.Equal(25, result.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
         Assert.Equal(1, result.SpolarRecordAnalysis.Result.ReferenceTemperature.SD);
+    }
+
+    [Theory]
+    [InlineData(UncertaintyDisplayStyle.None)]
+    [InlineData(UncertaintyDisplayStyle.Automatic)]
+    [InlineData(UncertaintyDisplayStyle.StandardDeviation)]
+    [InlineData(UncertaintyDisplayStyle.ConfidenceInterval)]
+    [InlineData(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)]
+    public void TemperatureReportUses95PercentBarsAndModeSpecificBands(UncertaintyDisplayStyle style)
+    {
+        var result = CreateResult(2, temperatureStep: 10);
+        result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-10, 1, -13, -9);
+        result.Solution.Solutions[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-20, 2, -24, -18);
+        result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(-1, -10, 20);
+        result.UpdateSolution(result.Solution);
+        var options = new AnalysisReportOptions { EnergyUnitOverride = EnergyUnit.Joule, UncertaintyDisplayStyle = style };
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(AnalysisReportAdvancedSectionKind.TemperatureDependence));
+        var previousMode = AppSettings.SummaryUncertaintyMode;
+        try
+        {
+            foreach (var mode in new[] { SummaryUncertaintyMode.Mean, SummaryUncertaintyMode.ReplicateSpread })
+            {
+                AppSettings.SummaryUncertaintyMode = mode;
+                var document = AnalysisReportBuilder.Build(result, options);
+                var plot = Assert.Single(document.Sections.SelectMany(s => s.Blocks).OfType<AnalysisReportPlotBlock>(),
+                    block => block.Title == "Temperature dependence");
+                var points = plot.Series.Single(s => s.Group == "Enthalpy1" && s.Kind == AnalysisReportPlotSeriesKind.Points).Points;
+                var line = plot.Series.Single(s => s.Group == "Enthalpy1" && s.Kind == AnalysisReportPlotSeriesKind.Line);
+                var middle = Assert.Single(line.Points, point => Math.Abs(point.X - 25) < 1e-10);
+                Assert.Equal(-15, middle.Y, 10);
+                Assert.Equal(new[] { -10.0, -20.0 }, points.Select(point => point.Y));
+                if (style == UncertaintyDisplayStyle.None)
+                {
+                    Assert.Empty(plot.Caption);
+                    Assert.All(plot.Series.SelectMany(series => series.Points), point =>
+                    {
+                        Assert.Null(point.Lower);
+                        Assert.Null(point.Upper);
+                    });
+                    continue;
+                }
+
+                Assert.Equal(UncertaintyDisplayStyle.ConfidenceInterval, plot.UncertaintyStyle);
+                Assert.Equal(new double?[] { -13, -24 }, points.Select(point => point.ConfidenceLower));
+                Assert.Equal(new double?[] { -9, -18 }, points.Select(point => point.ConfidenceUpper));
+                // At the midpoint both regression weights are 1/2. For spread, average the squared widths.
+                var divisor = mode == SummaryUncertaintyMode.Mean ? 4.0 : 2.0;
+                Assert.Equal(-15 - Math.Sqrt(25 / divisor), middle.Lower.Value, 10);
+                Assert.Equal(-15 + Math.Sqrt(5 / divisor), middle.Upper.Value, 10);
+                Assert.Contains("95%", plot.Caption);
+                Assert.Contains(mode == SummaryUncertaintyMode.Mean ? "fitted trend" : "replicate range", plot.Caption);
+                var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+                var page = plan.Pages.Single(page => page.Fragments.Any(f => f.Block == plot));
+                var plotIndex = page.Fragments.ToList().FindIndex(fragment => fragment.Block == plot);
+                var caption = page.Fragments[plotIndex + 1];
+                Assert.Equal(plot.Caption, string.Join(" ", caption.Lines));
+                Assert.True(caption.Bounds.Y >= page.Fragments[plotIndex].Bounds.Bottom);
+            }
+        }
+        finally { AppSettings.SummaryUncertaintyMode = previousMode; }
+    }
+
+    [Fact]
+    public void MissingReportBoundsLeaveSeparateBandsAroundAContinuousTrend()
+    {
+        var series = new AnalysisReportPlotSeries("Enthalpy", AnalysisReportPlotSeriesKind.Line, new[]
+        {
+            new AnalysisReportPlotPoint(10, 1, 0, 2), new AnalysisReportPlotPoint(11, 2, 1, 3),
+            new AnalysisReportPlotPoint(12, 3),
+            new AnalysisReportPlotPoint(13, 4, 3, 5), new AnalysisReportPlotPoint(14, 5, 4, 6),
+        });
+        Assert.Equal(5, Assert.Single(series.ContinuousSegments(requireBounds: false)).Count);
+        Assert.Equal(new[] { 10.0, 13.0 }, series.ContinuousSegments(requireBounds: true).Select(segment => segment.First().X));
     }
 
     [Fact]
@@ -2482,7 +2555,7 @@ public sealed partial class AnalysisReportBuilderTests
         var exported = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1);
         Assert.Equal(evaluated, exported);
         Assert.Equal(11, exported.Value);
-        Assert.Equal(Math.Sqrt(7), exported.SD, 12);
+        Assert.Equal(Math.Sqrt(3.5), exported.SD, 12);
         Assert.Equal(11 - Math.Sqrt(5.0916), exported.Lower, 12);
         Assert.Equal(11 + Math.Sqrt(10.0916), exported.Upper, 12);
         foreach (var format in new[] { AnalysisResultExportFileFormat.CSV, AnalysisResultExportFileFormat.TSV })
@@ -2496,13 +2569,13 @@ public sealed partial class AnalysisReportBuilderTests
             };
             var table = AnalysisResultTableExporter.Build(new[] { result }, options);
             Assert.Equal(table, AnalysisResultTableExporter.Build(new[] { result }, options));
-            Assert.Contains("Approximate propagated interval", table);
+            Assert.Contains("SEM for averages or SE of the fitted value", table);
             Assert.Contains("_interval_lower", table);
             Assert.Contains("_interval_upper", table);
             options.RowMode = AnalysisResultExportRowMode.AllRows;
             var members = AnalysisResultTableExporter.Build(new[] { result }, options);
             Assert.Contains("_ci_lower", members);
-            Assert.DoesNotContain("Approximate propagated interval", members);
+            Assert.DoesNotContain("SEM for averages or SE of the fitted value", members);
         }
         // A stored central estimate is not replaced when recalculating uncertainty.
         result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(0, 42, 20);
@@ -2608,7 +2681,7 @@ public sealed partial class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void SharedSummaryUsesModelUncertaintyAndOriginalIntervalLabel()
+    public void SharedSummaryTooltipShowsEstimateAndAsymmetricModelInterval()
     {
         var result = CreateResult(2);
         result.Model.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
@@ -2619,8 +2692,7 @@ public sealed partial class AnalysisReportBuilderTests
         Assert.Equal(AggregateUncertaintyKind.ModelEstimated, actual.Kind);
         var tooltip = AnalysisResultParameterEvaluator.Evaluate(result, 20, EnergyUnit.Joule,
             UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval).Rows.Single(row => row.Label.Contains("∆H")).Tooltip;
-        Assert.Contains("95% confidence interval", tooltip);
-        Assert.DoesNotContain("Approximate propagated interval", tooltip);
+        Assert.Equal($"-10 ± 2 J/mol (SD){Environment.NewLine}95% CI: -14 to -9", tooltip);
     }
 
     [Fact]
@@ -2654,6 +2726,9 @@ public sealed partial class AnalysisReportBuilderTests
         var viewer = await new ViewerDocumentReader().ReadAsync(stream, "summary.ftxtc", ViewerFileFormat.Ftxtc);
         var dto = Assert.Single(viewer.AnalysisResults).TemperatureParameterEvaluation.Dependences
             .Single(item => item.Key == ParameterType.Enthalpy1.ToString());
+        Assert.NotNull(dto.ReplicateSpread);
+        var mean = new AnalysisResultAggregateSummaryCalculator(restored, SummaryUncertaintyMode.Mean);
+        var spread = new AnalysisResultAggregateSummaryCalculator(restored, SummaryUncertaintyMode.ReplicateSpread);
         foreach (var temperature in new[] { 10.0, 30, 50 })
         {
             var original = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, temperature).Value;
@@ -2662,6 +2737,12 @@ public sealed partial class AnalysisReportBuilderTests
             Assert.Equal(original.SD, actual.SD, 10);
             Assert.Equal(original.Lower, actual.Lower, 10);
             Assert.Equal(original.Upper, actual.Upper, 10);
+            CheckViewerSummary(dto, mean.Evaluate(ParameterType.Enthalpy1, temperature).Value, temperature);
+            CheckViewerSummary(dto.ReplicateSpread, spread.Evaluate(ParameterType.Enthalpy1, temperature).Value, temperature);
+        }
+
+        static void CheckViewerSummary(ViewerTemperatureDependenceDto dto, FloatWithError actual, double temperature)
+        {
             var delta = temperature - dto.ReferenceTemperatureCelsius;
             var central = dto.Intercept + delta * dto.Slope;
             double variance = 0, lowerVariance = 0, upperVariance = 0;
@@ -2879,7 +2960,7 @@ public sealed partial class AnalysisReportBuilderTests
                 .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Combined parameters");
             Assert.Equal("Evaluation temperature", combined.Items[0].Label);
             Assert.Equal(expectedTemperature, combined.Items[0].Value);
-            Assert.Equal(expected.Rows.Select(row => (row.Label, row.Value)),
+            Assert.Equal(expected.Rows.Select(row => (row.DisplayLabel, row.Value)),
                 combined.Items.Skip(1).Select(item => (item.Label, item.Value)));
         }
         finally
@@ -2920,7 +3001,7 @@ public sealed partial class AnalysisReportBuilderTests
                 .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Combined parameters");
             Assert.Equal("Evaluation temperature", combined.Items[0].Label);
             Assert.Equal(expectedTemperature, combined.Items[0].Value);
-            Assert.Equal(expected.Rows.Select(row => (row.Label, row.Value)),
+            Assert.Equal(expected.Rows.Select(row => (row.DisplayLabel, row.Value)),
                 combined.Items.Skip(1).Select(item => (item.Label, item.Value)));
         }
         finally

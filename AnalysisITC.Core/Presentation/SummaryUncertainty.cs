@@ -150,12 +150,15 @@ namespace AnalysisITC.Core.Presentation
         internal static SummaryErrorContribution Symmetric(double weight, double weightSlope, double sd, double width) =>
             new SummaryErrorContribution(weight, weightSlope, sd, width, width);
 
-        internal static SummaryDependence Mean(IReadOnlyList<FloatWithError> values, double central)
+        internal static SummaryDependence Mean(IReadOnlyList<FloatWithError> values, double central,
+            SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean, bool preserveLegacyStandardDeviation = false)
         {
             var summary = new SummaryDependence
             {
                 Intercept = central, Count = values.Count,
-                Kind = AggregateUncertaintyKind.ReplicateStandardDeviation,
+                Kind = mode == SummaryUncertaintyMode.ReplicateSpread
+                    ? AggregateUncertaintyKind.ReplicateStandardDeviation
+                    : AggregateUncertaintyKind.MeanStandardError,
                 SlopeUncertainty = new FloatWithError(0),
             };
             if (values.Count == 0)
@@ -166,6 +169,7 @@ namespace AnalysisITC.Core.Presentation
             if (values.Count == 1)
             {
                 var value = values[0];
+                summary.Kind = AggregateUncertaintyKind.ModelEstimated;
                 // Direct offsets also preserve ordered intervals that do not bracket
                 // the original best fit; such intervals cannot be width-propagated.
                 summary.LowerOffset = HasOrderedInterval(value) ? value.Lower - value.Value : double.NaN;
@@ -176,8 +180,13 @@ namespace AnalysisITC.Core.Presentation
             var mean = values.Average(value => value.Value);
             var betweenVariance = values.Sum(value => Square(value.Value - mean)) / (values.Count - 1);
             var variance = betweenVariance + values.Average(value => Square(UsableSd(value)));
-            summary.Contributions.Add(Symmetric(1, 0, Math.Sqrt(variance), Normal95 * Math.Sqrt(betweenVariance / values.Count)));
-            foreach (var value in values) summary.Contributions.Add(Input(value, 1.0 / values.Count));
+            var spread = mode == SummaryUncertaintyMode.ReplicateSpread;
+            var sdDivisor = spread || preserveLegacyStandardDeviation ? 1 : values.Count;
+            var intervalDivisor = spread ? 1 : values.Count;
+            var inputWeight = spread ? 1 / Math.Sqrt(values.Count) : 1.0 / values.Count;
+            summary.Contributions.Add(Symmetric(1, 0, Math.Sqrt(variance / sdDivisor),
+                Normal95 * Math.Sqrt(betweenVariance / intervalDivisor)));
+            foreach (var value in values) summary.Contributions.Add(Input(value, inputWeight));
             return summary;
         }
 
@@ -200,18 +209,23 @@ namespace AnalysisITC.Core.Presentation
             return summary;
         }
 
-        internal static SummaryDependence Trend(LinearFitWithError central, IReadOnlyList<FloatWithError> values, IReadOnlyList<double> temperatures)
+        internal static SummaryDependence Trend(LinearFitWithError central, IReadOnlyList<FloatWithError> values,
+            IReadOnlyList<double> temperatures, SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean,
+            bool preserveLegacyStandardDeviation = false)
         {
             if (values.Count == 1)
             {
-                var single = Mean(values, central.Intercept.Value);
+                var single = Mean(values, central.Intercept.Value, mode);
                 single.ReferenceTemperature = central.ReferenceT;
                 single.Slope = central.Slope.Value;
                 single.SlopeUncertainty = Unavailable(central.Slope.Value);
                 return single;
             }
             var summary = Model(central);
-            summary.Kind = AggregateUncertaintyKind.TemperatureTrendStandardDeviation;
+            var spread = mode == SummaryUncertaintyMode.ReplicateSpread;
+            summary.Kind = spread
+                ? AggregateUncertaintyKind.TemperatureTrendStandardDeviation
+                : AggregateUncertaintyKind.TemperatureTrendStandardError;
             summary.Count = values.Count;
             summary.Contributions.Clear();
             if (values.Count < 2)
@@ -234,16 +248,30 @@ namespace AnalysisITC.Core.Presentation
             var residualVariance = values.Count > 2
                 ? z.Select((x, i) => Square(values[i].Value - mean - slope * x)).Sum() / (values.Count - 2)
                 : 0;
-            var combinedSd = Math.Sqrt(residualVariance + values.Average(value => Square(UsableSd(value))));
-            summary.Contributions.Add(Symmetric(1, 0, combinedSd, Normal95 * Math.Sqrt(residualVariance / values.Count)));
-            summary.Contributions.Add(Symmetric(0, 1, 0, Normal95 * Math.Sqrt(residualVariance / sxx)));
+            if (spread)
+            {
+                var combinedSd = Math.Sqrt(residualVariance + values.Average(value => Square(UsableSd(value))));
+                summary.Contributions.Add(Symmetric(1, 0, combinedSd, Normal95 * Math.Sqrt(residualVariance)));
+            }
+            else
+            {
+                var interceptSd = Math.Sqrt(residualVariance / values.Count);
+                var slopeSd = Math.Sqrt(residualVariance / sxx);
+                var legacySd = preserveLegacyStandardDeviation
+                    ? Math.Sqrt(residualVariance + values.Average(value => Square(UsableSd(value))))
+                    : interceptSd;
+                summary.Contributions.Add(Symmetric(1, 0, legacySd, Normal95 * interceptSd));
+                summary.Contributions.Add(Symmetric(0, 1, preserveLegacyStandardDeviation ? 0 : slopeSd, Normal95 * slopeSd));
+            }
 
             var slopeSummary = new SummaryDependence { Intercept = central.Slope.Value };
             slopeSummary.Contributions.Add(Symmetric(1, 0, Math.Sqrt(residualVariance / sxx), Normal95 * Math.Sqrt(residualVariance / sxx)));
             for (var i = 0; i < values.Count; i++)
             {
                 var slopeWeight = z[i] / sxx;
-                summary.Contributions.Add(Input(values[i], 1.0 / values.Count, slopeWeight));
+                summary.Contributions.Add(spread
+                    ? Input(values[i], 1 / Math.Sqrt(values.Count))
+                    : Input(values[i], 1.0 / values.Count, slopeWeight, includeSd: !preserveLegacyStandardDeviation));
                 slopeSummary.Contributions.Add(Input(values[i], slopeWeight, includeSd: true));
             }
             summary.SlopeUncertainty = slopeSummary.Evaluate(0);

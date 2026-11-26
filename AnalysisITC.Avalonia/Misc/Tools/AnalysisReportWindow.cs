@@ -80,7 +80,7 @@ namespace AnalysisITC.Avalonia.Tools
         Control reportIdRow = null!;
         readonly ComboBox energyCombo = Combo(new[] { "Joule", "Calories" });
         readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
-        readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "Standard deviation (SD)", "95% CI", "SD + 95% CI", "None" });
+        readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", UncertaintyDisplayPresentation.SymmetricLabel, UncertaintyDisplayPresentation.LimitsLabel, UncertaintyDisplayPresentation.BothLabel, "None" });
         readonly ComboBox outputPurposeCombo = Combo(new[] { "Standard report", "Diagnostic report" });
         readonly StackPanel advancedPanel = new StackPanel { Spacing = 2 };
         readonly CheckBox injectionTablesCheck = Check("Injection tables");
@@ -283,7 +283,8 @@ namespace AnalysisITC.Avalonia.Tools
         void OnSettingsDidUpdate(object? sender, EventArgs e)
         {
             var changes = PreferencesChangeSet.FromEventArgs(e);
-            if (!changes.ContainsAny(
+            var summaryUncertaintyChanged = changes.Contains(nameof(PreferencesState.SummaryUncertaintyMode));
+            if (!summaryUncertaintyChanged && !changes.ContainsAny(
                 nameof(PreferencesState.TraceabilityModeEnabled),
                 nameof(PreferencesState.UserName))) return;
 
@@ -293,6 +294,11 @@ namespace AnalysisITC.Avalonia.Tools
                 lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
                 ApplyTraceabilityCheckboxState();
                 RefreshPreparerDisplay();
+                if (summaryUncertaintyChanged)
+                {
+                    MarkStale();
+                    return;
+                }
                 var preparerChanged = currentDocument != null
                     && AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument);
                 if (!modeChanged && !preparerChanged) return;
@@ -1285,7 +1291,8 @@ namespace AnalysisITC.Avalonia.Tools
                 ShowInterpretationWorkspace(focusEditor: true);
                 return;
             }
-            if (previewStale || currentDocument == null || currentPlan == null)
+            if (previewStale || currentDocument == null || currentPlan == null
+                || currentDocument.SummaryUncertaintyMode != AppSettings.SummaryUncertaintyMode)
             {
                 if (!await BuildAsync(showPreview: true))
                     ShowInterpretationWorkspace(focusEditor: true);
@@ -1345,6 +1352,12 @@ namespace AnalysisITC.Avalonia.Tools
                     return (document, plan);
                 });
                 if (!CanWriteReport()) return false;
+                if (built.document.SummaryUncertaintyMode != AppSettings.SummaryUncertaintyMode)
+                {
+                    MarkStale();
+                    SetStatus("Summary uncertainty changed. Select Update Preview to refresh.", false, true);
+                    return false;
+                }
                 currentDocument = built.document;
                 currentPlan = built.plan;
                 previewStale = false;
@@ -1504,8 +1517,6 @@ namespace AnalysisITC.Avalonia.Tools
             if (busy || selectedResults.Count == 0) return;
             if (!await EnsureExportDocumentAsync()) return;
 
-            var document = currentDocument!;
-            var plan = currentPlan!;
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Export Analysis Report",
@@ -1521,6 +1532,9 @@ namespace AnalysisITC.Avalonia.Tools
             if (string.IsNullOrWhiteSpace(path)) return;
             if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
 
+            if (!await EnsureExportDocumentAsync()) return;
+            var document = currentDocument!;
+            var plan = currentPlan!;
             SetBusy(true, "Exporting PDF...");
             try
             {
@@ -1537,7 +1551,8 @@ namespace AnalysisITC.Avalonia.Tools
             if (!CanWriteReport()) return false;
             var preparerNeedsRefresh = currentDocument != null
                 && AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument);
-            if (!previewStale && !preparerNeedsRefresh && currentDocument != null && currentPlan != null) return true;
+            if (!previewStale && !preparerNeedsRefresh && currentDocument != null && currentPlan != null
+                && currentDocument.SummaryUncertaintyMode == AppSettings.SummaryUncertaintyMode) return true;
             if (preparerNeedsRefresh) return await BuildAsync(showPreview: true);
             return await BuildAsync(showPreview: false);
         }

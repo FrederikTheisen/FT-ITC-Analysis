@@ -26,9 +26,10 @@ namespace AnalysisITC
         static readonly string[] UncertaintyStyleNames =
         {
             "Automatic",
-            "Standard deviation",
-            "95% confidence interval",
-            "SD + 95% CI",
+            UncertaintyDisplayPresentation.SymmetricLabel,
+            UncertaintyDisplayPresentation.LimitsLabel,
+            UncertaintyDisplayPresentation.BothLabel,
+            "None",
         };
 
         static readonly string[] SaltModeNames =
@@ -505,6 +506,7 @@ namespace AnalysisITC
                     UncertaintyDisplayStyle.StandardDeviation => 1,
                     UncertaintyDisplayStyle.ConfidenceInterval => 2,
                     UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => 3,
+                    UncertaintyDisplayStyle.None => 4,
                     _ => 0,
                 });
             uncertaintyStyleControl.ToolTip =
@@ -517,6 +519,7 @@ namespace AnalysisITC
                         1 => UncertaintyDisplayStyle.StandardDeviation,
                         2 => UncertaintyDisplayStyle.ConfidenceInterval,
                         3 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+                        4 => UncertaintyDisplayStyle.None,
                         _ => UncertaintyDisplayStyle.Automatic,
                     };
                 AppSettings.Save();
@@ -846,13 +849,11 @@ namespace AnalysisITC
                 }
                 else
                 {
+                    if (evaluation.SummaryMode is { } mode)
+                        rows.Add(Pair(UncertaintyDisplayPresentation.SummaryLabel,
+                            UncertaintyDisplayPresentation.SummaryStatisticLabel(mode, analysisResult.Model.TemperatureDependenceExposed), UncertaintyDisplayPresentation.SummaryModeTooltip(mode)));
                     foreach (var row in evaluation.Rows)
-                    {
-                        var pair = Pair(row.Label, row.Value);
-                        if (!string.IsNullOrWhiteSpace(row.Tooltip))
-                            pair.ToolTip = row.Tooltip;
-                        rows.Add(pair);
-                    }
+                        rows.Add(Pair(row.Label, row.Value, row.Tooltip));
                 }
             }
 

@@ -15,6 +15,8 @@ namespace AnalysisITC
         [Outlet] AppKit.NSPopUpButton TemperatureUnitPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton NumberPrecisionPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton UncertaintyPopup { get; set; }
+        [Outlet] AppKit.NSTextField SummaryUncertaintyLabel { get; set; }
+        [Outlet] AppKit.NSPopUpButton SummaryUncertaintyPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton InstrumentPopup { get; set; }
         [Outlet] AppKit.NSTextField ReferenceTemperatureField { get; set; }
         [Outlet] AppKit.NSTextField ReportAuthorField { get; set; }
@@ -55,6 +57,8 @@ namespace AnalysisITC
             TemperatureUnitPopup = Release(TemperatureUnitPopup);
             NumberPrecisionPopup = Release(NumberPrecisionPopup);
             UncertaintyPopup = Release(UncertaintyPopup);
+            SummaryUncertaintyLabel = Release(SummaryUncertaintyLabel);
+            SummaryUncertaintyPopup = Release(SummaryUncertaintyPopup);
             InstrumentPopup = Release(InstrumentPopup);
             ReferenceTemperatureField = Release(ReferenceTemperatureField);
             ReportAuthorField = Release(ReportAuthorField);

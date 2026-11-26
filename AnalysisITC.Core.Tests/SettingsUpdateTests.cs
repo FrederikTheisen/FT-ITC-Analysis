@@ -93,6 +93,23 @@ public sealed class SettingsUpdateTests : IDisposable
     }
 
     [Fact]
+    public void SummaryUncertaintyPreferencePersistsAndDefaultsToMean()
+    {
+        Assert.Equal(SummaryUncertaintyMode.Mean, PreferencesState.Defaults().SummaryUncertaintyMode);
+        var preferences = PreferencesState.FromSettings();
+        preferences.SummaryUncertaintyMode = SummaryUncertaintyMode.ReplicateSpread;
+
+        var changes = PreferencesChangeSet.Between(PreferencesState.FromSettings(), preferences);
+        Assert.True(changes.Contains(nameof(PreferencesState.SummaryUncertaintyMode)));
+        preferences.Apply();
+        Assert.Equal((int)SummaryUncertaintyMode.ReplicateSpread, store.GetInt(nameof(PreferencesState.SummaryUncertaintyMode)));
+
+        AppSettings.Reset();
+        AppSettings.Load();
+        Assert.Equal(SummaryUncertaintyMode.ReplicateSpread, PreferencesState.FromSettings().SummaryUncertaintyMode);
+    }
+
+    [Fact]
     public void PoolingPreferencePersistsAndBecomesActiveOnLoadOrFitDefaultsReset()
     {
         Assert.False(PreferencesState.Defaults().DefaultPoolBootstrapResiduals);

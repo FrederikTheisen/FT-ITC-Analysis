@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -19,6 +20,8 @@ using Xunit;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Core;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -41,6 +44,115 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     {
         DataManager.Clear(DataClearMode.ResetSession);
         originalPreferences.ApplyToSettings();
+    }
+
+    [AvaloniaFact]
+    public async Task ReopenedReportPdfResultsAndExportUseTheCurrentSummaryUncertainty()
+    {
+        const UncertaintyDisplayStyle style = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+        var (first, second, result) = CreateReplicateSummaryFixture();
+        AppSettings.SummaryUncertaintyMode = SummaryUncertaintyMode.Mean;
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        report.UpdatePresentationSettings(new AnalysisReportOptions { EnergyUnitOverride = EnergyUnit.Joule, UncertaintyDisplayStyle = style });
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { first, second }, new[] { result }, reports: new[] { report });
+
+        AppSettings.SummaryUncertaintyMode = SummaryUncertaintyMode.ReplicateSpread;
+        package.Position = 0;
+        var reopened = await FTXTCReader.ReadWithRecovery(package, FtxtcReadPolicy.Strict);
+        var savedReport = Assert.Single(reopened.Reports);
+        var savedResult = Assert.Single(reopened.Containers.OfType<AnalysisResult>());
+        // Reports and exported tables use dot decimals regardless of desktop locale.
+        var culture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            Verify(Math.Sqrt(7), "Replicate SD", "Replicate spread (SD)");
+            AppSettings.SummaryUncertaintyMode = SummaryUncertaintyMode.Mean;
+            Verify(Math.Sqrt(3.5), "SEM", "Uncertainty in the mean (SEM)");
+        }
+        finally { CultureInfo.CurrentCulture = culture; }
+
+        void Verify(double sd, string label, string expectedMode)
+        {
+            var document = AnalysisReportBuilder.Build(savedReport, id => id == savedResult.UniqueID ? savedResult : null);
+            var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details");
+            Assert.Equal(expectedMode, Assert.Single(details.Items, row => row.Label == "Summary uncertainty").Value);
+            var resultsRow = AnalysisResultParameterEvaluator.Evaluate(savedResult, 25, EnergyUnit.Joule, style).Rows
+                .Single(row => row.Label.Contains("∆H"));
+            Assert.Contains(label, resultsRow.SummaryUncertaintyLabel);
+            var item = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+                row => row.Label.StartsWith(resultsRow.Label + " (", StringComparison.Ordinal));
+            Assert.Contains(label, item.Label);
+            var expected = new FloatWithError(11, sd);
+            Assert.Equal(expected.Energy.ToFormattedString(EnergyUnit.Joule, permole: true, style: style), resultsRow.Value);
+            Assert.Equal(resultsRow.Value, item.Value);
+            var rendered = new SkiaAnalysisReportRenderer();
+            using var pdf = new MemoryStream();
+            rendered.WritePdf(document, rendered.CreatePlan(document), pdf);
+            Assert.True(pdf.Length > 1000);
+
+            var table = AnalysisResultTableExporter.Build(new[] { savedResult }, new AnalysisResultExportOptions
+            {
+                RowMode = AnalysisResultExportRowMode.Summary, FileFormat = AnalysisResultExportFileFormat.TSV,
+                ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns, UncertaintyDisplayStyle = style,
+                EnergyUnitOverride = EnergyUnit.Joule,
+            }).Split(Environment.NewLine);
+            var headers = table[0].Split('\t');
+            var fields = table[1].Split('\t');
+            CheckColumn("_value", 11);
+            CheckColumn(document.SummaryUncertaintyMode == SummaryUncertaintyMode.Mean ? "_se" : "_sd", sd);
+            CheckColumn("_interval_lower", 11 - 1.96 * sd);
+            CheckColumn("_interval_upper", 11 + 1.96 * sd);
+
+            var directory = Environment.GetEnvironmentVariable("FTITC_SUMMARY_REPORT_QA_DIRECTORY");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllBytes(Path.Combine(directory, document.SummaryUncertaintyMode + ".pdf"), pdf.ToArray());
+            }
+
+            void CheckColumn(string suffix, double expected)
+            {
+                var index = Array.FindIndex(headers, header => header.Contains("∆H") && header.EndsWith(suffix, StringComparison.Ordinal));
+                Assert.True(index >= 0, table[0]);
+                var actual = double.Parse(fields[index], CultureInfo.InvariantCulture);
+                Assert.InRange(Math.Abs(actual - expected), 0, .005);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void TemperaturePlotCaptionIsPrintedBelowTheGraphForTheSelectedMode()
+    {
+        var fixture = CreateReplicateSummaryFixture(secondTemperature: 35);
+        var options = new AnalysisReportOptions { UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation };
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(AnalysisReportAdvancedSectionKind.TemperatureDependence));
+        var renderer = new SkiaAnalysisReportRenderer();
+        foreach (var mode in new[] { SummaryUncertaintyMode.Mean, SummaryUncertaintyMode.ReplicateSpread })
+        {
+            AppSettings.SummaryUncertaintyMode = mode;
+            var document = AnalysisReportBuilder.Build(fixture.Result, options);
+            var plan = renderer.CreatePlan(document);
+            var page = Assert.Single(plan.Pages, p => p.Fragments.Any(f => f.Block is AnalysisReportPlotBlock { Title: "Temperature dependence" }));
+            var plot = Assert.Single(page.Fragments, f => f.Block is AnalysisReportPlotBlock { Title: "Temperature dependence" });
+            var caption = Assert.Single(page.Fragments, f => f.Lines.Any(line => line.Contains("Bars show")));
+            var text = string.Join(" ", caption.Lines);
+            Assert.Contains(mode == SummaryUncertaintyMode.Mean ? "fitted trend" : "replicate ranges", text);
+            Assert.True(caption.Bounds.Y >= plot.Bounds.Bottom);
+            using var pdf = new MemoryStream();
+            renderer.WritePdf(document, plan, pdf);
+            Assert.True(pdf.Length > 1000);
+            var directory = Environment.GetEnvironmentVariable("FTITC_TEMPERATURE_REPORT_QA_DIRECTORY");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllBytes(Path.Combine(directory, mode + ".pdf"), pdf.ToArray());
+            }
+        }
     }
 
     [AvaloniaFact]
@@ -1197,6 +1309,25 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
 
         public void Release() => released.Set();
         public void Dispose() => released.Dispose();
+    }
+
+    internal static (ExperimentData First, ExperimentData Second, AnalysisResult Result) CreateReplicateSummaryFixture(double secondTemperature = 25)
+    {
+        var first = CreateResult("First replicate").Data;
+        var second = CreateResult("Second replicate").Data;
+        second.MeasuredTemperature = secondTemperature;
+        second.TargetTemperature = secondTemperature;
+        var result = CreateResult("Replicate summary", first, second);
+        var fitted = new[] { new FloatWithError(10, 1), new FloatWithError(12, 3) };
+        for (var index = 0; index < fitted.Length; index++)
+        {
+            var member = result.Solution.Solutions[index];
+            member.Model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, fitted[index].Value);
+            member.Parameters[ParameterType.Enthalpy1] = fitted[index];
+        }
+        result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(0, 11, 25);
+        result.UpdateSolution(result.Solution);
+        return (first, second, result);
     }
 
     static (ExperimentData Data, AnalysisResult Result) CreateResult(string name,

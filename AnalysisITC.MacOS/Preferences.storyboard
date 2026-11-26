@@ -79,10 +79,10 @@
                                             <rect key="frame" x="0.0" y="0.0" width="680" height="760"/>
                                             <subviews>
                                                 <stackView distribution="fill" orientation="vertical" alignment="none" spacing="4" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-content">
-                                                    <rect key="frame" x="40" y="-200" width="600" height="944"/>
+                                                    <rect key="frame" x="40" y="-200" width="600" height="974"/>
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-trace">
-                                                            <rect key="frame" x="-2" y="928" width="604" height="16"/>
+                                                            <rect key="frame" x="-2" y="958" width="604" height="16"/>
                                                             <textFieldCell key="cell" lineBreakMode="clipping" title="" id="general-section-trace-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -199,7 +199,7 @@
                                                             </customSpacing>
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-0">
-                                                            <rect key="frame" x="-2" y="928" width="604" height="16"/>
+                                                            <rect key="frame" x="-2" y="958" width="604" height="16"/>
                                                             <textFieldCell key="cell" lineBreakMode="clipping" title="Units and formatting" id="general-section-0-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -207,7 +207,7 @@
                                                             </textFieldCell>
                                                         </textField>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup-row">
-                                                            <rect key="frame" x="0.0" y="898" width="600" height="26"/>
+                                                            <rect key="frame" x="0.0" y="928" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup-label">
                                                                     <rect key="frame" x="-2" y="9" width="354" height="16"/>
@@ -246,7 +246,7 @@
                                                             </customSpacing>
                                                         </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConcentrationUnitPopup-row">
-                                                            <rect key="frame" x="0.0" y="868" width="600" height="26"/>
+                                                            <rect key="frame" x="0.0" y="898" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConcentrationUnitPopup-label">
                                                                     <rect key="frame" x="-2" y="9" width="354" height="16"/>
@@ -285,7 +285,7 @@
                                                             </customSpacing>
                                                         </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TemperatureUnitPopup-row">
-                                                            <rect key="frame" x="0.0" y="838" width="600" height="26"/>
+                                                            <rect key="frame" x="0.0" y="868" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TemperatureUnitPopup-label">
                                                                     <rect key="frame" x="-2" y="9" width="354" height="16"/>
@@ -325,7 +325,7 @@
                                                             </customSpacing>
                                                         </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup-row">
-                                                            <rect key="frame" x="0.0" y="838" width="600" height="26"/>
+                                                            <rect key="frame" x="0.0" y="868" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup-label">
                                                                     <rect key="frame" x="-2" y="9" width="354" height="16"/>
@@ -364,7 +364,7 @@
                                                             </customSpacing>
                                                         </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-UncertaintyPopup-row">
-                                                            <rect key="frame" x="0.0" y="808" width="600" height="26"/>
+                                                            <rect key="frame" x="0.0" y="838" width="600" height="26"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-UncertaintyPopup-label">
                                                                     <rect key="frame" x="-2" y="9" width="354" height="16"/>
@@ -392,6 +392,45 @@
                                                             </subviews>
                                                             <constraints>
                                                                 <constraint firstAttribute="height" constant="26" id="general-UncertaintyPopup-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-SummaryUncertaintyPopup-row">
+                                                            <rect key="frame" x="0.0" y="808" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-SummaryUncertaintyPopup-label">
+                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Summary uncertainty" id="general-SummaryUncertaintyPopup-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-SummaryUncertaintyPopup">
+                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
+                                                                    <popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-SummaryUncertaintyPopup-default" id="general-SummaryUncertaintyPopup-cell">
+                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="message"/>
+                                                                        <menu key="menu" title="OtherViews" id="general-SummaryUncertaintyPopup-menu">
+                                                                            <items>
+                                                                                <menuItem title="Option" state="on" id="general-SummaryUncertaintyPopup-default"/>
+                                                                            </items>
+                                                                        </menu>
+                                                                    </popUpButtonCell>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="240" id="general-SummaryUncertaintyPopup-width"/>
+                                                                    </constraints>
+                                                                </popUpButton>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="general-SummaryUncertaintyPopup-row-height"/>
                                                             </constraints>
                                                             <visibilityPriorities>
                                                                 <integer value="1000"/>
@@ -838,8 +877,10 @@
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
+                                                        <integer value="1000"/>
                                                     </visibilityPriorities>
                                                     <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
@@ -1023,6 +1064,8 @@ DQ
                         <outlet property="ReportAuthorField" destination="general-ReportAuthorField" id="general-ReportAuthorField-outlet"/>
                         <outlet property="StatusLabel" destination="general-status" id="general-status-outlet"/>
                         <outlet property="UncertaintyPopup" destination="general-UncertaintyPopup" id="general-UncertaintyPopup-outlet"/>
+                        <outlet property="SummaryUncertaintyLabel" destination="general-SummaryUncertaintyPopup-label" id="general-SummaryUncertaintyPopup-label-outlet"/>
+                        <outlet property="SummaryUncertaintyPopup" destination="general-SummaryUncertaintyPopup" id="general-SummaryUncertaintyPopup-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="general-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

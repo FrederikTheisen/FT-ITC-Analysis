@@ -41,7 +41,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ListBox resultList = new ListBox { SelectionMode = SelectionMode.Multiple };
         readonly ComboBox rowModeCombo = Combo(new[] { "Summary rows", "All replicate rows" });
         readonly ComboBox errorStyleCombo = Combo(new[] { "Value with error", "Separate columns" });
-        readonly ComboBox uncertaintyCombo = Combo(new[] { "SD", "CI", "SD + CI" });
+        readonly ComboBox uncertaintyCombo = Combo(new[] { UncertaintyDisplayPresentation.SymmetricLabel, UncertaintyDisplayPresentation.LimitsLabel, UncertaintyDisplayPresentation.BothLabel });
         readonly ComboBox formatCombo = Combo(new[] { "CSV", "TSV" });
         readonly ComboBox temperatureCombo = Combo(new[] { AnalysisResultExportPresentation.CelsiusLabel, AnalysisResultExportPresentation.KelvinLabel });
         readonly ComboBox outputPurposeCombo = Combo(new[] { "Standard export", "Diagnostic export" });
@@ -104,8 +104,7 @@ namespace AnalysisITC.Avalonia.Tools
             var optionsPanel = InspectorPanel();
             ToolTip.SetTip(rowModeCombo,
                 "Summary thermodynamic values use Parameter Evaluation at its default temperature; replicate rows retain their fitted values.");
-            ToolTip.SetTip(uncertaintyCombo,
-                "Local summaries use Combined SD and approximate propagated intervals. Model-estimated intervals remain CI95.");
+            ToolTip.SetTip(uncertaintyCombo, AnalysisResultExportPresentation.UncertaintyStyleToolTip);
             ToolTip.SetTip(temperatureCombo, AnalysisResultExportPresentation.TemperatureToolTip);
             optionsPanel.Children.Add(Section("Rows", Labeled("Mode", rowModeCombo)));
             optionsPanel.Children.Add(Section("Result output", Labeled("Purpose", outputPurposeCombo)));

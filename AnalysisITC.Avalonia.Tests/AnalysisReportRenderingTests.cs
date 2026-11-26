@@ -206,8 +206,8 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal("No result selected.", resultDetails.Text);
         var uncertainty = Assert.Single(controls.OfType<ComboBox>(), control =>
             AutomationProperties.GetName(control) == "Uncertainties");
-        Assert.Contains("95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
-        Assert.Contains("SD + 95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
+        Assert.Equal(new[] { "Automatic", "±", "95% limits", "± and 95% limits", "None" },
+            uncertainty.Items.Cast<object>().Select(item => item.ToString()));
         var subtitle = Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Report subtitle");
         var title = Assert.Single(controls.OfType<TextBox>(), control =>

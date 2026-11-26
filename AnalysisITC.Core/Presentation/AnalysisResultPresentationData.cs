@@ -23,7 +23,7 @@ namespace AnalysisITC.Core.Presentation
         readonly Lazy<List<ParameterType>> parameters;
         readonly object cacheLock = new object();
         readonly Dictionary<int, BootstrapCorrelationResult> correlations = new();
-        readonly Dictionary<PresentationEnvelopeKey, IReadOnlyList<FitEnvelopePoint>> envelopes = new();
+        readonly Dictionary<PresentationEnvelopeKey, (IReadOnlyList<FitEnvelopePoint> Points, TemperatureDependenceIntervalKind Kind)> envelopes = new();
         readonly Dictionary<PresentationSummaryKey, AggregateParameterSummary> summaries = new();
 
         public AnalysisResultPresentationData(AnalysisResult result)
@@ -66,13 +66,13 @@ namespace AnalysisITC.Core.Presentation
         internal int CachedEnvelopeCount { get { lock (cacheLock) return envelopes.Count; } }
         internal int CachedCorrelationCount { get { lock (cacheLock) return correlations.Count; } }
 
-        internal AggregateParameterSummary GetSummary(ParameterType parameter, double temperatureCelsius)
+        internal AggregateParameterSummary GetSummary(ParameterType parameter, double temperatureCelsius, SummaryUncertaintyMode mode)
         {
-            var key = new PresentationSummaryKey(parameter, temperatureCelsius);
+            var key = new PresentationSummaryKey(parameter, temperatureCelsius, mode);
             lock (cacheLock)
             {
                 if (summaries.TryGetValue(key, out var cached)) return cached;
-                var value = new AnalysisResultAggregateSummaryCalculator(Result, bypassPresentationCache: true)
+                var value = new AnalysisResultAggregateSummaryCalculator(Result, bypassPresentationCache: true, mode)
                     .EvaluateSummaryParameter(parameter, temperatureCelsius);
                 summaries[key] = value;
                 return value;
@@ -81,17 +81,29 @@ namespace AnalysisITC.Core.Presentation
 
         public IReadOnlyList<FitEnvelopePoint> GetTemperatureEnvelope(
             ParameterType parameter, double minimumCelsius, double maximumCelsius,
-            int intervals = FitEnvelopeBuilder.DefaultSampleIntervals)
+            int intervals = FitEnvelopeBuilder.DefaultSampleIntervals,
+            SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean) =>
+            GetTemperatureEnvelope(parameter, minimumCelsius, maximumCelsius, out _, intervals, mode);
+
+        public IReadOnlyList<FitEnvelopePoint> GetTemperatureEnvelope(
+            ParameterType parameter, double minimumCelsius, double maximumCelsius,
+            out TemperatureDependenceIntervalKind intervalKind,
+            int intervals = FitEnvelopeBuilder.DefaultSampleIntervals,
+            SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean)
         {
-            var key = new PresentationEnvelopeKey(parameter, minimumCelsius, maximumCelsius, intervals);
+            var key = new PresentationEnvelopeKey(parameter, minimumCelsius, maximumCelsius, intervals, mode);
             lock (cacheLock)
             {
-                if (envelopes.TryGetValue(key, out var cached)) return cached;
-                var samples = FitEnvelopeBuilder.SampleDomain(minimumCelsius, maximumCelsius, intervals);
-                var value = new AnalysisResultAggregateSummaryCalculator(Result, bypassPresentationCache: true)
-                    .BuildEnvelope(parameter, samples).ToArray();
-                envelopes[key] = value;
-                return value;
+                if (!envelopes.TryGetValue(key, out var cached))
+                {
+                    var samples = FitEnvelopeBuilder.SampleDomain(minimumCelsius, maximumCelsius, intervals);
+                    var points = new AnalysisResultAggregateSummaryCalculator(Result, bypassPresentationCache: true, mode)
+                        .BuildEnvelope(parameter, samples, out var kind);
+                    cached = (points, kind);
+                    envelopes[key] = cached;
+                }
+                intervalKind = cached.Kind;
+                return cached.Points;
             }
         }
 
@@ -136,11 +148,13 @@ namespace AnalysisITC.Core.Presentation
     {
         readonly ParameterType parameter;
         readonly double temperature;
-        internal PresentationSummaryKey(ParameterType parameter, double temperature)
-        { this.parameter = parameter; this.temperature = temperature; }
-        public bool Equals(PresentationSummaryKey other) => parameter == other.parameter && temperature.Equals(other.temperature);
+        readonly SummaryUncertaintyMode mode;
+        internal PresentationSummaryKey(ParameterType parameter, double temperature, SummaryUncertaintyMode mode)
+        { this.parameter = parameter; this.temperature = temperature; this.mode = mode; }
+        public bool Equals(PresentationSummaryKey other) =>
+            parameter == other.parameter && temperature.Equals(other.temperature) && mode == other.mode;
         public override bool Equals(object obj) => obj is PresentationSummaryKey other && Equals(other);
-        public override int GetHashCode() => ((int)parameter * 397) ^ temperature.GetHashCode();
+        public override int GetHashCode() => ((((int)parameter * 397) ^ temperature.GetHashCode()) * 397) ^ (int)mode;
     }
 
     readonly struct PresentationEnvelopeKey : IEquatable<PresentationEnvelopeKey>
@@ -149,12 +163,20 @@ namespace AnalysisITC.Core.Presentation
         readonly double minimum;
         readonly double maximum;
         readonly int intervals;
-        internal PresentationEnvelopeKey(ParameterType parameter, double minimum, double maximum, int intervals)
-        { this.parameter = parameter; this.minimum = minimum; this.maximum = maximum; this.intervals = intervals; }
+        readonly SummaryUncertaintyMode mode;
+        internal PresentationEnvelopeKey(ParameterType parameter, double minimum, double maximum, int intervals, SummaryUncertaintyMode mode)
+        {
+            this.parameter = parameter;
+            this.minimum = minimum;
+            this.maximum = maximum;
+            this.intervals = intervals;
+            this.mode = mode;
+        }
         public bool Equals(PresentationEnvelopeKey other) => parameter == other.parameter
-            && minimum.Equals(other.minimum) && maximum.Equals(other.maximum) && intervals == other.intervals;
+            && minimum.Equals(other.minimum) && maximum.Equals(other.maximum) && intervals == other.intervals && mode == other.mode;
         public override bool Equals(object obj) => obj is PresentationEnvelopeKey other && Equals(other);
-        public override int GetHashCode() => ((((int)parameter * 397) ^ minimum.GetHashCode()) * 397 ^ maximum.GetHashCode()) * 397 ^ intervals;
+        public override int GetHashCode() =>
+            (((((int)parameter * 397) ^ minimum.GetHashCode()) * 397 ^ maximum.GetHashCode()) * 397 ^ intervals) * 397 ^ (int)mode;
     }
 
     public sealed class AnalysisResultPresentationMember

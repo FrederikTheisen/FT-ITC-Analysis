@@ -15,24 +15,29 @@ namespace AnalysisITC.Core.Presentation
 {
     public sealed class AnalysisResultParameterEvaluationRow
     {
-        public AnalysisResultParameterEvaluationRow(string label, string value, string tooltip)
+        public AnalysisResultParameterEvaluationRow(string label, string value, string tooltip, string summaryUncertaintyLabel = null)
         {
             Label = label ?? "";
             Value = value ?? "";
             Tooltip = tooltip ?? "";
+            SummaryUncertaintyLabel = summaryUncertaintyLabel ?? "";
         }
 
         public string Label { get; }
         public string Value { get; }
         public string Tooltip { get; }
+        public string SummaryUncertaintyLabel { get; }
+        public string DisplayLabel => string.IsNullOrEmpty(SummaryUncertaintyLabel)
+            ? Label : $"{Label} ({SummaryUncertaintyLabel})";
     }
 
     public sealed class AnalysisResultParameterEvaluation
     {
-        AnalysisResultParameterEvaluation(double temperatureCelsius, List<AnalysisResultParameterEvaluationRow> rows, string message)
+        AnalysisResultParameterEvaluation(double temperatureCelsius, List<AnalysisResultParameterEvaluationRow> rows, string message, SummaryUncertaintyMode? summaryMode = null)
         {
             TemperatureCelsius = temperatureCelsius;
             Rows = rows;
+            SummaryMode = summaryMode;
             Message = message ?? "";
         }
 
@@ -40,15 +45,16 @@ namespace AnalysisITC.Core.Presentation
         public IReadOnlyList<AnalysisResultParameterEvaluationRow> Rows { get; }
         public string Message { get; }
         public bool IsAvailable => Rows.Count > 0;
+        public SummaryUncertaintyMode? SummaryMode { get; }
 
         public static AnalysisResultParameterEvaluation Unavailable(double temperatureCelsius, string message)
         {
             return new AnalysisResultParameterEvaluation(temperatureCelsius, new List<AnalysisResultParameterEvaluationRow>(), message);
         }
 
-        public static AnalysisResultParameterEvaluation Available(double temperatureCelsius, List<AnalysisResultParameterEvaluationRow> rows)
+        public static AnalysisResultParameterEvaluation Available(double temperatureCelsius, List<AnalysisResultParameterEvaluationRow> rows, SummaryUncertaintyMode? summaryMode = null)
         {
-            return new AnalysisResultParameterEvaluation(temperatureCelsius, rows ?? new List<AnalysisResultParameterEvaluationRow>(), "");
+            return new AnalysisResultParameterEvaluation(temperatureCelsius, rows ?? new List<AnalysisResultParameterEvaluationRow>(), "", summaryMode);
         }
     }
 
@@ -58,7 +64,8 @@ namespace AnalysisITC.Core.Presentation
         ReplicateStandardDeviation,
         TemperatureTrendStandardDeviation,
         RegressionSlopeStandardError,
-        InsufficientReplicates,
+        MeanStandardError,
+        TemperatureTrendStandardError,
     }
 
     internal sealed class AggregateParameterSummary
@@ -83,20 +90,37 @@ namespace AnalysisITC.Core.Presentation
     {
         readonly AnalysisResult result;
         readonly bool bypassPresentationCache;
+        readonly bool preserveLegacyStandardDeviation;
 
-        public AnalysisResultAggregateSummaryCalculator(AnalysisResult result)
-            : this(result, bypassPresentationCache: false) { }
+        public AnalysisResultAggregateSummaryCalculator(AnalysisResult result,
+            SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean)
+            : this(result, bypassPresentationCache: false, mode) { }
 
-        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result, bool bypassPresentationCache)
+        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result, bool bypassPresentationCache,
+            SummaryUncertaintyMode mode = SummaryUncertaintyMode.Mean)
+            : this(result, bypassPresentationCache, mode, preserveLegacyStandardDeviation: false) { }
+
+        AnalysisResultAggregateSummaryCalculator(AnalysisResult result, bool bypassPresentationCache,
+            SummaryUncertaintyMode mode, bool preserveLegacyStandardDeviation)
         {
             this.result = result;
             this.bypassPresentationCache = bypassPresentationCache;
+            this.preserveLegacyStandardDeviation = preserveLegacyStandardDeviation;
+            Mode = mode;
         }
+
+        public SummaryUncertaintyMode Mode { get; }
+
+        // Competitor capture retains the existing scientific input convention:
+        // replicate SD and the propagated interval of the mean.
+        internal static AnalysisResultAggregateSummaryCalculator ForCompetitorCapture(AnalysisResult result) =>
+            new AnalysisResultAggregateSummaryCalculator(result, bypassPresentationCache: true, SummaryUncertaintyMode.Mean,
+                preserveLegacyStandardDeviation: true);
 
         internal AggregateParameterSummary Evaluate(ParameterType parameter, double temperatureCelsius)
         {
             if (!bypassPresentationCache && result?.PresentationData != null)
-                return result.PresentationData.GetSummary(parameter, temperatureCelsius);
+                return result.PresentationData.GetSummary(parameter, temperatureCelsius, Mode);
             var summary = BuildDependence(parameter);
             return summary == null ? null : new AggregateParameterSummary(summary.Evaluate(temperatureCelsius), summary.Kind, summary.Count);
         }
@@ -109,7 +133,7 @@ namespace AnalysisITC.Core.Presentation
         internal AggregateParameterSummary EvaluateSummaryParameter(ParameterType parameter, double temperatureCelsius)
         {
             if (!bypassPresentationCache && result?.PresentationData != null)
-                return result.PresentationData.GetSummary(parameter, temperatureCelsius);
+                return result.PresentationData.GetSummary(parameter, temperatureCelsius, Mode);
             if (!ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
                 return Evaluate(parameter, temperatureCelsius);
 
@@ -143,8 +167,8 @@ namespace AnalysisITC.Core.Presentation
             var observations = Observations(parameter);
             var values = observations.Select(item => item.value).ToArray();
             var summary = result.Model.TemperatureDependenceExposed
-                ? SummaryUncertainty.Trend(dependence, values, observations.Select(item => item.data.MeasuredTemperature).ToArray())
-                : SummaryUncertainty.Mean(values, dependence.Intercept.Value);
+                ? SummaryUncertainty.Trend(dependence, values, observations.Select(item => item.data.MeasuredTemperature).ToArray(), Mode, preserveLegacyStandardDeviation)
+                : SummaryUncertainty.Mean(values, dependence.Intercept.Value, Mode, preserveLegacyStandardDeviation);
             if (!result.Model.TemperatureDependenceExposed)
             {
                 summary.ReferenceTemperature = dependence.ReferenceT;
@@ -156,53 +180,44 @@ namespace AnalysisITC.Core.Presentation
             return summary;
         }
 
-        /// <summary>
-        /// Samples the saved temperature relationship using the same evaluator
-        /// for linear and thermodynamically linked parameters.
-        /// </summary>
         public IReadOnlyList<FitEnvelopePoint> BuildEnvelope(
-            ParameterType parameter,
-            IEnumerable<double> temperaturesCelsius)
+            ParameterType parameter, IEnumerable<double> temperaturesCelsius) =>
+            BuildEnvelope(parameter, temperaturesCelsius, out _);
+
+        /// <summary>Samples the same bounds that parameter evaluation displays at each temperature.</summary>
+        public IReadOnlyList<FitEnvelopePoint> BuildEnvelope(
+            ParameterType parameter, IEnumerable<double> temperaturesCelsius,
+            out TemperatureDependenceIntervalKind intervalKind)
         {
-            if (result?.Solution?.TemperatureDependence == null
-                || temperaturesCelsius == null
-                || !result.Solution.TemperatureDependence.TryGetValue(parameter, out var fit))
+            intervalKind = TemperatureDependenceIntervalKind.Model;
+            if (result?.Solution?.TemperatureDependence == null || temperaturesCelsius == null)
                 return Array.Empty<FitEnvelopePoint>();
 
             var dependence = BuildDependence(parameter);
             if (dependence == null) return Array.Empty<FitEnvelopePoint>();
 
-            if (IsThermodynamicallyLinked(parameter))
+            intervalKind = dependence.Kind switch
             {
-                var scratch = new List<double>(dependence.Replicates.Count);
-                return FitEnvelopeBuilder.Build(temperaturesCelsius, temperature =>
-                {
-                    var value = dependence.Evaluate(temperature, scratch);
-                    return (value.Value, value.Lower, value.Upper);
-                });
+                AggregateUncertaintyKind.TemperatureTrendStandardError or AggregateUncertaintyKind.MeanStandardError
+                    => TemperatureDependenceIntervalKind.FittedTrend,
+                AggregateUncertaintyKind.TemperatureTrendStandardDeviation or AggregateUncertaintyKind.ReplicateStandardDeviation
+                    => TemperatureDependenceIntervalKind.ReplicateRange,
+                _ => TemperatureDependenceIntervalKind.Model,
+            };
+            var scratch = new List<double>(dependence.Replicates.Count);
+            var points = new List<FitEnvelopePoint>();
+            foreach (var temperature in temperaturesCelsius.Where(SummaryUncertainty.IsFinite))
+            {
+                var value = dependence.Evaluate(temperature, scratch);
+                points.Add(new FitEnvelopePoint(temperature, value.Value, value.Lower, value.Upper));
             }
-
-            var bootstrapFits = result.Solution.BootstrapSolutions?
-                .Where(solution => solution?.TemperatureDependence?.ContainsKey(parameter) == true)
-                .Select(solution => solution.TemperatureDependence[parameter])
-                .ToList();
-            return FitEnvelopeBuilder.Build(fit, bootstrapFits, temperaturesCelsius);
-        }
-
-        bool IsThermodynamicallyLinked(ParameterType parameter)
-        {
-            return ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family)
-                && (family == ThermodynamicParameterFamily.Enthalpy
-                    || family == ThermodynamicParameterFamily.Gibbs
-                    || family == ThermodynamicParameterFamily.EntropyContribution)
-                && result.Model.Parameters.GetConstraintForParameter(slot.Affinity)
-                    == VariableConstraint.ThermodynamicallyLinked;
+            return points;
         }
 
         internal AggregateParameterSummary EvaluateHeatCapacity(ThermodynamicParameterSlot slot)
         {
             if (!bypassPresentationCache && result?.PresentationData != null)
-                return result.PresentationData.GetSummary(slot.HeatCapacity, 0);
+                return result.PresentationData.GetSummary(slot.HeatCapacity, 0, Mode);
             if (result.Model.Parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked)
             {
                 var linked = LinkedThermodynamicEvaluation.Build(result.Solution, slot, ThermodynamicParameterFamily.Enthalpy);
@@ -268,10 +283,11 @@ namespace AnalysisITC.Core.Presentation
             AnalysisResult result,
             double temperatureCelsius,
             EnergyUnit energyUnit,
-            UncertaintyDisplayStyle uncertaintyStyle)
+            UncertaintyDisplayStyle uncertaintyStyle,
+            SummaryUncertaintyMode? mode = null)
         {
             EnergyUnitResolver.ValidateOverride(energyUnit);
-            return EvaluateInternal(result, temperatureCelsius, energyUnit, energyUnit, uncertaintyStyle);
+            return EvaluateInternal(result, temperatureCelsius, energyUnit, energyUnit, uncertaintyStyle, mode ?? AppSettings.SummaryUncertaintyMode);
         }
 
         public static AnalysisResultParameterEvaluation Evaluate(
@@ -279,20 +295,22 @@ namespace AnalysisITC.Core.Presentation
             double temperatureCelsius,
             EnergyUnitFamily family,
             EnergyUnit? energyUnitOverride,
-            UncertaintyDisplayStyle uncertaintyStyle)
+            UncertaintyDisplayStyle uncertaintyStyle,
+            SummaryUncertaintyMode? mode = null)
         {
             temperatureCelsius = Math.Max(AbsoluteZeroCelsius, temperatureCelsius);
             var units = ResolveEnergyUnits(result, temperatureCelsius, family, energyUnitOverride);
-            return EvaluateInternal(result, temperatureCelsius, units.molar, units.heatCapacity, uncertaintyStyle);
+            return EvaluateInternal(result, temperatureCelsius, units.molar, units.heatCapacity, uncertaintyStyle, mode ?? AppSettings.SummaryUncertaintyMode);
         }
 
         public static AnalysisResultParameterEvaluation Evaluate(
             AnalysisResult result,
             double temperatureCelsius,
             EnergyUnitFamily family,
-            UncertaintyDisplayStyle uncertaintyStyle)
+            UncertaintyDisplayStyle uncertaintyStyle,
+            SummaryUncertaintyMode? mode = null)
         {
-            return Evaluate(result, temperatureCelsius, family, null, uncertaintyStyle);
+            return Evaluate(result, temperatureCelsius, family, null, uncertaintyStyle, mode);
         }
 
         static AnalysisResultParameterEvaluation EvaluateInternal(
@@ -300,22 +318,25 @@ namespace AnalysisITC.Core.Presentation
             double temperatureCelsius,
             EnergyUnit molarEnergyUnit,
             EnergyUnit heatCapacityUnit,
-            UncertaintyDisplayStyle uncertaintyStyle)
+            UncertaintyDisplayStyle uncertaintyStyle,
+            SummaryUncertaintyMode mode)
         {
             temperatureCelsius = Math.Max(AbsoluteZeroCelsius, temperatureCelsius);
 
             if (result?.Solution?.TemperatureDependence == null)
                 return AnalysisResultParameterEvaluation.Unavailable(temperatureCelsius, "Parameter evaluation unavailable.");
 
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result, mode);
             var rows = new List<AnalysisResultParameterEvaluationRow>();
             AddHeatCapacityRows(result, summaries, rows, heatCapacityUnit, uncertaintyStyle);
+            var firstInteractionRow = rows.Count;
             foreach (var slot in PresentSlots(result))
                 AddInteractionRows(result, summaries, rows, slot, temperatureCelsius, molarEnergyUnit, uncertaintyStyle);
 
             return rows.Count == 0
                 ? AnalysisResultParameterEvaluation.Unavailable(temperatureCelsius, "Parameter evaluation unavailable for this result.")
-                : AnalysisResultParameterEvaluation.Available(temperatureCelsius, rows);
+                : AnalysisResultParameterEvaluation.Available(temperatureCelsius, rows,
+                    rows.Skip(firstInteractionRow).Any(row => row.SummaryUncertaintyLabel.Length > 0) ? (SummaryUncertaintyMode?)mode : null);
         }
 
         public static List<Tuple<string, string>> EvaluateDefaultList(AnalysisResult result)
@@ -386,12 +407,12 @@ namespace AnalysisITC.Core.Presentation
                 label,
                 heatCapacity.ToFormattedString(energyUnit, withunit: true, permole: true, perK: true, style: uncertaintyStyle),
                 ErrorTooltip(
-                    "∆Cp",
                     heatCapacity.FloatWithError * energyUnit.GetMod(),
                     energyUnit.GetUnit() + "/mol·K",
                     summary,
                     IsProfileResult(result),
-                    HasDirectSharedProfileCoordinate(result, slot.HeatCapacity))));
+                    HasDirectSharedProfileCoordinate(result, slot.HeatCapacity)),
+                AggregateUncertaintyPresentation.DisplayLabel(summary, uncertaintyStyle)));
         }
 
         static void AddInteractionRows(
@@ -413,18 +434,18 @@ namespace AnalysisITC.Core.Presentation
             {
                 var directProfile = result.Solution.TemperatureDependence.TryGetValue(enthalpyKey, out var dependence)
                     && HasDirectEnthalpyProfileCoordinate(result, slot, dependence, temperatureCelsius);
-                rows.Add(EnergyRow(ParameterName(enthalpyKey), "∆H", enthalpy, enthalpySummary, energyUnit, uncertaintyStyle, profile, directProfile));
+                rows.Add(EnergyRow(ParameterName(enthalpyKey), enthalpy, enthalpySummary, energyUnit, uncertaintyStyle, profile, directProfile));
             }
 
             if (TryEvaluateEnergy(summaries, entropyKey, temperatureCelsius, out var entropy, out var entropySummary))
-                rows.Add(EnergyRow(ParameterName(entropyKey), "-T∆S", entropy, entropySummary, energyUnit, uncertaintyStyle, profile));
+                rows.Add(EnergyRow(ParameterName(entropyKey), entropy, entropySummary, energyUnit, uncertaintyStyle, profile));
 
             if (TryEvaluateEnergy(summaries, gibbsKey, temperatureCelsius, out var gibbs, out var gibbsSummary))
             {
                 var directProfile = result.Solution.Model.Parameters.GetConstraintForParameter(affinityKey)
                     == VariableConstraint.TemperatureDependent
                     && HasDirectSharedProfileCoordinate(result, gibbsKey);
-                rows.Add(EnergyRow(ParameterName(gibbsKey), "∆G", gibbs, gibbsSummary, energyUnit, uncertaintyStyle, profile, directProfile));
+                rows.Add(EnergyRow(ParameterName(gibbsKey), gibbs, gibbsSummary, energyUnit, uncertaintyStyle, profile, directProfile));
 
                 var affinitySummary = summaries.EvaluateSummaryParameter(affinityKey, temperatureCelsius);
                 if (affinitySummary == null) return;
@@ -432,7 +453,8 @@ namespace AnalysisITC.Core.Presentation
                 rows.Add(new AnalysisResultParameterEvaluationRow(
                     ParameterName(affinityKey),
                     kd.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
-                    ConcentrationTooltip("Kd", kd, affinitySummary, profile)));
+                    ConcentrationTooltip(kd, affinitySummary, profile),
+                    AggregateUncertaintyPresentation.DisplayLabel(affinitySummary, uncertaintyStyle)));
             }
         }
 
@@ -486,7 +508,6 @@ namespace AnalysisITC.Core.Presentation
 
         static AnalysisResultParameterEvaluationRow EnergyRow(
             string label,
-            string tooltipPrefix,
             Energy value,
             AggregateParameterSummary summary,
             EnergyUnit energyUnit,
@@ -498,67 +519,59 @@ namespace AnalysisITC.Core.Presentation
                 label,
                 value.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
                 ErrorTooltip(
-                    tooltipPrefix,
                     value.FloatWithError * energyUnit.GetMod(),
                     energyUnit.GetUnit() + "/mol",
                     summary,
                     profile,
-                    directProfile));
+                    directProfile),
+                AggregateUncertaintyPresentation.DisplayLabel(summary, uncertaintyStyle));
         }
 
         static string ConcentrationTooltip(
-            string prefix,
             FloatWithError value,
-            AggregateParameterSummary summary = null,
-            bool profile = false)
+            AggregateParameterSummary summary,
+            bool profile)
         {
             var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
             var unitName = IsFinite(value.Value) ? unit.GetName() : string.Empty;
-            return ErrorTooltip(prefix, value * unit.GetMod(), unitName, summary, profile);
+            return ErrorTooltip(value * unit.GetMod(), unitName, summary, profile);
         }
 
         static string ErrorTooltip(
-            string prefix,
             FloatWithError value,
             string unit,
-            AggregateParameterSummary summary = null,
-            bool profile = false,
+            AggregateParameterSummary summary,
+            bool profile,
             bool directProfile = false)
         {
-            var suffix = string.IsNullOrWhiteSpace(unit) ? string.Empty : " " + unit;
-            var central = IsFinite(value.Value) ? FormatTooltipNumber(value.Value) : "unavailable";
-            var sd = IsFinite(value.SD) ? FormatTooltipNumber(value.SD) : "unavailable";
-            var lower = IsFinite(value.Lower) ? FormatTooltipNumber(value.Lower) : "unavailable";
-            var upper = IsFinite(value.Upper) ? FormatTooltipNumber(value.Upper) : "unavailable";
-            var isAggregate = summary != null && summary.Kind != AggregateUncertaintyKind.ModelEstimated;
+            if (FloatWithError.IsNaN(value) || !IsFinite(value.Value)) return "";
 
-            var statistic = "SD";
-            if (isAggregate)
+            var estimate = FormatTooltipNumber(value.Value);
+            var kind = summary?.Kind ?? AggregateUncertaintyKind.ModelEstimated;
+            if (value.HasError && IsFinite(value.SD))
             {
-                switch (summary.Kind)
+                var statistic = kind switch
                 {
-                    case AggregateUncertaintyKind.ReplicateStandardDeviation:
-                    case AggregateUncertaintyKind.InsufficientReplicates:
-                        statistic = $"Combined SD (n = {summary.Count})";
-                        break;
-                    case AggregateUncertaintyKind.TemperatureTrendStandardDeviation:
-                        statistic = "Combined SD around temperature trend";
-                        break;
-                    case AggregateUncertaintyKind.RegressionSlopeStandardError:
-                        statistic = "Propagated slope SD";
-                        break;
-                }
+                    AggregateUncertaintyKind.MeanStandardError or AggregateUncertaintyKind.TemperatureTrendStandardError
+                        => AggregateUncertaintyPresentation.StatisticLabel(summary),
+                    AggregateUncertaintyKind.RegressionSlopeStandardError => "slope SE",
+                    _ => "SD",
+                };
+                estimate += $" ± {FormatTooltipNumber(value.SD)} {unit} ({statistic})";
             }
-            var interval = isAggregate
-                ? $"Approximate propagated interval: {lower} to {upper}{suffix}. Constructed from individual 95% intervals and observed spread; 95% coverage is not established. Covariance between experiments is omitted."
-                : profile
-                    ? $"95% CI: {lower} to {upper}{suffix} ({(directProfile ? "direct profile" : "propagated")})"
-                    : $"95% confidence interval: {lower} to {upper}{suffix}";
+            else estimate += " " + unit;
 
-            return string.Join(
-                Environment.NewLine,
-                $"{prefix} (value ± {statistic}): {central} ± {sd}{suffix}",
-                interval);
+            if (!value.HasConfidenceInterval || !IsFinite(value.Lower) || !IsFinite(value.Upper)) return estimate;
+
+            var interval = kind switch
+            {
+                AggregateUncertaintyKind.ReplicateStandardDeviation or AggregateUncertaintyKind.TemperatureTrendStandardDeviation => "95% range",
+                AggregateUncertaintyKind.ModelEstimated => "95% CI",
+                _ => "95% limits",
+            };
+            var source = profile && kind == AggregateUncertaintyKind.ModelEstimated
+                ? (directProfile ? " (direct profile)" : " (propagated)") : "";
+            return $"{estimate}{Environment.NewLine}{interval}: {FormatTooltipNumber(value.Lower)} to {FormatTooltipNumber(value.Upper)}{source}";
         }
 
         static bool IsProfileResult(AnalysisResult result) =>
