@@ -66,6 +66,45 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(100, overflowing["Value"]);
         }
 
+        [Theory]
+        [InlineData(900, 900, 0, 300, 300)]
+        [InlineData(170, 240, 440, 200, 240)]
+        [InlineData(170, 900, 700, 300, 300)]
+        public void LimitedExpansionCapsAllAutomaticWidths(
+            double experimentMeasurement, double dataMeasurement, double availableWidth, double experimentWidth, double dataWidth)
+        {
+            var widths = AnalysisResultOverviewColumnWidthPolicy.Calculate(
+                Columns,
+                new Dictionary<string, double>
+                {
+                    ["Experiment"] = experimentMeasurement,
+                    ["Value"] = dataMeasurement,
+                },
+                availableWidth,
+                limitExperimentExpansion: true);
+
+            Assert.Equal(experimentWidth, widths["Experiment"]);
+            Assert.Equal(dataWidth, widths["Value"]);
+        }
+
+        [Fact]
+        public void LimitedExpansionHonorsManualWidthsEvenWithViewportSurplus()
+        {
+            var widths = AnalysisResultOverviewColumnWidthPolicy.Calculate(
+                Columns,
+                new Dictionary<string, double> { ["Value"] = 900 },
+                availableWidth: 1400,
+                manualWidths: new Dictionary<string, double>
+                {
+                    ["Experiment"] = 480,
+                    ["Value"] = 200,
+                },
+                limitExperimentExpansion: true);
+
+            Assert.Equal(480, widths["Experiment"]);
+            Assert.Equal(200, widths["Value"]);
+        }
+
         [Fact]
         public void ManualWidthsUseMinimumButNotAutomaticMaximum()
         {

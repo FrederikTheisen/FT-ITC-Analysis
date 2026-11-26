@@ -18,11 +18,13 @@ namespace AnalysisITC.Core.Presentation
             IReadOnlyList<AnalysisResultOverviewColumn> columns,
             IReadOnlyDictionary<string, double> measuredWidths,
             double availableWidth,
-            IReadOnlyDictionary<string, double> manualWidths = null)
+            IReadOnlyDictionary<string, double> manualWidths = null,
+            bool limitExperimentExpansion = false)
         {
             if (columns == null) throw new ArgumentNullException(nameof(columns));
 
             var widths = new Dictionary<string, double>(StringComparer.Ordinal);
+            var experimentHasManualWidth = false;
             foreach (var column in columns)
             {
                 if (column == null || string.IsNullOrEmpty(column.Id)) continue;
@@ -32,6 +34,7 @@ namespace AnalysisITC.Core.Presentation
                     && IsFinitePositive(manualWidth))
                 {
                     widths[column.Id] = Math.Max(MinimumWidth, manualWidth);
+                    if (column.Id == FlexibleColumnId) experimentHasManualWidth = true;
                     continue;
                 }
 
@@ -41,17 +44,21 @@ namespace AnalysisITC.Core.Presentation
                     && IsFinitePositive(suppliedWidth))
                     measuredWidth = suppliedWidth;
 
-                widths[column.Id] = Math.Max(
-                    MinimumWidth,
-                    Math.Min(MaximumAutomaticWidth, measuredWidth));
+                widths[column.Id] = Math.Max(MinimumWidth, Math.Min(MaximumAutomaticWidth, measuredWidth));
             }
 
             if (IsFinitePositive(availableWidth)
-                && widths.TryGetValue(FlexibleColumnId, out var flexibleWidth))
+                && widths.TryGetValue(FlexibleColumnId, out var flexibleWidth)
+                && (!limitExperimentExpansion || !experimentHasManualWidth))
             {
                 var surplus = availableWidth - widths.Values.Sum();
                 if (surplus > 0)
-                    widths[FlexibleColumnId] = flexibleWidth + surplus;
+                {
+                    var expandedWidth = flexibleWidth + surplus;
+                    widths[FlexibleColumnId] = limitExperimentExpansion
+                        ? Math.Min(MaximumAutomaticWidth, expandedWidth)
+                        : expandedWidth;
+                }
             }
 
             return widths;

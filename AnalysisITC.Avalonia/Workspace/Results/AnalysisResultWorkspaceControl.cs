@@ -36,7 +36,7 @@ namespace AnalysisITC.Avalonia.Results
     public sealed class AnalysisResultWorkspaceControl : UserControl
     {
         const double ResultTableResizeGripWidth = 8;
-        const double ResultTableMeasurementSafety = 4;
+        const double ResultTableMeasurementSafety = 12;
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", ElectrostaticsAnalysisAvailability.SaltDependenceModeLabel };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -138,6 +138,7 @@ namespace AnalysisITC.Avalonia.Results
             };
             BuildLayout();
             WireEvents();
+            Loaded += (_, _) => MeasureAndApplyResultTableColumnWidths();
             Refresh();
         }
 
@@ -1451,7 +1452,7 @@ namespace AnalysisITC.Avalonia.Results
             var grid = new Grid { HorizontalAlignment = HorizontalAlignment.Left };
             AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.PanelBackground);
 
-            foreach (var column in table.Columns)
+            for (int i = 0; i < table.Columns.Count; i++)
             {
                 grid.ColumnDefinitions.Add(new ColumnDefinition(
                     AnalysisResultOverviewColumnWidthPolicy.MinimumWidth,
@@ -1459,7 +1460,6 @@ namespace AnalysisITC.Avalonia.Results
                 {
                     MinWidth = AnalysisResultOverviewColumnWidthPolicy.MinimumWidth
                 });
-                measuredResultTableColumnWidths[column.Id] = MeasureResultTableColumn(table, column);
             }
 
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -1487,33 +1487,29 @@ namespace AnalysisITC.Avalonia.Results
             resultTableGrid = grid;
             resultTablePresentation = table;
             tableHost.Children.Add(grid);
-            ApplyResultTableColumnWidths();
+            if (IsLoaded)
+                MeasureAndApplyResultTableColumnWidths();
+            else
+                ApplyResultTableColumnWidths();
         }
 
-        double MeasureResultTableColumn(
-            AnalysisResultOverviewTable table,
-            AnalysisResultOverviewColumn column)
+        void MeasureAndApplyResultTableColumnWidths()
         {
-            var width = MeasureResultTableText(column.Title, 11, FontWeight.SemiBold)
-                + ResultTableResizeGripWidth;
-            foreach (var row in table.Rows)
-                width = Math.Max(width, MeasureResultTableText(row[column.Id], 12, AppTheme.BodyFontWeight));
+            if (resultTableGrid == null || resultTablePresentation == null) return;
 
-            return Math.Ceiling(width + ResultTableMeasurementSafety);
-        }
-
-        static double MeasureResultTableText(string text, double fontSize, FontWeight fontWeight)
-        {
-            var textBlock = new TextBlock
+            measuredResultTableColumnWidths.Clear();
+            foreach (var cell in resultTableGrid.Children.OfType<Border>())
             {
-                Text = text ?? "",
-                FontSize = fontSize,
-                FontWeight = fontWeight,
-                Margin = new Thickness(8, 5),
-                TextWrapping = TextWrapping.NoWrap
-            };
-            textBlock.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            return textBlock.DesiredSize.Width;
+                var column = resultTablePresentation.Columns[Grid.GetColumn(cell)];
+                cell.Measure(Size.Infinity);
+                var resizeGripWidth = Grid.GetRow(cell) == 0 ? ResultTableResizeGripWidth : 0;
+                var width = Math.Ceiling(cell.DesiredSize.Width + resizeGripWidth + ResultTableMeasurementSafety);
+                measuredResultTableColumnWidths[column.Id] = Math.Max(
+                    width, measuredResultTableColumnWidths.GetValueOrDefault(column.Id));
+            }
+
+            ApplyResultTableColumnWidths();
+            resultTableGrid.InvalidateMeasure();
         }
 
         Dictionary<string, double> CurrentResultTableColumnWidths() =>
@@ -1533,7 +1529,8 @@ namespace AnalysisITC.Avalonia.Results
                 resultTablePresentation.Columns,
                 measuredResultTableColumnWidths,
                 availableWidth,
-                CurrentResultTableColumnWidths());
+                CurrentResultTableColumnWidths(),
+                limitExperimentExpansion: true);
 
             for (int i = 0; i < resultTablePresentation.Columns.Count; i++)
             {
@@ -1616,6 +1613,7 @@ namespace AnalysisITC.Avalonia.Results
                 Margin = new Thickness(8, 5),
                 FontSize = isHeader ? 11 : 12,
                 FontWeight = isHeader ? FontWeight.SemiBold : AppTheme.BodyFontWeight,
+                TextWrapping = TextWrapping.NoWrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 HorizontalAlignment = HorizontalAlignmentFor(alignment)
             };

@@ -3,7 +3,10 @@ using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
@@ -21,7 +24,7 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class AnalysisResultTableColumnWidthTests
 {
     [AvaloniaFact]
-    public void AutomaticWidthIsContentAwareAndClamped()
+    public void AutomaticExperimentWidthIsCappedInAWideViewport()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -31,11 +34,23 @@ public sealed class AnalysisResultTableColumnWidthTests
                 Result = CreateResult(new string('W', 200))
             };
 
-            var experiment = workspace.ResultTableGridForTesting!.ColumnDefinitions[0].Width.Value;
-            Assert.Equal(AnalysisResultOverviewColumnWidthPolicy.MaximumAutomaticWidth, experiment);
-            Assert.All(
-                workspace.ResultTableGridForTesting.ColumnDefinitions,
-                definition => Assert.True(definition.Width.Value >= AnalysisResultOverviewColumnWidthPolicy.MinimumWidth));
+            var window = new Window { Width = 1800, Height = 700, Content = workspace };
+            window.Styles.Add(new FluentTheme());
+            window.Show();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                var grid = workspace.ResultTableGridForTesting!;
+                var scroll = grid.GetVisualAncestors().OfType<ScrollViewer>().First();
+                var otherColumnsWidth = grid.ColumnDefinitions.Skip(1).Sum(column => column.Width.Value);
+
+                Assert.True(scroll.Bounds.Width > otherColumnsWidth + 300);
+                Assert.Equal(300, grid.ColumnDefinitions[0].Width.Value);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -46,31 +61,106 @@ public sealed class AnalysisResultTableColumnWidthTests
         {
             AppSettings.RememberResultTableColumnWidthsForSession = false;
             var workspace = new AnalysisResultWorkspaceControl { Result = CreateResult("normal.itc") };
-            var grid = workspace.ResultTableGridForTesting!;
-
-            foreach (var border in grid.Children.OfType<Border>())
+            var window = new Window { Width = 1100, Height = 700, Content = workspace };
+            window.Styles.Add(new FluentTheme());
+            window.Show();
+            try
             {
-                var columnWidth = grid.ColumnDefinitions[Grid.GetColumn(border)].Width.Value;
-                double requiredWidth;
+                Dispatcher.UIThread.RunJobs();
+                var grid = workspace.ResultTableGridForTesting!;
 
-                if (border.Child is Grid header)
+                foreach (var border in grid.Children.OfType<Border>())
                 {
-                    var label = header.Children.OfType<TextBlock>().Single();
-                    var grip = header.Children.OfType<Border>().Single();
-                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    requiredWidth = label.DesiredSize.Width + grip.Width;
+                    var columnWidth = grid.ColumnDefinitions[Grid.GetColumn(border)].ActualWidth;
+                    double requiredWidth;
+
+                    if (border.Child is Grid header)
+                    {
+                        var label = header.Children.OfType<TextBlock>().Single();
+                        var grip = header.Children.OfType<Border>().Single();
+                        label.Measure(Size.Infinity);
+                        requiredWidth = label.DesiredSize.Width + grip.Width;
+                    }
+                    else
+                    {
+                        var label = Assert.IsType<TextBlock>(border.Child);
+                        label.Measure(Size.Infinity);
+                        requiredWidth = label.DesiredSize.Width;
+                    }
+
+                    Assert.True(columnWidth >= Math.Ceiling(requiredWidth + border.BorderThickness.Right));
                 }
-                else
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(-0.001, false, false)]
+    [InlineData(-0.001, false, true)]
+    [InlineData(-1e-20, true, false)]
+    public void AutomaticDataColumnFitsStyledUncertaintyUpToTheCap(double lower, bool exceedsCap, bool assignAfterLoad)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var previousStyle = AppSettings.UncertaintyDisplayStyle;
+            var previousPrecision = AppSettings.NumberPrecision;
+            var previousRememberWidths = AppSettings.RememberResultTableColumnWidthsForSession;
+            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            AppSettings.NumberPrecision = NumberPrecision.Standard;
+            AppSettings.RememberResultTableColumnWidthsForSession = false;
+
+            var window = new Window { Width = 850, Height = 700 };
+            window.Styles.Add(new FluentTheme());
+            window.Styles.Add(new Style(selector => selector.OfType<TextBlock>())
+            {
+                Setters = { new Setter(TextBlock.LetterSpacingProperty, 2.0) }
+            });
+            try
+            {
+                var workspace = new AnalysisResultWorkspaceControl();
+                var result = CreateResult("normal.itc", stoichiometry: new FloatWithError(0, 0.01, lower, 0.02));
+                if (!assignAfterLoad) workspace.Result = result;
+                window.Content = workspace;
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                if (assignAfterLoad)
                 {
-                    var label = Assert.IsType<TextBlock>(border.Child);
-                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    requiredWidth = label.DesiredSize.Width;
+                    Assert.True(workspace.IsLoaded);
+                    workspace.Result = result;
+                    Dispatcher.UIThread.RunJobs();
                 }
 
-                Assert.True(
-                    columnWidth >= Math.Min(
-                        AnalysisResultOverviewColumnWidthPolicy.MaximumAutomaticWidth,
-                        Math.Ceiling(requiredWidth + 4)));
+                var grid = workspace.ResultTableGridForTesting!;
+                var cell = Assert.Single(grid.Children.OfType<Border>(), border =>
+                    border.Child is TextBlock label && label.Text?.Contains("±") == true);
+                var column = Grid.GetColumn(cell);
+                var header = Assert.Single(grid.Children.OfType<Border>(), border =>
+                    Grid.GetRow(border) == 0 && Grid.GetColumn(border) == column);
+                var label = Assert.IsType<TextBlock>(cell.Child);
+                var headerLabel = Assert.IsType<Grid>(header.Child).Children.OfType<TextBlock>().Single();
+                Assert.Equal(2.0, label.LetterSpacing);
+                var displayedWithEllipsis = label.TextLayout.TextLines.Any(line => line.HasCollapsed);
+                label.Measure(Size.Infinity);
+                headerLabel.Measure(Size.Infinity);
+
+                Assert.True(label.DesiredSize.Width > headerLabel.DesiredSize.Width);
+                var requiredWidth = label.DesiredSize.Width + cell.BorderThickness.Right;
+                Assert.Equal(exceedsCap, requiredWidth > 300);
+                Assert.Equal(exceedsCap, displayedWithEllipsis);
+                Assert.InRange(grid.ColumnDefinitions[column].ActualWidth, Math.Min(requiredWidth, 300), 300);
+                var scroll = grid.GetVisualAncestors().OfType<ScrollViewer>().First();
+                Assert.True(scroll.Extent.Width > scroll.Viewport.Width);
+            }
+            finally
+            {
+                window.Close();
+                AppSettings.UncertaintyDisplayStyle = previousStyle;
+                AppSettings.NumberPrecision = previousPrecision;
+                AppSettings.RememberResultTableColumnWidthsForSession = previousRememberWidths;
             }
         });
     }
@@ -136,7 +226,10 @@ public sealed class AnalysisResultTableColumnWidthTests
         });
     }
 
-    static AnalysisResult CreateResult(string experimentName, SolverConvergenceSnapshot? convergence = null)
+    static AnalysisResult CreateResult(
+        string experimentName,
+        SolverConvergenceSnapshot? convergence = null,
+        FloatWithError? stoichiometry = null)
     {
         var experiment = new ExperimentData(experimentName)
         {
@@ -157,6 +250,8 @@ public sealed class AnalysisResultTableColumnWidthTests
         model.Solution = SolutionInterface.FromModel(
             model,
             SolverConvergence.FromSnapshot(convergence ?? new SolverConvergenceSnapshot()));
+        if (stoichiometry.HasValue)
+            model.Solution.Parameters[ParameterType.Nvalue1] = stoichiometry.Value;
         return new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
     }
 }
