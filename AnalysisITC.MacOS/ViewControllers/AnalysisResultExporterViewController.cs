@@ -49,6 +49,13 @@ namespace AnalysisITC
 
             SetupOutputPurposeControl();
             SetupTemperatureControl();
+            UncertaintyStyleControl.AddItems(new[]
+            {
+                UncertaintyDisplayPresentation.SymmetricLabel,
+                UncertaintyDisplayPresentation.LimitsLabel,
+                UncertaintyDisplayPresentation.BothLabel,
+            });
+            UncertaintyStyleControl.SelectItem(0);
 
             SetupToolTips();
             SelectDefaultRows();
@@ -217,7 +224,7 @@ namespace AnalysisITC
 
         UncertaintyDisplayStyle ExportUncertaintyStyle()
         {
-            return (int)UncertaintyStyleControl.SelectedSegment switch
+            return (int)UncertaintyStyleControl.IndexOfSelectedItem switch
             {
                 1 => UncertaintyDisplayStyle.ConfidenceInterval,
                 2 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,

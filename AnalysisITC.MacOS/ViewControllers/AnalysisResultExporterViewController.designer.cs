@@ -39,7 +39,7 @@ namespace AnalysisITC
 		AnalysisITC.ToggleSelectTableView ListView { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl UncertaintyStyleControl { get; set; }
+		AppKit.NSPopUpButton UncertaintyStyleControl { get; set; }
 
 		[Action ("CopyToClipboard:")]
 		partial void CopyToClipboard (Foundation.NSObject sender);

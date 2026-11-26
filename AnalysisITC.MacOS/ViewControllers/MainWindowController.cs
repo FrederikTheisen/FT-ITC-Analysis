@@ -919,16 +919,16 @@ namespace AnalysisITC
             var item = CreateContextMenuItem("Error Style", null, enabled, null);
             var submenu = new NSMenu("Error Style") { AutoEnablesItems = false };
 
-            submenu.AddItem(CreateContextMenuItem("Auto", "errorstyleauto", enabled,
+            submenu.AddItem(CreateContextMenuItem("Automatic", "errorstyleauto", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.Automatic),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic));
-            submenu.AddItem(CreateContextMenuItem("Standard Deviation", "errorstylesd", enabled,
+            submenu.AddItem(CreateContextMenuItem(UncertaintyDisplayPresentation.SymmetricLabel, "errorstylesd", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviation),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation));
-            submenu.AddItem(CreateContextMenuItem("95% Confidence Interval", "errorstyleci", enabled,
+            submenu.AddItem(CreateContextMenuItem("95% Intervals", "errorstyleci", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.ConfidenceInterval),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval));
-            submenu.AddItem(CreateContextMenuItem("Standard Deviation + 95% CI", "errorstyleboth", enabled,
+            submenu.AddItem(CreateContextMenuItem("Symmetric and 95% Intervals", "errorstyleboth", enabled,
                 (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
                 AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval));
 

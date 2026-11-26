@@ -11236,20 +11236,16 @@ DQ
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Show ±, 95% limits, or both." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="URB-C7-W7z">
+                                            <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="URB-C7-W7z">
                                                 <rect key="frame" x="178" y="-2" width="254" height="19"/>
+                                                <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="mNY-F5-671">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <menu key="menu" id="export-uncertainty-menu"/>
+                                                </popUpButtonCell>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="Fx7-89-2Hc"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="mNY-F5-671">
-                                                    <font key="font" metaFont="smallSystem"/>
-                                                    <segments>
-                                                        <segment label="±" selected="YES"/>
-                                                        <segment label="95% limits" tag="1"/>
-                                                        <segment label="± and 95% limits" tag="2"/>
-                                                    </segments>
-                                                </segmentedCell>
-                                            </segmentedControl>
+                                            </popUpButton>
                                         </subviews>
                                         <visibilityPriorities>
                                             <integer value="1000"/>

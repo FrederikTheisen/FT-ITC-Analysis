@@ -562,7 +562,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 - Assessment text always includes "(manual)" for overrides, independently of Traceability Mode; collection summaries are marked when any member is overridden.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
 - Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data, except the E04/E04a Injection bookkeeping row, which is saved with the fit.
-- Uncertainty style (default ± and 95% limits) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
+- Uncertainty style (default **Symmetric and 95% intervals**) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
 - RMSD is always µJ, molar RMSD kJ/mol, whatever the energy unit.
 - Defaults: injection tables on, condense repeats on, expanded explanations off, advanced analyses off.
 - Both desktop report builders disable Expanded explanations while busy and restore it only when results are selected. A later change invalidates the preview; PDF export rebuilds stale content using the selected option (CR-034).

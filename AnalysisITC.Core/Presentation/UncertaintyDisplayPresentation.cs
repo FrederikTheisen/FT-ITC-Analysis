@@ -4,9 +4,9 @@ namespace AnalysisITC.Core.Presentation
 {
     public static class UncertaintyDisplayPresentation
     {
-        public const string SymmetricLabel = "±";
-        public const string LimitsLabel = "95% limits";
-        public const string BothLabel = "± and 95% limits";
+        public const string SymmetricLabel = "Symmetric (SD or SE)";
+        public const string LimitsLabel = "95% intervals";
+        public const string BothLabel = "Symmetric and 95% intervals";
         public static string StyleLabel(UncertaintyDisplayStyle style) => style switch
         {
             UncertaintyDisplayStyle.StandardDeviation => SymmetricLabel,
@@ -37,6 +37,6 @@ namespace AnalysisITC.Core.Presentation
             + " Both include the fitting uncertainty of individual experiments. Shared parameters and slopes use their own fit uncertainty.";
 
         public const string StyleTooltip =
-            "Automatic shows limits when one side is about 50% longer, and ± otherwise.";
+            "Automatic shows the 95% interval when one side is about 50% longer. Otherwise it shows symmetric uncertainty.";
     }
 }

@@ -161,7 +161,7 @@ The chosen cutoffs are **No binding detected** at $\Delta\mathrm{AICc} \leq 0$, 
 
 The central value is the model's best fit to the original data. An uncertainty display gives a range or spread around that value under the selected estimation method. It does not include every possible experimental error or guarantee that the chosen model is correct.
 
-Use **Errors** to show **±**, **95% limits**, or **± and 95% limits**. **Automatic** chooses the display for each value. **None** hides uncertainty in the table. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the ± display.
+Use **Errors** to choose **Symmetric (SD or SE)**, **95% intervals**, or **Symmetric and 95% intervals**. Symmetric uncertainty is shown as ± after the estimate. SD is standard deviation. SE is standard error, including the standard error of the mean (SEM). **Automatic** chooses the display for each value. **None** hides uncertainty in the table. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the ± display.
 
 The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Its default is the current **Reference temperature** when the measured temperature span exceeds the configured minimum, including independently fitted series; otherwise it is the mean experiment target temperature. Temperature display can be **Celsius** or **Kelvin**. Results remembers this unit for the current application session, independently of the result exporter. Both start from **Preferences > Temperature units**; changing that preference resets both choices. Switching units preserves the physical evaluation temperature. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
@@ -187,7 +187,7 @@ The choice is made separately for each reported quantity. Let $L$ and $U$ be its
 
 For example, $K_{\mathrm{d}}$ = 50 nM with a 95% interval of 40–70 nM has widths 10 and 20 nM. The asymmetry is 10/30 = 0.33, so Automatic shows the interval. With an interval of 42–59 nM, the widths are 8 and 9 nM, the asymmetry is 1/17 = 0.06, and Automatic shows ±.
 
-To check a value, set **Errors** to **± and 95% limits**. Both the symmetric uncertainty and the limits are then shown, and the widths can be read directly. If a quantity has no stored interval, Automatic shows ±.
+To check a value, set **Errors** to **Symmetric and 95% intervals**. Both the symmetric uncertainty and the limits are then shown, and the widths can be read directly. If a quantity has no stored interval, Automatic shows ±.
 
 The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting $\log_{10}(K_{\mathrm{a}})$ and displaying $K_{\mathrm{d}}$—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
 
