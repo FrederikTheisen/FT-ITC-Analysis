@@ -105,13 +105,13 @@ namespace AnalysisITC.UI.MacOS
             name.Changed += (sender, e) => UpdateContinue();
             UpdateContinue();
 
-            quit.Activated += (sender, e) => parent.EndSheet(sheet, QuitResponse);
+            quit.Activated += (sender, e) => parent.EndSheet(sheet, (NSModalResponse)QuitResponse);
             proceed.Activated += (sender, e) =>
             {
                 if (!PreferencesState.TryValidateTraceability(true, name.StringValue, out var _)) return;
                 AppSettings.UserName = name.StringValue.Trim();
                 AppSettings.Save();
-                parent.EndSheet(sheet, ContinueResponse);
+                parent.EndSheet(sheet, (NSModalResponse)ContinueResponse);
             };
 
             parent.BeginSheet(sheet, response => completion.TrySetResult(response == ContinueResponse));

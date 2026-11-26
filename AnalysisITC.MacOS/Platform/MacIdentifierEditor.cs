@@ -155,7 +155,7 @@ namespace AnalysisITC.UI.MacOS
 
             void Finish(int response)
             {
-                if (host != null) host.EndSheet(panel, response);
+                if (host != null) host.EndSheet(panel, (NSModalResponse)response);
                 else NSApplication.SharedApplication.StopModalWithCode(response);
             }
 
