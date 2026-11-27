@@ -45,6 +45,75 @@ public sealed class RegistrationReliabilityTests : IDisposable
         File.WriteAllText(configuration.Registration.MailConfigurationPath, "{\"ApiKey\":\"fake\"}");
     }
 
+    [Fact]
+    public async Task WebsiteRegistrationWorksWithExpiredAdvancedAccountAtSameAddress()
+    {
+        var previous = registry.Create("Advanced", 1, false, InterpretationAccessTiers.Advanced,
+            email: "user@example.invalid");
+        var expiredAt = DateTime.UtcNow.AddDays(-1);
+        var registryJson = File.ReadAllText(configuration.OperatorAccess.RegistryPath);
+        File.WriteAllText(configuration.OperatorAccess.RegistryPath, registryJson.Replace(
+            System.Text.Json.JsonSerializer.Serialize(previous.Record.ExpiresAtUtc),
+            System.Text.Json.JsonSerializer.Serialize(expiredAt), StringComparison.Ordinal));
+        Assert.False(registry.Authenticate("Bearer " + previous.Code).IsAuthorized);
+        Assert.Null(registry.Regenerate(previous.Record.Id));
+
+        var activation = Queue("user", DateTime.UtcNow.AddMinutes(-2));
+        Assert.True(await sender.ProcessOneAsync());
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, DateTime.UtcNow));
+        Assert.True(await sender.ProcessOneAsync());
+
+        Assert.Equal(2, handler.Sent);
+        var authorized = registry.Authenticate("Bearer " + access.Secret);
+        Assert.True(authorized.IsAuthorized);
+        Assert.Equal(InterpretationAccessTiers.Standard, authorized.AccessTier);
+        Assert.Equal(access.RegistrationId, authorized.OperatorCodeId);
+        var expired = Assert.Single(registry.List(), account => account.Id == previous.Record.Id);
+        Assert.Equal(expiredAt, expired.ExpiresAtUtc);
+        Assert.Equal(InterpretationAccessTiers.Advanced, expired.AccessTier);
+        Assert.Equal(previous.Record.CodeHash, expired.CodeHash);
+        Assert.False(registry.Authenticate("Bearer " + previous.Code).IsAuthorized);
+    }
+
+    [Fact]
+    public async Task ResubmissionResendsProviderAcceptedCodeWithoutChangingIt()
+    {
+        var now = DateTime.UtcNow;
+        var activation = Queue("user", now.AddMinutes(-30));
+        outbox.MarkSent(activation, now.AddMinutes(-30));
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, now.AddMinutes(-25)));
+        Assert.True(await sender.ProcessOneAsync());
+
+        Assert.Equal(RegistrationSubmissionOutcome.PendingCooldown,
+            outbox.Submit("user", access.Email, null, "terms", "privacy", now.AddMinutes(10)).Outcome);
+        var later = now.AddMinutes(16);
+        Assert.Equal(RegistrationSubmissionOutcome.PendingResendQueued,
+            outbox.Submit("user", access.Email, null, "terms", "privacy", later).Outcome);
+        var resend = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(later));
+        Assert.Equal(access.Secret, resend.Secret);
+        Assert.NotEqual(access.IdempotencyKey, resend.IdempotencyKey);
+        Assert.True(registry.Authenticate("Bearer " + resend.Secret).IsAuthorized);
+    }
+
+    [Fact]
+    public async Task AlreadyQueuedCodeIsWithheldIfAccountEmailChanges()
+    {
+        var now = DateTime.UtcNow;
+        var activation = Queue("user", now.AddMinutes(-30));
+        outbox.MarkSent(activation, now.AddMinutes(-30));
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, now.AddMinutes(-25)));
+        registry.CreateRegisteredWithCode(access.RegistrationId, access.Name, access.Email, access.Organization, access.Secret);
+        outbox.MarkProvisioned(access);
+        outbox.MarkSent(access, now.AddMinutes(-25));
+        Assert.Equal(RegistrationSubmissionOutcome.PendingResendQueued,
+            outbox.Submit("user", access.Email, null, "terms", "privacy", now).Outcome);
+        Assert.True(registry.ChangeDetails(access.RegistrationId, access.Name, "new@example.invalid", null));
+
+        Assert.True(await sender.ProcessOneAsync());
+        Assert.Equal(0, handler.Sent);
+        Assert.Contains("credential_unavailable", DeliverySnapshot());
+    }
+
     [Theory]
     [InlineData("missing", false)] [InlineData("malformed", false)] [InlineData("null", false)] [InlineData("unreadable", false)]
     [InlineData("missing", true)] [InlineData("malformed", true)] [InlineData("null", true)] [InlineData("unreadable", true)]

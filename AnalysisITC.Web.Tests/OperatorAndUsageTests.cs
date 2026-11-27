@@ -380,6 +380,62 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public async Task InteractiveWebsiteRegistrationListShowsUnfinishedStagesAndFailures()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        var values = Options.Create(configured);
+        var store = new SelfRegistrationStore(values);
+        var outbox = new RegistrationDeliveryOutbox(store,
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider(), values);
+        var now = DateTime.UtcNow.AddMinutes(-5);
+
+        PendingRegistrationDelivery Submit(string name)
+        {
+            var submission = outbox.Submit(name, $"{name}@example.org", null, "terms", "privacy", now);
+            var mail = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now));
+            Assert.Equal(submission.RegistrationId, mail.RegistrationId);
+            outbox.MarkSent(mail, now);
+            return mail;
+        }
+
+        var awaiting = Submit("awaiting");
+        var conflicting = Submit("conflict");
+        var conflictMail = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(conflicting.Secret, now));
+        outbox.MarkFailed(conflictMail, "account_conflict");
+        var completed = Submit("completed");
+        var completedMail = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(completed.Secret, now));
+        outbox.MarkProvisioned(completedMail);
+        outbox.MarkSent(completedMail, now);
+        var providerFailure = Submit("provider-failure");
+        var providerMail = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(providerFailure.Secret, now));
+        outbox.MarkProvisioned(providerMail);
+        outbox.MarkFailed(providerMail, "provider_unavailable");
+
+        var output = new StringWriter();
+        var services = Services(configured, store);
+        var tool = InteractiveAdminTool.CreateForTests(services, new StringReader("2\n2\n4\n\n4\n6\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var view = output.ToString();
+        Assert.Contains("awaiting@example.org", view);
+        Assert.Contains("Awaiting email verification", view);
+        Assert.Contains("Activation email: accepted by mail provider", view);
+        Assert.Contains("conflict@example.org", view);
+        Assert.Contains("Email verified, account not yet active", view);
+        Assert.Contains("Access-code email: failed", view);
+        Assert.Contains("Reason: account_conflict", view);
+        Assert.Contains("provider-failure@example.org", view);
+        Assert.Contains("Account created", view);
+        Assert.Contains("Reason: provider_unavailable", view);
+        Assert.DoesNotContain("completed@example.org", view);
+        Assert.DoesNotContain(awaiting.Secret, view);
+        Assert.DoesNotContain(conflictMail.Secret, view);
+        Assert.DoesNotContain(providerMail.Secret, view);
+    }
+
+    [Fact]
     public async Task InteractiveLogsShowLogicalRequestAndProviderAttempt()
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
@@ -1486,10 +1542,11 @@ public sealed class OperatorAndUsageTests : IDisposable
             (modifiers & ConsoleModifiers.Shift) != 0,
             (modifiers & ConsoleModifiers.Alt) != 0,
             (modifiers & ConsoleModifiers.Control) != 0);
-    static IServiceProvider Services(InterpretationOptions value)
+    static IServiceProvider Services(InterpretationOptions value, SelfRegistrationStore? registrations = null)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));
         services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); services.AddSingleton<InterpretationQuotaService>(); services.AddSingleton<InterpretationServiceAvailability>();
+        if (registrations is not null) services.AddSingleton(registrations);
         var provider=services.BuildServiceProvider(); provider.GetRequiredService<GenerationPresetRegistry>().EnsureFile(); return provider;
     }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

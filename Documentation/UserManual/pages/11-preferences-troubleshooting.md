@@ -124,7 +124,7 @@ The energy-unit preference also sets the initial molar-energy unit in the Integr
 
 ## Interpretation
 
-To request an account with additional interpretation options, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential. If access-code delivery fails, resubmit the form with the same email address to retry delivery of the same code; a resend cooldown applies. Contact `support@ft-itc.org` if the code is exposed or still does not arrive.
+To request an account with additional interpretation options, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). Submit your name and email, accept the Terms and acknowledge the Privacy Notice, then follow the activation link in your email. The access code arrives separately. If an email does not arrive, check your spam folder, then submit the form again with the same address. A resend cooldown applies. If you already verified the address, the access code may arrive directly. Keep the code confidential and contact `support@ft-itc.org` if it is exposed or still does not arrive.
 
 Without a verified account code, automated interpretation uses Public access and the **Fast** interpretation preset.
 

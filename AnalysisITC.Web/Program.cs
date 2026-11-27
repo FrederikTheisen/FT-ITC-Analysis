@@ -400,7 +400,7 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
         return Problem(StatusCodes.Status503ServiceUnavailable, "registration_temporarily_unavailable",
             "Registration is temporarily unavailable.", "Registration unavailable");
     }
-    return Results.Accepted(value: new { message = "If this address is eligible, an activation email will arrive shortly." });
+    return Results.Accepted(value: new { message = "If this address is eligible, check your email for an activation link or access code." });
 }).RequireRateLimiting(RegistrationSubmissionRateLimitPolicy);
 
 app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<InterpretationOptions> configured,

@@ -720,12 +720,21 @@ sending that email and reuses the same encrypted bearer code on retry. Transient
 failures are retried at ten-minute intervals, up to five attempts. A credential
 that was successfully provisioned remains active when email delivery fails; the
 failed delivery is reported separately. Resubmitting the registration after the
-configured cooldown requeues the same code to the original verified address with
-a new five-attempt delivery cycle. Sent, cancelled, scrubbed, revoked, mismatched,
-and never-provisioned access-code deliveries are not requeued. Pausing public
-registration stops new submissions but does not prevent activation or pending delivery;
+configured cooldown can resend a code that failed delivery or was accepted by the
+mail provider. A new five-attempt delivery cycle uses the same code and original
+verified address while both still match the active Registered account. If
+provisioning failed because the address belonged to another account, resubmitting
+can retry the verified registration once the conflict clears. An expired,
+unrevoked account leaves its address eligible for a new Registered account.
+Pausing public registration stops new submissions while activation and pending delivery continue;
 retiring hosted interpretation disables activation. Scrubbing cancels either message type
 and invalidates any pending activation token.
+
+In the admin tool, **Operator Accounts → List → Website Registrations** shows
+registrations awaiting verification, accepted or failed activation emails, and
+queued or failed access-code deliveries. The list includes the email address, stage,
+and relevant timestamps and failure codes. Access-key regeneration requires an
+active account.
 
 The registration database, Data Protection key ring, Turnstile configuration, mail
 configuration, registration availability policy, and registered-code registry use the

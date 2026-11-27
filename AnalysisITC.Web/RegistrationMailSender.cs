@@ -41,8 +41,16 @@ public sealed class RegistrationMailSender
         {
             if (pending.Kind == RegistrationMessageKinds.AccessCode)
             {
-                registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
-                outbox.MarkProvisioned(pending);
+                if (!pending.ProvisioningSucceeded)
+                {
+                    registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
+                    outbox.MarkProvisioned(pending);
+                }
+                if (!registry.HasMatchingActiveRegisteredCredential(pending.RegistrationId, pending.Email, pending.Secret))
+                {
+                    outbox.MarkFailed(pending, "credential_unavailable");
+                    return RegistrationDeliveryResult.Progress;
+                }
             }
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);

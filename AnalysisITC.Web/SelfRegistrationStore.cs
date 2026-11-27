@@ -54,6 +54,18 @@ public sealed class SelfRegistrationStore
         return db;
     }
 
+    internal SqliteConnection OpenReadOnly()
+    {
+        var db = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        try { db.Open(); return db; }
+        catch { db.Dispose(); throw; }
+    }
+
     internal static string NormalizeEmail(string email) => new MailAddress(email.Trim()).Address.Trim().ToLowerInvariant();
 
     public void ReconcileActiveAccounts(IEnumerable<OperatorCodeRecord> records)

@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Diagnostics;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -683,6 +684,51 @@ public sealed class RegistrationSecurityTests : IDisposable
         Assert.Equal(HttpStatusCode.Gone, reused.StatusCode);
         Assert.Equal(reused.StatusCode, unknown.StatusCode);
         Assert.Equal(await reused.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task WebsiteResubmissionRecoversVerifiedRegistrationAfterConflictClears()
+    {
+        using var factory = new RegistrationApplicationFactory(directory);
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), HandleCookies = true });
+        var services = factory.Services;
+        var options = services.GetRequiredService<IOptions<InterpretationOptions>>();
+        var store = services.GetRequiredService<SelfRegistrationStore>();
+        var outbox = services.GetRequiredService<RegistrationDeliveryOutbox>();
+        var registry = services.GetRequiredService<OperatorCodeRegistry>();
+        using var mail = new RecordingHandler();
+        using var mailClient = new HttpClient(mail);
+        var sender = new RegistrationMailSender(options, outbox, registry, new SingleClientFactory(mailClient),
+            services.GetRequiredService<OperatorTombstoneRegistry>());
+        await File.WriteAllTextAsync(options.Value.Registration.MailConfigurationPath, "{\"apiKey\":\"test-key\"}");
+        const string email = "user@example.org";
+        var previous = registry.Create("Advanced", 1, false, InterpretationAccessTiers.Advanced, email: email);
+
+        using var first = await PostRegistration(client, email);
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow));
+        Assert.True(await sender.ProcessOneAsync());
+        using var activationResponse = await client.PostAsJsonAsync("/api/registration/activate", new { token = activation.Secret });
+        Assert.Equal(HttpStatusCode.OK, activationResponse.StatusCode);
+        Assert.True(await sender.ProcessOneAsync());
+        Assert.Single(mail.Messages);
+        using (var db = OpenDatabase()) Assert.Equal("account_conflict", Scalar<string>(db, "SELECT last_failure_code FROM registration_delivery"));
+
+        using var blocked = await PostRegistration(client, email);
+        Assert.Equal(HttpStatusCode.Accepted, blocked.StatusCode);
+        Assert.Null(outbox.GetPending(DateTime.UtcNow));
+        Assert.NotNull(registry.Scrub(previous.Record.Id, store));
+
+        using var resubmitted = await PostRegistration(client, email);
+        Assert.Equal(HttpStatusCode.Accepted, resubmitted.StatusCode);
+        Assert.Equal(await first.Content.ReadAsStringAsync(), await resubmitted.Content.ReadAsStringAsync());
+        var queued = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow));
+        Assert.Equal(activation.RegistrationId, queued.RegistrationId);
+        Assert.Equal(RegistrationMessageKinds.AccessCode, queued.Kind);
+        Assert.True(await sender.ProcessOneAsync());
+        Assert.Equal(2, mail.Messages.Count);
+        Assert.Contains(queued.Secret, mail.Messages.Last().GetProperty("text").GetString());
+        Assert.Equal(InterpretationAccessTiers.Standard, registry.FindActive(queued.Secret)?.AccessTier);
     }
 
     [Fact]

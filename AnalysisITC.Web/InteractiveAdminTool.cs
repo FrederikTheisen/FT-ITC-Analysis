@@ -298,8 +298,15 @@ public sealed class InteractiveAdminTool
             new("all", "All"),
             new("active", "Active"),
             new("recent", "Recent (30 days)"),
+            new("registrations", "Website registrations"),
             new("back", "Back"));
         if (choice is null or "back") return;
+        if (choice == "registrations")
+        {
+            ListWebsiteRegistrations();
+            PauseAfterList();
+            return;
+        }
 
         var records = choice switch
         {
@@ -309,6 +316,64 @@ public sealed class InteractiveAdminTool
         };
         ListAccounts(records);
         PauseAfterList();
+    }
+
+    void ListWebsiteRegistrations()
+    {
+        output.WriteLine();
+        output.WriteLine("Website registrations awaiting activation or email delivery");
+        if (registrations is null)
+        {
+            output.WriteLine("Registration records are unavailable in this environment.");
+            return;
+        }
+
+        try
+        {
+            using var db = registrations.OpenReadOnly();
+            using var command = db.CreateCommand();
+            command.CommandText = """
+                SELECT a.id,a.name,a.email,a.created_at_utc,a.state,d.kind,d.state,
+                       COALESCE(d.last_failure_code,a.failure_code),d.next_attempt_utc,d.expires_at_utc,
+                       COALESCE(d.failed_at_utc,a.failed_at_utc)
+                FROM registration_accounts a LEFT JOIN registration_delivery d ON d.registration_id=a.id
+                WHERE a.state NOT IN ('scrubbed','active')
+                   OR (a.state='active' AND d.kind='access-code' AND d.state IN ('pending','failed'))
+                ORDER BY COALESCE(d.queued_at_utc,a.created_at_utc) DESC,a.id
+                """;
+            using var reader = command.ExecuteReader();
+            if (!reader.HasRows) output.WriteLine("No registrations need attention.");
+            while (reader.Read())
+            {
+                var kind = reader.IsDBNull(5) ? null : reader.GetString(5);
+                var state = reader.IsDBNull(6) ? null : reader.GetString(6);
+                var accountState = reader.GetString(4);
+                var stage = accountState == "active" ? "Account created"
+                    : kind == RegistrationMessageKinds.AccessCode || accountState == "activating" ? "Email verified, account not yet active"
+                    : "Awaiting email verification";
+                var mail = kind == RegistrationMessageKinds.AccessCode ? "Access-code email" : "Activation email";
+                var delivery = state switch
+                {
+                    "sent" => "accepted by mail provider",
+                    "pending" => "queued",
+                    "failed" => "failed",
+                    "cancelled" => "cancelled",
+                    _ => "status unavailable",
+                };
+                output.WriteLine($"  {DisplayValue(reader, 2)} · {DisplayValue(reader, 1)} · {DisplayValue(reader, 0)}");
+                output.WriteLine($"    {stage} · Submitted {TerminalText.Escape(TimeDb(reader, 3))}");
+                output.WriteLine($"    {mail}: {delivery}");
+                if (!reader.IsDBNull(7)) output.WriteLine($"    Reason: {DisplayValue(reader, 7)}");
+                if (state == "pending" && !reader.IsDBNull(8)) output.WriteLine($"    Next attempt: {TerminalText.Escape(TimeDb(reader, 8))}");
+                if (kind == RegistrationMessageKinds.Activation && !reader.IsDBNull(9))
+                    output.WriteLine($"    Activation link expiry: {TerminalText.Escape(TimeDb(reader, 9))}");
+                if (state == "failed" && !reader.IsDBNull(10)) output.WriteLine($"    Failed at: {TerminalText.Escape(TimeDb(reader, 10))}");
+            }
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            output.WriteLine("Could not read website registrations: " + TerminalText.Escape(Safe(ex)));
+        }
     }
 
     void CreateAccount()
@@ -395,12 +460,17 @@ public sealed class InteractiveAdminTool
 
     void RegenerateAccessCode(OperatorCodeRecord record)
     {
+        if (record.ExpiresAtUtc is DateTime expiry && expiry <= DateTime.UtcNow)
+        {
+            output.WriteLine($"This account expired on {FormatTime(expiry)}. An active account is required to regenerate an access key.");
+            return;
+        }
         if (string.IsNullOrWhiteSpace(record.Email)) { output.WriteLine("This account has no email address; an access key cannot be sent."); return; }
         if (mailSender is null) { output.WriteLine("Email delivery is unavailable in this environment."); return; }
         output.WriteLine("This invalidates the current access key and sends a new key to the account email.");
         if (!Confirm("Regenerate and email a new access key?")) { output.WriteLine("Regeneration cancelled."); return; }
         var regenerated = registry.Regenerate(record.Id);
-        if (regenerated is null) { output.WriteLine("The account is missing, revoked, or scrubbed."); return; }
+        if (regenerated is null) { output.WriteLine("The account is missing or no longer active."); return; }
         var sent = mailSender.SendAccessCodeAsync(regenerated.Value.Record, regenerated.Value.Code).GetAwaiter().GetResult();
         if (sent) output.WriteLine("A new access key was sent to the account email.");
         else

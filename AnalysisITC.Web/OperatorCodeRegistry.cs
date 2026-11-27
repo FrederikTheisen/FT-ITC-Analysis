@@ -88,17 +88,29 @@ public sealed class OperatorCodeRegistry
             return byId;
         }
         var canonicalEmail = ValidateEmail(email)!;
-        if (records.Any(record => record.Email is not null
-            && string.Equals(ValidateEmail(record.Email), canonicalEmail, StringComparison.Ordinal)))
+        var now = DateTime.UtcNow;
+        if (EmailBlocksRegistration(records, canonicalEmail, now))
             throw new InvalidDataException("The email address belongs to another operator account.");
         var record = new OperatorCodeRecord
         {
             Id = id, Label = CleanHumanText(name, nameof(name), 120)!, Name = CleanHumanText(name, nameof(name), 120), Email = canonicalEmail, Organization = CleanHumanText(organization, nameof(organization), 200),
-            CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
+            CreatedAtUtc = now, AccessTier = InterpretationAccessTiers.Standard,
             CodeHash = Convert.ToHexString(expectedHash).ToLowerInvariant(),
         };
         var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
     }
+
+    internal bool CanCreateRegistration(string id, string canonicalEmail, DateTime utcNow)
+    {
+        if (tombstones.Contains(id)) return false;
+        var records = ReadCombinedStrict();
+        return records.All(record => !string.Equals(record.Id, id, StringComparison.Ordinal))
+            && !EmailBlocksRegistration(records, canonicalEmail, utcNow);
+    }
+
+    static bool EmailBlocksRegistration(IEnumerable<OperatorCodeRecord> records, string canonicalEmail, DateTime utcNow) =>
+        records.Any(record => (record.ExpiresAtUtc is null || record.ExpiresAtUtc > utcNow || record.RevokedAtUtc is not null)
+            && record.Email is not null && string.Equals(ValidateEmail(record.Email), canonicalEmail, StringComparison.Ordinal));
 
     public OperatorCodeRecord? FindActive(string code)
     {
@@ -115,11 +127,13 @@ public sealed class OperatorCodeRegistry
         return null;
     }
 
-    public bool HasMatchingActiveRegisteredCredential(string id, string code)
+    internal bool HasMatchingActiveRegisteredCredential(string id, string email, string code)
     {
         if (tombstones.Contains(id)) return false;
         var record = ReadRegistrationStrict().SingleOrDefault(value => string.Equals(value.Id, id, StringComparison.Ordinal));
-        if (record is null || record.RevokedAtUtc is not null || (record.ExpiresAtUtc is not null && record.ExpiresAtUtc <= DateTime.UtcNow)) return false;
+        if (record is null || record.RevokedAtUtc is not null || record.ExpiresAtUtc <= DateTime.UtcNow
+            || record.EffectiveAccessTier != InterpretationAccessTiers.Standard
+            || !string.Equals(ValidateEmail(record.Email), email, StringComparison.Ordinal)) return false;
         var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
         try
         {
@@ -178,7 +192,7 @@ public sealed class OperatorCodeRegistry
         using var mutationLock = AcquireMutationLock();
         var records = ReadCombinedStrict();
         var record = records.SingleOrDefault(value => value.Id == id);
-        if (record is null || record.ScrubbedAtUtc is not null || record.RevokedAtUtc is not null) return null;
+        if (record is null || record.ScrubbedAtUtc is not null || record.RevokedAtUtc is not null || record.ExpiresAtUtc <= DateTime.UtcNow) return null;
         var code = Prefix + Base64Url(RandomNumberGenerator.GetBytes(32));
         record.CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();
         WriteMatching(records);
